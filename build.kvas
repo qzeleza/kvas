@@ -1,0 +1,501 @@
+#!/bin/bash
+set -e
+# Инструкции по сборке пакетов
+# 0. https://forum.keenetic.com/topic/1288-самостоятельная-сборка-пакетов/
+# 1. http://forums.zyxmon.org/viewtopic.php?f=8&t=17
+# 2. https://openwrt.org/docs/guide-developer/start
+# 3. https://openwrt.org/docs/guide-developer/toolchain/single.package
+# 4. https://forum.keenetic.com/topic/1288-самостоятельная-сборка-пакетов/page/2/
+# 5. https://openwrt.org/docs/guide-developer/packages#buildpackage_variables
+#
+
+APP_NAME=kvas
+UNBLOCK_LIST="/opt/etc/${APP_NAME}.list"
+APP_ARCH=all
+APP_REMOTE_FILE="/opt/apps/${APP_NAME}/debug/remote.conf"
+
+ENTWARE_PATH=/opt/apps/entware
+ENTWARE_APP_PATH=${ENTWARE_PATH}/package/utils/${APP_NAME}
+
+ENTWARE_APP_BUILD_PATH=${ENTWARE_APP_PATH}/files/opt
+
+MY_PASS=$(cat < "${APP_REMOTE_FILE}" | grep -E '^PASSWD' | cut -d'"' -f2| cut -d"=" -f2)
+MY_PORT=$(cat < "${APP_REMOTE_FILE}" | grep -E '^PORT' | cut -d' ' -f3 | cut -d"=" -f2)
+MY_ROUTER=$(cat < "${APP_REMOTE_FILE}" | grep -E '^ROUTER' | cut -d'"' -f2| cut -d"=" -f2)
+
+## Первоначальные действия если файл с версией релиза еще не создавался
+if [ "${2}" = 'init' ]; then
+	./toolschain.sh ${ENTWARE_PATH}
+	mkdir -p "${ENTWARE_APP_BUILD_PATH}"
+#	rm -f "${ENTWARE_PATH}/.config"
+	mkdir -p "${ENTWARE_APP_BUILD_PATH}/etc/{init.d,ndm,${APP_NAME}"
+	mkdir -p "${ENTWARE_APP_BUILD_PATH}/etc/ndm/{netfilter.d,fs.d}"
+
+fi
+
+APP_VERSION="0.1"
+APP_RELEASE=1
+APP_VERSION_STAGE="beta"
+
+# если задан аргумент - номер релиза, то переписываем его в файл
+if [ -n "${1}" ] ; then
+  APP_VERSION=$(echo "${1}" | cut -d'.' -f1-2)
+  APP_RELEASE=$(echo "${1}" | cut -d'.' -f3)
+  APP_VERSION_STAGE=$(echo "${1}" | cut -d'.' -f4)
+fi
+
+echo "---------------------------------------------"
+echo "Пакет : ${APP_NAME}"
+echo "Версия: ${APP_VERSION} ${APP_VERSION_STAGE} ${APP_RELEASE}"
+echo "---------------------------------------------"
+
+APP_VER_FULL="${APP_VERSION}-${APP_VERSION_STAGE}_${APP_RELEASE}"
+#APP_VER_FULL_TEXT="${APP_VERSION}.${APP_VER} ${APP_VERSION_STAGE} ${APP_RELEASE}"
+
+# копируем файлы в директорию пакета
+rm -rf "${ENTWARE_APP_BUILD_PATH}" && mkdir -p ${ENTWARE_APP_BUILD_PATH}/
+cp -a "/opt/apps/${APP_NAME}/opt/." ${ENTWARE_APP_BUILD_PATH}/
+
+LINE='--------------------------------------------------------------------------'
+shadowsocks_conf="/opt/etc/shadowsocks.json"
+cd "${ENTWARE_PATH}" || exit
+
+UNBLOCK_LIST=${UNBLOCK_LIST//\//\\/}
+[ "${APP_VERSION_STAGE}" ] && APP_RELEASE_FULL="${APP_VERSION_STAGE}_${APP_RELEASE}" || APP_RELEASE_FULL="${APP_VERSION_STAGE}"
+APP_RELEASE_FULL_TXT="'${APP_RELEASE_FULL/_/ }'"
+# устанавливаем данные по версии пакета
+sed -i "s/\(APP_VERSION=\)/\1${APP_VERSION}/" ${ENTWARE_APP_BUILD_PATH}/bin/${APP_NAME}
+sed -i "s/\(APP_RELEASE=\)/\1${APP_RELEASE_FULL_TXT}/" ${ENTWARE_APP_BUILD_PATH}/bin/${APP_NAME}
+
+cat <<EOF > "${ENTWARE_APP_PATH}/Makefile"
+include \$(TOPDIR)/rules.mk
+
+PKG_NAME:=${APP_NAME}
+PKG_VERSION:=${APP_VERSION}
+PKG_RELEASE:=${APP_RELEASE_FULL}
+PKG_BUILD_DIR:=\$(BUILD_DIR)/\$(PKG_NAME)
+
+include \$(INCLUDE_DIR)/package.mk
+
+define Package/${APP_NAME}
+	SECTION:=utils
+	CATEGORY:=keendev
+	DEPENDS:=+curl +knot-dig +nano +cron +bind-dig +dnsmasq-full +ipset +iptables +shadowsocks-libev-ss-redir +shadowsocks-libev-config +libpcre
+	URL:=no
+	TITLE:=Shadowsocks клиент для обработки запросов по внесению хостов в белый список.
+	PKGARCH:=${APP_ARCH}
+endef
+
+define Package/${APP_NAME}/description
+	Shadowsocks клиент для обработки запросов по внесению хостов в белый список.
+	Для корректной работы необходимо сначала ввести при установке данные сервера: домен, порт, пароль.
+endef
+
+define Build/Prepare
+endef
+define Build/Configure
+endef
+define Build/Compile
+endef
+
+# Во время инсталляции задаем папку в которую будем
+# копировать наш скрипт и затем копируем его в эту папку
+define Package/${APP_NAME}/install
+
+	\$(INSTALL_DIR) \$(1)/opt/etc/ndm/fs.d
+	\$(INSTALL_DIR) \$(1)/opt/etc/ndm/netfilter.d
+	\$(INSTALL_DIR) \$(1)/opt/bin
+	\$(INSTALL_DIR) \$(1)/opt/etc/{init.d,${APP_NAME}}
+
+	\$(INSTALL_BIN) ./files/opt/etc/ndm/fs.d/100-ipset \$(1)/opt/etc/ndm/fs.d
+	\$(INSTALL_BIN) ./files/opt/etc/ndm/netfilter.d/100-ipset-redirect \$(1)/opt/etc/ndm/netfilter.d
+	\$(INSTALL_BIN) ./files/opt/bin/{unblock_ipset,unblock_dnsmasq,unblock_update,${APP_NAME}} \$(1)/opt/bin
+	\$(INSTALL_BIN) ./files/opt/etc/init.d/S99unblock \$(1)/opt/etc/init.d
+	\$(CP) ./files/opt/${APP_NAME}/{${APP_NAME}.list,shadowsocks.json,dnsmasq.conf} \$(1)/opt/etc/${APP_NAME}
+	\$(INSTALL_BIN) ./files/opt/bin/{update_adblock,unblock_lib} \$(1)/opt/bin
+	\$(INSTALL_BIN) ./files/opt/bin/{dnsmasq_mips,dnsmasq_mipsel,dnsmasq_aarch64} \$(1)/opt/bin
+	\$(CP) ./files/opt/etc/adblock.sources \$(1)/opt/etc
+
+endef
+
+# Скрипт создаем, который выполняется после инсталляции пакета
+# Задаем в кроне время обновления ip адресов хостов
+define Package/${APP_NAME}/postinst
+#!/bin/sh
+echo "${LINE}"
+echo "Установка пакета КВАС™ [Kvas™] версия ${APP_VER_FULL}"
+echo "${LINE}"
+
+RD="\033[1;31m";
+GR="\033[1;32m";
+BL="\033[1;36m";
+NC="\033[m";
+OK="$\${GR}ГОТОВО$\${NC}"
+FAIL="$\${RD}ПРОБЛЕМА$\${NC}"
+
+LENGTH=66
+function diff_len(){
+	charlen=$\$(echo "$\${1}" | sed -r "s/[\]033\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g")
+	charlen=$\${#charlen}
+	echo $\$(( LENGTH - charlen ))
+}
+function please_answer_yn(){
+  echo -e "Пожалуйста ответьте на вопрос $\${RD}'Y' - удалить$\${NC} или $\${GR}'N' - оставить$\${NC}."
+}
+function ready(){
+  size=$\$(diff_len "$\${1}")
+	printf "%b%-$\${size}s%b" "$\${1}"
+}
+function warning(){
+	_error="$\${GR}$\${1}$\${NC}"
+	size=$\$(diff_len "$\${_error}")
+	printf "%b%-$\${size}s%b\n" "$\${_error}"
+}
+#------------------------------------------------------
+# IPSET + SHADOWSOCKS + DNSMASQ
+#------------------------------------------------------
+if [ -f /opt/bin/ss-redir ]; then
+  if [ -n "$\$(/opt/etc/init.d/S22shadowsocks status | grep alive)" ]; then
+    ready "Останавливаем сервис shadowsocks..."
+    /opt/etc/init.d/S22shadowsocks stop &>/dev/null
+    [ $\$? = 0 ] && echo -e "$\${OK}" || echo -e "$\${FAIL}"
+  fi
+  if [ -n "$\$(/opt/etc/init.d/S56dnsmasq status | grep alive)" ]; then
+    ready "Останавливаем сервис dnsmasq..."
+    /opt/etc/init.d/S22shadowsocks stop &>/dev/null
+    /opt/etc/init.d/S56dnsmasq stop &>/dev/null
+    [ $\$? = 0 ] && echo -e "$\${OK}" || echo -e "$\${FAIL}"
+  fi
+  if [ -f "${shadowsocks_conf}" ]; then
+    del_ssr_setup=0
+    echo "Обнаружен предыдущий файл конфигурации shadowsocks."
+    while true; do
+      ready "$\${RD}Удалить файл конфигурации shadowsocks$\${NC} [Y/N]?"
+      read -r ynq
+      case $\${ynq} in
+        [Yy]* )
+          del_ssr_setup=1
+          break;;
+        [Nn]* )
+          break;;
+        * ) please_answer_yn
+          ;;
+      esac
+    done
+  fi
+fi
+
+if [ $\$del_ssr_setup = 1 ]; then
+  ready "Удаляем файл конфигурации shadowsocks...   "
+  mv "${shadowsocks_conf}" "${shadowsocks_conf}.old"  &>/dev/null
+  [ $\$? = 0 ] && echo -e "$\${OK}" || echo -e "$\${FAIL}"
+
+	while true; do
+	  ready "Ведите доменное имя или IP адрес сервера: "
+	  read -r SSR_SERVER_IP
+	  if [[ -z "$\$SSR_SERVER_IP" ]]; then
+		echo "${LINE}"
+		printf "$\${RD}Введены неверные данные!\n"
+		printf "$\${GR}Имя сервера не должно быть пустым.\n"
+		printf "$\${RD}Попробуйте ввести его снова...$\${NC}\n"
+	  else
+		break
+	  fi
+	done
+	while true; do
+	  ready "Ведите порт сервера: "
+	  read -r SSR_SERVER_PORT
+	  if [[ -z "$\$SSR_SERVER_PORT" ]] || [[ -z "$\$(echo $\$SSR_SERVER_PORT | grep  -E '^[[:digit:]]{2,6}$\$')" ]]; then
+		echo "${LINE}"
+		printf "$\${RD}Введены неверные данные!\n"
+		printf "$\${GR}Порт должен содержать от 2 до 6 цифр.\n"
+		printf "$\${RD}Попробуйте ввести его снова...$\${NC}\n"
+	  else
+		break
+	  fi
+	done
+	while true; do
+	  ready "Ведите пароль сервера: "
+	  read -sr SSR_SERVER_PASSWD
+	  if [[ -z "$\$SSR_SERVER_PASSWD" ]] || [[ -z "$\$(echo "$\$SSR_SERVER_PASSWD" | grep  -E '^[[:graph:]]{8,1024}$\$')" ]]; then
+		echo "${LINE}"
+		printf "$\${RD}Введены неверные данные!\n"
+		printf "$\${GR}Пароль должен содержать минимум 8 знаков.\n"
+		printf "$\${RD}Попробуйте ввести его снова...$\${NC}\n"
+	  else
+		break
+	  fi
+	done
+	printf "\n"
+
+fi
+mv /opt/etc/${APP_NAME}/shadowsocks.json "${shadowsocks_conf}"   &>/dev/null
+
+ready "Заменяем файл конфигурации dnsmasq...   "
+if [ -f /opt/etc/dnsmasq.conf ]; then
+  mv /opt/etc/dnsmasq.conf /opt/etc/dnsmasq.conf.old &>/dev/null
+  mv /opt/sbin/dnsmasq /opt/sbin/dnsmasq.old
+
+  if [ $\$(find /opt/tmp/opkg-* | grep mipsel | wc -l) -gt 2 ]; then
+  	mv /opt/bin/dnsmasq_mipsel /opt/sbin/dnsmasq
+  else
+  	if [ $\$(find /opt/tmp/opkg-* | grep mips- | wc -l) -gt 2 ]; then
+		  mv /opt/bin/dnsmasq_mips /opt/sbin/dnsmasq
+	  else
+		  mv /opt/bin/dnsmasq_aarch64 /opt/sbin/dnsmasq
+	  fi
+	fi
+#  cp /opt/bin/opkg /opt/bin/opkg_arch
+#  case "$\$(opkg_arch print-architecture | grep - | head -1 | cut -d" " -f2 | cut -d- -f1)" in
+#      mips) mv /opt/bin/dnsmasq_mips /opt/sbin/dnsmasq ;;
+#      mipsel) mv /opt/bin/dnsmasq_mipsel /opt/sbin/dnsmasq ;;
+#      aarch64) mv /opt/bin/dnsmasq_aarch64 /opt/sbin/dnsmasq ;;
+#      *) ;;
+#  esac
+#  rm /opt/bin/opkg_arch
+  rm /opt/bin/dnsmasq_*
+fi
+mv /opt/etc/${APP_NAME}/dnsmasq.conf /opt/etc/dnsmasq.conf &>/dev/null
+[ $\$? = 0 ] && echo -e "$\${OK}" || echo -e "$\${FAIL}"
+
+ready "Заменяем файл разблокировки...   "
+if [ -f /opt/etc/${APP_NAME}.list ]; then
+  mv /opt/etc/${APP_NAME}.list /opt/etc/${APP_NAME}.list.old &>/dev/null
+fi
+mv /opt/etc/${APP_NAME}/${APP_NAME}.list /opt/etc/${APP_NAME}.list &>/dev/null
+[ $\$? = 0 ] && echo -e "$\${OK}" || echo -e "$\${FAIL}"
+
+echo "${LINE}"
+echo -e "$\${GR}Предыдущие файлы конфигурации сохранены под именами:"
+echo -e "${shadowsocks_conf}.old и /opt/etc/dnsmasq.conf.old$\${NC}"
+# меняем данные в файлах shadowsocks
+sed -i 's/ss-local/ss-redir/g' /opt/etc/init.d/S22shadowsocks
+
+echo "${LINE}"
+echo "Для работы пакета используется shadowsocks соединение."
+echo "Чтобы продолжить работу необходимо ввести следующие данные:"
+printf "$\${GR}Хост$\${NC} shadowsocks сервера, его $\${GR}порт$\${NC} и $\${GR}пароль доступа$\${NC}.$\${NC}\n"
+echo -e "$\${BL}Пожалуйста, последовательно введите эти данные ниже.$\${NC}"
+echo "${LINE}"
+
+UPLEVEL_DNS=1.1.1.1
+PROXY_PORT=1181
+LOCAL_IP=$\$(nslookup localhost | grep Address | head -1 | cut -d':' -f2- | tr -d ' ')
+INFACE=$\$(ip a | grep "$\${LOCAL_IP}" | sed 's/^ *//g' | cut -d' ' -f7- )
+
+#echo "$\$(ip a)"
+sed -i "s/@LOCAL_IP/$\${LOCAL_IP}/g; \
+		s/@INFACE/$\${INFACE}/g; \
+        s/@UPLEVEL_DNS/$\${UPLEVEL_DNS}/g;" \
+        "/opt/etc/dnsmasq.conf"
+
+sed -i "s/@LOCAL_IP/$\${LOCAL_IP}/g; \
+        s/@PROXY_PORT/$\${PROXY_PORT}/g; \
+        s/@INFACE/$\${INFACE}/g;" \
+        "/opt/etc/ndm/netfilter.d/100-ipset-redirect"
+
+sed -i "s/@SSR_SERVER_IP/$\${SSR_SERVER_IP}/g; \
+        s/@SSR_SERVER_PORT/$\${SSR_SERVER_PORT}/g; \
+        s/@SSR_SERVER_PASSWD/$\${SSR_SERVER_PASSWD}/g; \
+        s/@PROXY_PORT/$\${PROXY_PORT}/g;" \
+        "${shadowsocks_conf}"
+
+sed -i "s/@UNBLOCK_LIST/${UNBLOCK_LIST}/g" "/opt/bin/unblock_dnsmasq"
+sed -i "s/@UNBLOCK_LIST/${UNBLOCK_LIST}/g" "/opt/bin/unblock_ipset"
+
+ready "Ставим обновление ip адресов по умолчанию - каждые 12 часов..."
+sed -i '/unblock_update/d' /opt/etc/crontab
+echo '0 */12 * * * root /opt/bin/unblock_update' >> /opt/etc/crontab
+[ $\$? = 0 ] && echo -e "$\${OK}" || echo -e "$\${FAIL}"
+
+#------------------------------------------------------
+# DNSCRYPT-PROXY2
+#------------------------------------------------------
+crypt_port=9153
+
+while true; do
+  ready "$\${BL}Установить шифрование DNS (dnscrypt-proxy2)$\${NC} [Y/N]?"
+  read -r ynq
+  case $\${ynq} in
+    [Yy]* )
+      if $\$(/opt/etc/init.d/S09dnscrypt-proxy2 status | grep alive &>/dev/null); then
+        ready "Останавливаем службу dnscrypt-proxy2..."
+        /opt/etc/init.d/S09dnscrypt-proxy2 stop &>/dev/null
+        [ $\$? = 0 ] && echo -e "$\${OK}" || echo -e "$\${FAIL}"
+      fi
+
+      if [ -f '/opt/etc/dnscrypt-proxy.toml' ]; then
+        cp /opt/etc/dnscrypt-proxy.toml /opt/etc/dnscrypt-proxy.toml.old
+        warning "Предыдущий файл конфигурации сохранен под именем"
+        warning "/opt/etc/dnscrypt-proxy.toml.old"
+      fi
+
+      ready "Настраиваем dnscrypt-proxy2..."
+      kvas crypt on &>/dev/null
+      [ $\$? = 0 ] && echo -e "$\${OK}" || echo -e "$\${FAIL}"
+
+      break;;
+    [Nn]* )
+      break;;
+    * ) please_answer_yn
+      ;;
+  esac
+done
+
+# Проверяем отключено ли использование DNS провайдера
+dns_prov=$\$(curl -s 'localhost:79/rci/opkg/dns-override')
+
+if [ ! "$\${dns_prov}" = true ]; then
+  cli="https://$\${LOCAL_IP}/a"
+	echo "${LINE}"
+	echo -e "$\${RD}Для корректной работы dnsmasq необходимо отключить использование DNS провайдера!"
+	echo -e "С этой целью зайдите в админ панель роутера по адресу: $\${GR}$\${cli}"
+	echo -e "$\${RD}и введите в поле Command следующую команду $\${GR}opkg dns-override $\${RD}, затем нажмите ENTER."
+	echo -e "далее в том же поле введите команду $\${GR}system configuration save $\${RD}, затем нажмите ENTER."
+	echo -e "И третьим шагом необходимо перегрузить роутер, для этого в том же поле"
+	echo -e "введите команду $\${GR}system reboot $\${RD}, затем нажмите ENTER.$\${NC}"
+else
+	ready "Запускаем сервисы shadowsocks и dnsmasq..."
+	/opt/etc/init.d/S22shadowsocks restart &>/dev/null
+	[ $\$? = 0 ] && echo -e "$\${OK}" || echo -e "$\${FAIL}"
+
+	ready "Запускаем принудительную маршрутизацию на старте..."
+	/opt/bin/unblock_update miss_ads  &>/dev/null
+	[ $\$? = 0 ] && echo -e "$\${OK}" || echo -e "$\${FAIL}"
+
+fi
+echo "${LINE}"
+echo -e "По умолчанию, блокировка рекламы $\${RD}ОТКЛЮЧЕНА$\${NC}"
+echo -e "Для ее активации наберите $\${BL}${APP_NAME} adblock on$\${NC}"
+echo -e "Для активации/деактивации dnscrypt-proxy2 наберите $\${BL}${APP_NAME} crypt on/off$\${NC}"
+echo -e "Для проверки работоспособности наберите $\${BL}${APP_NAME} test$\${NC}"
+echo "${LINE}"
+echo -e "Для общей справки наберите $\${BL}${APP_NAME} help$\${NC}"
+echo "${LINE}"
+endef
+
+#---------------------------------------------------------------------
+# Создаем скрипт, который выполняется при удалении пакета
+# Удаляем из крона запись об обновлении ip адресов
+#---------------------------------------------------------------------
+
+define Package/${APP_NAME}/postrm
+#!/bin/sh
+
+RD="\033[1;31m";
+GR="\033[1;32m";
+NC="\033[m";
+OK="$\${GR}ГОТОВО$\${NC}"
+FAIL="$\${RD}ПРОБЛЕМА$\${NC}"
+
+LENGTH=66
+function diff_len(){
+	charlen=$\$(echo "$\${1}" | sed -r "s/[\]033\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g")
+	charlen=$\${#charlen}
+	echo $\$(( LENGTH - charlen ))
+}
+function please_answer_yn(){
+  echo -e "Пожалуйста ответьте на вопрос $\${RD}'Y' - удалить$\${NC} или $\${GR}'N' - оставить$\${NC}."
+}
+function ready(){
+  size=$\$(diff_len "$\${1}")
+	printf "%b%-$\${size}s%b" "$\${1}"
+}
+function warning(){
+	_error="$\${GR}$\${1}$\${NC}"
+	size=$\$(diff_len "$\${_error}")
+	printf "%b%-$\${size}s%b\n" "$\${_error}"
+}
+echo "${LINE}"
+echo -e "Удаление пакета $\${GR}КВАС™ [Kvas™]$\${NC} версия $\${GR}${APP_VER_FULL}$\${NC}..."
+echo "${LINE}"
+
+while true; do
+	ready "$\${RD}Удалить файлы конфигурации пакета$\${NC} [Y/N]? "
+	read -r ynq
+	case $\${ynq} in
+		[Yy]* )
+			ready "Удаляем файлы конфигурации $\${GR}'${APP_NAME}'$\${NC}..."
+			rm -rf /opt/etc/${APP_NAME}
+			[ $\$? = 0 ] && echo -e "$\${OK}" || echo -e "$\${FAIL}"
+			break;;
+		[Nn]* )
+		  if [ -f "${shadowsocks_conf}.old" ]; then
+        ready "Восстанавливаем файл конфигурации shadowsocks...    "
+        mv "${shadowsocks_conf}.old ${shadowsocks_conf}" &>/dev/null
+        [ $\$? = 0 ] && echo -e "$\${OK}" || echo -e "$\${FAIL}"
+      fi
+      if [ -f /opt/etc/dnsmasq.conf.old ]; then
+        ready "Восстанавливаем файл конфигурации dnsmasq...    "
+        mv /opt/etc/dnsmasq.conf.old /opt/etc/dnsmasq.conf &>/dev/null
+        [ $\$? = 0 ] && echo -e "$\${OK}" || echo -e "$\${FAIL}"
+      fi
+			break;;
+		* ) please_answer_yn
+		;;
+	esac
+done
+
+ready "Удаляем $\${RD}данные из cron$\${NC}...     "
+sed -i '/unblock_ipset/d' /opt/etc/crontab &>/dev/null
+[ $\$? = 0 ] && echo -e "$\${OK}" || echo -e "$\${FAIL}"
+
+echo "${LINE}"
+echo "При установке пакета КВАС были установлены следующие пакеты:"
+warning "shadowsocks-libev-ss-redir shadowsocks-libev-config curl nano"
+warning "knot-dig cron bind-dig dnsmasq-full ipset iptables libpcre"
+echo "Если данные пакеты Вами больше не используются, Вы можете"
+echo -e "их удалить следующей командой: $\${RD}opkg remove <имя пакета>$\${NC}"
+echo "${LINE}"
+
+endef
+
+\$(eval \$(call BuildPackage,${APP_NAME}))
+EOF
+
+#Package/${APP_NAME}/install=\$(Package/${APP_NAME}/install)
+if [[ "${2}" = 'make' ]] || [[ "${2}" = 'init' ]]; then
+  #	первоначальная компиляция - исключительно на одном процессоре
+  #	из-за ошибок при параллельной обработке библиотек
+
+#  выбираем только свой пакет, другие галки не трогаем
+  make menuconfig
+
+  make tools/install -j "$(nproc)" #V=sc
+  make toolchain/install -j "$(nproc)" #V=sc
+  make target/compile -j "$(nproc)" #V=sc
+  make package/${APP_NAME}/compile -j "$(nproc)" #V=sc
+
+fi
+
+if [ "${2}" = 'debug' ]; then
+#	компиляция после первоначальной сборки кода (можно вести параллельно)
+  make tools/install -j "$(nproc)" V=sc
+  make toolchain/install -j "$(nproc)" V=sc
+  make target/compile -j "$(nproc)" V=sc
+  make package/${APP_NAME}/compile -j "$(nproc)" #V=sc
+fi
+
+#
+if [ "${2}" = 'app' ]; then
+  #	компиляция после первоначальной сборки кода (можно вести параллельно)
+#  if [ -n  "${3}" ] && [ "${3}" = 'debug' ]; then deb="V=sc"; else deb=""; fi
+  make package/${APP_NAME}/compile -j "$(nproc)" #V=sc
+
+fi
+
+APP_PKG_TAR_NAME=${APP_NAME}_${APP_VER_FULL}_all.ipk
+APP_PKG_FILE="${ENTWARE_PATH}/bin/targets/mipsel-3.4/generic-glibc/packages/${APP_PKG_TAR_NAME}"
+mkdir -p /opt/apps/${APP_NAME}/backup
+cp "${APP_PKG_FILE}" "/opt/apps/${APP_NAME}/backup"
+
+echo ${LINE}
+find /opt/apps/entware/bin/targets/mipsel-3.4/generic-glibc/packages/ | grep ${APP_NAME}
+echo ${LINE}
+
+#sshpass -p "${MY_PASS}" ssh -p "${MY_PORT}" "${MY_ROUTER}" 'mkdir -p '/opt/packages/${APP_NAME} '>&/dev/null'
+sshpass -p "${MY_PASS}" scp -P "${MY_PORT}" "${APP_PKG_FILE}" "${MY_ROUTER}:/opt/packages/${APP_NAME}"
+sshpass -p "${MY_PASS}" ssh -p "${MY_PORT}" "${MY_ROUTER}" 'opkg remove '${APP_NAME}
+#sshpass -p "${MY_PASS}" ssh -p "${MY_PORT}" "${MY_ROUTER}" 'opkg install /opt/packages/'"${APP_NAME}/${APP_PKG_TAR_NAME}"
+#sshpass -p "${MY_PASS}" ssh -p "${MY_PORT}" "${MY_ROUTER}" 'opkg files '${APP_NAME}
+##sshpass -p "${MY_PASS}" ssh -p "${MY_PORT}" "${MY_ROUTER}" 'ls /opt/apps/'${APP_NAME}/
