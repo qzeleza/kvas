@@ -1,0 +1,13 @@
+#!/bin/sh
+
+TABLE_ID=1001
+PRIORITY=1778
+INFACE_VPN=@ENTWARE_INFACE_NAME
+INFACE_GW4=$(ip addr show "${INFACE_VPN}" | grep -Po "(?<=inet ).*(?=/)")
+ip route add table "${TABLE_ID}" default via "${INFACE_GW4}" dev "${INFACE_VPN}" 2>/dev/null
+ip route show table main |grep -Ev ^default | while read -r ROUTE; do ip route add table "${TABLE_ID}" ${ROUTE} 2>/dev/null; done
+ip rule add fwmark 0xd1000 lookup "${TABLE_ID}" priority "${PRIORITY}" 2>/dev/null
+ip route flush cache
+iptables -A PREROUTING -t mangle -m conntrack --ctstate NEW -m set --match-set unblock dst -j CONNMARK --set-mark 0xd1000
+iptables -A PREROUTING -t mangle -j CONNMARK --restore-mark
+logger "unblock::Таблица ${TABLE_ID} создана"

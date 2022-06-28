@@ -1,0 +1,63 @@
+#!/bin/sh
+. /opt/bin/unblock_lib
+
+#adblock_file="/opt/etc/adblock.dnsmasq"
+tmp_path="/opt/tmp/adblock"
+hosts_file="${tmp_path}/hosts"
+main_hosts_file="/opt/etc/hosts"
+tmp_file="/opt/tmp/hosts.tmp"
+ads_sources_file="/opt/etc/adblock.sources"
+
+
+rm -rf "${tmp_path}"; mkdir -p "${tmp_path}"
+#cat /dev/null > "${adblock_file}"
+score=0
+hosts=0
+exclude=$(cat /opt/etc/kvas.list | tr -d '*' | tr '\n' '|')
+exclude="${exclude::-1}"
+grepv="localhost| local|broadcasthost|loopback|localnet|mcastprefix|allnodes|allrouters|allhosts| 0.0.0.0|^#|^$"
+total=$(cat < "${ads_sources_file}" | sed '/^$/d; /^#/d' | wc -l )
+total=$((total+1))
+[ -z "${1}" ] && echo "Загрузка доменнов для блокировки из источников..."
+print_line
+while read -r line || [ -n "${line}" ]; do
+
+	[  -z "${line}" ] && continue
+	[ "${line::1}" = "#" ] && continue
+
+	score=$((score+1))
+	curl "${line}" -o "${tmp_file}" &>/dev/null
+	cat < "${tmp_file}" | grep -vE "${grepv}" >> "${hosts_file}"
+	num=$(cat < "${tmp_file}" | grep -Evc "${grepv}|${exclude}")
+	hosts=$((hosts+num))
+
+	progress_bar "${score}" "${total}" ""
+
+done < "${ads_sources_file}"
+printf "\n"
+print_line
+
+ready "Исключаем хосты белого списка из списка блокировки..."
+cat < "${main_hosts_file}" | grep -vE "${exclude}" > "${tmp_file}"
+mv "${tmp_file}" "${main_hosts_file}"
+cat < "${hosts_file}" | grep -vE "${exclude}" > "${tmp_file}"
+when_ok "ГОТОВО"
+
+ready "Сортируем список и удаляем дубликаты..."
+cat < "${tmp_file}" | sort -u > "${hosts_file}"
+when_ok "ГОТОВО"
+
+print_line
+num_recs=$( dig_frm "$(cat < "${hosts_file}" | wc -l)")
+ready "Добавлено рекламных хостов для блокировки"; when_ok "${num_recs}"
+
+ready "Проверка на ошибки скаченных файлов"
+/opt/sbin/dnsmasq --test --hostsdir="${tmp_path}"  &> /dev/null
+if [ "$?" == "0" ]; then
+	when_ok "ПРОЙДЕНА"
+	logger "Рекламных хостов для блокировки добавлено $(dig_frm ${hosts}) шт."
+else
+	when_bad "НЕ ПРОЙДЕНА"
+	error "Проверьте скаченные файлы в директории ${tmp_path}"
+fi
+

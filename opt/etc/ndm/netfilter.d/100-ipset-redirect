@@ -1,12 +1,11 @@
 #!/bin/sh
-[ "$type" == "ip6tables" ] && exit 0
+[ "$type" = "ip6tables" ] && exit 0
+[ "$table" = "nat" ] || exit 0
 
-if [ -z "$(iptables-save 2>/dev/null | grep unblock)" ]; then
-	ipset create unblock hash:net -exist
-	iptables -w -t nat -A PREROUTING -i br0 -p tcp -m set --match-set unblock dst -j REDIRECT --to-port 9141
+# Shadowsocks+
+if [ -z "$(iptables-save 2>/dev/null | grep unblock | grep @PROXY_PORT)" ]; then
+	ipset create unblock hash:net family inet -exist
+	iptables -w -t nat -A PREROUTING -i @INFACE -p tcp -m set --match-set unblock dst -j REDIRECT --to-port @PROXY_PORT
 fi
 
-if [ -z "$(iptables-save 2>/dev/null | grep "tcp \-\-dport 53 \-j DNAT")" ]; then
-    ip4t -w -t nat -I PREROUTING -i @INFACE -p tcp --dport 53 -j DNAT --to @LOCAL_IP
-fi
 exit 0

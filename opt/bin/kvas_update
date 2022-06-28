@@ -9,7 +9,10 @@
 # 1 - включаем блокиратор рекламы
 ADS_BLOCKER_ON=0
 # "Процесс обновления списка рекламы..."
-if [ -z "$1" ] && [ "${ADS_BLOCKER_ON}" = 1 ]; then /opt/bin/update_adblock; print_line; fi
+if [ -z "$1" ] && [ "${ADS_BLOCKER_ON}" = 1 ]; then
+	/opt/bin/update_adblock
+	print_line
+fi
 
 ready "Обновление списка dnsmasq"
 ipset flush unblock
@@ -23,3 +26,7 @@ ready "Перезапуск службы dnsmasq"
 ready "Обновление таблицы ipset"
 /opt/bin/unblock_ipset &
 [ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+
+print_line
+date_update
+print_line

@@ -40,7 +40,9 @@ while read -r line || [ -n "${line}" ]; do
   fi
 
   # обрабатываем и добавляем в таблицу домены, из которых получаем сначала IP адреса
-  kdig +short "${line}" @localhost | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | awk '{system("ipset -exist add unblock "$1)}'
+  line=$(echo "${line}" | sed 's/\*//')
+  kdig +short "${line}" @localhost | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' \
+  	| awk '{system("ipset -exist add unblock "$1)}'
 
 done < @UNBLOCK_LIST
 

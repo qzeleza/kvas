@@ -1,4 +1,5 @@
 #!/bin/sh
 [ "$1" != "start" ] && exit 0
-ipset create unblock hash:net -exist
+ipset create unblock hash:net family inet -exist
+# ipset create unblock6 hash:net family inet6 -exist
 exit 0
