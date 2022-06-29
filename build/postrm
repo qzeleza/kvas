@@ -1,0 +1,67 @@
+#!/bin/sh
+
+RD="\033[1;31m";
+GR="\033[1;32m";
+NC="\033[m";
+OK="$\${GR}ГОТОВО$\${NC}"
+FAIL="$\${RD}ПРОБЛЕМА$\${NC}"
+
+LENGTH=66
+function diff_len(){
+	charlen=$\$(echo "$\${1}" | sed -r "s/[\]033\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g")
+	charlen=$\${#charlen}
+	echo $\$(( LENGTH - charlen ))
+}
+function please_answer_yn(){
+  echo -e "Пожалуйста ответьте на вопрос $\${RD}'Y' - удалить$\${NC} или $\${GR}'N' - оставить$\${NC}."
+}
+function ready(){
+  size=$\$(diff_len "$\${1}")
+	printf "%b%-$\${size}s%b" "$\${1}"
+}
+function warning(){
+	_error="$\${GR}$\${1}$\${NC}"
+	size=$\$(diff_len "$\${_error}")
+	printf "%b%-$\${size}s%b\n" "$\${_error}"
+}
+echo "${LINE}"
+echo -e "Удаление пакета $\${GR}КВАС™ [Kvas™]$\${NC} версия $\${GR}${APP_VER_FULL}$\${NC}..."
+echo "${LINE}"
+
+while true; do
+	ready "$\${RD}Удалить файлы конфигурации пакета$\${NC} [Y/N]? "
+	read -r ynq
+	case $\${ynq} in
+		[Yy]* )
+			ready "Удаляем файлы конфигурации $\${GR}'${APP_NAME}'$\${NC}..."
+			rm -rf /opt/etc/${APP_NAME}
+			[ $\$? = 0 ] && echo -e "$\${OK}" || echo -e "$\${FAIL}"
+			break;;
+		[Nn]* )
+		  if [ -f "${shadowsocks_conf}.old" ]; then
+        ready "Восстанавливаем файл конфигурации shadowsocks...    "
+        mv "${shadowsocks_conf}.old ${shadowsocks_conf}" &>/dev/null
+        [ $\$? = 0 ] && echo -e "$\${OK}" || echo -e "$\${FAIL}"
+      fi
+      if [ -f /opt/etc/dnsmasq.conf.old ]; then
+        ready "Восстанавливаем файл конфигурации dnsmasq...    "
+        mv /opt/etc/dnsmasq.conf.old /opt/etc/dnsmasq.conf &>/dev/null
+        [ $\$? = 0 ] && echo -e "$\${OK}" || echo -e "$\${FAIL}"
+      fi
+			break;;
+		* ) please_answer_yn
+		;;
+	esac
+done
+
+ready "Удаляем $\${RD}данные из cron$\${NC}...     "
+sed -i '/unblock_ipset/d' /opt/etc/crontab &>/dev/null
+[ $\$? = 0 ] && echo -e "$\${OK}" || echo -e "$\${FAIL}"
+
+echo "${LINE}"
+echo "При установке пакета КВАС были установлены следующие пакеты:"
+warning "shadowsocks-libev-ss-redir shadowsocks-libev-config curl nano"
+warning "knot-dig cron bind-dig dnsmasq-full ipset iptables libpcre"
+echo "Если данные пакеты Вами больше не используются, Вы можете"
+echo -e "их удалить следующей командой: $\${RD}opkg remove <имя пакета>$\${NC}"
+echo "${LINE}"

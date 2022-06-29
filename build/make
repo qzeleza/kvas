@@ -1,0 +1,191 @@
+#!/bin/bash
+set -e
+# Инструкции по сборке пакетов
+# 0. https://forum.keenetic.com/topic/1288-самостоятельная-сборка-пакетов/
+# 1. http://forums.zyxmon.org/viewtopic.php?f=8&t=17
+# 2. https://openwrt.org/docs/guide-developer/start
+# 3. https://openwrt.org/docs/guide-developer/toolchain/single.package
+# 4. https://forum.keenetic.com/topic/1288-самостоятельная-сборка-пакетов/page/2/
+# 5. https://openwrt.org/docs/guide-developer/packages#buildpackage_variables
+#
+
+APP_NAME=kvas
+UNBLOCK_LIST="/opt/etc/${APP_NAME}.list"
+APP_ARCH=all
+APP_REMOTE_FILE="/opt/apps/${APP_NAME}/debug/remote.conf"
+
+ENTWARE_PATH=/opt/apps/entware
+ENTWARE_APP_PATH=${ENTWARE_PATH}/package/utils/${APP_NAME}
+
+ENTWARE_APP_BUILD_PATH=${ENTWARE_APP_PATH}/files/opt
+
+MY_PASS=$(cat < "${APP_REMOTE_FILE}" | grep -E '^PASSWD' | cut -d'"' -f2| cut -d"=" -f2)
+MY_PORT=$(cat < "${APP_REMOTE_FILE}" | grep -E '^PORT' | cut -d' ' -f3 | cut -d"=" -f2)
+MY_ROUTER=$(cat < "${APP_REMOTE_FILE}" | grep -E '^ROUTER' | cut -d'"' -f2| cut -d"=" -f2)
+
+## Первоначальные действия если файл с версией релиза еще не создавался
+if [ "${2}" = 'init' ]; then
+	./toolschain.sh ${ENTWARE_PATH}
+	mkdir -p "${ENTWARE_APP_BUILD_PATH}"
+#	rm -f "${ENTWARE_PATH}/.config"
+	mkdir -p "${ENTWARE_APP_BUILD_PATH}/etc/{init.d,ndm,${APP_NAME}"
+	mkdir -p "${ENTWARE_APP_BUILD_PATH}/etc/ndm/{netfilter.d,fs.d}"
+
+fi
+
+APP_VERSION="0.1"
+APP_RELEASE=1
+APP_VERSION_STAGE="beta"
+
+# если задан аргумент - номер релиза, то переписываем его в файл
+if [ -n "${1}" ] ; then
+  APP_VERSION=$(echo "${1}" | cut -d'.' -f1-2)
+  APP_RELEASE=$(echo "${1}" | cut -d'.' -f3)
+  APP_VERSION_STAGE=$(echo "${1}" | cut -d'.' -f4)
+fi
+
+echo "---------------------------------------------"
+echo "Пакет : ${APP_NAME}"
+echo "Версия: ${APP_VERSION} ${APP_VERSION_STAGE} ${APP_RELEASE}"
+echo "---------------------------------------------"
+
+APP_VER_FULL="${APP_VERSION}-${APP_VERSION_STAGE}_${APP_RELEASE}"
+APP_VER_FULL_TEXT="${APP_VERSION}.${APP_VER} ${APP_VERSION_STAGE} ${APP_RELEASE}"
+
+# копируем файлы в директорию пакета
+rm -rf "${ENTWARE_APP_BUILD_PATH}" && mkdir -p ${ENTWARE_APP_BUILD_PATH}/
+cp -a "/opt/apps/${APP_NAME}/opt/." ${ENTWARE_APP_BUILD_PATH}/
+
+LINE='--------------------------------------------------------------------------'
+cd "${ENTWARE_PATH}" || exit
+
+UNBLOCK_LIST=${UNBLOCK_LIST//\//\\/}
+[ "${APP_VERSION_STAGE}" ] && APP_RELEASE_FULL="${APP_VERSION_STAGE}_${APP_RELEASE}" || APP_RELEASE_FULL="${APP_VERSION_STAGE}"
+APP_RELEASE_FULL_TXT="'${APP_RELEASE_FULL/_/ }'"
+# устанавливаем данные по версии пакета
+sed -i "s/\(APP_VERSION=\)/\1${APP_VERSION}/" ${ENTWARE_APP_BUILD_PATH}/bin/${APP_NAME}
+sed -i "s/\(APP_RELEASE=\)/\1${APP_RELEASE_FULL_TXT}/" ${ENTWARE_APP_BUILD_PATH}/bin/${APP_NAME}
+
+POST_INST=$(cat < /opt/apps/kvas/build.postinst \
+			| tr '$' '$\$' \
+			| sed "s/@app_ver/${APP_VER_FULL_TEXT}/g"\
+			)
+POST_TERM=$(cat < /opt/apps/kvas/build.postrm | tr '$' '$\$' )
+
+cat <<EOF > "${ENTWARE_APP_PATH}/Makefile"
+include \$(TOPDIR)/rules.mk
+
+PKG_NAME:=${APP_NAME}
+PKG_VERSION:=${APP_VERSION}
+PKG_RELEASE:=${APP_RELEASE_FULL}
+PKG_BUILD_DIR:=\$(BUILD_DIR)/\$(PKG_NAME)
+
+include \$(INCLUDE_DIR)/package.mk
+
+define Package/${APP_NAME}
+	SECTION:=utils
+	CATEGORY:=keendev
+	DEPENDS:=+curl +knot-dig +nano-full +cron +bind-dig +dnsmasq-full +ipset +iptables +shadowsocks-libev-ss-redir +shadowsocks-libev-config +libpcre +dnscrypt-proxy2
+	URL:=no
+	TITLE:=VPN клиент для обработки запросов по внесению хостов в белый список.
+	PKGARCH:=${APP_ARCH}
+endef
+
+define Package/${APP_NAME}/description
+	Данный пакет позволяет осуществлять контроль и поддерживать в актуальном состоянии
+	список разблокировки хостов или "Белый список". При обращении к любому хосту из
+	этого списка, весь трафик будет идти через фактические любое VPN соединение,
+	заранее настроенное на роутере, или через Shadowsocks соединение.
+endef
+
+define Build/Prepare
+endef
+define Build/Configure
+endef
+define Build/Compile
+endef
+
+# Во время инсталляции задаем папку в которую будем
+# копировать наш скрипт и затем копируем его в эту папку
+define Package/${APP_NAME}/install
+
+
+	\$(INSTALL_DIR) \$(1)/opt/bin
+	\$(INSTALL_DIR) \$(1)/opt/etc/init.d
+	\$(INSTALL_DIR) \$(1)/opt/etc/ndm/fs.d
+	\$(INSTALL_DIR) \$(1)/opt/etc/ndm/netfilter.d
+
+	\$(INSTALL_BIN) ./files/opt/etc/ndm/fs.d/100-ipset \$(1)/opt/etc/ndm/fs.d
+	\$(INSTALL_BIN) ./files/opt/etc/ndm/netfilter.d/100-ipset-redirect \$(1)/opt/etc/ndm/netfilter.d
+	\$(INSTALL_BIN) ./files/opt/etc/ndm/netfilter.d/100-dns-local \$(1)/opt/etc/ndm/netfilter.d
+
+	\$(INSTALL_BIN) ./files/opt/etc/init.d/S99kvas \$(1)/opt/etc/init.d
+
+	\$(CP) ./files/opt/. \$(1)/opt/apps/kvas/files/
+
+endef
+
+# Скрипт создаем, который выполняется после инсталляции пакета
+# Задаем в кроне время обновления ip адресов хостов
+define Package/${APP_NAME}/postinst
+${POST_INST}
+endef
+
+#---------------------------------------------------------------------
+# Создаем скрипт, который выполняется при удалении пакета
+# Удаляем из крона запись об обновлении ip адресов
+#---------------------------------------------------------------------
+
+define Package/${APP_NAME}/postrm
+${POST_TERM}
+endef
+
+\$(eval \$(call BuildPackage,${APP_NAME}))
+EOF
+exit
+#Package/${APP_NAME}/install=\$(Package/${APP_NAME}/install)
+if [[ "${2}" = 'make' ]] || [[ "${2}" = 'init' ]]; then
+  #	первоначальная компиляция - исключительно на одном процессоре
+  #	из-за ошибок при параллельной обработке библиотек
+
+#  выбираем только свой пакет, другие галки не трогаем
+  make menuconfig
+
+  make tools/install -j "$(nproc)" #V=sc
+  make toolchain/install -j "$(nproc)" #V=sc
+  make target/compile -j "$(nproc)" #V=sc
+  make package/${APP_NAME}/compile -j "$(nproc)" #V=sc
+
+fi
+
+if [ "${2}" = 'debug' ]; then
+#	компиляция после первоначальной сборки кода (можно вести параллельно)
+  make tools/install -j "$(nproc)" V=sc
+  make toolchain/install -j "$(nproc)" V=sc
+  make target/compile -j "$(nproc)" V=sc
+  make package/${APP_NAME}/compile -j "$(nproc)" #V=sc
+fi
+
+#
+if [ "${2}" = 'app' ]; then
+  #	компиляция после первоначальной сборки кода (можно вести параллельно)
+#  if [ -n  "${3}" ] && [ "${3}" = 'debug' ]; then deb="V=sc"; else deb=""; fi
+  make package/${APP_NAME}/compile -j "$(nproc)" #V=sc
+
+fi
+
+APP_PKG_TAR_NAME=${APP_NAME}_${APP_VER_FULL}_all.ipk
+APP_PKG_FILE="${ENTWARE_PATH}/bin/targets/mipsel-3.4/generic-glibc/packages/${APP_PKG_TAR_NAME}"
+mkdir -p /opt/apps/${APP_NAME}/backup
+cp "${APP_PKG_FILE}" "/opt/apps/${APP_NAME}/backup"
+
+echo ${LINE}
+find /opt/apps/entware/bin/targets/mipsel-3.4/generic-glibc/packages/ | grep ${APP_NAME}
+echo ${LINE}
+
+#sshpass -p "${MY_PASS}" ssh -p "${MY_PORT}" "${MY_ROUTER}" 'mkdir -p '/opt/packages/${APP_NAME} '>&/dev/null'
+sshpass -p "${MY_PASS}" scp -P "${MY_PORT}" "${APP_PKG_FILE}" "${MY_ROUTER}:/opt/packages/${APP_NAME}"
+sshpass -p "${MY_PASS}" ssh -p "${MY_PORT}" "${MY_ROUTER}" 'opkg remove '${APP_NAME}
+#sshpass -p "${MY_PASS}" ssh -p "${MY_PORT}" "${MY_ROUTER}" 'opkg install /opt/packages/'"${APP_NAME}/${APP_PKG_TAR_NAME}"
+#sshpass -p "${MY_PASS}" ssh -p "${MY_PORT}" "${MY_ROUTER}" 'opkg files '${APP_NAME}
+##sshpass -p "${MY_PASS}" ssh -p "${MY_PORT}" "${MY_ROUTER}" 'ls /opt/apps/'${APP_NAME}/

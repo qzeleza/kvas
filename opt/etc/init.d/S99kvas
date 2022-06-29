@@ -1,0 +1,6 @@
+#!/bin/sh
+[ "$1" != "start" ] && exit 0
+/opt/etc/ndm/fs.d/100-ipset start
+# VPN
+#type=iptables table=mangle /opt/etc/ndm/netfilter.d/10m-vpn-mark
+/opt/bin/kvas_ipset &
