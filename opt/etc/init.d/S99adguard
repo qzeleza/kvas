@@ -1,0 +1,17 @@
+#!/bin/sh
+
+ENABLED=yes
+PROCS=AdGuardHome
+ARGS="-l /var/log/adguardhome.log --no-check-update"
+PREARGS=""
+DESC=$PROCS
+PATH=/opt/sbin:/opt/bin:/opt/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+case $1 in
+	start|restart)
+	/opt/etc/ndm/fs.d/100-ipset "${1}"
+	/opt/bin/kvas_adguard
+	;;
+esac
+
+. /opt/etc/init.d/rc.func

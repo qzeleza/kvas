@@ -1,0 +1,5 @@
+#!/bin/sh
+[ "$1" = "start" ] && {
+/opt/etc/ndm/fs.d/100-ipset start
+/opt/bin/kvas_ipset &
+}
