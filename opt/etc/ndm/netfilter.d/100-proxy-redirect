@@ -1,9 +1,9 @@
 #!/bin/sh
-[ "$type" = "ip6tables" ] && exit 0
-[ "$table" = "nat" ] || exit 0
+[ "${type}" = "ip6tables" ] && exit 0
+[ "${table}" = "nat" ] || exit 0
 
 # Shadowsocks+
-if [ -z "$(iptables-save 2>/dev/null | grep unblock | grep @PROXY_PORT)" ]; then
+if ! iptables-save 2>/dev/null | grep unblock | grep -q @PROXY_PORT ; then
 	ipset create unblock hash:net family inet -exist
 	iptables -w -t nat -A PREROUTING -i @INFACE -p tcp -m set --match-set unblock dst -j REDIRECT --to-port @PROXY_PORT
 fi
