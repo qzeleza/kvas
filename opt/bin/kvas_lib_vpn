@@ -1,5 +1,5 @@
 #!/bin/sh
-. /opt/bin/kvas_lib_gen
+#. /opt/bin/kvas_lib_main
 . /opt/bin/kvas_lib_debug
 # ------------------------------------------------------------------------------------------
 #
@@ -14,13 +14,12 @@
 #	Основные переменные для работы скрипта
 # ------------------------------------------------------------------------------------------
 APP_NAME=kvas
-APP_VERSION=
-APP_RELEASE=
-UNBLOCK_LIST_FILE="/opt/etc/${APP_NAME}.list"
+INSTALL_LOG=/opt/tmp/kvas.install.log
+UNBLOCK_LIST_FILE=/opt/etc/hosts.list
 CRONTAB_FILE=/opt/etc/crontab
 UPDATE_BIN_FILE=/opt/bin/kvas_update
 DNS_LOCAL_DEMON_FILE=/opt/etc/ndm/netfilter.d/100-dns-local
-IPSET_REDIRECT_DEMON_FILE=/opt/etc/ndm/netfilter.d/100-ipset-redirect
+IPSET_REDIRECT_DEMON_FILE=/opt/etc/ndm/netfilter.d/100-proxy-redirect
 HOOK_INFACE_FILE=/opt/etc/ndm/ifstatechanged.d/100-save-inface_entware
 INFACE_NAMES_FILE=/opt/etc/inface_equals
 SHADOWSOCKS_CONF=/opt/etc/shadowsocks.json
@@ -28,61 +27,16 @@ ADS_HOSTS_FILE=/opt/tmp/adblock/hosts
 DNSMASQ_CONFIG=/opt/etc/dnsmasq.conf
 DNSCRYPT_CONFIG=/opt/etc/dnscrypt-proxy.toml
 
-ADGUARDHOME_CONFIG=/opt/etc/AdGuardHome/AdGuardHome.yaml
-ADGUARDHOME_DEMON=/opt/etc/init.d/S99adguardhome
 KVAS_START_FILE=/opt/etc/init.d/S96kvas
 
 MAIN_DNS_PORT=53
 
 LOCALHOST_IP=127.0.0.1
 
-INFACE_REQUEST='localhost:79/rci/show/interface'
-INFACE_IPV6_REQUEST='localhost:79/rci/interface/ISP/ipv6/address'
+INFACE_REQUEST="${LOCALHOST_IP}:79/rci/show/interface"
+INFACE_PART_REQUEST="${LOCALHOST_IP}:79/rci/interface"
+CMD_LIST="address prefix name-servers"
 
-
-# ------------------------------------------------------------------------------------------
-#
-#	Функция проверки наличия в списке доступного CLI интерфейса
-#	$1 - CLI интерфейс
-#
-# ------------------------------------------------------------------------------------------
-is_cli_inface_enabled(){
-	inface="${1}"
-	curl -s "${INFACE_REQUEST}" | grep interface-name | grep -q "${inface}"
-}
-# ------------------------------------------------------------------------------------------
-#
-#	Функция проверки включен ли на заданном CLI интерфейсе поддержка IPv6
-#	$1 - CLI интерфейс
-#
-# ------------------------------------------------------------------------------------------
-is_ipv6_enabled(){
-	inface="${1}"
-	curl -s "localhost:79/rci/interface/${inface}/ipv6/address" | grep 'auto' | cut -d':' -f2 | tr -d ' ' | grep -q true
-}
-# ------------------------------------------------------------------------------------------
-#
-#	Функция проверки включен ли на заданном CLI интерфейсе поддержка IPv6
-#	$1 - CLI интерфейс
-#
-# ------------------------------------------------------------------------------------------
-cmd_is_ipv6_enabled(){
-	inface="${1}"
-	if is_cli_inface_enabled "${inface}" ; then
-		ready "Поддержка IPv6 на интерфейсе ${inface}"
-		if is_ipv6_enabled "${inface}"; then when_ok "ПОДКЛЮЧЕНА"; else when_alert "ОТКЛЮЧЕНА"; fi
-	fi
-
-}
-# ------------------------------------------------------------------------------------------
-#
-#	Функция проверки включен ли на заданном CLI интерфейсе поддержка IPv6
-#	$1 - CLI интерфейс
-#
-# ------------------------------------------------------------------------------------------
-is_ipv6_enabled(){
-	curl -s "${INFACE_IPV6_REQUEST}" | grep 'auto' | cut -d':' -f2 | tr -d ' ' | grep -q true
-}
 
 # ------------------------------------------------------------------------------------------
 #
@@ -92,6 +46,106 @@ is_ipv6_enabled(){
 cmd_help() {
 	cat < "/opt/apps/${APP_NAME}/files/etc/conf/${APP_NAME}.cmd_help"
 }
+
+
+
+# ------------------------------------------------------------------------------------------
+#
+#	Получаем значение любого параметра заданного CLI интерфейса
+#	$1 - ID CLI интерфейса с учетом регистра
+#	$2 - название параметра
+#
+# ------------------------------------------------------------------------------------------
+get_value_interface_field() {
+	id_cli_inface="${1}"
+	field_name="${2}"
+  	curl -s "${INFACE_REQUEST}" | jq -r '.[] | select(.id=="'"${id_cli_inface}"'") | .'"${field_name}"
+}
+# ------------------------------------------------------------------------------------------
+#
+#	Получаем нумерованный список с именами интерфейсов
+#
+# ------------------------------------------------------------------------------------------
+get_defaultgw_interface() {
+	curl -s "${INFACE_REQUEST}" | jq -r '.[] | select(.defaultgw==true) | ."interface-name"'
+}
+# ------------------------------------------------------------------------------------------
+#
+#	Функция вЫключения IPv6
+#	$1 - CLI интерфейс
+#
+# ------------------------------------------------------------------------------------------
+ipv6_inface_off(){
+
+	inface="${1}"
+	ready "Поддержка IPv6 на интерфейсе ${inface} отключена"
+	for cmd in ${CMD_LIST}; do
+		curl -s -d '{"auto":true,"no":true}' "${INFACE_PART_REQUEST}/${inface}/ipv6/${cmd}" &> /dev/null
+	done
+	if [ $? = 0 ]; then when_ok "УСПЕШНО"; else when_bad "СБОЙ"; fi
+
+}
+# ------------------------------------------------------------------------------------------
+#
+#	Функция включения IPv6
+#	$1 - CLI интерфейс
+#
+# ------------------------------------------------------------------------------------------
+ipv6_inface_on(){
+	inface="${1}"
+	ready "Поддержка IPv6 на интерфейсе ${inface} подключена"
+        for cmd in ${CMD_LIST}; do
+			curl -s -d '{"auto":true}' "${INFACE_PART_REQUEST}/${inface}/ipv6/${cmd}" &> /dev/null
+        done
+	if [ $? = 0 ]; then when_ok "УСПЕШНО"; else when_bad "СБОЙ"; fi
+}
+# ------------------------------------------------------------------------------------------
+#
+#	Функция проверки статуса IPv6
+#	$1 - CLI интерфейс
+#	Возвращает:
+#	0 - ipv6 подключен
+#	1- ipv6 отключен
+#
+# ------------------------------------------------------------------------------------------
+ipv6_status(){
+	inface="${1}"; res=0
+	for cmd in ${CMD_LIST}; do
+		 [ -n "$(curl -s "${INFACE_PART_REQUEST}/${inface}/ipv6/${cmd}" | grep true )" ] && res=$((res+1))
+	done
+	if [ "${res}" -eq 3 ]; then echo 0; else echo 1; fi
+}
+# ------------------------------------------------------------------------------------------
+#
+#	Функция проверки фактического наличия в списке доступного CLI интерфейса
+#	$1 - CLI интерфейс
+#
+# ------------------------------------------------------------------------------------------
+is_cli_inface_present(){
+	inface="${1}"
+	curl -s "${INFACE_REQUEST}" | grep interface-name | grep -q "${inface}"
+}
+
+# ------------------------------------------------------------------------------------------
+#
+#	Функция проверки включен ли на заданном CLI интерфейсе поддержка IPv6
+#	$1 - CLI интерфейс
+#
+# ------------------------------------------------------------------------------------------
+ipv6_inface_status(){
+	inface="${1}"
+	if is_cli_inface_present "${inface}" ; then
+		ready "Поддержка IPv6 на интерфейсе ${inface}"
+		if [ "$(ipv6_status "${inface}")" = 0 ];
+		then when_ok "ПОДКЛЮЧЕНА";
+		else when_alert "ОТКЛЮЧЕНА"; fi
+	else
+		error "Указанный интерфейс ${inface} в системе не существует."
+		exit 1
+	fi
+
+}
+
 # ------------------------------------------------------------------------------------------
 #
 #	 Производим настройку работы AdGuard Home
@@ -99,22 +153,32 @@ cmd_help() {
 # ------------------------------------------------------------------------------------------
 adguardhome_setup() {
 
-	ip_port=${1:-${LOCALHOST_IP}#${MAIN_DNS_PORT}}
+	[ -n "${1}" ] && ip=$(echo "${1}" | cut -d'#' -f1) && port=$(echo "${1}" | cut -d'#' -f2)
+	[ -z "${1}" ] && ip="${LOCALHOST_IP}" && port=${MAIN_DNS_PORT}
 
 	ready "AdGuard Home установлен в качестве основного DNS сервера"
-	/opt/etc/init.d/S56dnsmasq stop &> /dev/null
-	/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
+
+	/opt/etc/init.d/S56dnsmasq kill &> /dev/null
+	/opt/etc/init.d/S09dnscrypt-proxy2 kill &> /dev/null
 	${ADGUARDHOME_DEMON} stop &> /dev/null
 
-	sed -i "s/\( port:\) .*/\1 ${MAIN_DNS_PORT}/" "${ADGUARDHOME_CONFIG}"
+	dns_prev=$(grep ' port:' "${ADGUARDHOME_CONFIG}" | cut -d' ' -f2)
+	set_config_value ADGUARDHOME_PREV_DNS "${dns_prev}"
+	set_config_value DNS_DEFAULT "${ip}#${port}"
 
-	[ -f "${ADGUARDHOME_DEMON}" ] && mv "${ADGUARDHOME_DEMON}" /opt/apps/kvas/files/etc/init.d/S99adguardhome.orig
+	sed -i "s/\( port:\) .*/\1 ${port}/" "${ADGUARDHOME_CONFIG}"
+
+	if [ -f "${ADGUARDHOME_DEMON}" ]; then
+		mkdir -p /opt/apps/kvas/files/backup
+		mv "${ADGUARDHOME_DEMON}" /opt/apps/kvas/files/backup/S99adguardhome
+		cp /opt/etc/AdGuardHome/AdGuardHome.yaml /opt/apps/kvas/files/backup/AdGuardHome.yaml
+	fi
 	cp /opt/apps/kvas/files/etc/init.d/S99adguard "${ADGUARDHOME_DEMON}"
 	rm -f "${KVAS_START_FILE}"
 
-	ipset_dns_change "${ip_port}"
-	${ADGUARDHOME_DEMON} start &> /dev/null
-	set_config_value DNS_DEFAULT "${ip_port}"
+	ipset_dns_change "${ip}#${port}"
+
+	"${ADGUARDHOME_DEMON}" start &> /dev/null
 
 	if [ $? = 0 ]; then
 		when_ok "УСПЕШНО"
@@ -124,16 +188,16 @@ adguardhome_setup() {
 		exit 1
 	fi
 }
-# ------------------------------------------------------------------------------------------
-#
-#	 Спрашиваем об установке AdGuard Home в качестве DNS сервера
-#
-# ------------------------------------------------------------------------------------------
-adguardhome_ask() {
-	answer=''
-	read_ynq "Установить AdGuard Home в качестве основного DNS сервера" answer
-	[ "${answer}" = y ] && cmd_adguardhome_on || exit 1
-}
+## ------------------------------------------------------------------------------------------
+##
+##	 Спрашиваем об установке AdGuard Home в качестве DNS сервера
+##
+## ------------------------------------------------------------------------------------------
+#adguardhome_ask() {
+#	answer=''
+#	read_ynq "Установить AdGuard Home в качестве основного DNS сервера" answer
+#	[ "${answer}" = y ] && cmd_adguardhome_on || exit 1
+#}
 # ------------------------------------------------------------------------------------------
 #
 #	 Возвращаем статус AdGuard Home в качестве основного DNS сервера
@@ -141,7 +205,8 @@ adguardhome_ask() {
 # ------------------------------------------------------------------------------------------
 cmd_adguardhome_status() {
 	ready "Сервис AdGuard Home "
-	if [ -f "${ADGUARDHOME_DEMON}" ]; then
+	agh_port=$(cat < "${ADGUARDHOME_CONFIG}" | grep ' port: ' | cut -d':' -f2 | tr -d ' ')
+	if [ "${agh_port}" = 53 ] ; then
 		if "${ADGUARDHOME_DEMON}" status | grep -q alive ; then
 			when_ok "ВКЛЮЧЕН"
 		else
@@ -158,25 +223,51 @@ cmd_adguardhome_status() {
 # ------------------------------------------------------------------------------------------
 cmd_adguardhome_on() {
 
-	if [ -f "${ADGUARDHOME_DEMON}" ]; then
-		adguardhome_setup
-	else
-		print_line
-		warning "Пакет AdGuard Home не установлен на роутере."
-		warning "Введите ip и port на котором слушает AdGuard Home в сети."
-		ip_port=''
-		read_value "Введите IP и номер порта AdGuard Home через двоеточие" ip_port
-		[ "${ip_port}" != q ] && {
-			ready "AdGuard Home установлен в качестве DNS сервера в КВАС "
-			adguardhome_setup "${ip_port}" &> /dev/null
-			if [ $? = 0 ]; then
-				when_ok "УСПЕШНО"
+	if cmd_adguardhome_status | grep -q "НЕ УСТАНОВЛЕН" ; then
+		echo -e "Пакет AdGuard Home не установлен на роутере."
+		answer=''; read_ynq "Установить его на этот роутер?" answer
+		if [ "${answer}" = y ]; then
+			/opt/etc/init.d/S56dnsmasq stop &> /dev/null
+			/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
+			opkg install adguardhome-go &> /dev/null
+
+			ip=$(get_router_ip)
+			protocol=$(get_router_protocol)
+
+			if [ -f /opt/apps/kvas/files/backup/AdGuardHome.yaml ]; then
+				cp /opt/apps/kvas/files/backup/AdGuardHome.yaml /opt/etc/AdGuardHome/AdGuardHome.yaml
+				"${ADGUARDHOME_DEMON}" restart  &> /dev/null
+				print_line
+				port=$(cat < "${ADGUARDHOME_CONFIG}" | grep 'bind_port: ' | cut -d':' -f2 | tr -d ' ')
+				echo -e "Был обнаружен и восстановлен архивный файл конфигурации AdGuard Home."
+				echo -e "Панель управления находится по адресу: ${BLUE}http://${ip}:${port}${NOCL}"
+				print_line
 			else
-				when_bad "СБОЙ";
-				error "Возникла ошибка при установке AdGuard Home в качестве DNS сервера."
-				exit 1
+				print_line
+				echo -e "Теперь Вам необходимо перейти по адресу: ${BLUE}${protocol}${ip}:3000${NOCL}"
+				echo -e "и сделать первоначальные настройки для AdGuard Home. "
+				echo -e "Затем снова вернитесь сюда и нажмите любую клавишу."
+				read -r pause &> /dev/null
+				print_line
 			fi
-		}
+			adguardhome_setup
+		else
+			echo -e "${BLUE}Если Ваш AdGuard Home находится на другом устройстве, то ${NOCL}"
+			ip_port=''; read_value "Введите IP и номер порта AdGuard Home через двоеточие" ip_port
+			[ "${ip_port}" != q ] && {
+				ready "AdGuard Home установлен в качестве DNS сервера в КВАС "
+				adguardhome_setup "${ip_port}" &> /dev/null
+				if [ $? = 0 ]; then
+					when_ok "УСПЕШНО"
+				else
+					when_bad "СБОЙ";
+					error "Возникла ошибка при установке AdGuard Home в качестве DNS сервера."
+					exit 1
+				fi
+			}
+		fi
+	else
+		adguardhome_setup
 	fi
 }
 
@@ -187,25 +278,30 @@ cmd_adguardhome_on() {
 # ------------------------------------------------------------------------------------------
 cmd_adguardhome_off() {
 
-	if cmd_adguardhome_status | grep -q "НЕ УСТАНОВЛЕН" ; then
+	if cmd_adguardhome_status | grep -qE "(НЕ УСТАНОВЛЕН|ОТКЛЮЧЕН)" ; then
 		warning "AdGuard Home в качестве основного DNS сервера еще "
 		when_alert "НЕ УСТАНОВЛЕН"
 	else
 		ready "AdGuard Home в качестве DNS сервера удален"
 		${ADGUARDHOME_DEMON} stop &> /dev/null && {
-			if [ -f /opt/apps/kvas/files/etc/init.d/"${ADGUARDHOME_DEMON}.original" ]; then
-				rm "${ADGUARDHOME_DEMON}"
+
+			if [ -f /opt/apps/kvas/files/backup/S99adguardhome ]; then
+				mv /opt/apps/kvas/files/backup/S99adguardhome "${ADGUARDHOME_DEMON}"
+				mv /opt/apps/kvas/files/backup/AdGuardHome.yaml /opt/etc/AdGuardHome/
 			else
-				mv "${ADGUARDHOME_DEMON}" /opt/apps/kvas/files/etc/init.d/"${ADGUARDHOME_DEMON}.original"
+				mv "${ADGUARDHOME_DEMON}" /opt/apps/kvas/files/backup/S99adguardhome
+				cp "${ADGUARDHOME_CONFIG}" /opt/apps/kvas/files/backup/
 			fi
 			cp /opt/apps/kvas/files/etc/init.d/S96kvas "${KVAS_START_FILE}"
-			set_config_value DNS_DEFAULT "${LOCALHOST_IP}#${MAIN_DNS_PORT}"
-
-			/opt/etc/init.d/S56dnsmasq start &> /dev/null
-			/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
+			prev_dns=$(get_config_value ADGUARDHOME_PREV_DNS)
+			sed -i "s/\( port:\) .*/\1 ${prev_dns}/" "${ADGUARDHOME_CONFIG}"
+			dnsmasq_install &> /dev/null
 		}
+
 		if [ $? = 0 ]; then
 			when_ok "УСПЕШНО"
+			answer=''; read_ynq "Шифровать трафик посредством dnscrypt_proxy2" answer
+			[ "${answer}" = y ] && dns_crypt_install
 		else
 			when_bad "С ОШИБКОЙ";
 			error "Возникла ошибка при удалении AdGuard Home из системы."
@@ -315,10 +411,10 @@ cmd_bridge_vpn_access_add(){
 
 	if [ -n "${option}" ] && [ "${option}" = all ]; then
 		cmd_bridge_vpn_access_del 'all' 'not_update' &> /dev/null
-		num_id_inface=$(get_local_inface | tr 'a-zA-Z' ' ' | tr -d ' ')
+		num_id_localinface=$(get_local_inface | tr 'a-zA-Z' ' ' | tr -d ' ')
 		entware_bridge_list=$(ip a \
 							| grep -E ': br[0-9]' \
-							| grep -v "br${num_id_inface}" \
+							| grep -v "br${num_id_localinface}" \
 							| cut -d':' -f1-2 \
 							| cut -d' ' -f2\
 							| tr '\n' ' ' \
@@ -344,18 +440,18 @@ cmd_bridge_vpn_access_add(){
 # ------------------------------------------------------------------------------------------
 bridge_inface_select(){
 
-	num_id_inface=$(get_local_inface | tr 'a-zA-Z' ' ' | tr -d ' ')
+	num_id_localinface=$(get_local_inface | tr 'a-zA-Z' ' ' | tr -d ' ')
 	entware_bridge_list=$(ip a \
 							| grep -E ': br[0-9]' \
-							| grep -v "br${num_id_inface}" \
+							| grep -v "br${num_id_localinface}" \
 							| cut -d':' -f1-2 \
 							| cut -d' ' -f2\
 							| tr '\n' ' ' \
 						 )
-	cli_bridge_list=$(curl -s "localhost:79/rci/show/interface" \
+	cli_bridge_list=$(curl -s "${INFACE_REQUEST}" \
 						| grep 'id":' \
 						| grep -iE 'bridge[0-9]' \
-						| grep -vi "bridge${num_id_inface}" \
+						| grep -vi "bridge${num_id_localinface}" \
 						| cut -d ':' -f2 \
 						| tr -d ' ",:'\
 						| tr '\n' ' ' \
@@ -369,7 +465,7 @@ bridge_inface_select(){
 			mess="${num}. Интерфейс ${cli_inface}"
 			connected=$(is_vpn_interface_connected "${cli_inface}")
 			ready "${mess}"
-			if [ "${connected}" = "on" ]; then when_ok "ПОДКЛЮЧЕН"; else when_bad "ОТКЛЮЧЕН"; fi
+			if [ "${connected}" = "on" ]; then when_ok "В СЕТИ"; else when_bad "ОТКЛЮЧЕН"; fi
 		done
 
 		while true; do
@@ -401,6 +497,77 @@ ipset_dns_change() {
 	sed -i "s/\(@\).*|/@${_dns_clear} |/" "/opt/bin/kvas_ipset"
 	fi
 }
+
+# ------------------------------------------------------------------------------------------
+#
+#	Устанавливаем dnsmasq в систему
+#
+# ------------------------------------------------------------------------------------------
+dnsmasq_install() {
+
+	if /opt/etc/init.d/S56dnsmasq status | grep -q alive ; then
+		ready "Останавливаем сервис dnsmasq..."
+		/opt/etc/init.d/S56dnsmasq stop &>/dev/null
+		[ $? = 0 ] && when_ok "ГОТОВО" || {
+			when_bad "ОШИБКА"
+			mess="Невозможно остановить сервис dnsmasq"
+			log_in_file "ОШИБКА: ${mess}"
+			error "${mess}"
+			exit 1
+		}
+	fi
+	ready "Заменяем файл конфигурации dnsmasq...   "
+	[ -f /opt/etc/dnsmasq.conf ] && mv /opt/etc/dnsmasq.conf /opt/etc/dnsmasq.conf.kvas &>/dev/null
+	[ -f /opt/sbin/dnsmasq ] && mv /opt/sbin/dnsmasq /opt/sbin/dnsmasq.kvas &>/dev/null
+	cp /opt/apps/kvas/files/etc/conf/dnsmasq.conf /opt/etc/dnsmasq.conf &>/dev/null
+	[ $? = 0 ] && when_ok "ГОТОВО" || {
+		when_bad "ОШИБКА"
+		mess="Проблемы при замене в файле конфигурации dnsmasq"
+		log_in_file "ОШИБКА: ${mess}"
+		error "${mess}"
+		exit 1
+	}
+
+	ready "Меняем dnsmasq на версию с поддержкой wildcard"
+	bin_path="/opt/apps/kvas/files/sbin/dnsmasq"
+	chmod -R +x "${bin_path}"
+	arch=$(grep "arch" /opt/etc/entware_release | cut -f2 -d"=")
+	case "${arch}" in
+		mips) cp ${bin_path}/mips /opt/sbin/dnsmasq ;;
+		mipsel) cp ${bin_path}/mipsel /opt/sbin/dnsmasq ;;
+		aarch64) cp ${bin_path}/aarch64 /opt/sbin/dnsmasq ;;
+		*) 	when_bad "ОШИБКА"
+			mess="Неизвестная архитектура процессора: ${arch}!"
+			warning "${mess}"
+			log_in_file "ОШИБКА: ${mess}"
+			exit 1
+		;;
+	esac
+#	log_in_file "Установлен dnsmasq для ${arch} архитектуры."
+	[ $? = 0 ] && when_ok "ГОТОВО" || {
+		when_bad "НЕ УДАЧНО"
+		mess="Проблема при замене dnsmasq на версию с поддержкой wildcard"
+		warning "${mess}"
+		log_in_file "ОШИБКА: ${mess}"
+		exit 1
+	}
+	uplevel_dns=$(get_config_value DNS_DEFAULT)
+	local_ip=$(get_router_ip)
+	inface=$(get_inface_by_ip "${local_ip}")
+
+	ready "Настройка файлов конфигурации dnsmasq"
+	sed -i "s/@LOCAL_IP/${local_ip}/g; s/@INFACE/${inface}/g; s/@UPLEVEL_DNS/${uplevel_dns}/g;" /opt/etc/dnsmasq.conf
+#	sed -i "s/@UNBLOCK_LIST/\/opt\/etc\/hosts.list/g" /opt/bin/kvas_dnsmasq
+	if [ $? = 0 ]; then
+		when_ok "ГОТОВО"; /opt/bin/kvas_update
+	else
+		when_bad "ОШИБКА"
+		mess="Проблема при настройке файлов конфигурации dnsmasq"
+		log_in_file "ОШИБКА: ${mess}"
+		exit 1
+	fi
+
+}
 # ------------------------------------------------------------------------------------------
 #
 #	Меняем текущий DNS на dnsmasq на новый
@@ -430,14 +597,14 @@ dnsmasq_dns_change() {
 #		norestart - не перегружаем сервис
 #
 # ------------------------------------------------------------------------------------------
-cmd_dnsmasqdnsmasq_dns_change() {
+cmd_dnsmasq_dns_change() {
 	dns_new=${1}; cmd=${2:-restart}; answer=''
 	if [ -z "${dns_new}" ]; then
 		dns_show
 	else
 		dns_prev=$(get_config_value DNS_DEFAULT)
 		port_prev=$(get_config_value DNS_CRYPT_PORT)
-		if echo "${dns_prev}" | grep "127.0.0.1#${port_prev}" ; then
+		if echo "${dns_prev}" | grep -qE "(localhost|${LOCALHOST_IP})#${port_prev}" ; then
 			warning "Сейчас DNS шифруется при помощи dnscrypt_proxy2"
 			read_ynq "Заменить DNS в любом случае, уверены" answer
 			if [ "${answer}" = y ]; then
@@ -502,8 +669,7 @@ cmd_dnsmasq_port_show() {
 # ------------------------------------------------------------------------------------------
 cmd_dns_test() {
 	ready "Тестируем получение адреса домена facebook.com"
-	dns_and_port="$(grep server= "${DNSMASQ_CONFIG}" | cut -d'=' -f2)"
-	result=$(kdig facebook.com +short "@${dns_and_port}")
+	result=$(test_host "facebook.com" ip)
 	[ -n "${result}" ] && when_alert "${result}" || when_bad "ПУСТО"
 }
 # ------------------------------------------------------------------------------------------
@@ -581,8 +747,9 @@ vpn_on() {
 
 	inface_entware="${1}"
 	inface_cli=$(grep "${inface_entware}" "${INFACE_NAMES_FILE}" | cut -d '|' -f1 )
+	inface_cli_desc=$(grep "${inface_entware}" "${INFACE_NAMES_FILE}" | cut -d '|' -f3 )
 
-	ready "Интерфейс ${inface_cli} подключен "
+	ready "Интерфейс ${inface_cli_desc} подключен "
 
 	cp "/opt/apps/${APP_NAME}/files/etc/ndm/fs.d/100-vpn" "/opt/etc/ndm/fs.d/100-vpn"
 	chmod +x "/opt/etc/ndm/fs.d/100-vpn"
@@ -595,26 +762,18 @@ vpn_on() {
 	chmod +x "/opt/etc/ndm/ifstatechanged.d/100-unblock-vpn"
 	sed -i "s/@ENTWARE_INFACE_NAME/${inface_entware}/g" "/opt/etc/ndm/ifstatechanged.d/100-unblock-vpn"
 
-	state=$(curl -s 'localhost:79/rci/show/interface' \
-			| sed -n "/\"${inface_cli}\":/,/\},/p" \
-			| grep -Ei 'state' \
-			| cut -d':' -f2 \
-			| tr -d ' ",'\
-			)
+	state=$(get_value_interface_field "${inface_cli}" state)
 
 	if [ "${state}" = 'down' ]; then
-		curl -s -d '{"up":"true"}' "localhost:79/rci/interface/${inface_cli}" &> /dev/null
+		curl -s -d '{"up":"true"}' "${INFACE_PART_REQUEST}/${inface_cli}" &> /dev/null
 	fi
-	connected=$(curl -s 'localhost:79/rci/show/interface' \
-				| sed -n "/\"${inface_cli}\":/,/\},/p" \
-				| grep "connected" \
-				| cut -d':' -f2 \
-				| tr -d ' ",'\
-				)
+	sleep 2
+	connected=$(get_value_interface_field "${inface_cli}" connected)
+
 	if [ "${connected}" = 'no' ]; then
 		when_bad "С ОШИБКАМИ"
 		error "Возникла ошибка при подключении интерфейса ${inface_entware}!"
-		error "Проверьте достуность сервера и настройки клиента!"
+		error "Проверьте доступность сервера и настройки клиента!"
 		exit 1
 	else
 		ipset create unblock hash:net family inet -exist &> /dev/null
@@ -637,14 +796,14 @@ shadowsocks_backup(){
 	if [ -f /opt/bin/ss-redir ]; then
 		# меняем данные в файлах shadowsocks
 		sed -i 's/ss-local/ss-redir/g' /opt/etc/init.d/S22shadowsocks
-	
+
 	#	Проверяем на наличие запуска сервиса shadowsocks
 		if /opt/etc/init.d/S22shadowsocks status | grep -q alive ; then
 			ready "Останавливаем сервис shadowsocks..."
 			if /opt/etc/init.d/S22shadowsocks stop &>/dev/null; then
 				when_ok "ГОТОВО"
 			else
-				when_bed "ОШИБКА"
+				when_bad "ОШИБКА"
 				error "Невозможно остановить сервис shadowsocks"
 				exit 1
 			fi
@@ -664,7 +823,7 @@ shadowsocks_backup(){
 					warning "Файл конфигурации shadowsocks сохранен под именем"
 					warning "${SHADOWSOCKS_CONF}.kvas"
 				else
-					when_bed "ОШИБКА"; exit 1;
+					when_bad "ОШИБКА" && exit 1
 				fi
 			fi
 	#		shadowsocks_read_data
@@ -777,7 +936,7 @@ shadowsocks_off() {
 	#	сохраняем файл конфигурации shadowsocks
 	/opt/etc/init.d/S22shadowsocks stop &> /dev/null
 	mv "${SHADOWSOCKS_CONF}" "${SHADOWSOCKS_CONF}.kvas" &> /dev/null
-	rm -f "/opt/etc/ndm/netfilter.d/100-ipset-redirect"
+	rm -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect"
 	cmd_shadowsocks_iptable_flush &> /dev/null
 	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
 }
@@ -798,7 +957,7 @@ cmd_shadowsocks_local_port_change() {
 		port_new=${1}; cmd=${2:-restart}
 		ready "Замена порта на ${port_new} в shadowsocks завершена"
 
-		sed -i "s/\(--to-port\).*/\1 ${local_ip}/g" "/opt/etc/ndm/netfilter.d/100-ipset-redirect"
+		sed -i "s/\(--to-port\).*/\1 ${local_ip}/g" "/opt/etc/ndm/netfilter.d/100-proxy-redirect"
 		sed -i "s/\(local_port\":\).*/\1 ${local_ip}/g" "${SHADOWSOCKS_CONF}"
 
 		set_config_value SSR_DNS_PORT "${port_new}"
@@ -825,14 +984,14 @@ shadowsocks_on() {
 	local_ip=$(get_router_ip)
 	inface=$(get_inface_by_ip "${local_ip}")
 	proxy_port=$(get_config_value SSR_DNS_PORT)
-	#	настройка файла 100-ipset-redirect
-	cp "/opt/apps/${APP_NAME}/files/etc/ndm/netfilter.d/100-ipset-redirect" "/opt/etc/ndm/netfilter.d/100-ipset-redirect"
-	chmod +x "/opt/etc/ndm/netfilter.d/100-ipset-redirect"
+	#	настройка файла 100-proxy-redirect
+	cp "/opt/apps/${APP_NAME}/files/etc/ndm/netfilter.d/100-proxy-redirect" "/opt/etc/ndm/netfilter.d/100-proxy-redirect"
+	chmod +x "/opt/etc/ndm/netfilter.d/100-proxy-redirect"
 
 	sed -i "s/@LOCAL_IP/${local_ip}/g; \
         s/@PROXY_PORT/${proxy_port}/g; \
         s/@INFACE/${inface}/g;" \
-		"/opt/etc/ndm/netfilter.d/100-ipset-redirect"
+		"/opt/etc/ndm/netfilter.d/100-proxy-redirect"
 
 	cmd_shadowsocks_iptable_reset  &> /dev/null
 	#   настройка S22shadowsocks конфигурации
@@ -857,7 +1016,7 @@ shadowsocks_on() {
 	else
 		when_bad "ОШИБКА"
 		error "Возникла ошибка при подключении shadowsocks интерфейса!"
-		error "Проверьте достуность сервера и настройки клиента!"
+		error "Проверьте доступность сервера и настройки клиента!"
 		exit 1
 	fi
 }
@@ -885,47 +1044,37 @@ EOF
 	# очищаем файл с именами интерфейсов
 	echo "shadowsocks|shadowsocks|shadowsocks" > "${INFACE_NAMES_FILE}"
 	# обозначаем список типов обрабатываемых интерфейсов
-	types_inface="openvpn|wireguard|ike|sstp|pppoe|l2tp|cdcethernet|usblte"
-
+	types_inface='"OpenVPN","Wireguard","IKE","SSTP","PPPOE","L2TP","CdcEthernet","UsbLte"'
 	# получаем список ID интерфейсов в наличии на роутере через пробел
 	inface_list=$(
-		curl -s 'localhost:79/rci/show/interface' |
-			grep '"id"' |
-			grep -Ei "${types_inface}" |
-			grep -vE "HomeGate" |
-			cut -d':' -f2 |
-			tr -d ' ",' |
-			tr '\n' ' '
+		curl -s "${INFACE_REQUEST}" \
+			| jq -r '.[] | select([.type]| inside(['"${types_inface}"'])) | select(.defaultgw!=true) | .id' \
+			| tr '\n' ' ' \
 	)
 	# проходимся по каждому интерфейсу
+	# ВНИМАНИЕ! inface_list - все маленькими буквами!!!
 	for inface_cli in ${inface_list}; do
-		curl -s 'localhost:79/rci/show/interface' \
-			   | sed -n "/\"${inface_cli}\":/,/\},/p" \
-			   | grep -i 'defaultgw' \
-			   | grep -qi 'true' && continue
 		# получаем текущее состояние инф-са для возвращения его к исходному состоянию
-		state=$(curl -s 'localhost:79/rci/show/interface' \
-			   | sed -n "/\"${inface_cli}\":/,/\},/p" \
-			   | grep -Ei 'state' \
-			   | cut -d':' -f2 | tr -d ' ",' \
-			   )
+		state=$(get_value_interface_field "${inface_cli}" state)
+#		state=$(curl -s "${INFACE_REQUEST}" \
+#			| jq -r '.[] | select(.id=="'"${inface_cli}"'") | .state' \
+#			)
 		# в зависимости от состояния - включаем и выключаем или выключаем и включаем интерфейс
 		# для того, чтобы сработал наш хук в файле /opt/etc/ndm/ifstatechanged.d/100-save-inface_entware
 		if [ "${state}" = 'up' ]; then
-			curl -s -d '{"down":"true"}' "localhost:79/rci/interface/${inface_cli}" &> /dev/null
+			curl -s -d '{"down":"true"}' "${INFACE_PART_REQUEST}/${inface_cli}" &> /dev/null
 		else
-			curl -s -d '{"up":"true"}' "localhost:79/rci/interface/${inface_cli}" &> /dev/null
+			curl -s -d '{"up":"true"}' "${INFACE_PART_REQUEST}/${inface_cli}" &> /dev/null
 		fi
 #		[ -n "$(echo "${inface_cli}" | grep -i 'openvpn')" ] &&
 		sleep 2
-		curl -s -d "{\"${state}\":\"true\"}" "localhost:79/rci/interface/${inface_cli}" &> /dev/null
+		curl -s -d "{\"${state}\":\"true\"}" "${INFACE_PART_REQUEST}/${inface_cli}" &> /dev/null
 		# получаем описание интерфейса
-		description=$(curl -s 'localhost:79/rci/show/interface' \
-					 | sed -n "/\"${inface_cli}\":/,/\},/p" \
-					 | grep -Ei 'description' \
-					 | cut -d':' -f2 | tr -d ' ",' \
-					 | sed 's|\/|\\/|g'\
-					 )
+		description=$(get_value_interface_field "${inface_cli}" description | sed 's|\/|\\/|g')
+#		description=$(curl -s "${INFACE_REQUEST}" \
+#					 | jq -r '.[] | select(.id=="'"${inface_cli}"'") | .description' \
+#					 | sed 's|\/|\\/|g'\
+#					 )
 		# вставляем описание в файл /opt/etc/infaces_names
 		[ -n "${description}" ] && \
 			sed -i 's/\('"${inface_cli}"'.*\)/\1|'"${description}"'/' "${INFACE_NAMES_FILE}"
@@ -957,7 +1106,7 @@ get_vpn_interface_by_num() {
 # ------------------------------------------------------------------------------------------
 get_current_vpn_interface() {
 	type="${1}"
-	if [ -f "/opt/etc/ndm/netfilter.d/100-ipset-redirect" ]; then
+	if [ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ]; then
 		inface='shadowsocks'
 	else
 		case "${type}" in
@@ -980,45 +1129,41 @@ get_current_vpn_interface() {
 # ------------------------------------------------------------------------------------------
 is_vpn_interface_connected() {
 	cli_inface="${1}"
-	if [ "${1}" = shadowsocks ]; then
-		/opt/etc/init.d/S22shadowsocks status | grep 'alive' &> /dev/null
+	if [ "${cli_inface}" = shadowsocks ]; then
+		/opt/etc/init.d/S22shadowsocks status | grep -q 'alive' &> /dev/null
 		if [ $? = 0 ]; then connected="on"; else connected="off"; fi
 	else
-		status=$(curl -s 'localhost:79/rci/show/interface' \
-				| sed -n "/\"${cli_inface}\":/,/\},/p" \
-				| grep "connected" \
-				| cut -d':' -f2 \
-				| tr -d ' ",'\
-				)
+		status=$(get_value_interface_field "${cli_inface}" connected)
 		if [ "${status}" = 'yes' ]; then connected="on"; else connected="off"; fi
 	fi
 	echo "${connected}"
 }
+
 # ------------------------------------------------------------------------------------------
 #
 #	Переключаем интерфейс клиента
-#	$1 - id интерфейса в entware
+#   $1  - ask - делаем запросы на ввод данные ,
+#   	  no - список интерфейсов не обновляем
 #
 # ------------------------------------------------------------------------------------------
 cmd_interface_change() {
+	answer="${1}"
 
+	warning "Выберите VPN интерфейс для работы пакета"
+	print_line
 	if [ -f "${INFACE_NAMES_FILE}" ]; then
-		read_ynq "Обновить список интерфейсов" answer
+		[ "${answer}" = ask ] && read_ynq "Обновить список интерфейсов" answer
 		if [ "${answer}" = y ]; then
-			print_line
 			warning "Сканирование интерфейсов займет время."
 			warning "Сохраняйте терпение и спокойствие!"
 			print_line
 			update_interface_name_list
-		else
-			print_line
 		fi
 	else
 		update_interface_name_list
 	fi
 	inface_entware=$(get_current_vpn_interface 'entware')
-	num=0
-	sel=0
+	num=0; sel=0;connected_cur=1
 
 	while read -r line || [ -n "${line}" ]; do
 		num=$((num + 1))
@@ -1035,21 +1180,17 @@ cmd_interface_change() {
 		fi
 
 		ready "${mess}"
-		if [ "${connected}" = "on" ]; then when_ok "ПОДКЛЮЧЕН"; else when_bad "ОТКЛЮЧЕН"; fi
+		if [ "${connected}" = "on" ]; then when_ok "В СЕТИ"; else when_bad "ОТКЛЮЧЕН"; fi
 
 	done <${INFACE_NAMES_FILE}
 
 	total=$(cat <"${INFACE_NAMES_FILE}" | wc -l)
+
 	while true; do
 		print_line
-		#warning "Зеленым цветом выделен текущий интерфейс"
-		ready "${BLUE}Выберите номер варианта VPN соединения [1-${total}, Q-выход]:${NOCL}"
+		ready "${BLUE}Выберите номер варианта VPN соединения [1-${total}]:${NOCL}"
 		read -r num_vpn_inface
-		if echo "${num_vpn_inface}" | grep -iq "q"; then
-			break
-		elif echo "${num_vpn_inface}" | grep -q "${sel}" && \
-		 	 [ "${connected_cur}" = "on" ]; then
-
+		if echo "${num_vpn_inface}" | grep -q "${sel}" && [ "${connected_cur}" = "on" ]; then
 			warning "Выбранный интерфейс уже установлен, выберите иной вариант"
 		else
 			if ! echo "${num_vpn_inface}" | grep -qE "[1-${total}]"; then
@@ -1123,10 +1264,10 @@ dns_crypt_port_change() {
 	sed -i "s/\(echo \"ipset=\/\$.*\)/\1\n\t${server_crypt_1}/" '/opt/bin/kvas_dnsmasq' &> /dev/null
 
 	if [ "${cmd}" = restart ]; then
-		cmd_dnsmasqdnsmasq_dns_change "${LOCALHOST_IP}#${port_new}" restart &> /dev/null
+		cmd_dnsmasq_dns_change "${LOCALHOST_IP}#${port_new}" restart &> /dev/null
 		/opt/etc/init.d/S09dnscrypt-proxy2 restart &> /dev/null
 	else
-		cmd_dnsmasqdnsmasq_dns_change "${LOCALHOST_IP}#${port_new}" &> /dev/null
+		cmd_dnsmasq_dns_change "${LOCALHOST_IP}#${port_new}" &> /dev/null
 	fi
 
 	[ $? = 0 ] && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
@@ -1134,7 +1275,7 @@ dns_crypt_port_change() {
 
 # ------------------------------------------------------------------------------------------
 #
-#	 Сатутс dnscrypt_proxy2
+#	 Статус dnscrypt_proxy2
 #	 on - включен
 #	 off - выключен
 #
@@ -1151,6 +1292,39 @@ get_dns_crypt_status(){
 		echo off
 	fi
 
+}
+# ------------------------------------------------------------------------------------------
+#
+#	 Устанавливаем с нуля dnscrypt_proxy2
+#
+# ------------------------------------------------------------------------------------------
+dns_crypt_install() {
+
+	if /opt/etc/init.d/S09dnscrypt-proxy2 status | grep -q alive &>/dev/null; then
+		ready "Останавливаем службу dnscrypt-proxy2..."
+		/opt/etc/init.d/S09dnscrypt-proxy2 stop &>/dev/null
+		[ $? = 0 ] && when_ok "ГОТОВО" || {
+			when_bad "ОШИБКА"
+			mess="Проблема при остановке службы dnscrypt-proxy2"
+			log_in_file "ОШИБКА: ${mess}"
+			exit 1
+		}
+	fi
+	if [ -f '/opt/etc/dnscrypt-proxy.toml' ]; then
+#			print_line
+		warning "Файл конфигурации dnscrypt-proxy2 сохраняем"
+		cp /opt/etc/dnscrypt-proxy.toml /opt/etc/dnscrypt-proxy.toml.kvas
+		warning "под именем /opt/etc/dnscrypt-proxy.toml.kvas"
+#			print_line
+	fi
+	ready "Настраиваем dnscrypt-proxy2..."
+	cmd_dns_crypt_on &>/dev/null
+	[ $? = 0 ] && when_ok "ГОТОВО" || {
+			when_bad "ОШИБКА"
+			mess="Проблема при активации шифрования DNS трафика"
+			log_in_file "ОШИБКА: ${mess}"
+			exit 1
+		}
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -1189,13 +1363,15 @@ cmd_dns_crypt_off() {
 
 	ready "Шифрование DNS"
 	crypt_port=$(get_config_value DNS_CRYPT_PORT)
-	static_dns=$(get_config_value DNS_STATIC)
+	static_dns=$(get_config_value DNS_STATIC_1)
 	sed -i "s/\(@.*\)\(:[0-9]\{2,6\}\)/@localhost/g" '/opt/bin/kvas_ipset' &> /dev/null
 	sed -i "/proxy-dnssec/d" /opt/etc/dnsmasq.conf
 	sed -i "s/\(^server=\)${LOCALHOST_IP}#${crypt_port}/\1${static_dns}/" /opt/etc/dnsmasq.conf
 	sed -i '/server/d' '/opt/bin/kvas_dnsmasq' &> /dev/null
 
 	rm '/opt/etc/kvas.dnsmasq' &> /dev/null
+	set_config_value DNS_CRYPT_PORT "${static_dns}"
+
 	/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
 	cmd_update_list &> /dev/null
 	OFF="ВСЕ ЕЩЕ ПОДКЛЮЧЕНО.\nПроизошла непредвиденная ошибка."
@@ -1224,17 +1400,38 @@ cmd_dns_crypt_status_show() {
 #
 #	Тестируем хост на доступноость
 #	$1 - доменное имя
+#	$2 - команда для возврата:
+#		ip - возвращает ip вместо 1
 #
 # ------------------------------------------------------------------------------------------
 test_host() {
+
 	ret=0
 	if echo "${1}" | grep -q '\.' ; then
-		dns=$(get_config_value DNS_DEFAULT)
-		if [ -n "$(kdig "${1}" +short "@${dns}" | head -1)" ]; then ret=1; fi
+		dns=$(get_config_value DNS_DEFAULT )
+		ips="$(kdig "${1}" +short "@${dns}" &> /dev/null)"
+		if [ -z "${ips}" ]; then
+			dns=$(get_config_value DNS_STATIC_1)
+			ips=$(kdig "${1}" +short "@${dns}" 2> /dev/null)
+
+			if [ -z "${ips}" ]; then
+				dns=$(get_config_value DNS_STATIC_2);
+				ips=$(kdig "${1}" +short "@${dns}" 2> /dev/null)
+				[ -n "${ips}" ] && set_config_value DNS_DEFAULT "${dns}"
+			else
+				set_config_value DNS_DEFAULT "${dns}"
+			fi
+		fi
+		if [ -n "${2}" ] && [ "${2}" = ip ]; then
+			ret=${ips}
+		else
+			if [ -n "$( echo "${ips}" | head -1 2> /dev/null )" ]; then ret=1; fi
+		fi
 	fi
 	echo "${ret}"
+
 }
-_host_add(){
+host_add(){
 	host="${1}"
 	clear_host=$(echo "${host}" | sed 's/\*//')
 	ready "Добавляем ${YELLOW}${clear_host}${NOCL} в список разблокировки..."
@@ -1258,7 +1455,7 @@ cmd_add_one_host() {
 	#	формальная проверка на наличие точки в имени домена
 	if echo "${host}" | grep -q '\.' ; then
 		if echo "${clear_host}" | grep -qE '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' ; then
-			_host_add "${host}"
+			host_add "${host}"
 		else
 			if [ "$(test_host "${clear_host}")" -eq 0 ]; then
 				if [ -z "${2}" ]; then
@@ -1276,7 +1473,7 @@ cmd_add_one_host() {
 					fi
 				else
 					if [ -z "${2}" ]; then
-						_host_add "${host}"
+						host_add "${host}"
 					else
 						echo +
 					fi
@@ -1591,8 +1788,8 @@ cmd_set_period_update() {
 cmd_ads_edit() {
 	nano '/opt/etc/adblock.sources' &&
 		(
-			cmd_ads_protect_on
-			ads_request_to_upload
+			cmd_ads_protect_on ask
+#			ads_request_to_upload
 			print_line
 			ready "Перезапуск службы dnsmasq"
 			/opt/etc/init.d/S56dnsmasq restart &> /dev/null
@@ -1623,9 +1820,11 @@ cmd_ads_protect_off() {
 # ------------------------------------------------------------------------------------------
 #
 #	 Включаем работу блока борьбы с рекламой
+#	$1 - задаем вопросы (ask)  или отвечаем на все да (yes)
 #
 # ------------------------------------------------------------------------------------------
 cmd_ads_protect_on() {
+	perform_to_aks="${1}"
 	if [ -f '/opt/bin/kvas_adblock' ]; then
 		cat < '/opt/etc/dnsmasq.conf' | sed '/^#/d' | grep "adblock.dnsmasq" &> /dev/null
 		if [ $? = 0 ]; then
@@ -1639,8 +1838,8 @@ cmd_ads_protect_on() {
 #			echo 'conf-file=/opt/etc/adblock.dnsmasq' >>'/opt/etc/dnsmasq.conf'
 			OFF="ОТКЛЮЧЕНА.\nПроизошла не предвиденная ошибка."
 			[ $? = 0 ] && when_ok "ВКЛЮЧЕНА" || when_bad "${OFF}"
-			print_line
-			ads_request_to_upload
+#			print_line
+			ads_request_to_upload "${perform_to_aks}"
 			print_line
 			ready "Перезапуск службы dnsmasq"
 			/opt/etc/init.d/S56dnsmasq restart &> /dev/null
@@ -1672,18 +1871,22 @@ cmd_ads_status() {
 #
 # ------------------------------------------------------------------------------------------
 ads_request_to_upload() {
-
+	answer="${1::}"
 	if [ -f /opt/etc/adblock.sources.kvas ]; then
 		warning "Обнаружен архивный файл с источниками обновления рекламы."
-		answer=''; read_ynq "Восстановить данный файл" answer
-		[ "${answer}" = y ] && {
+		[ "${answer}" = ask ] && read_ynq "Восстановить данный файл" answer
+		if [ "${answer}" = y ]; then
 			ready "Восстановление архива с источниками рекламы завершено"
 			mv /opt/etc/adblock.sources.kvas /opt/etc/adblock.sources
 			[ $? = 0 ] && when_ok "УДАЧНО" || when_bad "С ОШИБКОЙ"
-		}
+		else
+			ready "Загрузка источников рекламы по умолчанию"
+			mv /opt/apps/kvas/files/etc/conf/adblock.sources /opt/etc/adblock.sources
+			[ $? = 0 ] && when_ok "УДАЧНО" || when_bad "С ОШИБКОЙ"
+		fi
 	fi
 	if [ -f /opt/tmp/adblock/hosts ]; then
-		answer=''; read_ynq "Обновить списки блокировки рекламы" answer
+		[ "${answer}" = ask ] && read_ynq "Обновить списки блокировки рекламы" answer
 		[ "${answer}" = y ] && /opt/bin/kvas_adblock
 	else
 		/opt/bin/kvas_adblock

@@ -2,7 +2,7 @@
 # ------------------------------------------------------------------------------------------
 #	 Вспомогательные переменные для работы скрипта
 # ------------------------------------------------------------------------------------------
-. /opt/bin/unblock_lib
+. /opt/bin/kvas_lib_main
 
 # Флаг пропуска блокировки рекламы
 # 0-вЫключаем блокиратор рекламы,
@@ -10,21 +10,32 @@
 ADS_BLOCKER_ON=0
 # "Процесс обновления списка рекламы..."
 if [ -z "$1" ] && [ "${ADS_BLOCKER_ON}" = 1 ]; then
-	/opt/bin/update_adblock
+	/opt/bin/kvas_adblock
 	print_line
 fi
-
-ready "Обновление списка dnsmasq"
 ipset flush unblock
-/opt/bin/unblock_dnsmasq
-[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 
-ready "Перезапуск службы dnsmasq"
-/opt/etc/init.d/S56dnsmasq restart &>/dev/null
-[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+agh_port=$(cat < "${ADGUARDHOME_CONFIG}" | grep 'port:' | cut -d':' -f2 | tr -d ' ')
+if [ "${agh_port}" = 53 ] ; then
+	ready "Обновление списка ipset для AdGuard Home"
+	/opt/bin/kvas_adguard
+	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 
+	ready "Перезапуск службы AdGuard Home"
+	/opt/etc/init.d/S99adguardhome restart &>/dev/null
+	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+else
+	ready "Обновление списка dnsmasq"
+	/opt/bin/kvas_dnsmasq
+	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+
+	ready "Перезапуск службы dnsmasq"
+	/opt/etc/init.d/S56dnsmasq restart &>/dev/null
+	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+
+fi
 ready "Обновление таблицы ipset"
-/opt/bin/unblock_ipset &
+/opt/bin/kvas_ipset &> /dev/null &
 [ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 
 print_line

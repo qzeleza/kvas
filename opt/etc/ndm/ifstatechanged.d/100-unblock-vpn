@@ -1,0 +1,28 @@
+#!/bin/sh
+
+TABLE_ID=1001
+PRIORITY=1778
+INFACE_VPN=@ENTWARE_INFACE_NAME
+
+[ "${1}" = "hook" ] || exit 0
+[ "${change}" = "link" ] || exit 0
+[ "${id}" = "${INFACE_VPN}" ] || exit 0
+
+INFACE_GW4=$(ip addr show "${INFACE_VPN}" | grep -Po "(?<=inet ).*(?=/)")
+
+case "${id}-${change}-${connected}-${link}-${up}" in
+    "${id}-link-no-down-down" )
+        ip rule del fwmark 0xd1000 lookup ${TABLE_ID} priority ${PRIORITY} 2>/dev/null
+        ip route flush table ${TABLE_ID}
+        logger "unblock::Таблица ${TABLE_ID} удалена"
+    ;;
+    "${id}-link-yes-up-up" )
+        ip route add table ${TABLE_ID} default via ${INFACE_GW4} dev ${INFACE_VPN} 2>/dev/null
+        ip route show table main |grep -Ev ^default | while read -r ROUTE; do ip route add table ${TABLE_ID} ${ROUTE} 2>/dev/null; done
+        ip rule add fwmark 0xd1000 lookup ${TABLE_ID} priority ${PRIORITY} 2>/dev/null
+        ip route flush cache
+        logger "unblock::Таблица ${TABLE_ID} создана"
+    ;;
+esac
+
+exit 0

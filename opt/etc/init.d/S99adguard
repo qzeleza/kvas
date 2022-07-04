@@ -1,13 +1,20 @@
 #!/bin/sh
 
+CNF="-c /opt/etc/AdGuardHome/AdGuardHome.yaml"
+DIR="-w /opt/etc/AdGuardHome"
+LOG="-l /opt/var/log/AdGuardHome.log"
+PID="--pidfile /opt/var/run/AdGuardHome.pid"
+UPD="--no-check-update"
+OPT="${DIR} ${LOG} ${PID} ${UPD} ${CNF}"
+
 ENABLED=yes
 PROCS=AdGuardHome
-ARGS="-l /var/log/adguardhome.log --no-check-update"
+ARGS="${OPT}"
 PREARGS=""
-DESC=$PROCS
+DESC=${PROCS}
 PATH=/opt/sbin:/opt/bin:/opt/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-case $1 in
+case ${1} in
 	start|restart)
 	/opt/etc/ndm/fs.d/100-ipset "${1}"
 	/opt/bin/kvas_adguard

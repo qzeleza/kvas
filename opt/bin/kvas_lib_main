@@ -7,10 +7,15 @@ GREEN="\033[1;32m";
 BLUE="\033[36m";
 YELLOW="\033[33m";
 NOCL="\033[m";
+DATE_FORMAT='+%d/%m/%Y %H:%M:%S'
 
 LENGTH=66
 PROGRESS_BAR_WIDTH=$((LENGTH-5))  # progress bar length in characters
-KVAS_CONF_FILE=/opt/apps/kvas/files/etc/conf/kvas.conf
+KVAS_CONF_FILE=/opt/etc/kvas.conf
+ADGUARDHOME_CONFIG=/opt/etc/AdGuardHome/AdGuardHome.yaml
+ADGUARDHOME_LOG=/opt/var/log/AdGuardHome.log
+ADGUARDHOME_DEMON=/opt/etc/init.d/S99adguardhome
+DNSMASQ_DEMON=/opt/etc/init.d/S56dnsmasq
 
 
 # ------------------------------------------------------------------------------------------
@@ -58,7 +63,7 @@ progress_bar() {
   num_bar=$(( percentage * PROGRESS_BAR_WIDTH / 100 ))
 
   # Рисуем прогресс-бар
-  printf "[ %s" "${GREEN}"
+  printf "[ ${GREEN}"
   for b in $(seq 1 ${num_bar}); do printf "#"; done
   for s in $(seq 1 $(( PROGRESS_BAR_WIDTH - num_bar ))); do printf " "; done
   printf "${NOCL} ] ${percentage}%% (${value}/${max}${unit})\r"
@@ -103,11 +108,22 @@ get_local_inface(){
 }
 # ------------------------------------------------------------------------------------------
 #
+#	Получаем протокол работы WUI роутера:
+#	Возвращает HTTP:// или HTTPS://
+#
+# ------------------------------------------------------------------------------------------
+get_router_protocol(){
+	ssl=$(curl -s "${LOCALHOST_IP}:79/rci/ip/http/security-level" | grep ssl | sed 's/.ssl.://' | tr -d " ")
+	[ "${ssl}" = "true" ] && protocol='https://' || protocol='http://'
+	echo ${protocol}
+}
+# ------------------------------------------------------------------------------------------
+#
 #	Получаем локальный порт WUI роутера
 #
 # ------------------------------------------------------------------------------------------
 get_router_wui_port(){
-	curl -s "localhost:79/rci/ip/http/port" | tr -d '" '
+	curl -s "${LOCALHOST_IP}:79/rci/ip/http/port" | tr -d '" '
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -117,8 +133,7 @@ get_router_wui_port(){
 get_router_host(){
 	port=$(get_router_wui_port)
 	ip=$(get_router_ip)
-	ssl=$(curl -s "localhost:79/rci/ip/http/security-level" | grep ssl | sed 's/.ssl.://' | tr -d " ")
-	[ "${ssl}" = "true" ] && protocol='https://' || protocol='http://'
+	protocol=$(get_router_protocol)
 	! [ "${port}" -eq 80 ] && ip="${ip}:${port}"
 	echo "${protocol}${ip}"
 }
@@ -126,22 +141,36 @@ get_router_host(){
 #
 #	Печать текста с выравниванием по левому краю
 # 	$1 - текст
-#	$2 - ширина выравнивания в символах
 #
 # ------------------------------------------------------------------------------------------
-ljust() {
-  printf "%-${2}s" "${1}"
+left() {
+  text=$(printf "%-${LENGTH}s" "${1}")
+  echo -e "${text}"
 }
+# ------------------------------------------------------------------------------------------
+#
+#	Печать текста с выравниванием по центру
+# 	$1 - текст
+#
+# ------------------------------------------------------------------------------------------
+center() {
+	diff=$((LENGTH-${#1}))
+  	right=$((diff/2))
+  	left=$((diff - right))
+  	text=$(printf "%*s%s%*s\n" "${left}" "" "${1}" "${right}" "")
+  	echo -e "${text}"
+}
+
 # ------------------------------------------------------------------------------------------
 #
 #	 Вспомогательная функция печати в лог отладки
 #
 # ------------------------------------------------------------------------------------------
 echo_debug(){
-  if [ -n "${2}" ]; then
-    print_line; echo -e "${1}"; print_line
-    echo -e "${2}"; printf "\n"
-  fi
+	if [ -n "${2}" ]; then
+		print_line; echo -e "${1}"; print_line
+		echo -e "${2}"; printf "\n"
+	fi
 }
 diff_len(){
 	charlen=$(echo "${1}" | sed -r "s/[\]033\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g")
@@ -151,6 +180,11 @@ diff_len(){
 ready() {
 	size=$(diff_len "${1}")
 	printf "%b%-${size}s%b" "${1}"
+}
+ready_red() {
+	error="${RED}${1}${NOCL}"
+	size=$(diff_len "${error}")
+	printf "%b%-${size}s%b" "${error}"
 }
 error(){
 	_error="${RED}${1}${NOCL}"
@@ -214,10 +248,10 @@ rec_in_file(){
 read_ynq(){
 	header="$(echo "${1}" | tr -d '?')"; quest="[Y/N,Q]?"
 #	в случае, если встретиться слово с корнем "удал", то цвет заголовка - красный
-	if echo header | grep -qiE "удал"; then
-		header="${RED}${header}${NOCL} ${quest}";
+	if echo "${header}" | grep -qiE "удал"; then
+		header="${RED}${header} ${quest}${NOCL}";
 	else
-		header="${BLUE}${header}${NOCL} ${quest}";
+		header="${BLUE}${header} ${quest}${NOCL}";
 	fi
 	while true; do
 		ready "${header}"
@@ -276,20 +310,34 @@ read_value(){
 }
 # ------------------------------------------------------------------------------------------
 #
+#	 Получаем  системное время с удаленного сервера
+#	 $1 - адрес удаленного сервера
+#
+# ------------------------------------------------------------------------------------------
+get_server_date(){
+	curl --insecure --silent --max-time 5 --head "https://${1}/" \
+				| grep -i ^Date: \
+				| cut -d' ' -f2-
+}
+# ------------------------------------------------------------------------------------------
+#
 #	 Обновляем системное время
 #
 # ------------------------------------------------------------------------------------------
 date_update(){
-	curdate=$(date)
-	date -u -D '%a, %d %b %Y %H:%M:%S' -s "$(curl --insecure --silent --max-time 5 --head 'https://1.1.1.1/' 2>/dev/null | grep -i ^Date: | cut -d' ' -f2-)" &>/dev/null
+	convert_format='%a, %d %b %Y %H:%M:%S'
+	show_format="+%H:%M:%S"
+	ip=$(get_config_value DNS_STATIC_1)
+	date -u -D "${convert_format}" -s "$(get_server_date "${ip}")" &>/dev/null
 	if [ $? != 0 ]; then
-		date -u -D '%a, %d %b %Y %H:%M:%S' -s "$(curl --insecure --silent --max-time 5 --head 'https://9.9.9.9/' 2>/dev/null | grep -i ^Date: | cut -d' ' -f2-)" &>/dev/null
+		ip=$(get_config_value DNS_STATIC_2)
+		date -u -D "${convert_format}" -s "$(get_server_date "${ip}")" &>/dev/null
 		if [ $? = 0 ]; then
-			echo "Системное время успешно обновлено с резервного сервера:"
-			echo "${curdate} -> $(date)"
+			echo "Системное время обновлено с резервного сервера:"
+			when_alert "$(date "${show_format}")"
 		fi
 	else
-		echo "Системное время успешно обновлено с основного сервера:"
-		echo "${curdate} -> $(date)"
+		ready "Системное время обновлено с основного сервера:"
+		when_alert "$(date "${show_format}")"
 	fi
 }

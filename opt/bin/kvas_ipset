@@ -21,28 +21,28 @@ while read -r line || [ -n "${line}" ]; do
   # обрабатываем и добавляем в таблицу сети, например 134.55.16.0/24
   cidr=$(echo "${line}" | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{1,2}')
   if [ -n "${cidr}" ]; then
-    ipset -exist add unblock "${cidr}"
+    ipset -exist add unblock "${cidr}" &> /dev/null
     continue
   fi
 
   # обрабатываем и добавляем в таблицу интервалы сетей, например 134.55.16.0-134.55.18.0
   range=$(echo "${line}" | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}-[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
   if [ -n "${range}" ]; then
-    ipset -exist add unblock "${range}"
+    ipset -exist add unblock "${range}" &> /dev/null
     continue
   fi
 
   # обрабатываем и добавляем в таблицу IP адреса, например 134.55.16.34
   addr=$(echo "${line}" | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
   if [ -n "${addr}" ]; then
-    ipset -exist add unblock "${addr}"
+    ipset -exist add unblock "${addr}" &> /dev/null
     continue
   fi
 
   # обрабатываем и добавляем в таблицу домены, из которых получаем сначала IP адреса
   line=$(echo "${line}" | sed 's/\*//')
   kdig +short "${line}" @localhost | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' \
-  	| awk '{system("ipset -exist add unblock "$1)}'
+  	| awk '{system("ipset -exist add unblock "$1)}' &> /dev/null
 
-done < @UNBLOCK_LIST
+done < /opt/etc/hosts.list
 

@@ -1,921 +1,9 @@
 #!/bin/sh
-#set -ex
-# ------------------------------------------------------------------------------------------
-#
-# 	Добавляет хосты в белый список, доступ к сайтам которого
-#   осуществляется через Shadowsocks
-#
-#	Разработчик: mail@zeleza.ru
-#	Дата: 21/05/2022
-#	Лицензия: GPL 2.0
-#
-# ------------------------------------------------------------------------------------------
-#	Основные переменные для работы скрипта
-# ------------------------------------------------------------------------------------------
-APP_NAME=kvas
+. /opt/bin/kvas_lib_vpn
+
 APP_VERSION=
 APP_RELEASE=
-UNBLOCK_LIST_FILE="/opt/etc/${APP_NAME}.list"
-CRONTAB_FILE=/opt/etc/crontab
-UPDATE_BIN_FILE=/opt/bin/unblock_update
 
-DNS_DEFAULT=1.1.1.1
-DNS_CRYPT_PORT=9153
-DNS_CACHE_ENABLED=true
-
-. /opt/bin/unblock_lib
-# ------------------------------------------------------------------------------------------
-#
-#	Функция вывода помощи по работе скрипта
-#
-# ------------------------------------------------------------------------------------------
-help(){
-    echo "Утилита КВАС"
-    print_line
-    echo "Обновляет список разблокировки хостов, которые смогут работать"
-    echo "через Shadowsocks. При обращении к любому хосту из этого списка,"
-    echo "весь трафик будет идти через Shadowsocks соединение."
-    print_line
-    echo "Ключи запуска: "
-    echo "${APP_NAME} {update|add|new|del|rm|show|list|purge|clear|import"
-    echo "        |export|period|version|help} [+-][хост]"
-    print_line
-    echo "add[new]	- добавляем один хост в список разблокировки"
-    echo "		  аргументом является добавляемый хост."
-    echo
-    echo "del[rm]		- удаляем указанный хост из списка разблокировки."
-    echo "purge[clear]	- полностью очищаем список разблокировки."
-    echo "show[list]	- выводим список всех хостов в списках разблокировки"
-    echo "		  и блокировки. "
-    echo
-    echo "export		- экспорт списочного файла в указанный файл."
-    echo "update 		- обновляем список IP адресов для хостов для dnsmasq"
-    echo "period 		- установка/просмотр периода обновления IP адресов"
-    echo "		  для списочного файла. Период должно указывать"
-    echo "		  в форматах: m,h,d,w,n, например:"
-    echo "		     2m - обновляем каждые две минуты"
-    echo "		     2h - обновляем каждые два часа"
-    echo "		     3d - обновляем каждые три дня"
-    echo "		     4w - обновляем каждые четыре недели"
-    echo "		     2M - обновляем каждых два месяца"
-    echo "		  Возможен только один из вариантов, например:"
-    echo "		  10m или 2h, по умолчанию -период обновления каждые"
-    echo "		  12 часов или 2 раза в сутки."
-    echo
-    echo "import		- добавляем хосты из указанного файла в списочный файл"
-    echo "		  допускается использование комментариев с символом '#'."
-    echo "test		- проверка работы всех служб, задействованных в работе КВАСА."
-    echo "debug		- вывод отладочной информации в случае сбоев в работе КВАСА."
-    echo
-    echo "adblock on	- ВКЛючаем, блокировку рекламы."
-    echo "adblock off	- ОТКлючаем, блокировку рекламы."
-    echo "adblock		- выводит состояние режима блокировки рекламы."
-    echo "adblock edit	- редактируем список источников блокировки рекламы."
-    echo "		  Обработке подлежат лишь те, файлы, которые содержат"
-    echo "		  записи в формате 0.0.0.0 <домен> или 127.0.0 <домен>"
-    echo
-    echo "crypt on	- ВКЛючаем,  шифрование dns (пакет dnscrypt-proxy2)."
-    echo "crypt	off - ОТКлючаем, шифрование dns."
-    echo "crypt	- выводим статус шифрования dns (включено/отключено)."
-    echo
-    echo "version		- отображаем версию утилиты."
-    echo "help		- настоящая справка."
-    print_line
-    echo "Примеры использования:"
-    print_line
-    echo "${APP_NAME} add +ya.ru    - добавляем ya.ru в список разблокировки."
-    echo "${APP_NAME} add ya.ru     - добавляем ya.ru в список разблокировки."
-    echo "${APP_NAME} add -rk.com   - добавляем хост в список блокировки рекламы."
-    echo "${APP_NAME} import ./list - добавляем хосты из файла в списочный файл."
-    echo "${APP_NAME} rm google     - удаляем все хосты из списочного файла."
-    echo "${APP_NAME} show          - выводим все хосты из списка разблокировки."
-    echo "${APP_NAME} show block    - выводим только хосты из списка блокировки."
-    echo "${APP_NAME} purge         - удаляем все хосты из списка разблокировки."
-}
-
-update_list(){
-	ready "Обновляем маршруты и таблицы ipset..."
-	"${UPDATE_BIN_FILE}" &>/dev/null
-	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
-}
-# ------------------------------------------------------------------------------------------
-#
-#	Добавляем в белый список одно доменное имя, точнее список его IP адресов
-#	$1 - доменное имя, для котрого необходимо получить IP
-#
-# ------------------------------------------------------------------------------------------
-test_host(){
-    ret=0
-    if [ -n "$(echo "${1}" | grep '\.')" ]; then
-      if [ -n "$(kdig "${1}" +short | head -1)" ]; then ret=1; fi
-    fi
-    echo "${ret}"
-}
-add_one_host(){
-	host="${1}"
-#	формальная проверка на наличие точки в имени домена
-	if [ "$(test_host "${host}")" -eq 0 ]; then
-	  if [ -z "${2}" ]; then
-		  error "Некорректно указано имя домена - ${1}, домен не отвечает.";
-		else
-		  echo 0
-		fi
-	else
-		is_here=$(cat < "${UNBLOCK_LIST_FILE}" | grep -e "${host}")
-		if [ -n "${is_here}" ]; then
-		  if [ -z "${2}" ]; then
-		    error "Такой домен уже есть в списке разблокировки!"
-		  else
-		    echo 1
-		  fi
-		else
-      if [ -z "${2}" ]; then
-        ready "Добавляем ${YELLOW}${host}${NOCL} в список разблокировки..."
-        echo "${host}" >> "${UNBLOCK_LIST_FILE}"
-        update_list &>/dev/null
-        [ $? = 0 ] && when_ok "ДОБАВЛЕН" || when_bad "НЕ ДОБАВЛЕН"
-      else
-        echo +
-      fi
-		fi
-	fi
-}
-
-# ------------------------------------------------------------------------------------------
-#
-#	Удаляем из белого списка одно доменное имя, точнее список его IP адресов
-#	$1 - доменное имя для уадления
-#
-# ------------------------------------------------------------------------------------------
-del_one_host(){
-	host="${1}"
-	if [ -n "$(cat < "${UNBLOCK_LIST_FILE}" | grep "${host}")" ]; then
-		ready "Удаляем ${YELLOW}${host}${NOCL} из списка разблокировки..."
-		sed -i "/${host}/d" "${UNBLOCK_LIST_FILE}"
-		update_list &>/dev/null
-		[ $? = 0 ] && when_ok "УДАЛЕН" || when_bad "НЕ УДАЛЕН"
-	else
-		error "Такая запись отсуствует в списка разблокировки!"
-	fi
-}
-# ------------------------------------------------------------------------------------------
-#
-#	Очищаем полностью белый список
-#
-# ------------------------------------------------------------------------------------------
-
-clear_list(){
-	if [ ! -f "${UNBLOCK_LIST_FILE}" ]; then
-		error "Списочный файл не существует!"
-	elif [ "$(rec_in_file "${UNBLOCK_LIST_FILE}")" = '0' ]; then
-		error "Cписок разблокировки не содержит записей!"
-	else
-		while true; do
-		ready "Cписок разблокировки будет полностью очищен. Уверены?" && read -r yn
-			case ${yn} in
-				[Yy]* )
-					print_line
-					ready "Очищаем cписок разблокировки ..."
-					mv "${UNBLOCK_LIST_FILE}" "${UNBLOCK_LIST_FILE}.old"
-					touch "${UNBLOCK_LIST_FILE}"
-					update_list &>/dev/null
-					[ $? = 0 ] && when_ok "ОЧИЩЕН" || when_bad "ОШИБКА"
-					print_line
-					warning "Предыущий список разблокировки был сохранен в файл ${UNBLOCK_LIST_FILE}.old"
-					break;;
-				[Nn]* )
-					break;;
-				* )
-				  please_repeat;;
-			esac
-		done
-	fi
-}
-# ------------------------------------------------------------------------------------------
-#
-#	Импортируем (вносим) список доменнов в "белый список"
-#
-#	$1 - имя файла со списком доменных имен, допускается использование # для комментариев
-#		 одно имя - одна строка в списочном файле
-#
-# ------------------------------------------------------------------------------------------
-rec_in_var(){
-  echo -e "${1}" | sed '/^$/d' | wc -l
-}
-import_hosts(){
-	if [ -z "${1}" ]; then
-		error "Не задано имя файла для импорта."
-		error "Укажите его вторым аргументом при запуске!";
-	else
-		if ! [ -f "${1}" ]; then
-			error "Списочный файл ${1} не существует."
-			error "Проверьте верность написания пути и его имени."
-		else
-			ready "Импортируем хосты в список разблокировки и обновляем маршруты..."
-			host_list=$(clear_content "${1}")
-			clear_file_content "${UNBLOCK_LIST_FILE}"
-
-      hosts_to_add_ubl=''
-      hosts_repeated_ubl=''
-      hosts_not_added=''
-
-			while read -r line || [ -n "${line}" ]; do
-        # удаляем из строки комментарии - все что встречается после символа # и сам символ
-        host=$(echo "${line}" | sed 's/#.*$//g' | tr -s ' ' )
-        #  пропускаем пустые строки и строки с комментариями
-        [ -z "${host}" ] && continue
-        #  пропускаем строки с комментариями
-        [ "${host:0:1}" = "#" ] && continue
-
-        case "$(add_one_host "${host}" "test")" in
-          0)  hosts_not_added="${hosts_not_added}${host}\n";;
-          1) hosts_repeated_bl="${hosts_repeated_bl}${host}\n" ;;
-          +)  hosts_to_add_ubl="${hosts_to_add_ubl}${host}\n" ;;
-          *)    ;;
-        esac
-      done < "${host_list}"
-
-#     добавляем хосты в файл списочный
-      _hosts_to_add_ubl=$(echo -e "${hosts_to_add_ubl}" | sed '/^$/d; /^[-+]/!s/\(.*\)/+\1/')
-      echo -e "${_hosts_to_add_ubl}" >> "${UNBLOCK_LIST_FILE}"
-#     обновляем таблицу ipset
-      update_list &>/dev/null
-	  [ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
-
-	  num_not_added=$(rec_in_var "${hosts_not_added}")
-      num_repeated_ubl=$(rec_in_var "${hosts_repeated_ubl}")
-      num_to_add_ubl=$(rec_in_var "${hosts_to_add_ubl}")
-
-      num_errors=$((num_not_added + num_repeated_ubl))
-      tab="    "
-      print_line
-      if [ "${num_to_add_ubl}" -eq 0 ]; then
-        warning "Новых записей добавлено не было!"
-      else
-        warning "В список разблокировки было добавлено ${YELLOW}${num_to_add_ubl}${GREEN} записей:"
-        print_line
-        if [ "${num_to_add_ubl}" -gt 0 ]; then
-          warning "${tab}Список разблокировки ${YELLOW}${num_to_add_ubl}${GREEN} записей:"
-          print_line
-          echo -e "${hosts_to_add_ubl}" | sed 's/^$/'"$(print_line)"'/; /^[-]/!s/\(.*\)/'"${tab}"'\1/g'
-        fi
-      fi
-      if [ "${num_errors}" -eq 0 ]; then
-        echo
-        error "В ходе импорта возникли ошибки ${YELLOW}${num_errors}${RED} шт.:"
-        print_line
-        if [ "${num_not_added}" -gt 0 ]; then
-          error "${tab}Проблем в написании или недоступности доменов выявлено ${YELLOW}${num_not_added}${RED} шт."
-          print_line
-          echo -e "${hosts_not_added}" | sed 's/^$/'"$(print_line)"'/; /^[-]/!s/\(.*\)/'"${tab}"'\1/g'
-        fi
-        if [ "${num_repeated_ubl}" -gt 0 ]; then
-          error "${tab}Домены ниже уже присутствуют в списке разблокировки [${YELLOW}${num_repeated_ubl}${RED} шт.]"
-          print_line
-          echo -e "${hosts_repeated_ubl}" | sed 's/^$/'"$(print_line)"'/; /^[-]/!s/\(.*\)/'"${tab}"'\1/g'
-        fi
-      fi
-    fi
-	fi
-}
-# ------------------------------------------------------------------------------------------
-#
-#	Экспортируем (сохраняем) список доменновв другой файл
-#	$1 - имя файла архива
-#
-# ------------------------------------------------------------------------------------------
-export_hosts(){
-	if [ -z "${1}" ]; then
-		error "Не задано имя файла для экспорта."
-		error "Укажите его вторым аргументом при запуске!";
-	else
-		HOSTS_LIST=$(cat < "${1}" | sed 's/\(^.*\)#.*$/\1/g' | grep -v '#' | tr -s '\n' )
-		ready "Экспортируем/сохраняем записи в файл ${YELLOW}${1}${GREEN}..."
-		mkdir -p "$(dirname "${1}")" && touch "${1}" &>/dev/null
-		echo "${HOSTS_LIST}" > "${1}"
-		[ $? = 0 ] && when_ok "СОХРАНЕНЫ" || when_bad "ОШИБКА"
-	fi
-}
-# ------------------------------------------------------------------------------------------
-#
-#	Отображаем БС
-#
-# ------------------------------------------------------------------------------------------
-show_list(){
-
-	if ! [ -f "${UNBLOCK_LIST_FILE}" ]; then
-		error "Список не существует."
-	else
-		num_plus=$(rec_in_file "${UNBLOCK_LIST_FILE}")
-		if [ "${num_plus}" -eq 0 ]; then
-			error "Список разблокировки пуст!"
-		else
-			warning "Список разблокировки содержит ${YELLOW}${num_plus}${GREEN} записей:"
-			print_line
-			clear_content "${UNBLOCK_LIST_FILE}"
-		fi
-	fi
-}
-# ------------------------------------------------------------------------------------------
-#
-#	Устанавливаем частоту обновления списка ip адресов в кроне
-#
-#	$1 - Период обновления в формате
-#		 2h - обновляем каждые два часа
-#		 2m - каждые две минуты"
-#
-# ------------------------------------------------------------------------------------------
-get_time(){
-	cat < "${CRONTAB_FILE}" | grep "unblock_update" | cut -d' ' -f"${1}" | cut -d'/' -f2 | sed 's/[a-zA-Z\*]//g'
-}
-get_period_update(){
-	mm=$(get_time 1)
-	hh=$(get_time 2)
-	dd=$(get_time 3)
-	ww=$(get_time 4)
-	nn=$(get_time 5)
-	echo -en "${YELLOW}Периодичность обновления "
-	if [[ -n "${mm}" ]] && [[ "${mm}" -gt 0 ]]; then
-		echo -e "каждые ${mm} мин.${NOCL}";
-	elif [[ -n "${hh}" ]] && [[ "${hh}" -gt 0 ]]; then
-		echo -e "каждые ${hh} ч. ${NOCL}";
-	elif [[ -n "${dd}" ]] && [[ "${dd}" -gt 0 ]]; then
-		echo -e "каждые ${dd} дн. ${NOCL}";
-	elif [[ -n "${ww}" ]] && [[ "${ww}" -gt 0 ]]; then
-		echo -e "каждые ${ww} нед. ${NOCL}";
-	elif [[ -n "${nn}" ]] && [[ "${nn}" -gt 0 ]]; then
-		echo -e "каждые ${nn} мес. ${NOCL}";
-	else
-		error "не задана!"
-		echo "Поэтому, устанавливаем его по умолчанию."
-		set_period_update "12h"
-	fi
-}
-# ------------------------------------------------------------------------------------------
-#
-#	Устанавливаем частоту обновления списка ip адресов в кроне
-#
-#	$1 - Период обновления в формате
-#		 2h - обновляем каждые два часа
-#		 2m - каждые две минуты"
-#
-# ------------------------------------------------------------------------------------------
-get_period(){
-	echo "${1}" | grep "${2}" | cut -d"${2}" -f1
-}
-set_period_update(){
-	if [ -z "${1}" ]; then
-#		если аргуимент не задан, то просто
-#		отображаем заданный период обновления
-		get_period_update
-	elif [ -z "$(echo "${1}" | grep '[m,h,d,w,M]')" ] ; then
-		print_line
-		error "Указан не верный формат периода."
-		print_line
-		warning "Период должно указать в форматах: m,h,d,w,M"
-		warning "2m - обновляем каждые две минуты"
-		warning "2h - обновляем каждые два часа"
-		warning "3d - обновляем каждые три дня"
-		warning "4w - обновляем каждые четыре недели"
-		warning "2M - обновляем каждые два месяц"
-	else
-		_mins=$(get_period "${1}" "m")
-		_hours=$(get_period "${1}" "h")
-		_days=$(get_period "${1}" "d")
-		_weeks=$(get_period "${1}" "w")
-		_months=$(get_period "${1}" "M")
-		# shellcheck disable=SC2039
-		if [[ "${_mins}" && "${_hours}" ]]; then
-			error "Период задать возможно только в одном из форматов:"
-			error "в минутах(m), часах(h), днях(d), неделях(w), мсяцах(M)."
-		else
-			sed -i "/unblock_update/d" ${CRONTAB_FILE}
-			echo -n "Период обновления "
-			if [ -n "${_mins}" ]; then
-				echo "0/${_mins} * * * * root ${UPDATE_BIN_FILE} update" >> ${CRONTAB_FILE}
-				echo -e "установлен на каждые ${YELLOW}${_mins} мин.${NOCL}"
-			elif  [ -n "${_hours}" ]; then
-				echo "0 */${_hours} * * * root ${UPDATE_BIN_FILE} update" >> ${CRONTAB_FILE}
-				echo -e "установлен на каждые ${YELLOW}${_hours} ч.${NOCL}"
-			elif  [ -n "${_days}" ]; then
-				echo "0 * */${_days} * * root ${UPDATE_BIN_FILE} update" >> ${CRONTAB_FILE}
-				echo -e "установлен на каждые ${YELLOW}${_days} дн.${NOCL}"
-			elif  [ -n "${_weeks}" ]; then
-				echo "0 * * */${_weeks} * root ${UPDATE_BIN_FILE} update" >> ${CRONTAB_FILE}
-				echo -e "установлен на каждые ${YELLOW}${_weeks} нед.${NOCL}"
-			elif  [ -n "${_months}" ]; then
-				echo "0 * * * */${_months} root ${UPDATE_BIN_FILE} update" >> ${CRONTAB_FILE}
-				echo -e "установлен на каждые ${YELLOW}${_months} мес.${NOCL}"
-			fi
-		fi
-	fi
-}
-# ------------------------------------------------------------------------------------------
-#
-#	 Редактируем файл источников блокировки рекламы и нежелательных сайтов
-#
-# ------------------------------------------------------------------------------------------
-ads_edit(){
-  	nano '/opt/etc/adblock.sources' && \
-	(
-		ads_protect_on
-		ads_request_to_upload
-		print_line
-		ready "Перезапуск службы dnsmasq"
-		/opt/etc/init.d/S56dnsmasq restart &>/dev/null
-		[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
-	)
-}
-
-# ------------------------------------------------------------------------------------------
-#
-#	 Отключаем работу блока борьбы с рекламой
-#
-# ------------------------------------------------------------------------------------------
-ads_protect_off(){
-  if [ -f '/opt/bin/update_adblock' ]; then
-    ready "Блокировка рекламы"
-    sed -i '/update_adblock/d' '/opt/bin/unblock_update'
-    sed -i '/adblock.dnsmasq/d' '/opt/etc/dnsmasq.conf'
-    OFF="ПОДКЛЮЧЕНА.\nПроизошла не предвиденная ошибка."
-    [ $? = 0 ] && when_ok "ОТКЛЮЧЕНА" || when_bad "${OFF}"
-	ready "Перезапуск службы dnsmasq"
-	/opt/etc/init.d/S56dnsmasq restart &>/dev/null
-	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
-  else
-    warning 'Скрипт обработки рекламы отсутствует'
-    error 'Переустановите пакет КВАС заново!'
-  fi
-}
-# ------------------------------------------------------------------------------------------
-#
-#	 Включаем работу блока борьбы с рекламой
-#
-# ------------------------------------------------------------------------------------------
-ads_protect_on(){
-  if [ -f '/opt/bin/update_adblock' ]; then
-  	cat '/opt/etc/dnsmasq.conf' | sed '/^#/d' | grep "adblock.dnsmasq" &>/dev/null
-    if [ $? = 0 ]; then
-    	ready "Блокировка рекламы уже "; when_ok "ВКЛЮЧЕНА"
-    else
-		ready "Блокировка рекламы"
-		sed -i '/adblock.dnsmasq/d' '/opt/etc/dnsmasq.conf'
-		sed -i 's/\(^ipset.*\)/\/opt\/bin\/update_adblock\n\1/' '/opt/bin/unblock_update'
-		echo 'conf-file=/opt/etc/adblock.dnsmasq' >> '/opt/etc/dnsmasq.conf'
-		OFF="ОТКЛЮЧЕНА.\nПроизошла не предвиденная ошибка."
-		[ $? = 0 ] && when_ok "ВКЛЮЧЕНА" || when_bad "${OFF}"
-		ads_request_to_upload
-		ready "Перезапуск службы dnsmasq"
-		/opt/etc/init.d/S56dnsmasq restart &>/dev/null
-		[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
-	fi
-  else
-    error 'Скрипт обработки рекламы отсутствует'
-    error 'Переустановите пакет КВАС заново!'
-  fi
-}
-# ------------------------------------------------------------------------------------------
-#
-#	 Выводим статус блока борьбы с рекламой
-#
-# ------------------------------------------------------------------------------------------
-ads_status(){
-  if [ -f '/opt/bin/update_adblock' ]; then
-    ready "Блокировка рекламы "
-    cat '/opt/etc/dnsmasq.conf' | sed '/^#/d' | grep "adblock.dnsmasq" &>/dev/null
-    [ $? = 0 ] && when_ok "ВКЛЮЧЕНА" || when_bad "ОТКЛЮЧЕНА"
-  else
-    error 'Скрипт обработки рекламы отсутствует'
-    error 'Переустановите пакет КВАС заново!'
-  fi
-}
-# ------------------------------------------------------------------------------------------
-#
-#	 Выводим статус блока борьбы с рекламой
-#
-# ------------------------------------------------------------------------------------------
-ads_request_to_upload(){
-	while true; do
-		ready "${GREEN}Обновить списки блокировки рекламы${NOCL} [Y/N]?"
-		read -r answer
-		case "${answer}" in
-			[Yy]* )
-				print_line
-				/opt/bin/update_adblock
-				break;;
-			[Nn]* )
-			  	break;;
-			* )
-				please_repeat;;
-		esac
-    done
-}
-# ------------------------------------------------------------------------------------------
-#
-#	 Включаем работу блока шифроваия dns при помощи dnscrypt_proxy2
-#
-# ------------------------------------------------------------------------------------------
-dns_crypt_on(){
-  if [ -f '/opt/sbin/dnscrypt-proxy' ] && \
-  [ -n "$(cat < '/opt/bin/unblock_ipset' | grep -E '@localhost:[0-9]{2,6}')" ] && \
-  [ -n "$(cat < '/opt/bin/unblock_dnsmasq' | grep 'server')" ] && \
-  [ -n "$(netstat -tulnp | grep dnscrypt)" ]; then
-    ready "Шифрование DNS уже"; when_ok "ПОДКЛЮЧЕНО"
-  else
-	  ready "Шифрование DNS"
-	  sed -i "s/\(^listen_addresses.=.\).*$/\1['[::]:${DNS_CRYPT_PORT}']/g" '/opt/etc/dnscrypt-proxy.toml' &>/dev/null
-	  sed -i "s/\(^cache.=.\).*$/\1${DNS_CACHE_ENABLED}/g" '/opt/etc/dnscrypt-proxy.toml' &>/dev/null
-	  sed -i 's/\(@localhost\)[^:]/\1:'${DNS_CRYPT_PORT}' /' '/opt/bin/unblock_ipset' &>/dev/null
-
-	  sed -i '/server=\//d' '/opt/bin/unblock_dnsmasq'  &>/dev/null
-	  server="echo \"server=\/:.*\${host}.*:\/127.0.0.1#${DNS_CRYPT_PORT}\" >> \/opt\/etc\/unblock.dnsmasq"
-	  sed -i "s/\(echo \"ipset=\/.*\)/\1\n\t${server}/" '/opt/bin/unblock_dnsmasq'  &>/dev/null
-
-	  sed -i 's/\(server=\).*/\n\1127.0.0.1#'${DNS_CRYPT_PORT}'/g' /opt/etc/dnsmasq.conf
-
-	  sed -i "/proxy-dnssec/d" /opt/etc/dnsmasq.conf &>/dev/null
-	  echo "proxy-dnssec" >> /opt/etc/dnsmasq.conf
-
-	  /opt/etc/init.d/S56dnsmasq restart &>/dev/null
-	  /opt/etc/init.d/S09dnscrypt-proxy2 restart &>/dev/null
-
-	  OFF="ОТКЛЮЧЕНО.\nПроизошла не предвиденная ошибка."
-	  [ $? = 0 ] && when_ok "ПОДКЛЮЧЕНО" || when_bad "${OFF}"
-  fi
-}
-# ------------------------------------------------------------------------------------------
-#
-#	 ВЫключаем работу блока шифроваия dns при помощи dnscrypt_proxy2
-#
-# ------------------------------------------------------------------------------------------
-dns_crypt_off(){
-  ready "Шифрование DNS"
-  sed -i 's/\(\@localhost\)\(\:[0-9]\{2,6\}\)/\1/g' '/opt/bin/unblock_ipset' &>/dev/null
-  sed -i "/proxy-dnssec/d" /opt/etc/dnsmasq.conf
-  sed -i '/server=\//d' '/opt/bin/unblock_dnsmasq'  &>/dev/null
-  sed -i "s/\(server=\).*/\n\1${DNS_DEFAULT}#${DNS_CRYPT_PORT}/g" /opt/etc/dnsmasq.conf
-
-  rm '/opt/etc/unblock.dnsmasq'  &>/dev/null
-  /opt/bin/unblock_dnsmasq  &>/dev/null
-  /opt/etc/init.d/S09dnscrypt-proxy2 stop &>/dev/null
-  OFF="ВСЕ ЕЩЕ ПОДКЛЮЧЕНО.\nПроизошла непредвиденная ошибка."
-  [ $? = 0 ] && when_ok "ОТКЛЮЧЕНО" || when_bad "${OFF}"
-}
-# ------------------------------------------------------------------------------------------
-#
-#	 Выводим статус блока шифроваия dns при помощи dnscrypt_proxy2
-#
-# ------------------------------------------------------------------------------------------
-dns_crypt_status(){
-  ready "Шифрование DNS"
-  if [ -f '/opt/sbin/dnscrypt-proxy' ] && \
-  [ -n "$(cat < '/opt/bin/unblock_ipset' | grep -E '@localhost:[0-9]{2,6}')" ] && \
-  [ -n "$(cat < '/opt/bin/unblock_dnsmasq' | grep 'server')" ] && \
-  [ -n "$(netstat -tulnp | grep dnscrypt)" ]; then
-    when_ok "ПОДКЛЮЧЕНО"
-  else
-    when_bad "ОТКЛЮЧЕНО"
-  fi
-
-}
-
-# ------------------------------------------------------------------------------------------
-#
-#	 Проверяем работу всех сервисов kvas
-#
-# ------------------------------------------------------------------------------------------
-state_checker(){
-
-  ready "Состояние службы dnsmasq"
-  if /opt/etc/init.d/S56dnsmasq status &>/dev/null; then
-    when_ok "ЗАПУЩЕНА"
-  else
-    when_bad "ОСТАНОВЛЕНА";
-    ready "Перезапускаем еще раз dnsmasq"
-    if /opt/etc/init.d/S56dnsmasq restart &>/dev/null; then
-      when_ok "УСПЕШНО"
-    else
-      when_bad "ОШИБКА";
-      error "Запустите диагностику командой kvas debug";
-      exit 1
-    fi
-  fi
-
-  ready "Отслеживание [:53] порта сервисом dnsmasq"
-  if netstat -ltunp | grep -E '(53|dnsmasq)' &>/dev/null; then
-    when_ok "СЛЕДИМ"
-  else
-    when_bad "НЕТ ЗАПИСИ"; exit 1
-  fi
-
-  print_line
-  ready "Состояние службы shadowsocks"
-  if /opt/etc/init.d/S22shadowsocks status &>/dev/null; then
-    when_ok "ЗАПУЩЕНА"
-  else
-    when_bad "ОСТАНОВЛЕНА";
-    ready "Перезапускаем еще раз shadowsocks"
-    if /opt/etc/init.d/S22shadowsocks restart &>/dev/null; then
-      when_ok "УСПЕШНО"
-    else
-      when_bad "ОШИБКА";
-      error "Запустите диагностику командой kvas debug";
-      exit 1
-    fi
-  fi
-
-  port=$(cat < '/opt/etc/shadowsocks.json' | grep local_port | cut -d':' -f2 | tr -d ' ,')
-  ready "Отслеживание [:${port}] порта shadowsocks "
-  if netstat -ltunp | grep ':'"${port}" &>/dev/null; then
-    when_ok "СЛЕДИМ"
-  else
-    when_bad "НЕТ ЗАПИСИ"; exit 1
-  fi
-
-  if [ -f '/opt/sbin/dnscrypt-proxy' ] && \
-     [ -n "$(cat < '/opt/bin/unblock_ipset' | grep -E '@localhost:[0-9]{2,6}')" ] && \
-     [ -n "$(cat < '/opt/bin/unblock_dnsmasq' | grep 'server')" ]; then
-    print_line
-    ready "Состояние службы dnscrypt-proxy2"
-    if /opt/etc/init.d/S09dnscrypt-proxy2 status &>/dev/null; then
-      when_ok "ЗАПУЩЕНА"
-    else
-      when_bad "ОСТАНОВЛЕНА";
-      ready "Перезапускаем еще раз dnscrypt-proxy2"
-      if /opt/etc/init.d/S09dnscrypt-proxy2 restart &>/dev/null; then
-        when_ok "ЗАПУЩЕНА"
-      else
-        when_bad "ОШИБКА";
-        error "Запустите диагностику командой kvas debug";
-        exit 1
-      fi
-    fi
-
-	port=$(cat < "/opt/etc/dnscrypt-proxy.toml" | grep -v "^#" |  grep -E 'listen_addresses.=' | cut -d":" -f4)
-    ready "Отслеживание [:${port::-2}] порта dnscrypt-proxy2 "
-	if netstat -ltunp | grep 'dnscrypt' &>/dev/null; then when_ok "СЛЕДИМ"; else when_bad "НЕТ ЗАПИСИ"; exit 1; fi
- else
-  	ready "Шифрование DNS посредством dnscrypt-proxy2"; when_bad "ОТКЛЮЧЕНО"
-  fi
-
-  print_line
-  ready "Наличие правил разблокировки в iptable"
-  if iptables-save 2>/dev/null | grep unblock &>/dev/null; then
-    when_ok "ЕСТЬ"
-  else
-    when_bad "ПРАВИЛ НЕТ";
-    /opt/etc/ndm/netfilter.d/100-ipset-redirect
-    ready "Повтороная проверка правил разблокировки в iptable"
-    if iptables-save 2>/dev/null | grep unblock &>/dev/null; then
-      when_ok "ПРОЙДЕНА"
-    else
-      when_bad "ОШИБКА";
-      error "Проверье работу скрипта /opt/etc/ndm/netfilter.d/100-ipset-redirect";
-      exit 1
-    fi
-  fi
-
-  ready "Заполнение ipset таблицы скриптами КВАСа"
-  if ipset list unblock | sed -nr '/([0-9]{1,3}\.){3}[0-9]{1,3}/p' &>/dev/null; then
-    when_ok "ЗАПОЛНЕНА"
-  else
-    when_bad "ПУСТАЯ";
-    /opt/etc/ndm/fs.d/100-ipset
-    ready "Повтороная проверка заполнения ipset таблицы"
-    if ipset list unblock | sed -nr '/([0-9]{1,3}\.){3}[0-9]{1,3}/p' &>/dev/null; then
-      when_ok "ПРОЙДЕНА"
-    else
-      when_bad "ОШИБКА";
-      error "Проверье работу скрипта /opt/etc/ndm/fs.d/100-ipset";
-      exit 1
-    fi
-  fi
-
-  ready "Список разблокировки"
-  if [ "$(cat < /opt/etc/unblock.dnsmasq | wc -l)" -gt 0 ]; then
-    when_ok "ЗАПОЛНЕН"
-  else
-    when_bad "ПУСТ"
-    /opt/bin/unblock_dnsmasq
-    ready "Повтороная проверка заполнения списка разблокировки"
-    if [ "$(cat < /opt/etc/unblock.dnsmasq | wc -l)" -gt 0 ]; then
-      when_ok "ПРОЙДЕНА"
-    else
-      when_bad "ОШИБКА";
-      error "Проверье работу скрипта /opt/bin/unblock_dnsmasq";
-      exit 1
-    fi
-  fi
-
-  if cat < '/opt/etc/dnsmasq.conf' | sed '/^#/d' | grep "adblock.dnsmasq" &>/dev/null; then
-    ready "Список блокировки рекламы"
-    if [ "$(cat < /opt/etc/adblock.dnsmasq | wc -l)" -gt 0 ]; then
-      when_ok "ЗАПОЛНЕН"
-    else
-      when_bad "ПУСТ"
-      warning "Заполняем список блокировки рекламы принудительно "
-      print_line
-      /opt/bin/update_adblock
-      ready "Перезапуск службы dnsmasq"
-	  /opt/etc/init.d/S56dnsmasq restart &>/dev/null
-	  [ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
-
-      ready "Повтороная проверка заполнения списка разблокировки"
-      if [ "$(cat < /opt/etc/adblock.dnsmasq | wc -l)" -gt 0 ]; then
-        when_ok "ПРОЙДЕНА"
-      else
-        when_bad "ОШИБКА";
-        error "Проверье работу скрипта /opt/bin/update_adblock";
-        exit 1
-      fi
-    fi
-  fi
-
-  print_line
-  warning "Проверка заполнения ipset таблицы при посещении сайта."
-  print_line
-  host_to_visit=$(clear_content "${UNBLOCK_LIST_FILE}" | head -1)
-  echo "Для проверки заполнения откройте на компьютере браузер"
-  echo "Если браузер открыт, то очистите все куки в нем."
-  echo "Затем зайдите на сайт http://${host_to_visit}"
-  ipset_flush
-  echo -n "После чего вновь перейдите сюда и нажмите на любую клавишу."
-  read -r pause &>/dev/null
-#  update_list &>/dev/null
-  print_line
-  ready "Таблица ipset"
-  res=$(ipset list unblock | sed -nr '/([0-9]{1,3}\.){3}[0-9]{1,3}/p')
-  if [ -n "${res}" ]; then
-  	when_ok "ЗАПОЛНЕНА"
-  else
-	when_bad "ПУСТА"
-	print_line
-	warning "Поробуйте запустить тест снова"
-  fi
-}
-ipset_flush(){
-	ipset flush unblock
-#  	ipset flush unblock6
-}
-# ------------------------------------------------------------------------------------------
-#
-#	 Фогмируруем лог отладочной информации
-#
-# ------------------------------------------------------------------------------------------
-print_debug(){
-
-  ready "Состояние службы dnsmasq"
-  if /opt/etc/init.d/S56dnsmasq status &>/dev/null; then
-    when_ok "ЗАПУЩЕНА"
-  else
-    when_bad "ОСТАНОВЛЕНА"
-    print_line
-    result=$(/opt/sbin/dnsmasq)
-    case "${result}" in
-      0) warning "Dnsmasq успешно повторно запущен.";;
-      1) error "Обнаружена проблема с файлом конфигурации"
-        error "Запускаяем проверку файла конфигурации dnsmasq"
-        print_line
-        /opt/sbin/dnsmasq --test
-        print_line
-        warning "Файл конфигурации dnsmasq"
-        print_line
-        cat < "/opt/etc/dnsmasq.conf"
-        print_line
-        exit 1
-        ;;
-      2) error "Возникла проблема с доступом к сети"
-        error "используемый адрес, попытка использовать "
-        error "привилегированные порты без разрешения"
-        exit 1
-        ;;
-      3) error "Возникла проблема при обращении к файловой системе"
-        error "отсутствующий файл /каталог или разрешения на них."
-        exit 1
-        ;;
-      4)  error "Сбой выделения памяти."
-        exit 1
-        ;;
-      5)  error "Невыявленная проблема."
-        exit 1
-        ;;
-      11 | *) error "[${result}] Проблемы при выделении адресов для аренды DHCP "
-        exit 1
-        ;;
-    esac
-  fi
-  result=$(cat < /opt/etc/dnsmasq.conf )
-  echo_debug "Выборка из файла конфигурации dnsmasq" "${result}"
-
-
-  print_line
-  ready "Состояние службы shadowsocks"
-  if /opt/etc/init.d/S22shadowsocks status &>/dev/null; then
-    when_ok "ЗАПУЩЕНА"
-    port=$(grep local_port '/opt/etc/shadowsocks.json' | cut -d':' -f2 | tr -d ' ,')
-    result=$(netstat -ltunp | grep "ss-redir" | tr -s " ")
-    echo_debug "Отчет по прослушиванию порта shadowsocks [${port}]" "${result}"
-    result=$(cat < /opt/etc/shadowsocks.json | grep -vE "password|server")
-    echo_debug "Выборка из файла конфигурации shadowsocks" "${result}"
-
-  else
-    when_bad "ОСТАНОВЛЕНА"
-    print_line
-    warning "Файл конфигурации shadowsocks"
-    print_line
-    cat < "/opt/etc/shadowsocks.json"
-    print_line
-    warning "Запускаем shadowsocks в режиме отладки"
-    print_line
-    ss-redir -vc /opt/etc/shadowsocks.json
-    print_line
-    exit 1
-  fi
-
-  if [ -f '/opt/sbin/dnscrypt-proxy' ] && \
-  [ -n "$(cat < '/opt/bin/unblock_ipset' | grep -E '@localhost:[0-9]{2,6}')" ] && \
-  [ -n "$(cat < '/opt/bin/unblock_dnsmasq' | grep 'server')" ] &&
-  [ -n "$(netstat -tulnp | grep dnscrypt)" ]; then
-	print_line
-	ready "Состояние службы dnscrypt-proxy2"
-	if /opt/etc/init.d/S09dnscrypt-proxy2 status &>/dev/null; then
-		when_ok "ЗАПУЩЕНА"
-		port=$(cat /opt/etc/dnscrypt-proxy.toml | grep -v '^#' | grep listen_addresses | cut -d ":" -f4)
-		port="${port::-2}"
-		result=$(netstat -ltunp | grep "dnscrypt" | tr -s " ")
-		echo_debug "Отчет по прослушиванию порта dnscrypt-proxy [${port}]" "${result}"
-
-	else
-		when_bad "ОСТАНОВЛЕНА"
-		print_line
-		warning "Файл конфигурации dnscrypt-proxy"
-		print_line
-		cat < "/opt/etc/shadowsocks.json"
-		print_line
-		warning "Запускаем shadowsocks в режиме отладки"
-		print_line
-		ss-redir -vc /opt/etc/shadowsocks.json
-		print_line
-		exit 1
-	fi
-
-  	result=$(cat < "/opt/etc/dnscrypt-proxy.toml" | grep -v "^#" |  grep -E 'listen_addresses.=|cache.=' )
-  	echo_debug "Выборка из файла конфигурации dnscrypt-proxy2" "${result}"
-
-  fi
-
-  result=$(cat < "/opt/etc/kvas.list" | tail -20)
-  echo_debug "Список разблокировки (20 записей)" "${result}"
-
-  result=$(cat < "/opt/bin/unblock_ipset")
-  echo_debug "Скрипт заполнения таблицы ipset /opt/bin/unblock_ipset" "${result}"
-  result=$(ipset list unblock | tail -20 )
-  echo_debug "Таблица ipset (20 записей)" "${result}"
-
-  result=$(cat < "/opt/bin/unblock_dnsmasq")
-  echo_debug "Скрипт заполнения списка разблокировки /opt/bin/unblock_dnsmasq" "${result}"
-  result=$(cat < '/opt/etc/unblock.dnsmasq' | tail -20)
-  echo_debug "Cписок разблокировки в /opt/etc/unblock.dnsmasq (20 записей)" "${result}"
-
-  if [ -n "$(cat < '/opt/etc/dnsmasq.conf' | grep "adblock.dnsmasq")" ]; then
-    result=$(cat < "/opt/bin/update_adblock")
-    echo_debug "Скрипт заполнения списка блокировки рекламы /opt/bin/update_adblock" "${result}"
-    result=$(cat < '/opt/etc/adblock.dnsmasq' | tail -20)
-    echo_debug "Cписок блокировки рекламы /opt/etc/adblock.dnsmasq (20 записей)" "${result}"
-  fi
-
-  result=$(iptables-save 2>/dev/null | grep unblock)
-  echo_debug "Правила перенаправления трафика unblock в iptables" "${result}"
-
-  result=$(curl -s -d '{"once": false, "max-lines": 66}' 'localhost:79/rci/show/log' \
-            | grep -A3 -B1 \"E\" | grep -E "message|timestamp" \
-            | cut -d":" -f2- | tr -d '"' | sed 's/\,$/\n/g')
-  echo_debug "Список ошибок из системного журнала" "${result}"
-
-  host=$(cat < '/opt/etc/kvas.list' | grep -v '^#' | tr -s '\n' | head -1)
-  result=$(ping -c3 "${host}")
-  echo_debug "Прозвон ${host}" "${result}"
-
-  result=$(opkg print-architecture)
-  echo_debug "Архитектура процессора" "${result}"
-}
-
-# ------------------------------------------------------------------------------------------
-#
-#	 Получаем ссылки из сайта
-#  $1 - ссылка на страницу сайта - лучший вариант с https в начале
-#
-# ------------------------------------------------------------------------------------------
-#get_links_from_page(){
-#
-#  lynx -dump -listonly -nonumbers -force_secure "${1}" \
-#      | grep "${1}" \
-#      | cut -d/ -f3 \
-#      | grep -v ':' \
-#      | sed '/^$/d' \
-#      | sort -u
-#
-#}
 # ------------------------------------------------------------------------------------------
 #
 # 	ОСНОВНОЙ БЛОК ОБРАБОТКИ
@@ -925,58 +13,105 @@ print_debug(){
 #
 # ------------------------------------------------------------------------------------------
 clear_file_content "${UNBLOCK_LIST_FILE}"
-print_line
-case "$1" in
-  crypt | dnscrypt)
-    case "${2}" in
-      on) dns_crypt_on;;
-      off) dns_crypt_off;;
-      status | *) dns_crypt_status;;
-    esac
-    ;;
-  adblock | ads)
-    case "${2}" in
-      on) ads_protect_on;;
-      off) ads_protect_off;;
-  	  edit) ads_edit;;
-      status | *) ads_status;;
-    esac
-    ;;
-  debug)
-    print_debug
-    ;;
-  test | check)
-    state_checker
-    ;;
-	add | new)
-		add_one_host "${2}"
-		;;
-	import)
-		import_hosts "${2}"
-		;;
-	export)
-		export_hosts "${2}"
-		;;
-	del | rm)
-		del_one_host "${2}"
-        ;;
-	purge | clear)
-		clear_list "${2}"
-        ;;
-	show | list)
-		show_list
-		;;
-	period)
-		set_period_update "${2}"
-		;;
-	update)
-		update_list  # &> /dev/null
-		;;
-	version)
-		warning "Версия скрипта ${APP_VERSION}-${APP_RELEASE}"
-		;;
-	help | *)
-		help;;
-esac
-print_line
 
+print_line
+case "${1}" in
+	bridge)
+		case "${2}" in
+			add ) 			cmd_bridge_vpn_access_add "${3}" ;;
+			del ) 			cmd_bridge_vpn_access_del "${3}" ;;
+			*) 				cmd_help ;;
+		esac
+		;;
+	dnsmasq)
+		case "${2}" in
+			port) 			cmd_dnsmasq_port_change "${3}" ;;
+			ip) 			cmd_dnsmasq_dns_change "${3}";;
+			status | *) 	cmd_dnsmasq_listen_show;
+							cmd_dnsmasq_port_show ;;
+		esac
+		;;
+	ssr)
+		case "${2}" in
+			new)			cmd_shadowsocks_read_new_data ;;
+			port) 			cmd_shadowsocks_local_port_change "${3}" ;;
+			#flush) 			cmd_shadowsocks_iptable_flush ;;
+			reset) 			cmd_shadowsocks_iptable_reset ;;
+			status | *) 	cmd_vpn_status ;;
+		esac
+		;;
+
+	adguard)
+		case "${2}" in
+			on) 			cmd_adguardhome_on ;;
+			off) 			cmd_adguardhome_off ;;
+			test)			cmd_adguard_check ;;
+			*) 				cmd_adguardhome_status ;;
+		esac
+		;;
+
+	dns)
+		case "${2}" in
+			#adguard) 		cmd_adguardhome_on ;;
+			test) 			cmd_dns_test ;;
+			*) 				cmd_dnsmasq_dns_change "${2}" ;;
+		esac
+		;;
+
+	vpn)
+		case "${2}" in
+			set) 			cmd_interface_change aks ;;
+			#flush) 			cmd_vpn_iptable_flush ;;
+			reset) 			cmd_vpn_iptable_reset ;;
+			status | *) 	cmd_vpn_status ;;
+		esac
+		;;
+
+	crypt | dnscrypt)
+		case "${2}" in
+			on) 			cmd_dns_crypt_on ;;
+			off) 			cmd_dns_crypt_off ;;
+			status | *) 	cmd_dns_crypt_status_show ;;
+		esac
+		;;
+
+	adblock | ads)
+		case "${2}" in
+			on) 			cmd_ads_protect_on ask;;
+			off) 			cmd_ads_protect_off ;;
+			edit) 			cmd_ads_edit ;;
+			status | *) 	cmd_ads_status ;;
+		esac
+		;;
+
+	debug)
+		case "${2}" in
+			nofiles) 		cmd_print_debug "${2}" ;;
+			*) 				cmd_print_debug '' ;;
+		esac
+		;;
+	test | check)			cmd_state_checker
+		;;
+	add | new)				cmd_add_one_host "${2}"
+		;;
+	import)					cmd_import_hosts "${2}"
+		;;
+	export)					cmd_export_hosts "${2}"
+		;;
+	del | rm)				cmd_del_one_host "${2}"
+		;;
+	purge | clear)			cmd_clear_list "${2}"
+		;;
+	show | list)			cmd_show_list
+		;;
+	period)					cmd_set_period_update "${2}"
+		;;
+	update)					cmd_update_list
+		;;
+	version | ver)			warning "Версия скрипта ${APP_VERSION}-${APP_RELEASE}"
+		;;
+	help | *)				cmd_help
+		;;
+esac
+
+print_line

@@ -1,244 +1,224 @@
 #!/bin/sh
 
-. /opt/bin/kvas_lib
-. /opt/bin/kvas_main
+chmod -R +x /opt/apps/kvas/files/bin/*
+chmod -R +x /opt/apps/kvas/files/sbin/dnsmasq/*
+chmod -R +x /opt/apps/kvas/files/etc/init.d/*
+chmod -R +x /opt/apps/kvas/files/etc/ndm/*
 
-answer=''
-print_line
-echo "Установка пакета КВАС™ [Kvas™] версия @app_ver"
-print_line
+mv -f /opt/apps/kvas/files/bin/* /opt/bin/
+mv -f /opt/apps/kvas/files/etc/conf/kvas.conf /opt/etc/kvas.conf
+cp /opt/bin/kvas_lib_main /opt/bin/postrm.kvas
 
-ln -s /opt/apps/kvas/files/bin/kvas /opt/bin/kvas
-ln -s /opt/apps/kvas/files/bin/kvas_adguard /opt/bin/kvas_adguard
-ln -s /opt/apps/kvas/files/bin/kvas_adblock /opt/bin/kvas_adblock
-ln -s /opt/apps/kvas/files/bin/kvas_debug /opt/bin/kvas_debug
-ln -s /opt/apps/kvas/files/bin/kvas_dnsmasq /opt/bin/kvas_dnsmasq
-ln -s /opt/apps/kvas/files/bin/kvas_ipset /opt/bin/kvas_ipset
-ln -s /opt/apps/kvas/files/bin/kvas_lib /opt/bin/kvas_lib
-ln -s /opt/apps/kvas/files/bin/kvas_main /opt/bin/kvas_main
-ln -s /opt/apps/kvas/files/bin/kvas_update /opt/bin/kvas_update
+. /opt/bin/kvas_lib_vpn
 
+cat /dev/null > "${INSTALL_LOG}"
 
-#------------------------------------------------------
-# IPSET + SHADOWSOCKS + DNSMASQ
-#------------------------------------------------------
-# Проверяем запущен ли сервис shadowsocks
-if [ -f /opt/bin/ss-redir ]; then
-#	Проверяем на наличие запуска сервиса shadowsocks
-  	if /opt/etc/init.d/S22shadowsocks status | grep -q alive ; then
-    	ready "Останавливаем сервис shadowsocks..."
-    	/opt/etc/init.d/S22shadowsocks stop &>/dev/null
-    	[ ${?} = 0 ] && when_ok "ГОТОВО" || {
-    		when_bed "ОШИБКА"
-    		error "Невозможно остановить сервис shadowsocks"
-    		exit 1
-    		}
-  	fi
-	if /opt/etc/init.d/S56dnsmasq status | grep -q alive ; then
-		ready "Останавливаем сервис dnsmasq..."
-		/opt/etc/init.d/S56dnsmasq stop &>/dev/null
-		[ $? = 0 ] && when_ok "ГОТОВО" || {
-    		when_bed "ОШИБКА"
-    		error "Невозможно остановить сервис dnsmasq"
-    		exit 1
-    		}
+log_in_file(){
+	if [ "${1}" = line ]; then
+		print_line >> "${INSTALL_LOG}"
+	else
+		echo "${1}" >> "${INSTALL_LOG}"
 	fi
-
-	if [ -f "${SHADOWSOCKS_CONF}" ]; then
-		del_ssr_setup=0
-		echo "Обнаружен предыдущий файл конфигурации shadowsocks."
-		read_ynq "Удалить файл конфигурации shadowsocks" answer
-		[ "${answer}" = y ] && del_ssr_setup=1
-	fi
-fi
-# в случае. если согласны на удаление конфигурации shadowsocks
-if [ ${del_ssr_setup} = 1 ]; then
-	  ready "Архивируем файл конфигурации shadowsocks...   "
-	  mv "${SHADOWSOCKS_CONF}" "${SHADOWSOCKS_CONF}.old"  &>/dev/null
-	  [ ${?} = 0 ] && when_ok "ГОТОВО" || {
-    		when_bed "ОШИБКА"; exit 1
-			}
-
-	while true; do
-	  ready "Ведите доменное имя или IP адрес сервера: "
-	  read -r SSR_SERVER_IP
-	  if [[ -z "$SSR_SERVER_IP" ]]; then
-		print_line
-		printf "${RD}Введены неверные данные!\n"
-		printf "${GR}Имя сервера не должно быть пустым.\n"
-		printf "${RD}Попробуйте ввести его снова...${NC}\n"
-	  else
-		break
-	  fi
-	done
-	while true; do
-	  ready "Ведите порт сервера: "
-	  read -r SSR_SERVER_PORT
-	  if [[ -z "$SSR_SERVER_PORT" ]] || [[ -z "$(echo $SSR_SERVER_PORT | grep  -E '^[[:digit:]]{2,6}$')" ]]; then
-		print_line
-		printf "${RD}Введены неверные данные!\n"
-		printf "${GR}Порт должен содержать от 2 до 6 цифр.\n"
-		printf "${RD}Попробуйте ввести его снова...${NC}\n"
-	  else
-		break
-	  fi
-	done
-	while true; do
-	  ready "Ведите пароль сервера: "
-	  read -sr SSR_SERVER_PASSWD
-	  if [[ -z "$SSR_SERVER_PASSWD" ]] || [[ -z "$(echo "$SSR_SERVER_PASSWD" | grep  -E '^[[:graph:]]{8,1024}$')" ]]; then
-		print_line
-		printf "${RD}Введены неверные данные!\n"
-		printf "${GR}Пароль должен содержать минимум 8 знаков.\n"
-		printf "${RD}Попробуйте ввести его снова...${NC}\n"
-	  else
-		break
-	  fi
-	done
-	printf "\n"
-
-fi
-mv /opt/etc/${APP_NAME}/shadowsocks.json "${shadowsocks_conf}"   &>/dev/null
-
-ready "Заменяем файл конфигурации dnsmasq...   "
-if [ -f /opt/etc/dnsmasq.conf ]; then
-  mv /opt/etc/dnsmasq.conf /opt/etc/dnsmasq.conf.old &>/dev/null
-  mv /opt/sbin/dnsmasq /opt/sbin/dnsmasq.old
-
-  if [ $(find /opt/tmp/opkg-* | grep mipsel | wc -l) -gt 2 ]; then
-  	mv /opt/bin/dnsmasq_mipsel /opt/sbin/dnsmasq
-  else
-  	if [ $(find /opt/tmp/opkg-* | grep mips- | wc -l) -gt 2 ]; then
-		  mv /opt/bin/dnsmasq_mips /opt/sbin/dnsmasq
-	  else
-		  mv /opt/bin/dnsmasq_aarch64 /opt/sbin/dnsmasq
-	  fi
-	fi
-#  cp /opt/bin/opkg /opt/bin/opkg_arch
-#  case "$(opkg_arch print-architecture | grep - | head -1 | cut -d" " -f2 | cut -d- -f1)" in
-#      mips) mv /opt/bin/dnsmasq_mips /opt/sbin/dnsmasq ;;
-#      mipsel) mv /opt/bin/dnsmasq_mipsel /opt/sbin/dnsmasq ;;
-#      aarch64) mv /opt/bin/dnsmasq_aarch64 /opt/sbin/dnsmasq ;;
-#      *) ;;
-#  esac
-#  rm /opt/bin/opkg_arch
-  rm /opt/bin/dnsmasq_*
-fi
-mv /opt/etc/${APP_NAME}/dnsmasq.conf /opt/etc/dnsmasq.conf &>/dev/null
-[ $? = 0 ] && when_ok "ГОТОВО" || when_bed "ОШИБКА"
-
-ready "Заменяем файл разблокировки...   "
-if [ -f /opt/etc/${APP_NAME}.list ]; then
-  mv /opt/etc/${APP_NAME}.list /opt/etc/${APP_NAME}.list.old &>/dev/null
-fi
-mv /opt/etc/${APP_NAME}/${APP_NAME}.list /opt/etc/${APP_NAME}.list &>/dev/null
-[ $? = 0 ] && when_ok "ГОТОВО" || when_bed "ОШИБКА"
+}
 
 print_line
-echo -e "${GR}Предыдущие файлы конфигурации сохранены под именами:"
-echo -e "${shadowsocks_conf}.old и /opt/etc/dnsmasq.conf.old${NC}"
-# меняем данные в файлах shadowsocks
-sed -i 's/ss-local/ss-redir/g' /opt/etc/init.d/S22shadowsocks
-
-print_line
-echo "Для работы пакета используется shadowsocks соединение."
-echo "Чтобы продолжить работу необходимо ввести следующие данные:"
-printf "${GR}Хост${NC} shadowsocks сервера, его ${GR}порт${NC} и ${GR}пароль доступа${NC}.${NC}\n"
-echo -e "${BL}Пожалуйста, последовательно введите эти данные ниже.${NC}"
+welcome="Установка пакета КВАС™ версия @app_ver"
+echo "${welcome}"]
 print_line
 
-UPLEVEL_DNS=1.1.1.1
-PROXY_PORT=1181
-LOCAL_IP=$(nslookup localhost | grep Address | head -1 | cut -d':' -f2- | tr -d ' ')
-INFACE=$(ip a | grep "${LOCAL_IP}" | sed 's/^ *//g' | cut -d' ' -f7- )
-
-#echo "$(ip a)"
-sed -i "s/@LOCAL_IP/${LOCAL_IP}/g; \
-		s/@INFACE/${INFACE}/g; \
-        s/@UPLEVEL_DNS/${UPLEVEL_DNS}/g;" \
-        "/opt/etc/dnsmasq.conf"
-
-sed -i "s/@LOCAL_IP/${LOCAL_IP}/g; \
-        s/@PROXY_PORT/${PROXY_PORT}/g; \
-        s/@INFACE/${INFACE}/g;" \
-        "/opt/etc/ndm/netfilter.d/100-ipset-redirect"
-
-sed -i "s/@SSR_SERVER_IP/${SSR_SERVER_IP}/g; \
-        s/@SSR_SERVER_PORT/${SSR_SERVER_PORT}/g; \
-        s/@SSR_SERVER_PASSWD/${SSR_SERVER_PASSWD}/g; \
-        s/@PROXY_PORT/${PROXY_PORT}/g;" \
-        "${shadowsocks_conf}"
-
-sed -i "s/@UNBLOCK_LIST/${UNBLOCK_LIST}/g" "/opt/bin/unblock_dnsmasq"
-sed -i "s/@UNBLOCK_LIST/${UNBLOCK_LIST}/g" "/opt/bin/unblock_ipset"
-
-ready "Ставим обновление ip адресов по умолчанию - каждые 12 часов..."
-sed -i '/unblock_update/d' /opt/etc/crontab
-echo '0 */12 * * * root /opt/bin/unblock_update' >> /opt/etc/crontab
-[ $? = 0 ] && when_ok "ГОТОВО" || when_bed "ОШИБКА"
-
-#------------------------------------------------------
-# DNSCRYPT-PROXY2
-#------------------------------------------------------
-crypt_port=9153
-
-while true; do
-  ready "${BL}Установить шифрование DNS (dnscrypt-proxy2)${NC} [Y/N]?"
-  read -r ynq
-  case ${ynq} in
-    [Yy]* )
-      if $(/opt/etc/init.d/S09dnscrypt-proxy2 status | grep alive &>/dev/null); then
-        ready "Останавливаем службу dnscrypt-proxy2..."
-        /opt/etc/init.d/S09dnscrypt-proxy2 stop &>/dev/null
-        [ $? = 0 ] && when_ok "ГОТОВО" || when_bed "ОШИБКА"
-      fi
-
-      if [ -f '/opt/etc/dnscrypt-proxy.toml' ]; then
-        cp /opt/etc/dnscrypt-proxy.toml /opt/etc/dnscrypt-proxy.toml.old
-        warning "Предыдущий файл конфигурации сохранен под именем"
-        warning "/opt/etc/dnscrypt-proxy.toml.old"
-      fi
-
-      ready "Настраиваем dnscrypt-proxy2..."
-      kvas crypt on &>/dev/null
-      [ $? = 0 ] && when_ok "ГОТОВО" || when_bed "ОШИБКА"
-
-      break;;
-    [Nn]* )
-      break;;
-    * ) please_answer_yn
-      ;;
-  esac
-done
-
+log_in_file "${welcome}"
+log_in_file line
+log_in_file "Начало установки: $(date "${DATE_FORMAT}")"
+log_in_file line
+#print_line
 # Проверяем отключено ли использование DNS провайдера
-dns_prov=$(curl -s 'localhost:79/rci/opkg/dns-override')
-
-if [ ! "${dns_prov}" = true ]; then
-  cli="https://${LOCAL_IP}/a"
+if ! curl -s "${LOCALHOST_IP}"':79/rci/opkg/dns-override' | grep -q true ; then
+    cli="$(get_router_host)/a"
+    log_in_file "ОШИБКА: Не отключено использование DNS провайдера."
 	print_line
-	echo -e "${RD}Для корректной работы dnsmasq необходимо отключить использование DNS провайдера!"
-	echo -e "С этой целью зайдите в админ панель роутера по адресу: ${GR}${cli}"
-	echo -e "${RD}и введите в поле Command следующую команду ${GR}opkg dns-override ${RD}, затем нажмите ENTER."
-	echo -e "далее в том же поле введите команду ${GR}system configuration save ${RD}, затем нажмите ENTER."
+	echo -e "${RED}Для корректной работы DNS сервера необходимо отключить использование DNS провайдера!"
+	echo -e "С этой целью зайдите в админ панель роутера по адресу: ${GREEN}${cli}"
+	echo -e "${RED}и введите в поле Command следующую команду ${GREEN}opkg dns-override ${RED}, затем нажмите ENTER."
+	echo -e "далее в том же поле введите команду ${GREEN}system configuration save ${RED}, затем нажмите ENTER."
 	echo -e "И третьим шагом необходимо перегрузить роутер, для этого в том же поле"
-	echo -e "введите команду ${GR}system reboot ${RD}, затем нажмите ENTER.${NC}"
-else
-	ready "Запускаем сервисы shadowsocks и dnsmasq..."
-	/opt/etc/init.d/S22shadowsocks restart &>/dev/null
-	[ $? = 0 ] && when_ok "ГОТОВО" || when_bed "ОШИБКА"
-
-	ready "Запускаем КВАС..."
-	opt/etc/init.d/S99kvas start &>/dev/null
-#	/opt/bin/unblock_update miss_ads  &>/dev/null
-	[ $? = 0 ] && when_ok "ГОТОВО" || when_bed "ОШИБКА"
-
+	echo -e "введите команду ${GREEN}system reboot ${RED}, затем нажмите ENTER.${NOCL}"
+	exit 1
 fi
+
+#------------------------------------------------------
+# Отключаем IPv6
+#------------------------------------------------------
+if [ "$(ipv6_status)" = 0 ]; then
+	ipv6_inface_off "$(get_defaultgw_interface)"
+fi
+
+proxy_port=$(get_config_value SSR_DNS_PORT)
+local_ip=$(get_router_ip)
+inface=$(get_inface_by_ip "${local_ip}")
+set_config_value DNSMASQ_LISTEN_IP "${local_ip}"
+
+#------------------------------------------------------
+# AdGuard Home
+#------------------------------------------------------
+answer_agh=n
+if [ -f "/opt/etc/init.d/S99adguardhome" ]; then
+
+	warning "На роутере обнаружен AdGuard Home "
+	read_ynq "Установить AdGuard Home, как основной DNS сервер" answer_agh
+	if [ "${answer_agh}" = y ]; then
+		cmd_adguardhome_on
+		log_in_file "AdGuard Home НАСТРОЕН, как основной DNS сервер"
+	else
+		log_in_file "AdGuard Home пропущен."
+		ready "Останавливаем сервис AdGuard Home..."
+		/opt/etc/init.d/S99adguardhome stop &> /dev/null
+		/opt/etc/init.d/S99adguardhome status | grep -q dead && when_ok "ГОТОВО" || {
+			when_bad "ОШИБКА"
+			mess="Невозможно остановить сервис AdGuard Home"
+			error "${mess}"
+			log_in_file "ОШИБКА: ${mess}"
+			exit 1
+		}
+	fi
+	print_line
+fi
+#------------------------------------------------------
+# 	ГОТОВИМ ФАЙЛЫ НЕЗВИСЯЩИЕ ОТ КОНФИГУРАЦИИ ПАКЕТА
+#------------------------------------------------------
+ready "Настройка файлов конфигурации пакета"
+sed -i "s/@LOCAL_IP/${local_ip}/g; s/@INFACE/${inface}/g;" 		/opt/etc/ndm/netfilter.d/100-dns-local
+sed -i "s/@PROXY_PORT/${proxy_port}/g; s/@INFACE/${inface}/g;" 	/opt/etc/ndm/netfilter.d/100-proxy-redirect
+#sed -i "s/@UNBLOCK_LIST/\/opt\/etc\/hosts.list/g" 				/opt/bin/kvas_ipset
+[ $? = 0 ] && when_ok "ГОТОВО" || {
+	when_bad "ОШИБКА"
+	log_in_file "ОШИБКА: при настройке файлов конфигурации пакета"
+	exit 1
+}
+
+#------------------------------------------------------
+# ВОССТАНАВЛИВАЕМ ФАЙЛ СО СПИСКОМ РАЗБЛОКИРОВКИ
+#------------------------------------------------------
+copy_unblock_list(){
+
+	log_in_file "УСТАНОВЛЕН список разблокировки ПО УМОЛЧАНИЮ."
+	ready "Копируем файл со списком разблокировки по умолчанию"
+	cp /opt/apps/kvas/files/etc/conf/hosts.list /opt/etc/hosts.list &>/dev/null
+	[ $? = 0 ] && when_ok "УСПЕШНО" || {
+		when_bad "ОШИБКА"
+		log_in_file "ОШИБКА: при копировании списка разблокировки по умолчанию"
+		exit 1
+	}
+
+}
+if [ -f /opt/etc/hosts.list.kvas ]; then
+	warning "Обнаружен список разблокировки от предыдущей установки"
+	answer='y';
+	#read_ynq "Восстановить файл из архива" answer
+	if [ "${answer}" = y ]; then
+		log_in_file "Список разблокировки ВОССТАНОВЛЕН из архива."
+		ready "Список разблокировки восстановлен"
+		mv /opt/etc/hosts.list.kvas /opt/etc/hosts.list
+		[ $? = 0 ] && when_ok "УСПЕШНО" || {
+			when_bad "ОШИБКА"
+			log_in_file "ОШИБКА: при восстановлении списка разблокировки"
+			exit 1
+		}
+
+	else
+		copy_unblock_list
+	fi
+else
+	copy_unblock_list
+fi
+
+#----------------------------------------------------------
+#
+# 	В случае, если установить AdGuard Home отказались
+# 	или не был обнаружен сервис AdGuard Home
+# 	AdGuard Home подменяет сразу несколько сервисов
+# 	таких как dnsmasq + dnscrypt_proxy2 + блокировка рекламы
+#
+#----------------------------------------------------------
+ 
+if [ "${answer_agh}" = n ]; then
+	#------------------------------------------------------
+	# DNSMASQ
+	#------------------------------------------------------
+	dnsmasq_install
+	#------------------------------------------------------
+	# DNSCRYPT-PROXY2
+	#------------------------------------------------------
+	answer='y';
+	#read_ynq "Установить шифрование DNS трафика (dnscrypt-proxy2)" answer
+	if [ "${answer}" = y ] ; then
+		log_in_file "Шифрование DNS трафика (dnscrypt-proxy2) ВКЛЮЧЕНО."
+		dns_crypt_install
+	else
+		log_in_file "Шифрование DNS трафика ОТМЕНЕНО."
+	fi
+
+	#------------------------------------------------------
+	# Блокировка рекламы
+	#------------------------------------------------------
+	answer='n';
+	#read_ynq "Установить блокировку рекламы" answer
+	if [ "${answer}" = y ]; then
+		print_line
+		cmd_ads_protect_on yes
+		log_in_file "Блокировка рекламы УСТАНОВЛЕНА."
+	else
+		log_in_file "Блокировка рекламы ОТМЕНЕНА.."
+		print_line
+	fi
+fi
+ 
+
+#------------------------------------------------------
+# 	УСТАНОКА ОБНОВЛЕНИЯ ДАННЫХ В CRON
+#------------------------------------------------------
+ready "Ставим обновление ip адресов по умолчанию - каждые 12 часов..."
+sed -i '/kvas_update/d' /opt/etc/crontab
+echo '0 */12 * * * root /opt/bin/kvas_update' >> /opt/etc/crontab
+[ $? = 0 ] && when_ok "ГОТОВО" || {
+	when_bad "ОШИБКА"
+	mess="Проблема при установки задания в cron"
+	log_in_file "ОШИБКА: ${mess}"
+	exit 1
+}
+
 print_line
-echo -e "По умолчанию, блокировка рекламы ${RD}ОТКЛЮЧЕНА${NC}"
-echo -e "Для ее активации наберите ${BL}${APP_NAME} adblock on${NC}"
-echo -e "Для активации/деактивации dnscrypt-proxy2 наберите ${BL}${APP_NAME} crypt on/off${NC}"
-echo -e "Для проверки работоспособности наберите ${BL}${APP_NAME} test${NC}"
+#warning "Сейчас необходимо выбрать VPN интерфейс для работы пакета"
+cmd_interface_change no
+log_in_file "$(cmd_vpn_status)"
+echo -e "Для общей справки наберите ${BLUE}kvas help${NOCL}"
 print_line
-echo -e "Для общей справки наберите ${BL}${APP_NAME} help${NC}"
+ 
+#  проверяем был ли сделал выбор AdGuard Home в качестве DNS сервера
+if [ "${answer_agh}" = n ] ; then
+	ready "Запускаем КВАС в работу"
+	"${KVAS_START_FILE}" start &>/dev/null
+	[ $? = 0 ] && when_ok "УСПЕШНО" || {
+		when_bad "ОШИБКА"
+		mess="Проблема при запуске КВАСа"
+		log_in_file "ОШИБКА: ${mess}"
+		exit 1
+	}
+fi
+answer='y';
+#read_ynq "Запустить диагностику" answer
+if [ "${answer}" = y ]; then
+
+	log_in_file "Был произведен запуск диагностики после установки."
+	warning "ПРОИЗВОДИМ ТЕСТИРОВАНИЕ УСТАНОВЛЕННОГО VPN СОЕДИНЕНИЯ"
+	print_line
+	cmd_state_checker
+	print_line
+
+else
+	log_in_file "Диагностика после установки пакета проведена НЕ была."
+fi
+log_in_file line
+log_in_file "Установка завершена: $(date "${DATE_FORMAT}")"
+echo "Установка КВАСа завершена."
 print_line
+ 

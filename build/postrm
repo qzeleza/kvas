@@ -1,67 +1,79 @@
 #!/bin/sh
 
-RD="\033[1;31m";
-GR="\033[1;32m";
-NC="\033[m";
-OK="$\${GR}ГОТОВО$\${NC}"
-FAIL="$\${RD}ПРОБЛЕМА$\${NC}"
+[ -f /opt/bin/postrm.kvas ] && . /opt/bin/postrm.kvas || exit 1
+#------------------------------------------------------
+# 	УДВЛЕНИЕ ФАЙЛОВ КОНФИГУРАЦИИ
+#------------------------------------------------------
+rm_package_files(){
 
-LENGTH=66
-function diff_len(){
-	charlen=$\$(echo "$\${1}" | sed -r "s/[\]033\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g")
-	charlen=$\${#charlen}
-	echo $\$(( LENGTH - charlen ))
-}
-function please_answer_yn(){
-  echo -e "Пожалуйста ответьте на вопрос $\${RD}'Y' - удалить$\${NC} или $\${GR}'N' - оставить$\${NC}."
-}
-function ready(){
-  size=$\$(diff_len "$\${1}")
-	printf "%b%-$\${size}s%b" "$\${1}"
-}
-function warning(){
-	_error="$\${GR}$\${1}$\${NC}"
-	size=$\$(diff_len "$\${_error}")
-	printf "%b%-$\${size}s%b\n" "$\${_error}"
-}
-echo "${LINE}"
-echo -e "Удаление пакета $\${GR}КВАС™ [Kvas™]$\${NC} версия $\${GR}${APP_VER_FULL}$\${NC}..."
-echo "${LINE}"
+	[ -f /opt/etc/hosts.list ] && mv -f /opt/etc/hosts.list /opt/etc/hosts.list.kvas
+	[ -f /opt/etc/adblock.sources ] && mv -f /opt/etc/adblock.sources /opt/etc/adblock.sources.kvas
 
-while true; do
-	ready "$\${RD}Удалить файлы конфигурации пакета$\${NC} [Y/N]? "
-	read -r ynq
-	case $\${ynq} in
-		[Yy]* )
-			ready "Удаляем файлы конфигурации $\${GR}'${APP_NAME}'$\${NC}..."
-			rm -rf /opt/etc/${APP_NAME}
-			[ $\$? = 0 ] && echo -e "$\${OK}" || echo -e "$\${FAIL}"
-			break;;
-		[Nn]* )
-		  if [ -f "${shadowsocks_conf}.old" ]; then
-        ready "Восстанавливаем файл конфигурации shadowsocks...    "
-        mv "${shadowsocks_conf}.old ${shadowsocks_conf}" &>/dev/null
-        [ $\$? = 0 ] && echo -e "$\${OK}" || echo -e "$\${FAIL}"
-      fi
-      if [ -f /opt/etc/dnsmasq.conf.old ]; then
-        ready "Восстанавливаем файл конфигурации dnsmasq...    "
-        mv /opt/etc/dnsmasq.conf.old /opt/etc/dnsmasq.conf &>/dev/null
-        [ $\$? = 0 ] && echo -e "$\${OK}" || echo -e "$\${FAIL}"
-      fi
-			break;;
-		* ) please_answer_yn
-		;;
-	esac
-done
+	[ -f /opt/etc/ndm/fs.d/100-vpn ] && rm -f /opt/etc/ndm/fs.d/100-vpn
+	[ -f /opt/etc/ndm/netfilter.d/100-vpn-mark ] && rm -f /opt/etc/ndm/netfilter.d/100-vpn-mark
+	[ -f /opt/etc/ndm/ifstatechanged.d/100-unblock-vpn ] && rm -f /opt/etc/ndm/ifstatechanged.d/100-unblock-vpn
+	[ -d /opt/tmp/adblock ] && rm -rf /opt/tmp/adblock
 
-ready "Удаляем $\${RD}данные из cron$\${NC}...     "
-sed -i '/unblock_ipset/d' /opt/etc/crontab &>/dev/null
-[ $\$? = 0 ] && echo -e "$\${OK}" || echo -e "$\${FAIL}"
+	rm -f /opt/bin/kvas*
+	rm -fr /opt/apps/kvas
+	rm -fr /opt/etc/kvas*
+	rm -f /opt/lib/opkg/info/kvas*
+}
+#------------------------------------------------------
+# 	ОЧИЩЕНИЕ ВСЕХ ПРАВИЛ И ТАБЛИЦ
+#------------------------------------------------------
+all_rules_flush(){
 
-echo "${LINE}"
-echo "При установке пакета КВАС были установлены следующие пакеты:"
-warning "shadowsocks-libev-ss-redir shadowsocks-libev-config curl nano"
-warning "knot-dig cron bind-dig dnsmasq-full ipset iptables libpcre"
-echo "Если данные пакеты Вами больше не используются, Вы можете"
-echo -e "их удалить следующей командой: $\${RD}opkg remove <имя пакета>$\${NC}"
-echo "${LINE}"
+	ipset flush unblock &>/dev/null
+	ip route flush table 1001
+	ip route flush cache &>/dev/null
+	while iptables-save | grep 'unblock' &> /dev/null ; do
+		nline=$(iptables -t nat -L PREROUTING --line-numbers \
+				| grep unblock \
+				| cut -d" " -f1 \
+				| head -1\
+				)
+		iptables -t nat -D PREROUTING "${nline}"
+	done
+	while iptables-save | grep CONNMARK | grep -E 'unblock|restore-mark' &> /dev/null; do
+		nline=$(iptables -t mangle -L PREROUTING --line-numbers \
+				| grep CONNMARK \
+				| cut -d" " -f1 \
+				| head -1 \
+				)
+		iptables -t mangle -D PREROUTING "${nline}"
+	done
+}
+
+
+print_line
+echo -e "Удаление пакета ${GREEN}КВАС™${NOCL} версия ${GREEN}@app_ver${NOCL}..."
+print_line
+
+answer='y';
+# read_ynq "Удалить файлы конфигурации пакета" answer
+if [ "${answer}" = y ]; then
+	ready "Удаляем файлы конфигурации..."
+	if rm_package_files ; then when_ok "УСПЕШНО"; else when_bad "ОШИБКА"; fi
+fi
+
+ready "Удаляем данные из cron..."
+sed -i '/kvas_ipset/d' /opt/etc/crontab &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+
+ready "Очищаем все правила и таблицы..."
+all_rules_flush &>/dev/null
+if [ $? = 0 ]; then when_ok "УСПЕШНО"; else when_bad "ОШИБКА"; fi
+
+print_line
+echo "При установке пакета КВАС™ были установлены следующие пакеты:"
+warning "shadowsocks-libev-ss-redir knot-dig iptables curl cron libpcre"
+warning "shadowsocks-libev-config dnsmasq-full nano-full bind-dig ipset jq"
+echo "Если данные пакеты Вами больше не используются, Вы можете их удалить следующей"
+echo -e "командой:  ${RED}opkg remove kvas --autoremove${NOCL} все сразу, либо"
+echo -e "командой ${RED}opkg remove <имя пакета>${NOCL}, каждый по отдельности."
+
+print_line
+echo "Удаление КВАСа завершено."
+print_line
+# удаляем библиотеку крайним шагом
+[ -f /opt/bin/postrm.kvas ] && rm -f /opt/bin/postrm.kvas || exit 1

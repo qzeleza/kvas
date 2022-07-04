@@ -1,15 +1,15 @@
 #!/bin/sh
 
-[ "$type" = "iptables" ] || exit 0
-[ "$table" = "mangle" ] || exit 0
+[ "${type}" = "iptables" ] || exit 0
+#[ "${table}" = "mangle" ] || exit 0
 
-ip4t() { if ! iptables -C "$@" &>/dev/null; then iptables -A "$@"; fi }
+#ip4t() { if ! iptables -C "$@" &>/dev/null; then iptables -A "$@"; fi }
 
-if [ -z "$(iptables-save | grep CONNMARK)" ]; then
+if ! iptables-save | grep -q CONNMARK ; then
 	# VPN
 	ipset create unblock hash:net family inet -exist
 	# Без отключения ускорителей
-	ip4t PREROUTING -t mangle -m conntrack --ctstate NEW -m set --match-set unblock dst -j CONNMARK --set-mark 0xd1000
-	ip4t PREROUTING -t mangle -j CONNMARK --restore-mark
+	iptables -A PREROUTING -t mangle -m conntrack --ctstate NEW -m set --match-set unblock dst -j CONNMARK --set-mark 0xd1000
+	iptables -A PREROUTING -t mangle -j CONNMARK --restore-mark
 fi
 exit 0

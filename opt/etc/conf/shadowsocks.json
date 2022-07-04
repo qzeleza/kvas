@@ -1,0 +1,11 @@
+{
+  "server": "@SSR_SERVER_IP",
+  "server_port": @SSR_SERVER_PORT,
+  "local_port": @PROXY_PORT,
+  "password": "@SSR_SERVER_PASSWD",
+  "method": "@SSR_SERVER_CRYPT",
+  "timeout": 86400,
+  "local_address": "::",
+  "dns_ipv6": false,
+  "fast_open": false
+}

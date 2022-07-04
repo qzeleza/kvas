@@ -1,13 +1,13 @@
 #!/bin/sh
 
-[ "$type" = "iptables" ] || exit 0
-[ "$table" = "nat" ] || exit 0
+[ "${type}" = "iptables" ] || exit 0
+#[ "${table}" = "nat" ] || exit 0
 
 # DNS to Local
-if [ -z "$(iptables-save 2>/dev/null | grep "tcp \-\-dport 53 \-j DNAT")" ]; then
+if ! iptables-save 2>/dev/null | grep -q "tcp \-\-dport 53 \-j DNAT"; then
     iptables -w -t nat -I PREROUTING -i @INFACE -p tcp --dport 53 -j DNAT --to @LOCAL_IP
 fi
-if [ -z "$(iptables-save 2>/dev/null | grep "udp \-\-dport 53 \-j DNAT")" ]; then
+if ! iptables-save 2>/dev/null | grep -q "udp \-\-dport 53 \-j DNAT"; then
     iptables -w -t nat -I PREROUTING -i @INFACE -p udp --dport 53 -j DNAT --to @LOCAL_IP
 fi
 exit 0
