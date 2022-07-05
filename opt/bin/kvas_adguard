@@ -1,25 +1,30 @@
 #!/bin/sh
 
 ipset=''; domain='';
+regex='([0-9]{1,3}\.){3}[0-9]{1,3}|([0-9a-fA-F]{0,4}:){1,7}[0-9a-fA-F]{1,4}'
 adguard_config=/opt/etc/AdGuardHome/AdGuardHome.yaml
+host_list=/opt/etc/hosts.list
 
-while read -r line || [ -n "$line" ]; do
+! [ -f "${host_list}" ] && touch "${host_list}"
+[ "$(cat < "${host_list}" | wc -l )" = 0 ] && ipset="[]"
+sed -i '/ipset/,/tls/{//!d};' "${adguard_config}"
+
+while read -r line || [ -n "${line}" ]; do
+
 	[ -z "${line}" ] && continue
 	[ "${line:0:1}" = "#" ] && continue
+	echo "${line}" | grep -Eq "${regex}" && continue
 
-	echo "${line}" | grep -Eq '([0-9]{1,3}\.){3}[0-9]{1,3}|([0-9a-fA-F]{0,4}:){1,7}[0-9a-fA-F]{1,4}' && continue
-	line=$(echo "${line}" | sed 's/\*//;')
-	[ -n "${domain}" ] && domain="${domain},${line}" || domain="${line}"
+	host="  - $(echo "${line}" | sed 's/\*//;')/unblock"
+	grep -q  "${host}" "${adguard_config}" && continue
 
-done < /opt/etc/hosts.list
+	[ -n "${domain}" ] && domain="${domain}\n${host}" || domain="${host}"
 
-[ -n "${domain}" ] && ipset="- ${domain}\/unblock"
-[ -z "${ipset}" ] && ipset="[]"
+done < "${host_list}"
 
-if grep -q 'ipset:' "${adguard_config}"; then
-	#	если блок ipset присутствует в файле конфигурации
-	sed -i "s/\(ipset: \).*/\1\n\t${ipset}/"  "${adguard_config}"
-else
-	#	если блок ipset отсуствует в файле конфигурации
-	sed -i "s/\(.*\)\(^tls:.*\)/\1  ipset: \n\t${ipset}\n\2/" "${adguard_config}"
+if [ -z "${ipset}" ]; then
+	[ -n "${domain}" ] && ipset="$(echo "${domain}" | sed 's/\//\\\//g')"
+	[ -z "${ipset}" ] && ipset="[]"
 fi
+#	если блок ipset отсуствует в файле конфигурации
+sed -i "s/\(.*\)\(^tls:.*\)/\1  ipset: \n${ipset}\n\2/" "${adguard_config}"

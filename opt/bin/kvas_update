@@ -15,8 +15,8 @@ if [ -z "$1" ] && [ "${ADS_BLOCKER_ON}" = 1 ]; then
 fi
 ipset flush unblock
 
-agh_port=$(cat < "${ADGUARDHOME_CONFIG}" | grep 'port:' | cut -d':' -f2 | tr -d ' ')
-if [ "${agh_port}" = 53 ] ; then
+agh_port=$(cat < "${ADGUARDHOME_CONFIG}" | grep ' port: ' | cut -d':' -f2 | tr -d ' ')
+if [ "${agh_port}" = 53 ] ; then #&& "${ADGUARDHOME_DEMON}" status | grep -q alive; then
 	ready "Обновление списка ipset для AdGuard Home"
 	/opt/bin/kvas_adguard
 	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"

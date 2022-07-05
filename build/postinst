@@ -13,6 +13,10 @@ cp /opt/bin/kvas_lib_main /opt/bin/postrm.kvas
 
 cat /dev/null > "${INSTALL_LOG}"
 
+test_status(){
+	/opt/etc/init.d/S99adguardhome  status &> /dev/null
+	/opt/etc/init.d/S56dnsmasq  status &> /dev/null
+}
 log_in_file(){
 	if [ "${1}" = line ]; then
 		print_line >> "${INSTALL_LOG}"
@@ -82,19 +86,35 @@ if [ -f "/opt/etc/init.d/S99adguardhome" ]; then
 	fi
 	print_line
 fi
+test_status
 #------------------------------------------------------
 # 	ГОТОВИМ ФАЙЛЫ НЕЗВИСЯЩИЕ ОТ КОНФИГУРАЦИИ ПАКЕТА
 #------------------------------------------------------
 ready "Настройка файлов конфигурации пакета"
-sed -i "s/@LOCAL_IP/${local_ip}/g; s/@INFACE/${inface}/g;" 		/opt/etc/ndm/netfilter.d/100-dns-local
-sed -i "s/@PROXY_PORT/${proxy_port}/g; s/@INFACE/${inface}/g;" 	/opt/etc/ndm/netfilter.d/100-proxy-redirect
+[ -f /opt/etc/ndm/netfilter.d/100-dns-local ] \
+	&& sed -i "s/@LOCAL_IP/${local_ip}/g; s/@INFACE/${inface}/g;" /opt/etc/ndm/netfilter.d/100-dns-local \
+	|| {
+		log_in_file "ОШИБКА: отсутствует файл /opt/etc/ndm/netfilter.d/100-dns-local"
+		error "Отсутствует файл /opt/etc/ndm/netfilter.d/100-dns-local";
+		warning "Проблема повторной установки. Удалите и установите пакет заново.";
+		exit 1;
+	}
+[ -f /opt/etc/ndm/netfilter.d/100-proxy-redirect ] \
+	&& sed -i "s/@PROXY_PORT/${proxy_port}/g; s/@INFACE/${inface}/g;" 	/opt/etc/ndm/netfilter.d/100-proxy-redirect \
+	|| {
+		log_in_file "ОШИБКА: отсутствует файл /opt/etc/ndm/netfilter.d/100-proxy-redirect"
+		error "Отсутствует файл /opt/etc/ndm/netfilter.d/100-proxy-redirect";
+		warning "Проблема повторной установки. Удалите и установите пакет заново.";
+		exit 1;
+	}
+
 #sed -i "s/@UNBLOCK_LIST/\/opt\/etc\/hosts.list/g" 				/opt/bin/kvas_ipset
 [ $? = 0 ] && when_ok "ГОТОВО" || {
 	when_bad "ОШИБКА"
 	log_in_file "ОШИБКА: при настройке файлов конфигурации пакета"
 	exit 1
 }
-
+test_status
 #------------------------------------------------------
 # ВОССТАНАВЛИВАЕМ ФАЙЛ СО СПИСКОМ РАЗБЛОКИРОВКИ
 #------------------------------------------------------
@@ -130,7 +150,7 @@ if [ -f /opt/etc/hosts.list.kvas ]; then
 else
 	copy_unblock_list
 fi
-
+test_status
 #----------------------------------------------------------
 #
 # 	В случае, если установить AdGuard Home отказались
@@ -141,10 +161,12 @@ fi
 #----------------------------------------------------------
  
 if [ "${answer_agh}" = n ]; then
+	sed -i "s/\( port:\) .*/\1 0/" "${ADGUARDHOME_CONFIG}"
 	#------------------------------------------------------
 	# DNSMASQ
 	#------------------------------------------------------
 	dnsmasq_install
+	test_status
 	#------------------------------------------------------
 	# DNSCRYPT-PROXY2
 	#------------------------------------------------------
@@ -156,7 +178,7 @@ if [ "${answer_agh}" = n ]; then
 	else
 		log_in_file "Шифрование DNS трафика ОТМЕНЕНО."
 	fi
-
+	test_status
 	#------------------------------------------------------
 	# Блокировка рекламы
 	#------------------------------------------------------
@@ -170,6 +192,7 @@ if [ "${answer_agh}" = n ]; then
 		log_in_file "Блокировка рекламы ОТМЕНЕНА.."
 		print_line
 	fi
+	test_status
 fi
  
 
@@ -185,14 +208,13 @@ echo '0 */12 * * * root /opt/bin/kvas_update' >> /opt/etc/crontab
 	log_in_file "ОШИБКА: ${mess}"
 	exit 1
 }
+test_status
 
 print_line
 #warning "Сейчас необходимо выбрать VPN интерфейс для работы пакета"
 cmd_interface_change no
 log_in_file "$(cmd_vpn_status)"
-echo -e "Для общей справки наберите ${BLUE}kvas help${NOCL}"
-print_line
- 
+test_status
 #  проверяем был ли сделал выбор AdGuard Home в качестве DNS сервера
 if [ "${answer_agh}" = n ] ; then
 	ready "Запускаем КВАС в работу"
@@ -207,18 +229,18 @@ fi
 answer='y';
 #read_ynq "Запустить диагностику" answer
 if [ "${answer}" = y ]; then
-
+test_status
 	log_in_file "Был произведен запуск диагностики после установки."
 	warning "ПРОИЗВОДИМ ТЕСТИРОВАНИЕ УСТАНОВЛЕННОГО VPN СОЕДИНЕНИЯ"
 	print_line
 	cmd_state_checker
 	print_line
-
+test_status
 else
 	log_in_file "Диагностика после установки пакета проведена НЕ была."
 fi
 log_in_file line
 log_in_file "Установка завершена: $(date "${DATE_FORMAT}")"
 echo "Установка КВАСа завершена."
+echo -e "Для общей справки наберите ${BLUE}kvas help${NOCL}"
 print_line
- 

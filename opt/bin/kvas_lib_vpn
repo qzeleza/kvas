@@ -163,7 +163,7 @@ adguardhome_setup() {
 	${ADGUARDHOME_DEMON} stop &> /dev/null
 
 	dns_prev=$(grep ' port:' "${ADGUARDHOME_CONFIG}" | cut -d' ' -f2)
-	set_config_value ADGUARDHOME_PREV_DNS "${dns_prev}"
+#	set_config_value ADGUARDHOME_PREV_DNS "${dns_prev}"
 	set_config_value DNS_DEFAULT "${ip}#${port}"
 
 	sed -i "s/\( port:\) .*/\1 ${port}/" "${ADGUARDHOME_CONFIG}"
@@ -205,8 +205,8 @@ adguardhome_setup() {
 # ------------------------------------------------------------------------------------------
 cmd_adguardhome_status() {
 	ready "Сервис AdGuard Home "
-	agh_port=$(cat < "${ADGUARDHOME_CONFIG}" | grep ' port: ' | cut -d':' -f2 | tr -d ' ')
-	if [ "${agh_port}" = 53 ] ; then
+#	agh_port=$(cat < "${ADGUARDHOME_CONFIG}" | grep ' port: ' | cut -d':' -f2 | tr -d ' ')
+	if [ -f "${ADGUARDHOME_DEMON}" ] ; then
 		if "${ADGUARDHOME_DEMON}" status | grep -q alive ; then
 			when_ok "ВКЛЮЧЕН"
 		else
@@ -284,7 +284,7 @@ cmd_adguardhome_off() {
 	else
 		ready "AdGuard Home в качестве DNS сервера удален"
 		${ADGUARDHOME_DEMON} stop &> /dev/null && {
-
+			sed -i '' "$ADGUARDHOME_CONFIG"
 			if [ -f /opt/apps/kvas/files/backup/S99adguardhome ]; then
 				mv /opt/apps/kvas/files/backup/S99adguardhome "${ADGUARDHOME_DEMON}"
 				mv /opt/apps/kvas/files/backup/AdGuardHome.yaml /opt/etc/AdGuardHome/
@@ -293,8 +293,8 @@ cmd_adguardhome_off() {
 				cp "${ADGUARDHOME_CONFIG}" /opt/apps/kvas/files/backup/
 			fi
 			cp /opt/apps/kvas/files/etc/init.d/S96kvas "${KVAS_START_FILE}"
-			prev_dns=$(get_config_value ADGUARDHOME_PREV_DNS)
-			sed -i "s/\( port:\) .*/\1 ${prev_dns}/" "${ADGUARDHOME_CONFIG}"
+#			prev_dns=$(get_config_value ADGUARDHOME_PREV_DNS)
+			sed -i "s/\( port:\) .*/\1 0/" "${ADGUARDHOME_CONFIG}"
 			dnsmasq_install &> /dev/null
 		}
 
@@ -690,14 +690,16 @@ dns_show() {
 # ------------------------------------------------------------------------------------------
 cmd_vpn_iptable_flush() {
 	ready "Очистка iptables для vpn завершена"
-	while iptables-save | grep CONNMARK | grep -E 'unblock|restore-mark' &> /dev/null; do
+	num_lines=$(iptables -t mangle -L PREROUTING --line-numbers | grep -cE 'unblock|restore-mark')
+	for b in $(seq 1 ${num_lines}); do
 		nline=$(iptables -t mangle -L PREROUTING --line-numbers \
-				| grep CONNMARK \
+				| grep -E 'unblock|restore-mark' \
 				| cut -d" " -f1 \
 				| head -1 \
 				)
 		iptables -t mangle -D PREROUTING "${nline}"
 	done
+
 	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
 }
 # ------------------------------------------------------------------------------------------
@@ -900,8 +902,9 @@ shadowsocks_read_data() {
 # ------------------------------------------------------------------------------------------
 cmd_shadowsocks_iptable_flush() {
 	ready "Удаление правил iptables для shadowsocks завершено"
-	proxy_port=$(get_config_value SSR_DNS_PORT)
-	while iptables-save | grep unblock | grep "${proxy_port}" &> /dev/null ; do
+#	proxy_port=$(get_config_value SSR_DNS_PORT)
+	num_lines=$(iptables -t nat -L PREROUTING --line-numbers | grep -c 'unblock')
+	for b in $(seq 1 ${num_lines}); do
 		nline=$(iptables -t nat -L PREROUTING --line-numbers \
 				| grep unblock \
 				| cut -d" " -f1 \
@@ -1190,25 +1193,25 @@ cmd_interface_change() {
 		print_line
 		ready "${BLUE}Выберите номер варианта VPN соединения [1-${total}]:${NOCL}"
 		read -r num_vpn_inface
-		if echo "${num_vpn_inface}" | grep -q "${sel}" && [ "${connected_cur}" = "on" ]; then
-			warning "Выбранный интерфейс уже установлен, выберите иной вариант"
+#		if echo "${num_vpn_inface}" | grep -q "${sel}" && [ "${connected_cur}" = "on" ]; then
+#			warning "Выбранный интерфейс уже установлен, выберите иной вариант"
+#		else
+		if ! echo "${num_vpn_inface}" | grep -qE "[1-${total}]"; then
+			error "Введите цифру от 1 до ${total}."
 		else
-			if ! echo "${num_vpn_inface}" | grep -qE "[1-${total}]"; then
-				error "Введите цифру от 1 до ${total}."
+			inface_entware=$(get_vpn_interface_by_num "${num_vpn_inface}")
+			if [ "${inface_entware}" = 'shadowsocks' ]; then
+				vpn_off &> /dev/null
+				shadowsocks_backup
+				shadowsocks_on
 			else
-				inface_entware=$(get_vpn_interface_by_num "${num_vpn_inface}")
-				if [ "${inface_entware}" = 'shadowsocks' ]; then
-					vpn_off &> /dev/null
-					shadowsocks_backup
-					shadowsocks_on
-				else
-					shadowsocks_off &> /dev/null
-					vpn_on "${inface_entware}"
-				fi
-				cmd_update_list
-				break
+				shadowsocks_off &> /dev/null
+				vpn_on "${inface_entware}"
 			fi
+			cmd_update_list
+			break
 		fi
+#		fi
 	done
 
 }
@@ -1436,9 +1439,12 @@ host_add(){
 	clear_host=$(echo "${host}" | sed 's/\*//')
 	ready "Добавляем ${YELLOW}${clear_host}${NOCL} в список разблокировки..."
 	echo "${host}" >>"${UNBLOCK_LIST_FILE}"
-#					если включен блокирощик рекламы
-	if cat < '/opt/etc/dnsmasq.conf' | sed '/^#/d' | grep -q "adblock.dnsmasq"; then
-		ads_hosts_remove "${host}" &> /dev/null
+#	если включен блокирощик рекламы
+	if cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then
+
+		if cat < '/opt/etc/dnsmasq.conf' | sed '/^#/d' | grep -q "adblock.dnsmasq"; then
+			ads_hosts_remove "${host}" &> /dev/null
+		fi
 	fi
 	cmd_update_list &> /dev/null
 	[ $? = 0 ] && when_ok "ДОБАВЛЕН" || when_bad "НЕ ДОБАВЛЕН"
