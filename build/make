@@ -181,11 +181,12 @@ cp "${APP_PKG_FILE}" "/opt/apps/${APP_NAME}/backup"
 echo ${LINE}
 find /opt/apps/entware/bin/targets/mipsel-3.4/generic-glibc/packages/ | grep ${APP_NAME}
 echo ${LINE}
-
-ssh -p "${MY_PORT}" "${MY_ROUTER}" 'rm -f '"/opt/packages/${APP_NAME}/${APP_PKG_TAR_NAME}" &> /dev/null
+ssh -p "${MY_PORT}" "${MY_ROUTER}" "mkdir -p /opt/packages/${APP_NAME}/"
+ssh -p "${MY_PORT}" "${MY_ROUTER}" 'rm -f '"/opt/packages/${APP_NAME}/${APP_PKG_TAR_NAME}" #&> /dev/null
 scp -P "${MY_PORT}" "${APP_PKG_FILE}" "${MY_ROUTER}:/opt/packages/${APP_NAME}/${APP_PKG_TAR_NAME}"
+#ssh -p "${MY_PORT}" "${MY_ROUTER}" 'opkg remove '${APP_NAME}
+
 #ssh -p "${MY_PORT}" "${MY_ROUTER}" 'ls /opt/packages/'${APP_NAME}'/ | grep "${APP_PKG_TAR_NAME}"'
-ssh -p "${MY_PORT}" "${MY_ROUTER}" 'opkg remove '${APP_NAME}
 #sshpass -p "${MY_PASS}" ssh -p "${MY_PORT}" "${MY_ROUTER}" 'opkg install /opt/packages/'"${APP_NAME}/${APP_PKG_TAR_NAME}"
 #sshpass -p "${MY_PASS}" ssh -p "${MY_PORT}" "${MY_ROUTER}" 'opkg files '${APP_NAME}
 ##sshpass -p "${MY_PASS}" ssh -p "${MY_PORT}" "${MY_ROUTER}" 'ls /opt/apps/'${APP_NAME}/

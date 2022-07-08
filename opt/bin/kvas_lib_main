@@ -251,7 +251,11 @@ read_ynq(){
 	if echo "${header}" | grep -qiE "удал"; then
 		header="${RED}${header} ${quest}${NOCL}";
 	else
-		header="${BLUE}${header} ${quest}${NOCL}";
+		if echo "${header}" | grep -qiE "[Y]"; then
+			header="${BLUE}${header}${NOCL}";
+		else
+			header="${BLUE}${header} ${quest}${NOCL}";
+		fi
 	fi
 	while true; do
 		ready "${header}"

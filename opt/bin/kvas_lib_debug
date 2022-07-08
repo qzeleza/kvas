@@ -177,6 +177,7 @@ dnscrypt_proxy_check() {
 		fi
 	else
 		ready "Шифрование DNS посредством dnscrypt-proxy2"
+		cmd_dns_crypt_off &> /dev/null
 		when_bad "ОТКЛЮЧЕНО"
 	fi
 
@@ -257,7 +258,7 @@ unblock_dnsmasq_check() {
 		else
 			when_bad "ОШИБКА"
 			print_line
-			if [ "$(cat </opt/etc/hosts.list | wc -l)" -gt 0 ]; then
+			if [ "$(cat <"${UNBLOCK_LIST_FILE}" | wc -l)" -gt 0 ]; then
 				error "Белый список пуст - /opt/etc/hosts.list"
 				warning "Добавьте туда хосты командой ${BLUE}kvas add host.com"
 			else
@@ -287,7 +288,7 @@ cmd_adguard_check() {
 		else
 			when_bad "ОШИБКА"
 			print_line
-			if [ "$(cat </opt/etc/hosts.list | wc -l)" -gt 0 ]; then
+			if [ "$(cat <"${UNBLOCK_LIST_FILE}" | wc -l)" -gt 0 ]; then
 				error "Белый список пуст - /opt/etc/hosts.list"
 				warning "Добавьте в него хосты командой ${BLUE}kvas add host.com${NOCL}"
 			else
@@ -341,8 +342,19 @@ internet_check() {
 		echo_debug "Выявлены проблемы с интернет подключением" "${status}"
 	fi
 }
-
-
+# ------------------------------------------------------------------------------------------
+#
+#	 Проверяем наличие самого файла и число записей в нем
+#
+# ------------------------------------------------------------------------------------------
+hosts_list_check(){
+	{ ! [ -f "${UNBLOCK_LIST_FILE}" ] || [ "$(cat < "${UNBLOCK_LIST_FILE}" | wc -l)" = 0 ];} && {
+		warning "Файл списка разблокировки не существует"
+		warning "Создаем новый, но c одним хостом для проверки: 2ip.ru"
+		print_line
+		kvas add 2ip.ru
+	}
+}
 # ------------------------------------------------------------------------------------------
 #
 #	 Проверяем заполнение ipset таблицы при посещении сайта
@@ -380,7 +392,7 @@ ipset_site_visit_check() {
 cmd_state_checker() {
 	internet_check
 	dns_override_check
-
+	hosts_list_check
 	adguardhome_status=$(cmd_adguardhome_status)
 	if cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then
 		echo "${adguardhome_status}"
@@ -584,7 +596,7 @@ dnscrypt_proxy_debug() {
 # ------------------------------------------------------------------------------------------
 kvas_list_debug() {
 
-	result=$(cat <"/opt/etc/hosts.list" | tail -20)
+	result=$(cat <"${UNBLOCK_LIST_FILE}" | tail -20)
 	echo_debug "Список разблокировки /opt/etc/hosts.list (20 записей)" "${result}"
 }
 
@@ -598,7 +610,7 @@ unblock_list_ipset_check(){
 	echo "Проверка наличия ip адресов хостов в таблице ipset "
 	echo "команда 'ipset list unblock'"
 	print_line
-	if [ -f /opt/etc/hosts.list ]; then
+	if [ -f "${UNBLOCK_LIST_FILE}" ]; then
 		/opt/bin/kvas_ipset &> /dev/null
 		result_ipset=$(ipset list unblock | grep -vEi '^[a-z]' | sort)
 		if [ -n "${result_ipset}" ]; then
@@ -620,7 +632,7 @@ unblock_list_ipset_check(){
 						NOT_IN_TABLE=true
 					}
 				fi
-			done < /opt/etc/hosts.list
+			done < "${UNBLOCK_LIST_FILE}"
 		else
 			error "Таблица разблокировки unblock отсутствует в списке ipset"
 			echo -e "Проверьте работу скрипта ${GREN}/opt/bin/kvas_ipset${NOCL}"
@@ -729,7 +741,7 @@ syslog_debug() {
 #
 # ------------------------------------------------------------------------------------------
 ping_debug() {
-	#  host=$(cat < '/opt/etc/hosts.list' | grep -v '^#' | tr -s '\n' | head -1)
+	#  host=$(cat < '"${UNBLOCK_LIST_FILE}"' | grep -v '^#' | tr -s '\n' | head -1)
 	host='2ip.ru'
 	result=$(ping -c3 "${host}")
 	echo_debug "Прозвон ${host}" "${result}"

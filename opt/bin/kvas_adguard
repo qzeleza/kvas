@@ -23,8 +23,8 @@ while read -r line || [ -n "${line}" ]; do
 done < "${host_list}"
 
 if [ -z "${ipset}" ]; then
-	[ -n "${domain}" ] && ipset="$(echo "${domain}" | sed 's/\//\\\//g')"
+	[ -n "${domain}" ] && ipset="\n$(echo "${domain}" | sed 's/\//\\\//g')"
 	[ -z "${ipset}" ] && ipset="[]"
 fi
 #	если блок ipset отсуствует в файле конфигурации
-sed -i "s/\(.*\)\(^tls:.*\)/\1  ipset: \n${ipset}\n\2/" "${adguard_config}"
+sed -i "s/\(.*\)\(^tls:.*\)/\1  ipset: ${ipset}\n\2/" "${adguard_config}"

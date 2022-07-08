@@ -26,6 +26,8 @@ SHADOWSOCKS_CONF=/opt/etc/shadowsocks.json
 ADS_HOSTS_FILE=/opt/tmp/adblock/hosts
 DNSMASQ_CONFIG=/opt/etc/dnsmasq.conf
 DNSCRYPT_CONFIG=/opt/etc/dnscrypt-proxy.toml
+KVAS_FILES_PATH=/opt/apps/kvas/files
+KVAS_BACKUP_PATH=/opt/etc/.kvas/backup
 
 KVAS_START_FILE=/opt/etc/init.d/S96kvas
 
@@ -44,7 +46,7 @@ CMD_LIST="address prefix name-servers"
 #
 # ------------------------------------------------------------------------------------------
 cmd_help() {
-	cat < "/opt/apps/${APP_NAME}/files/etc/conf/${APP_NAME}.cmd_help"
+	cat < "/opt/apps/${APP_NAME}/files/etc/conf/${APP_NAME}.help"
 }
 
 
@@ -158,8 +160,15 @@ adguardhome_setup() {
 
 	ready "AdGuard Home установлен в качестве основного DNS сервера"
 
-	/opt/etc/init.d/S56dnsmasq kill &> /dev/null
-	/opt/etc/init.d/S09dnscrypt-proxy2 kill &> /dev/null
+	[ -f /opt/etc/init.d/S56dnsmasq ] && {
+		/opt/etc/init.d/S56dnsmasq stop &> /dev/null
+		mv -f /opt/etc/init.d/S56dnsmasq "${KVAS_BACKUP_PATH}"
+	}
+	[ -f /opt/etc/init.d/S09dnscrypt-proxy2 ] && {
+		/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
+		mv -f /opt/etc/init.d/S09dnscrypt-proxy2 "${KVAS_BACKUP_PATH}"
+	}
+
 	${ADGUARDHOME_DEMON} stop &> /dev/null
 
 	dns_prev=$(grep ' port:' "${ADGUARDHOME_CONFIG}" | cut -d' ' -f2)
@@ -169,16 +178,15 @@ adguardhome_setup() {
 	sed -i "s/\( port:\) .*/\1 ${port}/" "${ADGUARDHOME_CONFIG}"
 
 	if [ -f "${ADGUARDHOME_DEMON}" ]; then
-		mkdir -p /opt/apps/kvas/files/backup
-		mv "${ADGUARDHOME_DEMON}" /opt/apps/kvas/files/backup/S99adguardhome
-		cp /opt/etc/AdGuardHome/AdGuardHome.yaml /opt/apps/kvas/files/backup/AdGuardHome.yaml
+#		mv -f "${ADGUARDHOME_DEMON}" "${KVAS_BACKUP_PATH}"/S99adguardhome
+		cp /opt/etc/AdGuardHome/AdGuardHome.yaml "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml
 	fi
 	cp /opt/apps/kvas/files/etc/init.d/S99adguard "${ADGUARDHOME_DEMON}"
 	rm -f "${KVAS_START_FILE}"
 
 	ipset_dns_change "${ip}#${port}"
 
-	"${ADGUARDHOME_DEMON}" start &> /dev/null
+	"${ADGUARDHOME_DEMON}" restart &> /dev/null
 
 	if [ $? = 0 ]; then
 		when_ok "УСПЕШНО"
@@ -188,16 +196,6 @@ adguardhome_setup() {
 		exit 1
 	fi
 }
-## ------------------------------------------------------------------------------------------
-##
-##	 Спрашиваем об установке AdGuard Home в качестве DNS сервера
-##
-## ------------------------------------------------------------------------------------------
-#adguardhome_ask() {
-#	answer=''
-#	read_ynq "Установить AdGuard Home в качестве основного DNS сервера" answer
-#	[ "${answer}" = y ] && cmd_adguardhome_on || exit 1
-#}
 # ------------------------------------------------------------------------------------------
 #
 #	 Возвращаем статус AdGuard Home в качестве основного DNS сервера
@@ -206,15 +204,103 @@ adguardhome_setup() {
 cmd_adguardhome_status() {
 	ready "Сервис AdGuard Home "
 #	agh_port=$(cat < "${ADGUARDHOME_CONFIG}" | grep ' port: ' | cut -d':' -f2 | tr -d ' ')
-	if [ -f "${ADGUARDHOME_DEMON}" ] ; then
-		if "${ADGUARDHOME_DEMON}" status | grep -q alive ; then
-			when_ok "ВКЛЮЧЕН"
+	if [ -f /opt/bin/AdGuardHome ] ; then
+		if [ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ]; then
+			if [ -f "${ADGUARDHOME_DEMON}" ] ; then
+				if "${ADGUARDHOME_DEMON}" status | grep -q alive ; then
+					 when_ok "ВКЛЮЧЕН";
+				else when_bad "ОТКЛЮЧЕН"; fi
+			else
+				when_bad "НУЖНО ПЕРЕУСТАНОВИТЬ"
+			fi
 		else
-			when_bad "ОТКЛЮЧЕН"
+			when_bad "НЕ НАСТРОЕН"
 		fi
 	else
 		when_bad "НЕ УСТАНОВЛЕН"
 	fi
+
+#
+#	if ! [ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ]; then
+#		! [ -f "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml ]; then
+#			if [ -f "${ADGUARDHOME_DEMON}" ] && [ -f /opt/bin/AdGuardHome ]
+#
+#	if [ -f "${ADGUARDHOME_DEMON}" ] && [ -f /opt/bin/AdGuardHome ] && {
+# 		[ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ] || [ -f "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml ]
+# 		 }; then
+#		adguardhome_demon_status
+#
+#	elif ! [ -f "${ADGUARDHOME_DEMON}" ] && [ -f /opt/bin/AdGuardHome ] ; then
+#			cp "${KVAS_FILES_PATH}/etc/init.d/S99adguard" "${ADGUARDHOME_DEMON}"
+#			"${ADGUARDHOME_DEMON}" restart &> /dev/null
+#			adguardhome_demon_status
+#	elif ! [ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ]
+#		when_bad "НЕ УСТАНОВЛЕН"
+#	fi
+}
+adguardhome_tuning(){
+#	ip=$(get_router_ip)
+	echo "Следуйте инструкциям на экране ниже..."
+	echo "После всех произведенных настроек нажмите Ctrl-C"
+	print_line
+	/opt/bin/AdGuardHome
+	cp /opt/apps/kvas/files/etc/init.d/S99adguard  /opt/etc/init.d/S99adguardhome
+	mv /opt/bin/AdGuardHome.yaml /opt/etc/AdGuardHome/AdGuardHome.yaml
+	"${ADGUARDHOME_DEMON}" restart  &> /dev/null
+#	read -r pause &> /dev/null
+}
+adguardhome_check_config(){
+
+		ip=$(get_router_ip)
+		if [ -f "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml ]; then
+			cp "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml /opt/etc/AdGuardHome/AdGuardHome.yaml
+			"${ADGUARDHOME_DEMON}" restart  &> /dev/null
+			print_line
+			port=$(cat < "${ADGUARDHOME_CONFIG}" | grep 'bind_port: ' | cut -d':' -f2 | tr -d ' ')
+			echo -e "Был обнаружен и восстановлен архивный файл конфигурации AdGuard Home."
+			echo -e "Панель управления находится по адресу: ${BLUE}http://${ip}:${port}${NOCL}"
+			print_line
+		else
+			[ -f /opt/etc/init.d/S56dnsmasq ] && /opt/etc/init.d/S56dnsmasq stop &> /dev/null
+			[ -f /opt/etc/init.d/S09dnscrypt-proxy2 ] && /opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
+			rm -f /opt/var/log/AdGuardHome.log
+			adguardhome_tuning
+		fi
+}
+adguardhome_install_locally(){
+
+	if [ -f /opt/tmp/opkg.lock ]; then
+		echo "Установите AdGuard Home на роутер после завершения установки пакета"
+		echo -e "Для этого наберите команду ${GREEN}opkg install adguardhome-go${NOCL}"
+		echo "и следуйте рекомендациям на экране, после настройки AdGuard Home"
+		echo "запустите команду ${GREEN}kvas adguard on${NOCL}."
+	else
+		[ -f /opt/etc/init.d/S56dnsmasq ] && /opt/etc/init.d/S56dnsmasq stop &> /dev/null
+		[ -f /opt/etc/init.d/S09dnscrypt-proxy2 ] && /opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
+		rm -f /opt/var/log/AdGuardHome.log
+		opkg remove adguardhome-go &> /dev/null
+		opkg install adguardhome-go &> /dev/null
+
+		adguardhome_check_config
+		adguardhome_setup
+	fi
+}
+adguardhome_install_remotely(){
+
+	echo -e "${BLUE}Если Ваш AdGuard Home находится на другом устройстве, то ${NOCL}"
+	ip_port=''; read_value "Введите IP и номер порта AdGuard Home через двоеточие" ip_port
+	[ "${ip_port}" != q ] && {
+		ready "AdGuard Home установлен в качестве DNS сервера в КВАС "
+		adguardhome_setup "${ip_port}" &> /dev/null
+		if [ $? = 0 ]; then
+			when_ok "УСПЕШНО"
+		else
+			when_bad "СБОЙ";
+			error "Возникла ошибка при установке AdGuard Home в качестве DNS сервера."
+			exit 1
+		fi
+	}
+
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -223,49 +309,20 @@ cmd_adguardhome_status() {
 # ------------------------------------------------------------------------------------------
 cmd_adguardhome_on() {
 
-	if cmd_adguardhome_status | grep -q "НЕ УСТАНОВЛЕН" ; then
-		echo -e "Пакет AdGuard Home не установлен на роутере."
-		answer=''; read_ynq "Установить его на этот роутер?" answer
+	status=$(cmd_adguardhome_status)
+	if echo "${status}" | grep -q "НЕ УСТАНОВЛЕН" ; then
+		echo "Пакет AdGuard Home не установлен на роутере."
+		answer=''; read_ynq "Установить его на этот роутер [Y] или на удаленный [N]?" answer
 		if [ "${answer}" = y ]; then
-			/opt/etc/init.d/S56dnsmasq stop &> /dev/null
-			/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
-			opkg install adguardhome-go &> /dev/null
-
-			ip=$(get_router_ip)
-			protocol=$(get_router_protocol)
-
-			if [ -f /opt/apps/kvas/files/backup/AdGuardHome.yaml ]; then
-				cp /opt/apps/kvas/files/backup/AdGuardHome.yaml /opt/etc/AdGuardHome/AdGuardHome.yaml
-				"${ADGUARDHOME_DEMON}" restart  &> /dev/null
-				print_line
-				port=$(cat < "${ADGUARDHOME_CONFIG}" | grep 'bind_port: ' | cut -d':' -f2 | tr -d ' ')
-				echo -e "Был обнаружен и восстановлен архивный файл конфигурации AdGuard Home."
-				echo -e "Панель управления находится по адресу: ${BLUE}http://${ip}:${port}${NOCL}"
-				print_line
-			else
-				print_line
-				echo -e "Теперь Вам необходимо перейти по адресу: ${BLUE}${protocol}${ip}:3000${NOCL}"
-				echo -e "и сделать первоначальные настройки для AdGuard Home. "
-				echo -e "Затем снова вернитесь сюда и нажмите любую клавишу."
-				read -r pause &> /dev/null
-				print_line
-			fi
-			adguardhome_setup
+			adguardhome_install_locally
 		else
-			echo -e "${BLUE}Если Ваш AdGuard Home находится на другом устройстве, то ${NOCL}"
-			ip_port=''; read_value "Введите IP и номер порта AdGuard Home через двоеточие" ip_port
-			[ "${ip_port}" != q ] && {
-				ready "AdGuard Home установлен в качестве DNS сервера в КВАС "
-				adguardhome_setup "${ip_port}" &> /dev/null
-				if [ $? = 0 ]; then
-					when_ok "УСПЕШНО"
-				else
-					when_bad "СБОЙ";
-					error "Возникла ошибка при установке AdGuard Home в качестве DNS сервера."
-					exit 1
-				fi
-			}
+			adguardhome_install_remotely
 		fi
+	elif echo "${status}" | grep -q "НЕ НАСТРОЕН" ; then
+		adguardhome_check_config
+		adguardhome_setup
+	elif  echo "${status}" | grep -q "НУЖНО ПЕРЕУСТАНОВИТЬ" ; then
+		adguardhome_install_locally
 	else
 		adguardhome_setup
 	fi
@@ -283,30 +340,35 @@ cmd_adguardhome_off() {
 		when_alert "НЕ УСТАНОВЛЕН"
 	else
 		ready "AdGuard Home в качестве DNS сервера удален"
-		${ADGUARDHOME_DEMON} stop &> /dev/null && {
-			sed -i '' "$ADGUARDHOME_CONFIG"
-			if [ -f /opt/apps/kvas/files/backup/S99adguardhome ]; then
-				mv /opt/apps/kvas/files/backup/S99adguardhome "${ADGUARDHOME_DEMON}"
-				mv /opt/apps/kvas/files/backup/AdGuardHome.yaml /opt/etc/AdGuardHome/
-			else
-				mv "${ADGUARDHOME_DEMON}" /opt/apps/kvas/files/backup/S99adguardhome
-				cp "${ADGUARDHOME_CONFIG}" /opt/apps/kvas/files/backup/
-			fi
-			cp /opt/apps/kvas/files/etc/init.d/S96kvas "${KVAS_START_FILE}"
-#			prev_dns=$(get_config_value ADGUARDHOME_PREV_DNS)
-			sed -i "s/\( port:\) .*/\1 0/" "${ADGUARDHOME_CONFIG}"
-			dnsmasq_install &> /dev/null
-		}
+		sed -i "s/\( port:\) .*/\1 0/" "${ADGUARDHOME_CONFIG}"
+		${ADGUARDHOME_DEMON} stop &> /dev/null
+#			[ -f "${ADGUARDHOME_DEMON}" ] && mv -f "${ADGUARDHOME_DEMON}" "${KVAS_BACKUP_PATH}/S99adguardhome"
+		[ -f "${ADGUARDHOME_CONFIG}" ] && mv -f "${ADGUARDHOME_CONFIG}" "${KVAS_BACKUP_PATH}/AdGuardHome.yaml"
+		[ -f /opt/etc/init.d/S56dnsmasq ] && /opt/etc/init.d/S56dnsmasq stop &> /dev/null
+		[ -f /opt/etc/init.d/S09dnscrypt-proxy2 ] && /opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
+		cp /opt/apps/kvas/files/etc/init.d/S96kvas "${KVAS_START_FILE}"
+		dnsmasq_install &> /dev/null
+		dns_crypt_install &> /dev/null
 
-		if [ $? = 0 ]; then
-			when_ok "УСПЕШНО"
-			answer=''; read_ynq "Шифровать трафик посредством dnscrypt_proxy2" answer
-			[ "${answer}" = y ] && dns_crypt_install
-		else
-			when_bad "С ОШИБКОЙ";
-			error "Возникла ошибка при удалении AdGuard Home из системы."
-			exit 1
-		fi
+#			if [ -f "${KVAS_BACKUP_PATH}"/S99adguardhome ]; then
+#				mv -f "${KVAS_BACKUP_PATH}"/S99adguardhome "${ADGUARDHOME_DEMON}"
+#				mv -f "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml /opt/etc/AdGuardHome/
+#			else
+#				mv -f "${ADGUARDHOME_DEMON}" "${KVAS_BACKUP_PATH}"/S99adguardhome
+#				cp "${ADGUARDHOME_CONFIG}" "${KVAS_BACKUP_PATH}"/
+#			fi
+
+
+
+#		if [ $? = 0 ]; then
+#			when_ok "УСПЕШНО"
+#			answer=''; read_ynq "Шифровать трафик посредством dnscrypt_proxy2" answer
+#			[ "${answer}" = y ] && dns_crypt_install
+#		else
+#			when_bad "С ОШИБКОЙ";
+#			error "Возникла ошибка при удалении AdGuard Home из системы."
+#			exit 1
+#		fi
 	fi
 
 }
@@ -404,17 +466,17 @@ bridge_access_add(){
 # ------------------------------------------------------------------------------------------
 cmd_bridge_vpn_access_add(){
 
-	option=${1}; guest_bridge_id=''
+	option=${1};
 
 	ip=$(get_router_ip)
 	crypt_port=$(get_config_value DNS_CRYPT_PORT)
 
 	if [ -n "${option}" ] && [ "${option}" = all ]; then
 		cmd_bridge_vpn_access_del 'all' 'not_update' &> /dev/null
-		num_id_localinface=$(get_local_inface | tr 'a-zA-Z' ' ' | tr -d ' ')
+		num_id_local_inface=$(get_local_inface | tr 'a-zA-Z' ' ' | tr -d ' ')
 		entware_bridge_list=$(ip a \
 							| grep -E ': br[0-9]' \
-							| grep -v "br${num_id_localinface}" \
+							| grep -v "br${num_id_local_inface}" \
 							| cut -d':' -f1-2 \
 							| cut -d' ' -f2\
 							| tr '\n' ' ' \
@@ -424,7 +486,7 @@ cmd_bridge_vpn_access_add(){
 		done
 		cmd_update_list
 	else
-		bridge_inface_select guest_bridge_id
+		guest_bridge_id=''; bridge_inface_select guest_bridge_id
 		if [ -n "${guest_bridge_id}" ]; then
 			cmd_bridge_vpn_access_del "${guest_bridge_id}" 'not_update' &> /dev/null
 			bridge_access_add "${guest_bridge_id}" "${ip}" "${crypt_port}"
@@ -440,10 +502,10 @@ cmd_bridge_vpn_access_add(){
 # ------------------------------------------------------------------------------------------
 bridge_inface_select(){
 
-	num_id_localinface=$(get_local_inface | tr 'a-zA-Z' ' ' | tr -d ' ')
+	num_id_local_inface=$(get_local_inface | tr 'a-zA-Z' ' ' | tr -d ' ')
 	entware_bridge_list=$(ip a \
 							| grep -E ': br[0-9]' \
-							| grep -v "br${num_id_localinface}" \
+							| grep -v "br${num_id_local_inface}" \
 							| cut -d':' -f1-2 \
 							| cut -d' ' -f2\
 							| tr '\n' ' ' \
@@ -451,7 +513,7 @@ bridge_inface_select(){
 	cli_bridge_list=$(curl -s "${INFACE_REQUEST}" \
 						| grep 'id":' \
 						| grep -iE 'bridge[0-9]' \
-						| grep -vi "bridge${num_id_localinface}" \
+						| grep -vi "bridge${num_id_local_inface}" \
 						| cut -d ':' -f2 \
 						| tr -d ' ",:'\
 						| tr '\n' ' ' \
@@ -476,7 +538,7 @@ bridge_inface_select(){
 			case "${num_inface}" in
 				[qQ]*) break ;;
 				[1-${total}]* )  eval "${1}=$(echo "${entware_bridge_list}" \
-								| cut -d ' ' -f"${num_inface}")"; break ;;
+								| cut -d ' ' -f" ${num_inface}")"; break ;;
 				* ) error "Введите цифру от 1 до ${total}." ;;
 			esac
 		done
@@ -505,6 +567,21 @@ ipset_dns_change() {
 # ------------------------------------------------------------------------------------------
 dnsmasq_install() {
 
+	if [ -f "${KVAS_BACKUP_PATH}/S56dnsmasq" ]; then
+		cp "${KVAS_BACKUP_PATH}/S56dnsmasq" /opt/etc/init.d/S56dnsmasq
+	else
+		if ! [ -f "/opt/sbin/dnsmasq" ]; then
+			ready "Устанавливаем пакет dnsmasq..."
+			opkg remove dnsmasq &> /dev/null && opkg install dnsmasq &> /dev/null
+			[ $? = 0 ] && when_ok "ГОТОВО" || {
+				when_bad "ОШИБКА"
+				mess="Ошибка при установке пакета dnsmasq"
+				log_in_file "ОШИБКА: ${mess}"
+				error "${mess}"
+				exit 1
+			}
+		fi
+	fi
 	if /opt/etc/init.d/S56dnsmasq status | grep -q alive ; then
 		ready "Останавливаем сервис dnsmasq..."
 		/opt/etc/init.d/S56dnsmasq stop &>/dev/null
@@ -517,8 +594,8 @@ dnsmasq_install() {
 		}
 	fi
 	ready "Заменяем файл конфигурации dnsmasq...   "
-	[ -f /opt/etc/dnsmasq.conf ] && mv /opt/etc/dnsmasq.conf /opt/etc/dnsmasq.conf.kvas &>/dev/null
-	[ -f /opt/sbin/dnsmasq ] && mv /opt/sbin/dnsmasq /opt/sbin/dnsmasq.kvas &>/dev/null
+	[ -f /opt/etc/dnsmasq.conf ] && mv -f /opt/etc/dnsmasq.conf "${KVAS_BACKUP_PATH}/dnsmasq.conf" &>/dev/null
+	[ -f /opt/sbin/dnsmasq ] && mv -f /opt/sbin/dnsmasq "${KVAS_BACKUP_PATH}/dnsmasq" &>/dev/null
 	cp /opt/apps/kvas/files/etc/conf/dnsmasq.conf /opt/etc/dnsmasq.conf &>/dev/null
 	[ $? = 0 ] && when_ok "ГОТОВО" || {
 		when_bad "ОШИБКА"
@@ -810,20 +887,21 @@ shadowsocks_backup(){
 				exit 1
 			fi
 		fi
-		if [ -f "${SHADOWSOCKS_CONF}" ]; then
-			echo "Обнаружен файл конфигурации shadowsocks."
-			read_ynq "Удалить его и создать новый" answer
+		if [ -f "${SHADOWSOCKS_CONF}.kvas" ] && {
+				 ! grep -qE '""|@' "${SHADOWSOCKS_CONF}.kvas" || \
+				 ! cat <"${SHADOWSOCKS_CONF}.kvas" | grep 'server' | grep -q '127.0.0.1'
+			}; then
+			echo "Обнаружен архивный файл конфигурации shadowsocks."
+			answer=''; read_ynq "Удалить его и создать новый" answer
 			if [ "${answer}" = y ]; then
-				ready "Удаляем файл конфигурации shadowsocks..."
-				rm -f "${SHADOWSOCKS_CONF}"
+				ready "Удаляем архивный файл конфигурации shadowsocks..."
+				rm -f "${SHADOWSOCKS_CONF}.kvas"
 				[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 			else
-				ready "Архивируем файл конфигурации shadowsocks...   "
-				mv "${SHADOWSOCKS_CONF}" "${SHADOWSOCKS_CONF}.kvas"  &>/dev/null
+				ready "Восстанавливаем файл конфигурации shadowsocks из архива   "
+				mv -f "${SHADOWSOCKS_CONF}.kvas" "${SHADOWSOCKS_CONF}"  &>/dev/null
 				if [ ${?} = 0 ]; then
 					when_ok "ГОТОВО";
-					warning "Файл конфигурации shadowsocks сохранен под именем"
-					warning "${SHADOWSOCKS_CONF}.kvas"
 				else
 					when_bad "ОШИБКА" && exit 1
 				fi
@@ -938,7 +1016,7 @@ shadowsocks_off() {
 	ready "Интерфейс shadowsocks отключен "
 	#	сохраняем файл конфигурации shadowsocks
 	/opt/etc/init.d/S22shadowsocks stop &> /dev/null
-	mv "${SHADOWSOCKS_CONF}" "${SHADOWSOCKS_CONF}.kvas" &> /dev/null
+	mv -f "${SHADOWSOCKS_CONF}" "${SHADOWSOCKS_CONF}.kvas" &> /dev/null
 	rm -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect"
 	cmd_shadowsocks_iptable_flush &> /dev/null
 	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
@@ -998,8 +1076,7 @@ shadowsocks_on() {
 
 	cmd_shadowsocks_iptable_reset  &> /dev/null
 	#   настройка S22shadowsocks конфигурации
-	if [ -f "${SHADOWSOCKS_CONF}.kvas" ] && \
-	   ! grep -qE '""|@' "${SHADOWSOCKS_CONF}.kvas"; then
+	if [ -f "${SHADOWSOCKS_CONF}" ] && ! grep -qE '""|@' "${SHADOWSOCKS_CONF}"; then
 	   	ready "Используем данные"
 		cp "${SHADOWSOCKS_CONF}.kvas" "${SHADOWSOCKS_CONF}"
 		when_alert "ИЗ АРХИВА"
@@ -1030,6 +1107,9 @@ shadowsocks_on() {
 # ------------------------------------------------------------------------------------------
 update_interface_name_list() {
 
+	warning "Сканирование интерфейсов займет время."
+	warning "Сохраняйте терпение и спокойствие!"
+	print_line
 	# если нет файла по отлавливанию хука
 	if ! [ -f "${HOOK_INFACE_FILE}" ]; then
 		#	создаем файл
@@ -1059,9 +1139,6 @@ EOF
 	for inface_cli in ${inface_list}; do
 		# получаем текущее состояние инф-са для возвращения его к исходному состоянию
 		state=$(get_value_interface_field "${inface_cli}" state)
-#		state=$(curl -s "${INFACE_REQUEST}" \
-#			| jq -r '.[] | select(.id=="'"${inface_cli}"'") | .state' \
-#			)
 		# в зависимости от состояния - включаем и выключаем или выключаем и включаем интерфейс
 		# для того, чтобы сработал наш хук в файле /opt/etc/ndm/ifstatechanged.d/100-save-inface_entware
 		if [ "${state}" = 'up' ]; then
@@ -1074,10 +1151,6 @@ EOF
 		curl -s -d "{\"${state}\":\"true\"}" "${INFACE_PART_REQUEST}/${inface_cli}" &> /dev/null
 		# получаем описание интерфейса
 		description=$(get_value_interface_field "${inface_cli}" description | sed 's|\/|\\/|g')
-#		description=$(curl -s "${INFACE_REQUEST}" \
-#					 | jq -r '.[] | select(.id=="'"${inface_cli}"'") | .description' \
-#					 | sed 's|\/|\\/|g'\
-#					 )
 		# вставляем описание в файл /opt/etc/infaces_names
 		[ -n "${description}" ] && \
 			sed -i 's/\('"${inface_cli}"'.*\)/\1|'"${description}"'/' "${INFACE_NAMES_FILE}"
@@ -1157,9 +1230,6 @@ cmd_interface_change() {
 	if [ -f "${INFACE_NAMES_FILE}" ]; then
 		[ "${answer}" = ask ] && read_ynq "Обновить список интерфейсов" answer
 		if [ "${answer}" = y ]; then
-			warning "Сканирование интерфейсов займет время."
-			warning "Сохраняйте терпение и спокойствие!"
-			print_line
 			update_interface_name_list
 		fi
 	else
@@ -1178,8 +1248,8 @@ cmd_interface_change() {
 
 		if [ -n "${is_current_vpn}" ]; then
 			mess="${BLUE}${mess} [текущий]${NOCL}"
-			sel=${num}
-			connected_cur=${connected}
+#			sel=${num}
+#			connected_cur=${connected}
 		fi
 
 		ready "${mess}"
@@ -1226,7 +1296,7 @@ ads_hosts_remove() {
 	exclude_all=${1}
 	tmp_file="/opt/tmp/hosts.tmp"
 	ready "Исключаем из списка блокировки хосты из белого списка"
-	mv "${ADS_HOSTS_FILE}" "${tmp_file}"
+	mv -f "${ADS_HOSTS_FILE}" "${tmp_file}"
 	cat < "${tmp_file}" | grep -vE "${exclude_all}" > "${ADS_HOSTS_FILE}"
 	when_ok "ГОТОВО"
 }
@@ -1268,6 +1338,14 @@ dns_crypt_port_change() {
 
 	if [ "${cmd}" = restart ]; then
 		cmd_dnsmasq_dns_change "${LOCALHOST_IP}#${port_new}" restart &> /dev/null
+		if ! [ -f /opt/etc/init.d/S09dnscrypt-proxy2 ]; then
+			if [ -f "${KVAS_BACKUP_PATH}/S09dnscrypt-proxy2" ]; then
+				cp "${KVAS_BACKUP_PATH}/S09dnscrypt-proxy2" /opt/etc/init.d/S09dnscrypt-proxy2
+			else
+				error "Нарушена работа пакета, файл /opt/etc/init.d/S09dnscrypt-proxy2 отсутствует"
+				exit 1
+			fi
+		fi
 		/opt/etc/init.d/S09dnscrypt-proxy2 restart &> /dev/null
 	else
 		cmd_dnsmasq_dns_change "${LOCALHOST_IP}#${port_new}" &> /dev/null
@@ -1303,6 +1381,21 @@ get_dns_crypt_status(){
 # ------------------------------------------------------------------------------------------
 dns_crypt_install() {
 
+	if [ -f "${KVAS_BACKUP_PATH}/S09dnscrypt-proxy2" ]; then
+		cp "${KVAS_BACKUP_PATH}/S09dnscrypt-proxy2" /opt/etc/init.d/S09dnscrypt-proxy2
+	else
+		if ! [ -f /opt/sbin/dnscrypt-proxy ]; then
+			ready "Устанавливаем пакет dnscrypt-proxy2..."
+			opkg remove dnscrypt-proxy2 &>/dev/null && opkg install dnscrypt-proxy2 &>/dev/null
+			[ $? = 0 ] && when_ok "ГОТОВО" || {
+				when_bad "ОШИБКА"
+				mess="Ошибка при установке пакета dnsmasq"
+				log_in_file "ОШИБКА: ${mess}"
+				error "${mess}"
+				exit 1
+			}
+		fi
+	fi
 	if /opt/etc/init.d/S09dnscrypt-proxy2 status | grep -q alive &>/dev/null; then
 		ready "Останавливаем службу dnscrypt-proxy2..."
 		/opt/etc/init.d/S09dnscrypt-proxy2 stop &>/dev/null
@@ -1373,7 +1466,7 @@ cmd_dns_crypt_off() {
 	sed -i '/server/d' '/opt/bin/kvas_dnsmasq' &> /dev/null
 
 	rm '/opt/etc/kvas.dnsmasq' &> /dev/null
-	set_config_value DNS_CRYPT_PORT "${static_dns}"
+	set_config_value DNS_CRYPT_PORT "${crypt_port}"
 
 	/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
 	cmd_update_list &> /dev/null
@@ -1528,13 +1621,13 @@ cmd_clear_list() {
 			case ${yn} in
 			[Yy]*)
 				print_line
-				ready "Очищаем cписок разблокировки ..."
-				mv "${UNBLOCK_LIST_FILE}" "${UNBLOCK_LIST_FILE}.old"
+				ready "Очищаем список разблокировки ..."
+				mv -f "${UNBLOCK_LIST_FILE}" "${UNBLOCK_LIST_FILE}.kvas"
 				touch "${UNBLOCK_LIST_FILE}"
 				cmd_update_list &> /dev/null
 				[ $? = 0 ] && when_ok "ОЧИЩЕН" || when_bad "ОШИБКА"
 				print_line
-				warning "Предыдущий список разблокировки был сохранен в файл ${UNBLOCK_LIST_FILE}.old"
+				warning "Предыдущий список разблокировки был сохранен в файл ${UNBLOCK_LIST_FILE}.kvas"
 				break
 				;;
 			[Nn]*)
@@ -1883,11 +1976,11 @@ ads_request_to_upload() {
 		[ "${answer}" = ask ] && read_ynq "Восстановить данный файл" answer
 		if [ "${answer}" = y ]; then
 			ready "Восстановление архива с источниками рекламы завершено"
-			mv /opt/etc/adblock.sources.kvas /opt/etc/adblock.sources
+			mv -f /opt/etc/adblock.sources.kvas /opt/etc/adblock.sources
 			[ $? = 0 ] && when_ok "УДАЧНО" || when_bad "С ОШИБКОЙ"
 		else
 			ready "Загрузка источников рекламы по умолчанию"
-			mv /opt/apps/kvas/files/etc/conf/adblock.sources /opt/etc/adblock.sources
+			mv -f /opt/apps/kvas/files/etc/conf/adblock.sources /opt/etc/adblock.sources
 			[ $? = 0 ] && when_ok "УДАЧНО" || when_bad "С ОШИБКОЙ"
 		fi
 	fi
