@@ -1,0 +1,11 @@
+#!/bin/bash
+
+APP_REMOTE_FILE="/opt/apps/kvas/debug/remote.conf"
+MY_PORT=$(cat < "${APP_REMOTE_FILE}" | grep -E '^PORT' | cut -d' ' -f3 | cut -d"=" -f2)
+MY_ROUTER=$(cat < "${APP_REMOTE_FILE}" | grep -E '^ROUTER' | cut -d'"' -f2| cut -d"=" -f2)
+
+on_server(){
+	cmd="${1}"
+	ssh "${MY_ROUTER}" -p "${MY_PORT}" "${cmd}"
+}
+
