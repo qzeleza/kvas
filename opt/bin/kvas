@@ -20,7 +20,7 @@ case "${1}" in
 		case "${2}" in
 			add ) 			cmd_bridge_vpn_access_add "${3}" ;;
 			del ) 			cmd_bridge_vpn_access_del "${3}" ;;
-			*) 				cmd_help ;;
+			*) 				cmd_bridge_vpn_access_list ;;
 		esac
 		;;
 	dnsmasq)

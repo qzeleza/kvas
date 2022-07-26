@@ -1,5 +1,4 @@
 #!/bin/sh
-#. /opt/bin/kvas_lib_main
 . /opt/bin/kvas_lib_debug
 # ------------------------------------------------------------------------------------------
 #
@@ -9,7 +8,8 @@
 #	Разработчик: mail@zeleza.ru
 #	Дата: 21/05/2022
 #	Лицензия: GPL 2.0
-#
+#	75 функций (на 23/07/2022)
+#	
 # ------------------------------------------------------------------------------------------
 #	Основные переменные для работы скрипта
 # ------------------------------------------------------------------------------------------
@@ -39,7 +39,7 @@ INFACE_REQUEST="${LOCALHOST_IP}:79/rci/show/interface"
 INFACE_PART_REQUEST="${LOCALHOST_IP}:79/rci/interface"
 CMD_LIST="address prefix name-servers"
 
-
+ip4() (/opt/sbin/ip -4 "$@")
 # ------------------------------------------------------------------------------------------
 #
 #	Функция вывода помощи по работе скрипта
@@ -77,7 +77,7 @@ get_defaultgw_interface() {
 #	$1 - CLI интерфейс
 #
 # ------------------------------------------------------------------------------------------
-ipv6_inface_off(){
+ipv6_inface_off() {
 
 	inface="${1}"
 	ready "Поддержка IPv6 на интерфейсе ${inface} отключена"
@@ -93,7 +93,7 @@ ipv6_inface_off(){
 #	$1 - CLI интерфейс
 #
 # ------------------------------------------------------------------------------------------
-ipv6_inface_on(){
+ipv6_inface_on() {
 	inface="${1}"
 	ready "Поддержка IPv6 на интерфейсе ${inface} подключена"
         for cmd in ${CMD_LIST}; do
@@ -110,7 +110,7 @@ ipv6_inface_on(){
 #	1- ipv6 отключен
 #
 # ------------------------------------------------------------------------------------------
-ipv6_status(){
+ipv6_status() {
 	inface="${1}"; res=0
 	for cmd in ${CMD_LIST}; do
 		 [ -n "$(curl -s "${INFACE_PART_REQUEST}/${inface}/ipv6/${cmd}" | grep true )" ] && res=$((res+1))
@@ -123,7 +123,7 @@ ipv6_status(){
 #	$1 - CLI интерфейс
 #
 # ------------------------------------------------------------------------------------------
-is_cli_inface_present(){
+is_cli_inface_present() {
 	inface="${1}"
 	curl -s "${INFACE_REQUEST}" | grep interface-name | grep -q "${inface}"
 }
@@ -134,7 +134,7 @@ is_cli_inface_present(){
 #	$1 - CLI интерфейс
 #
 # ------------------------------------------------------------------------------------------
-ipv6_inface_status(){
+ipv6_inface_status() {
 	inface="${1}"
 	if is_cli_inface_present "${inface}" ; then
 		ready "Поддержка IPv6 на интерфейсе ${inface}"
@@ -238,25 +238,33 @@ cmd_adguardhome_status() {
 #		when_bad "НЕ УСТАНОВЛЕН"
 #	fi
 }
-adguardhome_tuning(){
+adguardhome_tuning() {
 #	ip=$(get_router_ip)
-	echo "Следуйте инструкциям на экране ниже..."
-	echo "После всех произведенных настроек нажмите Ctrl-C"
-	print_line
-	/opt/bin/AdGuardHome
-	cp /opt/apps/kvas/files/etc/init.d/S99adguard  /opt/etc/init.d/S99adguardhome
-	mv /opt/bin/AdGuardHome.yaml /opt/etc/AdGuardHome/AdGuardHome.yaml
-	"${ADGUARDHOME_DEMON}" restart  &> /dev/null
+	if [ -f /opt/bin/AdGuardHome.yaml ]; then
+		cp /opt/apps/kvas/files/etc/init.d/S99adguard  /opt/etc/init.d/S99adguardhome
+		mv /opt/bin/AdGuardHome.yaml /opt/etc/AdGuardHome/AdGuardHome.yaml
+		"${ADGUARDHOME_DEMON}" restart  &> /dev/null
+	else
+		echo "Следуйте инструкциям на экране ниже..."
+		echo "После всех произведенных настроек нажмите Ctrl-C"
+		echo -e "И затем снова запустите ${BLUE}kvas adguard on${NOCL}"
+		print_line
+		/opt/bin/AdGuardHome #&& {
+#			cp /opt/apps/kvas/files/etc/init.d/S99adguard  /opt/etc/init.d/S99adguardhome
+#			mv /opt/bin/AdGuardHome.yaml /opt/etc/AdGuardHome/AdGuardHome.yaml
+#			"${ADGUARDHOME_DEMON}" restart  &> /dev/null
+#		}
+	fi
 #	read -r pause &> /dev/null
 }
-adguardhome_check_config(){
+adguardhome_check_config() {
 
 		ip=$(get_router_ip)
 		if [ -f "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml ]; then
 			cp "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml /opt/etc/AdGuardHome/AdGuardHome.yaml
 			"${ADGUARDHOME_DEMON}" restart  &> /dev/null
 			print_line
-			port=$(cat < "${ADGUARDHOME_CONFIG}" | grep 'bind_port: ' | cut -d':' -f2 | tr -d ' ')
+			port=$(cat < "${ADGUARDHOME_CONFIG}" | grep '^bind_port: ' | cut -d':' -f2 | tr -d ' \n')
 			echo -e "Был обнаружен и восстановлен архивный файл конфигурации AdGuard Home."
 			echo -e "Панель управления находится по адресу: ${BLUE}http://${ip}:${port}${NOCL}"
 			print_line
@@ -267,7 +275,7 @@ adguardhome_check_config(){
 			adguardhome_tuning
 		fi
 }
-adguardhome_install_locally(){
+adguardhome_install_locally() {
 
 	if [ -f /opt/tmp/opkg.lock ]; then
 		echo "Установите AdGuard Home на роутер после завершения установки пакета"
@@ -285,7 +293,7 @@ adguardhome_install_locally(){
 		adguardhome_setup
 	fi
 }
-adguardhome_install_remotely(){
+adguardhome_install_remotely() {
 
 	echo -e "${BLUE}Если Ваш AdGuard Home находится на другом устройстве, то ${NOCL}"
 	ip_port=''; read_value "Введите IP и номер порта AdGuard Home через двоеточие" ip_port
@@ -360,15 +368,15 @@ cmd_adguardhome_off() {
 
 
 
-#		if [ $? = 0 ]; then
-#			when_ok "УСПЕШНО"
-#			answer=''; read_ynq "Шифровать трафик посредством dnscrypt_proxy2" answer
-#			[ "${answer}" = y ] && dns_crypt_install
-#		else
-#			when_bad "С ОШИБКОЙ";
-#			error "Возникла ошибка при удалении AdGuard Home из системы."
-#			exit 1
-#		fi
+		if [ $? = 0 ]; then
+			when_ok "УСПЕШНО"
+			answer=''; read_ynq "Шифровать трафик посредством dnscrypt_proxy2 [Y/N]?" answer
+			[ "${answer}" = y ] && dns_crypt_install
+		else
+			when_bad "С ОШИБКОЙ";
+			error "Возникла ошибка при удалении AdGuard Home из системы."
+			exit 1
+		fi
 	fi
 
 }
@@ -378,7 +386,7 @@ cmd_adguardhome_off() {
 #	$1 - ID гостевого моста в entware
 #
 # ------------------------------------------------------------------------------------------
-cmd_bridge_vpn_access_del(){
+cmd_bridge_vpn_access_del() {
 	guest_bridge_id="${1}"
 	ready "Удаление гостевого интерфейса ${guest_bridge_id} из vpn цепочки завершено"
 
@@ -393,6 +401,31 @@ cmd_bridge_vpn_access_del(){
 }
 # ------------------------------------------------------------------------------------------
 #
+#	Функция выводит список гостевых сетей в наличии
+#
+# ------------------------------------------------------------------------------------------
+cmd_bridge_vpn_access_list() {
+
+	num_id_local_inface=$(get_local_inface | tr 'a-zA-Z' ' ' | tr -d ' ')
+	entware_bridge_list=$(ip4 a \
+						| grep -E ': br[0-9]' \
+						| grep -v "br${num_id_local_inface}" \
+						| cut -d':' -f1-2 \
+						| cut -d' ' -f2\
+						| tr '\n' ' ' \
+						)
+	num=0
+	for bridge_id in ${entware_bridge_list}; do
+		num=$((num + 1))
+		net=$(ip4 a | grep " ${bridge_id}" | grep inet | sed 's/^ *//' | cut -d' ' -f2)
+		num_inface=$(echo "${bridge_id}" | tr -d '[:alpha:]')
+		ready "${num}. Интерфейс Bridge${num_inface} -> ${net}"
+		grep 'interface=' "${DNSMASQ_CONFIG}" | grep -q "${bridge_id}" && when_ok "ПОДКЛЮЧЕН" || when_bad "НЕ ПОДКЛЮЧЕН"
+	done
+#	echo "${guest_bridge_list_id}"
+}
+# ------------------------------------------------------------------------------------------
+#
 #	Функция подключает гостевую сеть к активному vpn
 #
 #	$1 - команда для удаления всех гостевых сетей к активному vpn
@@ -401,7 +434,7 @@ cmd_bridge_vpn_access_del(){
 #	при использовании в функции cmd_bridge_vpn_access_add
 #
 # ------------------------------------------------------------------------------------------
-cmd_bridge_vpn_access_del(){
+cmd_bridge_vpn_access_del() {
 
 	option=${1}; cmd="${2:-update}"; guest_bridge_id=''
 	guest_bridge_list_id=$(cat < "${DNSMASQ_CONFIG}" \
@@ -435,23 +468,23 @@ cmd_bridge_vpn_access_del(){
 #	$1 - ID гостевого моста в entware
 #
 # ------------------------------------------------------------------------------------------
-bridge_access_add(){
+bridge_access_add() {
 
 	guest_bridge_id=${1}; ip=${2}; crypt_port=${3}
 
 	ready "Добавление гостевого интерфейса ${guest_bridge_id} в vpn цепочку завершено"
 	if [ -f "${DNS_LOCAL_DEMON_FILE}" ]; then
 
-		rule="iptables -w -t nat -I PREROUTING -i ${guest_bridge_id} -p tcp --dport ${MAIN_DNS_PORT} -j DNAT --to ${ip}"
+		rule="/opt/sbin/iptables -w -t nat -I PREROUTING -i ${guest_bridge_id} -p tcp --dport ${MAIN_DNS_PORT} -j DNAT --to ${ip}"
 		sed -i "s/\(tcp.*DNAT --to.*\)/\1\n\t${rule}/g" "${DNS_LOCAL_DEMON_FILE}"
 
-		rule="iptables -w -t nat -I PREROUTING -i ${guest_bridge_id} -p udp --dport ${MAIN_DNS_PORT} -j DNAT --to ${ip}"
+		rule="/opt/sbin/iptables -w -t nat -I PREROUTING -i ${guest_bridge_id} -p udp --dport ${MAIN_DNS_PORT} -j DNAT --to ${ip}"
 		sed -i "s/\(udp.*DNAT --to.*\)/\1\n\t${rule}/g" "${DNS_LOCAL_DEMON_FILE}"
 	fi
 
 	if [ -f "${IPSET_REDIRECT_DEMON_FILE}" ]; then
 		crypt_port=$(get_config_value DNS_CRYPT_PORT)
-		rule="iptables -w -t nat -A PREROUTING -i ${guest_bridge_id} -p tcp -m set --match-set unblock dst -j REDIRECT --to-port ${crypt_port}"
+		rule="/opt/sbin/iptables -w -t nat -A PREROUTING -i ${guest_bridge_id} -p tcp -m set --match-set unblock dst -j REDIRECT --to-port ${crypt_port}"
 		sed -i "s/\(REDIRECT --to-port.*\)/\1\n\t${rule}/g" "${IPSET_REDIRECT_DEMON_FILE}"
 	fi
 
@@ -464,7 +497,7 @@ bridge_access_add(){
 #	$1 - команда для добавления всех гостевых сетей к активному vpn
 #
 # ------------------------------------------------------------------------------------------
-cmd_bridge_vpn_access_add(){
+cmd_bridge_vpn_access_add() {
 
 	option=${1};
 
@@ -474,7 +507,7 @@ cmd_bridge_vpn_access_add(){
 	if [ -n "${option}" ] && [ "${option}" = all ]; then
 		cmd_bridge_vpn_access_del 'all' 'not_update' &> /dev/null
 		num_id_local_inface=$(get_local_inface | tr 'a-zA-Z' ' ' | tr -d ' ')
-		entware_bridge_list=$(ip a \
+		entware_bridge_list=$(ip4 a \
 							| grep -E ': br[0-9]' \
 							| grep -v "br${num_id_local_inface}" \
 							| cut -d':' -f1-2 \
@@ -500,10 +533,10 @@ cmd_bridge_vpn_access_add(){
 #	$1 - переменная для записи ID гостевого моста в entware
 #
 # ------------------------------------------------------------------------------------------
-bridge_inface_select(){
+bridge_inface_select() {
 
 	num_id_local_inface=$(get_local_inface | tr 'a-zA-Z' ' ' | tr -d ' ')
-	entware_bridge_list=$(ip a \
+	entware_bridge_list=$(ip4 a \
 							| grep -E ': br[0-9]' \
 							| grep -v "br${num_id_local_inface}" \
 							| cut -d':' -f1-2 \
@@ -524,7 +557,9 @@ bridge_inface_select(){
 		num=0;
 		for cli_inface in ${cli_bridge_list}; do
 			num=$((num + 1))
-			mess="${num}. Интерфейс ${cli_inface}"
+			num_inface=$(echo "${cli_inface}" | tr -d '[:alpha:]')
+			net=$(ip4 a | grep " br${num_inface}" | grep inet | sed 's/^ *//' | cut -d' ' -f2)
+			mess="${num}. Интерфейс ${cli_inface} -> ${net}"
 			connected=$(is_vpn_interface_connected "${cli_inface}")
 			ready "${mess}"
 			if [ "${connected}" = "on" ]; then when_ok "В СЕТИ"; else when_bad "ОТКЛЮЧЕН"; fi
@@ -681,17 +716,18 @@ cmd_dnsmasq_dns_change() {
 	else
 		dns_prev=$(get_config_value DNS_DEFAULT)
 		port_prev=$(get_config_value DNS_CRYPT_PORT)
-		if echo "${dns_prev}" | grep -qE "(localhost|${LOCALHOST_IP})#${port_prev}" ; then
-			warning "Сейчас DNS шифруется при помощи dnscrypt_proxy2"
-			read_ynq "Заменить DNS в любом случае, уверены" answer
-			if [ "${answer}" = y ]; then
-				dnsmasq_dns_change "${dns_new}" "${cmd}"
-			else
-				ready "Замена DNS на ${dns_new} в dnsmasq"; when_bad "ОТМЕНЕНА"
-			fi
-		else
-			dnsmasq_dns_change "${dns_new}" "${cmd}"
-		fi
+		dnsmasq_dns_change "${dns_new}" "${cmd}"
+#		if echo "${dns_prev}" | grep -qE "(localhost|${LOCALHOST_IP})#${port_prev}" ; then
+#			warning "Сейчас DNS шифруется при помощи dnscrypt_proxy2"
+#			read_ynq "Заменить DNS в любом случае, уверены" answer
+#			if [ "${answer}" = y ]; then
+#				dnsmasq_dns_change "${dns_new}" "${cmd}"
+#			else
+#				ready "Замена DNS на ${dns_new} в dnsmasq"; when_bad "ОТМЕНЕНА"
+#			fi
+#		else
+#			dnsmasq_dns_change "${dns_new}" "${cmd}"
+#		fi
 	fi
 }
 
@@ -755,9 +791,17 @@ cmd_dns_test() {
 #
 # ------------------------------------------------------------------------------------------
 dns_show() {
-	ready "Текущий DNS сервер по умолчанию"
+	mess="Текущий DNS сервер по умолчанию"
 	dns=$(get_config_value DNS_DEFAULT)
-	when_alert "${dns}"
+	dns_crypt=$(get_config_value DNS_CRYPT_PORT)
+	if  echo "${dns}" | grep -q "${dns_crypt}" ; then
+		mess="${mess} (dnscrypt_proxy2)"
+	elif echo "${dns}" | grep -q "127.0.0.1#53" ; then
+		mess="${mess} (AdGuard Home)"
+	else
+		mess="${mess} (dnsmasq)"
+	fi
+	ready "${mess}"; when_alert "${dns}"
 }
 
 # ------------------------------------------------------------------------------------------
@@ -767,14 +811,15 @@ dns_show() {
 # ------------------------------------------------------------------------------------------
 cmd_vpn_iptable_flush() {
 	ready "Очистка iptables для vpn завершена"
-	num_lines=$(iptables -t mangle -L PREROUTING --line-numbers | grep -cE 'unblock|restore-mark')
+	num_lines=$(/opt/sbin/iptables -t mangle -L PREROUTING --line-numbers | grep CONNMARK | grep -cE '(unblock|restore-mark)')
 	for b in $(seq 1 ${num_lines}); do
-		nline=$(iptables -t mangle -L PREROUTING --line-numbers \
-				| grep -E 'unblock|restore-mark' \
+		nline=$(/opt/sbin/iptables -t mangle -L PREROUTING --line-numbers \
+				| grep CONNMARK \
+				| grep -E '(unblock|restore-mark)' \
 				| cut -d" " -f1 \
 				| head -1 \
 				)
-		iptables -t mangle -D PREROUTING "${nline}"
+		/opt/sbin/iptables -t mangle -D PREROUTING "${nline}"
 	done
 
 	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
@@ -809,7 +854,7 @@ vpn_off() {
 #	Отображаем статус VPN подключения (тип соединения и его состояние)
 #
 # ------------------------------------------------------------------------------------------
-cmd_vpn_status(){
+cmd_vpn_status() {
         vpn_cli_desc=$(get_current_vpn_interface "cli_desc")
         vpn_cli=$(get_current_vpn_interface "cli")
         [ "${vpn_cli}" = 'shadowsocks' ] && inface="SHADOWSOCKS" || inface="${vpn_cli_desc} (${vpn_cli})"
@@ -840,6 +885,7 @@ vpn_on() {
 	cp "/opt/apps/${APP_NAME}/files/etc/ndm/ifstatechanged.d/100-unblock-vpn" "/opt/etc/ndm/ifstatechanged.d/100-unblock-vpn"
 	chmod +x "/opt/etc/ndm/ifstatechanged.d/100-unblock-vpn"
 	sed -i "s/@ENTWARE_INFACE_NAME/${inface_entware}/g" "/opt/etc/ndm/ifstatechanged.d/100-unblock-vpn"
+	sed -i "s/@CLI_INFACE_NAME/${inface_cli}/g" "/opt/etc/ndm/ifstatechanged.d/100-unblock-vpn"
 
 	state=$(get_value_interface_field "${inface_cli}" state)
 
@@ -870,7 +916,7 @@ vpn_on() {
 #	Сохраняем данные для shadowsocks в архивный файл ${SHADOWSOCKS_CONF}.kvas
 #
 # ------------------------------------------------------------------------------------------
-shadowsocks_backup(){
+shadowsocks_backup() {
 	# Проверяем установлен ли сервис shadowsocks
 	if [ -f /opt/bin/ss-redir ]; then
 		# меняем данные в файлах shadowsocks
@@ -981,14 +1027,14 @@ shadowsocks_read_data() {
 cmd_shadowsocks_iptable_flush() {
 	ready "Удаление правил iptables для shadowsocks завершено"
 #	proxy_port=$(get_config_value SSR_DNS_PORT)
-	num_lines=$(iptables -t nat -L PREROUTING --line-numbers | grep -c 'unblock')
+	num_lines=$(/opt/sbin/iptables -t nat -L PREROUTING --line-numbers | grep -c 'unblock')
 	for b in $(seq 1 ${num_lines}); do
-		nline=$(iptables -t nat -L PREROUTING --line-numbers \
+		nline=$(/opt/sbin/iptables -t nat -L PREROUTING --line-numbers \
 				| grep unblock \
 				| cut -d" " -f1 \
 				| head -1\
 				)
-		iptables -t nat -D PREROUTING "${nline}"
+		/opt/sbin/iptables -t nat -D PREROUTING "${nline}"
 	done
 	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
 }
@@ -997,14 +1043,14 @@ cmd_shadowsocks_iptable_flush() {
 #	Переустанавливаем правила в itables для shadowsocks клиента
 #
 # ------------------------------------------------------------------------------------------
-cmd_shadowsocks_iptable_reset(){
+cmd_shadowsocks_iptable_reset() {
 	ready "Переустановка iptables для shadowsocks завершена"
 	cmd_shadowsocks_iptable_flush &> /dev/null
 	local_ip=$(get_router_ip)
 	inface=$(get_inface_by_ip "${local_ip}")
 	proxy_port=$(get_config_value SSR_DNS_PORT)
 	ipset create unblock hash:net family inet -exist
-	iptables -w -t nat -A PREROUTING -i "${inface}" -p tcp -m set --match-set unblock dst -j REDIRECT --to-port "${proxy_port}"
+	/opt/sbin/iptables -w -t nat -A PREROUTING -i "${inface}" -p tcp -m set --match-set unblock dst -j REDIRECT --to-port "${proxy_port}"
 	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
 }
 # ------------------------------------------------------------------------------------------
@@ -1076,7 +1122,7 @@ shadowsocks_on() {
 
 	cmd_shadowsocks_iptable_reset  &> /dev/null
 	#   настройка S22shadowsocks конфигурации
-	if [ -f "${SHADOWSOCKS_CONF}" ] && ! grep -qE '""|@' "${SHADOWSOCKS_CONF}"; then
+	if [ -f "${SHADOWSOCKS_CONF}.kvas" ] && ! grep -qE '""|@' "${SHADOWSOCKS_CONF}" && ! grep -q '["::1", "127.0.0.1"]'; then
 	   	ready "Используем данные"
 		cp "${SHADOWSOCKS_CONF}.kvas" "${SHADOWSOCKS_CONF}"
 		when_alert "ИЗ АРХИВА"
@@ -1191,7 +1237,7 @@ get_current_vpn_interface() {
 			cli_desc) col=3 ;;
 			*) col=1 ;;
 		esac
-		inface_entware=$(grep 'INFACE_VPN=' "/opt/etc/ndm/ifstatechanged.d/100-unblock-vpn" | cut -d'=' -f2)
+		inface_entware=$(grep 'INFACE_ENT=' "/opt/etc/ndm/ifstatechanged.d/100-unblock-vpn" | cut -d'=' -f2)
 		inface=$(grep "${inface_entware}" "${INFACE_NAMES_FILE}" | cut -d'|' -f"${col}")
 	fi
 	echo "${inface}"
@@ -1361,7 +1407,7 @@ dns_crypt_port_change() {
 #	 off - выключен
 #
 # ------------------------------------------------------------------------------------------
-get_dns_crypt_status(){
+get_dns_crypt_status() {
 	crypt_port=$(get_config_value DNS_CRYPT_PORT)
 	if [ -f '/opt/sbin/dnscrypt-proxy' ] &&
 		cat <'/opt/bin/kvas_ipset' | grep '@' | grep -q "${crypt_port}" &&
@@ -1527,7 +1573,7 @@ test_host() {
 	echo "${ret}"
 
 }
-host_add(){
+host_add() {
 	host="${1}"
 	clear_host=$(echo "${host}" | sed 's/\*//')
 	ready "Добавляем ${YELLOW}${clear_host}${NOCL} в список разблокировки..."
@@ -1540,7 +1586,7 @@ host_add(){
 		fi
 	fi
 	cmd_update_list &> /dev/null
-	[ $? = 0 ] && when_ok "ДОБАВЛЕН" || when_bad "НЕ ДОБАВЛЕН"
+	[ $? = 0 ] && when_ok "ДОБАВЛЕН"; exit 0 || when_bad "НЕ ДОБАВЛЕН"; exit 1;
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -1602,7 +1648,7 @@ cmd_del_one_host() {
 		cmd_update_list &> /dev/null
 		[ $? = 0 ] && when_ok "УДАЛЕН" || when_bad "НЕ УДАЛЕН"
 	else
-		error "Такая запись отсуствует в списка разблокировки!"
+		error "Такая запись отсутствует в списке разблокировки!"
 	fi
 }
 # ------------------------------------------------------------------------------------------
@@ -1611,33 +1657,36 @@ cmd_del_one_host() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_clear_list() {
-	if [ ! -f "${UNBLOCK_LIST_FILE}" ]; then
-		error "Списочный файл не существует!"
-	elif [ "$(rec_in_file "${UNBLOCK_LIST_FILE}")" = '0' ]; then
-		error "Список разблокировки не содержит записей!"
+
+	if [ -f "${UNBLOCK_LIST_FILE}" ]; then
+		if [ "$(rec_in_file "${UNBLOCK_LIST_FILE}")" = '0' ]; then
+			error "Список разблокировки не содержит записей!"
+		else
+			while true; do
+				ready "Список разблокировки будет полностью очищен. Уверены?" && read -r yn
+				case ${yn} in
+				[Yy]*)
+					print_line
+					ready "Очищаем список разблокировки ..."
+					mv -f "${UNBLOCK_LIST_FILE}" "${UNBLOCK_LIST_FILE}.kvas"
+					touch "${UNBLOCK_LIST_FILE}"
+					cmd_update_list &> /dev/null
+					[ $? = 0 ] && when_ok "ОЧИЩЕН" || when_bad "ОШИБКА"
+					print_line
+					warning "Предыдущий список разблокировки был сохранен в файл ${UNBLOCK_LIST_FILE}.kvas"
+					break
+					;;
+				[Nn]*)
+					break
+					;;
+				*)
+					please_repeat
+					;;
+				esac
+			done
+		fi
 	else
-		while true; do
-			ready "Список разблокировки будет полностью очищен. Уверены?" && read -r yn
-			case ${yn} in
-			[Yy]*)
-				print_line
-				ready "Очищаем список разблокировки ..."
-				mv -f "${UNBLOCK_LIST_FILE}" "${UNBLOCK_LIST_FILE}.kvas"
-				touch "${UNBLOCK_LIST_FILE}"
-				cmd_update_list &> /dev/null
-				[ $? = 0 ] && when_ok "ОЧИЩЕН" || when_bad "ОШИБКА"
-				print_line
-				warning "Предыдущий список разблокировки был сохранен в файл ${UNBLOCK_LIST_FILE}.kvas"
-				break
-				;;
-			[Nn]*)
-				break
-				;;
-			*)
-				please_repeat
-				;;
-			esac
-		done
+		error "Списочный файл не существует!"
 	fi
 }
 
@@ -1655,6 +1704,7 @@ rec_in_var() {
 #
 # ------------------------------------------------------------------------------------------
 get_separated_host_list() {
+	clear_file_content "${UNBLOCK_LIST_FILE}"
 	exclude_com="$(cat < "${UNBLOCK_LIST_FILE}" | tr -d '*' | sed ':a;N;$!ba;s/\n/$| /g')$"
 	exclude_www="www.$(cat < "${UNBLOCK_LIST_FILE}" | tr -d '*' | sed ':a;N;$!ba;s/\n/$| www./g')$"
 	echo "${exclude_com}|${exclude_www}"
@@ -1772,9 +1822,7 @@ cmd_export_hosts() {
 # ------------------------------------------------------------------------------------------
 cmd_show_list() {
 
-	if ! [ -f "${UNBLOCK_LIST_FILE}" ]; then
-		error "Список не существует."
-	else
+	if [ -f "${UNBLOCK_LIST_FILE}" ]; then
 		num_plus=$(rec_in_file "${UNBLOCK_LIST_FILE}")
 		if [ "${num_plus}" -eq 0 ]; then
 			error "Список разблокировки пуст!"
@@ -1783,6 +1831,8 @@ cmd_show_list() {
 			print_line
 			clear_content "${UNBLOCK_LIST_FILE}"
 		fi
+	else
+		error "Список не существует."
 	fi
 }
 # ------------------------------------------------------------------------------------------
@@ -1902,19 +1952,18 @@ cmd_ads_edit() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_ads_protect_off() {
-	if [ -f '/opt/bin/kvas_adblock' ]; then
-		ready "Блокировка рекламы"
-		sed -i 's/\(^ADS_BLOCKER_ON=.*\)/\10/' '/opt/bin/kvas_update'
-		sed -i '/addn-hosts=\/opt\/tmp\/adblock/d' '/opt/etc/dnsmasq.conf'
-		OFF="ПОДКЛЮЧЕНА.\nПроизошла не предвиденная ошибка."
-		[ $? = 0 ] && when_ok "ОТКЛЮЧЕНА" || when_bad "${OFF}"
-		ready "Перезапуск службы dnsmasq"
-		/opt/etc/init.d/S56dnsmasq restart &> /dev/null
-		[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
-	else
-		warning 'Скрипт обработки рекламы отсутствует'
-		error 'Переустановите пакет КВАС заново!'
+	if ! [ -f '/opt/bin/kvas_adblock' ]; then
+		cp -f '/opt/apps/kvas/files/bin/kvas_adblock' '/opt/bin/kvas_adblock'
+		chmod +x '/opt/bin/kvas_adblock'
 	fi
+	ready "Блокировка рекламы"
+	sed -i 's/\(^ADS_BLOCKER_ON=.*\)/\10/' '/opt/bin/kvas_update'
+	sed -i '/addn-hosts=\/opt\/tmp\/adblock/d' '/opt/etc/dnsmasq.conf'
+	OFF="ПОДКЛЮЧЕНА.\nПроизошла не предвиденная ошибка."
+	[ $? = 0 ] && when_ok "ОТКЛЮЧЕНА" || when_bad "${OFF}"
+	ready "Перезапуск службы dnsmasq"
+	/opt/etc/init.d/S56dnsmasq restart &> /dev/null
+	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -1924,29 +1973,27 @@ cmd_ads_protect_off() {
 # ------------------------------------------------------------------------------------------
 cmd_ads_protect_on() {
 	perform_to_aks="${1}"
-	if [ -f '/opt/bin/kvas_adblock' ]; then
-		cat < '/opt/etc/dnsmasq.conf' | sed '/^#/d' | grep "adblock.dnsmasq" &> /dev/null
-		if [ $? = 0 ]; then
-			ready "Блокировка рекламы уже "
-			when_ok "ВКЛЮЧЕНА"
-		else
-			ready "Блокировка рекламы"
-			sed -i '/addn-hosts=\/opt\/tmp\/adblock/d' '/opt/etc/dnsmasq.conf'
-			sed -i 's/\(^ADS_BLOCKER_ON=.*\)/\11/' '/opt/bin/kvas_update'
-			echo 'addn-hosts=/opt/tmp/adblock' >> '/opt/etc/dnsmasq.conf'
-#			echo 'conf-file=/opt/etc/adblock.dnsmasq' >>'/opt/etc/dnsmasq.conf'
-			OFF="ОТКЛЮЧЕНА.\nПроизошла не предвиденная ошибка."
-			[ $? = 0 ] && when_ok "ВКЛЮЧЕНА" || when_bad "${OFF}"
-#			print_line
-			ads_request_to_upload "${perform_to_aks}"
-			print_line
-			ready "Перезапуск службы dnsmasq"
-			/opt/etc/init.d/S56dnsmasq restart &> /dev/null
-			[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
-		fi
+	if ! [ -f '/opt/bin/kvas_adblock' ]; then
+		cp -f '/opt/apps/kvas/files/bin/kvas_adblock' '/opt/bin/kvas_adblock'
+		chmod +x '/opt/bin/kvas_adblock'
+	fi
+	adblock_file=/opt/tmp/adblock
+	if cat < '/opt/etc/dnsmasq.conf' | sed '/^#/d' | grep -q "${adblock_file}" ; then
+		ready "Блокировка рекламы уже "
+		when_ok "ВКЛЮЧЕНА"
 	else
-		error 'Скрипт обработки рекламы отсутствует'
-		error 'Переустановите пакет КВАС заново!'
+		ready "Блокировка рекламы"
+		sed -i '/addn-hosts=\/opt\/tmp\/adblock/d' '/opt/etc/dnsmasq.conf'
+		sed -i 's/\(^ADS_BLOCKER_ON=.*\)/\11/' '/opt/bin/kvas_update'
+		echo "addn-hosts=${adblock_file}" >> '/opt/etc/dnsmasq.conf'
+		OFF="ОТКЛЮЧЕНА.\nПроизошла не предвиденная ошибка."
+		[ $? = 0 ] && when_ok "ВКЛЮЧЕНА" || when_bad "${OFF}"
+#			print_line
+		ads_request_to_upload "${perform_to_aks}"
+		print_line
+		ready "Перезапуск службы dnsmasq"
+		/opt/etc/init.d/S56dnsmasq restart &> /dev/null
+		[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 	fi
 }
 # ------------------------------------------------------------------------------------------
@@ -1957,8 +2004,13 @@ cmd_ads_protect_on() {
 cmd_ads_status() {
 	if [ -f '/opt/bin/kvas_adblock' ]; then
 		ready "Блокировка рекламы "
-		cat < '/opt/etc/dnsmasq.conf' | sed '/^#/d' | grep "adblock.dnsmasq" &> /dev/null
-		[ $? = 0 ] && when_ok "ВКЛЮЧЕНА" || when_bad "ОТКЛЮЧЕНА"
+		if [ -f '/opt/etc/dnsmasq.conf' ]; then
+			cat < '/opt/etc/dnsmasq.conf' | sed '/^#/d' | grep -q "/opt/tmp/adblock" &> /dev/null
+			[ $? = 0 ] && when_ok "ВКЛЮЧЕНА" || when_bad "ОТКЛЮЧЕНА"
+		else
+			when_bad "ОТКЛЮЧЕНА"
+			warning "Отсутствует файл конфигурации /opt/etc/dnsmasq.conf"
+		fi
 	else
 		error 'Скрипт обработки рекламы отсутствует'
 		error 'Переустановите пакет КВАС заново!'
@@ -1967,20 +2019,23 @@ cmd_ads_status() {
 # ------------------------------------------------------------------------------------------
 #
 #	 Выводим статус блока борьбы с рекламой
+#	 $1 - значение ask - спрашивать о восстановлении
+#	 архивный файл с источниками обновления рекламы в случае его обнаружения
 #
 # ------------------------------------------------------------------------------------------
 ads_request_to_upload() {
-	answer="${1::}"
-	if [ -f /opt/etc/adblock.sources.kvas ]; then
+	answer="${1}"
+	sources_name_file=adblock.sources
+	if [ -f "/opt/etc/${sources_name_file}.kvas" ]; then
 		warning "Обнаружен архивный файл с источниками обновления рекламы."
 		[ "${answer}" = ask ] && read_ynq "Восстановить данный файл" answer
 		if [ "${answer}" = y ]; then
 			ready "Восстановление архива с источниками рекламы завершено"
-			mv -f /opt/etc/adblock.sources.kvas /opt/etc/adblock.sources
+			mv -f "/opt/etc/${sources_name_file}.kvas" "/opt/etc/${sources_name_file}"
 			[ $? = 0 ] && when_ok "УДАЧНО" || when_bad "С ОШИБКОЙ"
 		else
 			ready "Загрузка источников рекламы по умолчанию"
-			mv -f /opt/apps/kvas/files/etc/conf/adblock.sources /opt/etc/adblock.sources
+			cp -f "/opt/apps/kvas/files/etc/conf/${sources_name_file}" "/opt/etc/${sources_name_file}"
 			[ $? = 0 ] && when_ok "УДАЧНО" || when_bad "С ОШИБКОЙ"
 		fi
 	fi
@@ -1992,19 +2047,4 @@ ads_request_to_upload() {
 	fi
 }
 
-# ------------------------------------------------------------------------------------------
-#
-#	 Получаем ссылки из сайта
-#  $1 - ссылка на страницу сайта - лучший вариант с https в начале
-#
-# ------------------------------------------------------------------------------------------
-#get_links_from_page(){
-#
-#  lynx -dump -listonly -nonumbers -force_secure "${1}" \
-#      | grep "${1}" \
-#      | cut -d/ -f3 \
-#      | grep -v ':' \
-#      | sed '/^$/d' \
-#      | sort -u
-#
-#}
+

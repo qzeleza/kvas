@@ -86,7 +86,7 @@ include \$(INCLUDE_DIR)/package.mk
 define Package/${APP_NAME}
 	SECTION:=utils
 	CATEGORY:=keendev
-	DEPENDS:=+jq +curl +knot-dig +nano-full +cron +bind-dig +dnsmasq-full +ipset +iptables +shadowsocks-libev-ss-redir +shadowsocks-libev-config +libpcre +dnscrypt-proxy2
+	DEPENDS:=+jq +curl +knot-dig +nano-full +cron +bind-dig +dnsmasq-full +ipset +iptables +shadowsocks-libev-ss-redir +shadowsocks-libev-config +libpcre +lynx +dnscrypt-proxy2
 	URL:=no
 	TITLE:=VPN клиент для обработки запросов по внесению хостов в белый список.
 	PKGARCH:=${APP_ARCH}
@@ -184,7 +184,7 @@ echo ${LINE}
 ssh -p "${MY_PORT}" "${MY_ROUTER}" "mkdir -p /opt/packages/${APP_NAME}/"
 ssh -p "${MY_PORT}" "${MY_ROUTER}" 'rm -f '"/opt/packages/${APP_NAME}/${APP_PKG_TAR_NAME}" #&> /dev/null
 scp -P "${MY_PORT}" "${APP_PKG_FILE}" "${MY_ROUTER}:/opt/packages/${APP_NAME}/${APP_PKG_TAR_NAME}"
-#ssh -p "${MY_PORT}" "${MY_ROUTER}" 'opkg remove '${APP_NAME}
+ssh -p "${MY_PORT}" "${MY_ROUTER}" 'opkg remove '${APP_NAME}
 
 #ssh -p "${MY_PORT}" "${MY_ROUTER}" 'ls /opt/packages/'${APP_NAME}'/ | grep "${APP_PKG_TAR_NAME}"'
 #sshpass -p "${MY_PASS}" ssh -p "${MY_PORT}" "${MY_ROUTER}" 'opkg install /opt/packages/'"${APP_NAME}/${APP_PKG_TAR_NAME}"

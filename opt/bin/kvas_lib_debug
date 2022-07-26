@@ -3,6 +3,38 @@
 . /opt/bin/kvas_lib_main
 
 NOT_IN_TABLE=false
+IPSET=$(which ipset)
+
+# ------------------------------------------------------------------------------------------
+#
+#	 Проверяем прошел ли домен проверку
+#
+# ------------------------------------------------------------------------------------------
+host_vpn_pass_check() {
+	domain="${1}"; is_ok=0
+	[ -z "${domain}" ] && echo "Не задано имя хоста!" && exit 1
+
+
+	ready "Проверка домена ${domain}"
+	print_line
+	extern_ip=$(get_external_ip)
+	ip_list=$(kdig +short "${domain}" | tr '\n' ' ' )
+	for adr in ${ip_list::-1}; do
+		${IPSET} list unblock | grep -q "${adr}" || ${IPSET} -exist add unblock "${adr}"
+		${IPSET} list unblock | grep -q "${adr}" || is_ok=1
+	done
+	ip_list=$(echo "${ip_list}" | tr ' ' ', ' )
+	ready "Адреса домена [${ip_list::-2}] в списке ipset"
+	[ "${is_ok}" = 0 ] && when_ok "ЕСТЬ" || when_bad "ОТСУСТВУЮТ"
+
+	if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН"; then
+		ready "Домен в файл конфигурации adguard добавлен "
+		grep -q "${domain}" /opt/etc/AdGuardHome/AdGuardHome.yaml && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+	else
+		ready "Домен в файл конфигурации dnsmasq добавлен "
+		grep -q "${domain}" /opt/etc/kvas.dnsmasq && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+	fi
+}
 # ------------------------------------------------------------------------------------------
 #
 #	 Проверяем включен ли dns-override
@@ -70,16 +102,16 @@ vpn_check(){
 
 			ready "Таблица VPN маршрутов id=1001"
 			/opt/etc/ndm/fs.d/100-vpn
-			if ip route show table 1001 | grep -qv 'default'; then
+			if /opt/sbin/ip route show table 1001 | grep -qv 'default'; then
 				when_ok "ЗАПОЛНЕНА"
 
 				ready "Таблица VPN маршрутов id=1001 в правила маркировки "
-				if [ -n "$(ip rule show | grep 1001)" ]; then
+				if [ -n "$(/opt/sbin/ip rule show | grep 1001)" ]; then
 					when_ok "ПРИСУТСТВУЕТ"
 
 					ready "Правила маркировки трафика в iptable"
 					/opt/etc/ndm/netfilter.d/100-vpn-mark
-					if [ "$(iptables-save | grep -c CONNMARK)" -ge 2 ]; then
+					if [ "$(/opt/sbin/iptables-save | grep -c CONNMARK)" -ge 2 ]; then
 						when_ok "ДОБАВЛЕНЫ"
 					else
 						when_bad "ОТСУСТВУЮТ"
@@ -190,7 +222,7 @@ dnscrypt_proxy_check() {
 # ------------------------------------------------------------------------------------------
 iptable_check() {
 	ready "Наличие правил разблокировки в iptable"
-	if iptables-save 2>/dev/null | grep unblock &> /dev/null; then
+	if /opt/sbin/iptables-save 2>/dev/null | grep unblock &> /dev/null; then
 		when_ok "ЕСТЬ"
 	else
 		when_bad "ПРАВИЛ НЕТ"
@@ -202,7 +234,7 @@ iptable_check() {
 			/opt/etc/ndm/netfilter.d/100-vpn-mark
 		fi
 		ready "Повторная проверка правил разблокировки в iptable"
-		if iptables-save 2>/dev/null | grep unblock &> /dev/null; then
+		if /opt/sbin/iptables-save 2>/dev/null | grep unblock &> /dev/null; then
 			when_ok "ПРОЙДЕНА"
 		else
 			when_bad "ОШИБКА"
@@ -222,7 +254,13 @@ iptable_check() {
 #
 # ------------------------------------------------------------------------------------------
 ipset_check() {
+
 	ready "Заполнение ipset таблицы скриптами КВАСа"
+	! [ -f "${UNBLOCK_LIST_FILE}" ] || \
+		[ "$(grep -vcE '^$|#' "${UNBLOCK_LIST_FILE}" )" -eq 0 ] && {
+		cp /opt/apps/kvas/files/etc/conf/hosts.list "${UNBLOCK_LIST_FILE}"
+	}
+	/opt/bin/kvas_ipset &> /dev/null
 	if ipset list unblock | grep -vEi '^[a-z]' &> /dev/null; then
 		when_ok "ЗАПОЛНЕНА"
 	else
@@ -508,9 +546,9 @@ vpn_debug() {
 	ready "Состояние vpn соединения ${vpn_cli_desc}"
 	if [ "${connected}" = 'on' ]; then
 		when_ok "ПОДКЛЮЧЕНО"
-		result="$(ip route show table 1001)"
+		result="$(/opt/sbin/ip route show table 1001)"
 		echo_debug "Таблица заполнения маршрутов VPN списка id=1001\nкоманда: 'ip route show table 1001'" "${result}"
-		result="$(ip rule show)"
+		result="$(/opt/sbin/ip rule show)"
 		echo_debug "Таблица правил маршрутизации VPN списка id=1001\nкоманда: 'ip rule show'" "${result}"
 
 #		ip_vpn=$(ip a | grep "${vpn_entware}:" -A2 | grep inet | tr -s ' ' | cut -d" " -f3 | cut -d"/" -f1)
@@ -712,11 +750,11 @@ iptables_debug() {
 	if [ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ]; then
 		print_line
 		shadowsocks_iptable_reset
-		result=$(iptables-save 2>/dev/null | grep unblock)
+		result=$(/opt/sbin/iptables-save 2>/dev/null | grep unblock)
 	else
 		print_line
 		cmd_vpn_iptable_reset
-		result=$(iptables-save 2>/dev/null | grep CONNMARK | grep -E "restore-mark|unblock")
+		result=$(/opt/sbin/iptables-save 2>/dev/null | grep CONNMARK | grep -E "restore-mark|unblock")
 	fi
 	echo_debug "Правила перенаправления трафика unblock в iptables\nкоманда: iptables-save 2>/dev/null | grep CONNMARK | grep -E \"restore-mark|unblock\"" "${result}"
 }

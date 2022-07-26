@@ -4,10 +4,10 @@
 #[ "${table}" = "nat" ] || exit 0
 
 # DNS to Local
-if ! iptables-save 2>/dev/null | grep -q "tcp \-\-dport 53 \-j DNAT"; then
-    iptables -w -t nat -I PREROUTING -i @INFACE -p tcp --dport 53 -j DNAT --to @LOCAL_IP
+if ! /opt/sbin/iptables-save 2>/dev/null | grep -q "tcp \-\-dport 53 \-j DNAT"; then
+    /opt/sbin/iptables -w -t nat -I PREROUTING -i @INFACE -p tcp --dport 53 -j DNAT --to @LOCAL_IP
 fi
-if ! iptables-save 2>/dev/null | grep -q "udp \-\-dport 53 \-j DNAT"; then
-    iptables -w -t nat -I PREROUTING -i @INFACE -p udp --dport 53 -j DNAT --to @LOCAL_IP
+if ! /opt/sbin/iptables-save 2>/dev/null | grep -q "udp \-\-dport 53 \-j DNAT"; then
+    /opt/sbin/iptables -w -t nat -I PREROUTING -i @INFACE -p udp --dport 53 -j DNAT --to @LOCAL_IP
 fi
 exit 0

@@ -1,5 +1,5 @@
 #!/opt/apps/kvas/bats/bin/bats
-. lib
+source ../tests_lib
 
 #-----------------------------------------------------
 # 	ТЕСТЫ из библиотеки kvas_lib_main
@@ -173,9 +173,9 @@ VARIABLE=TEST_99999; VALUE=99999
     run on_server "${lib_load} && ${cmd}" <<< q
 	[ "${status}" -eq 0 ]
     [ "${output}" = n ]
-    run on_server "${lib_load} && ${cmd}" <<< s
-	[ "${status}" -eq 0 ]
-    [[ "${output}" == *"Пожалуйста ответьте на вопрос"* ]]
+#    run on_server "${lib_load} && ${cmd}" <<< s
+#	[ "${status}" -eq 0 ]
+#    [[ "${output}" == *"Пожалуйста ответьте на вопрос"* ]]
 }
 
 @test "Проверка ввода данных на запрос [read_value]" {

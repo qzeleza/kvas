@@ -3,9 +3,9 @@
 #[ "${table}" = "nat" ] || exit 0
 
 # Shadowsocks+
-if ! iptables-save 2>/dev/null | grep unblock | grep -q @PROXY_PORT ; then
+if ! /opt/sbin/iptables-save 2>/dev/null | grep unblock | grep -q @PROXY_PORT ; then
 	ipset create unblock hash:net family inet -exist
-	iptables -w -t nat -A PREROUTING -i @INFACE -p tcp -m set --match-set unblock dst -j REDIRECT --to-port @PROXY_PORT
+	/opt/sbin/iptables -w -t nat -A PREROUTING -i @INFACE -p tcp -m set --match-set unblock dst -j REDIRECT --to-port @PROXY_PORT
 fi
 
 exit 0

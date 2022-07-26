@@ -7,7 +7,7 @@ chmod -R +x /opt/apps/kvas/files/sbin/dnsmasq/*
 chmod -R +x /opt/apps/kvas/files/etc/init.d/*
 chmod -R +x /opt/apps/kvas/files/etc/ndm/*
 
-mv -f /opt/apps/kvas/files/bin/* /opt/bin/
+cp -f /opt/apps/kvas/files/bin/* /opt/bin/
 cp -f /opt/apps/kvas/files/etc/conf/kvas.conf /opt/etc/kvas.conf
 cp /opt/bin/kvas_lib_main /opt/bin/postrm.kvas
 
@@ -49,11 +49,11 @@ if ! curl -s "${LOCALHOST_IP}"':79/rci/opkg/dns-override' | grep -q true ; then
     cli="$(get_router_host)/a"
     log_in_file "ОШИБКА: Не отключено использование DNS провайдера."
 	echo -e "${RED}Для корректной работы DNS сервера необходимо отключить использование DNS провайдера!${NOCL}"
-	echo "С этой целью зайдите в админ панель роутера по адресу: ${GREEN}${cli}${NOCL}"
+	echo -e "С этой целью зайдите в админ панель роутера по адресу: ${GREEN}${cli}${NOCL}"
 	echo "и выполните последовательно три следующих команды: "
-	echo "1. ${GREEN}opkg dns-override ${NOCL} - отключаем использование DNS провайдера,"
-	echo "2. ${GREEN}system configuration save ${NOCL}  - сохраняем изменения,"
-	echo "3. ${GREEN}system reboot ${NOCL} - перегружаем роутер."
+	echo -e "1. ${GREEN}opkg dns-override ${NOCL} - отключаем использование DNS провайдера,"
+	echo -e "2. ${GREEN}system configuration save ${NOCL}  - сохраняем изменения,"
+	echo -e "3. ${GREEN}system reboot ${NOCL} - перегружаем роутер."
 	print_line
 	exit 1
 fi
@@ -102,7 +102,7 @@ fi
 
 test_status
 #------------------------------------------------------
-# 	ГОТОВИМ ФАЙЛЫ НЕЗВИСЯЩИЕ ОТ КОНФИГУРАЦИИ ПАКЕТА
+# 	ГОТОВИМ ФАЙЛЫ НЕ ЗАВИСЯЩИЕ ОТ КОНФИГУРАЦИИ ПАКЕТА
 #------------------------------------------------------
 ready "Настройка файлов конфигурации пакета"
 [ -f /opt/etc/ndm/netfilter.d/100-dns-local ] \
@@ -176,7 +176,7 @@ test_status
  
 if [ "${answer_agh}" = n ]; then
 #	sed -i "s/\( port:\) .*/\1 0/" "${ADGUARDHOME_CONFIG}"
-	"${ADGUARDHOME_DEMON}" status | grep -q alive && "${ADGUARDHOME_DEMON}" stop &> /dev/null
+	[ -f "${ADGUARDHOME_DEMON}" ] && "${ADGUARDHOME_DEMON}" status | grep -q alive && "${ADGUARDHOME_DEMON}" stop &> /dev/null
 	#------------------------------------------------------
 	# DNSMASQ
 	#------------------------------------------------------

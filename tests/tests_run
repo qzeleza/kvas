@@ -1,5 +1,8 @@
 #!/bin/bash
 
+cd "./bats/" || exit 1
+
+./start.bats
 ./func.bats
 ./hosts.bats
 ./ads.bats

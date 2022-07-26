@@ -15,7 +15,7 @@ if [ -z "$1" ] && [ "${ADS_BLOCKER_ON}" = 1 ]; then
 fi
 ipset flush unblock
 
-update_dnsmasq(){
+update_dnsmasq() {
 	ready "Обновление списка dnsmasq"
 	/opt/bin/kvas_dnsmasq
 	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
