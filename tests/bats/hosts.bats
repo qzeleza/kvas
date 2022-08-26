@@ -1,4 +1,4 @@
-#!/opt/apps/kvas/bats/bin/bats
+#!/usr/bin/env bats
 source ../tests_lib
 
 #-----------------------------------------------------
@@ -15,8 +15,7 @@ source ../tests_lib
 	run on_server "${lib_load} && ${prefix} && ${cmd} && ${postfix}"
 
 # 	в случае ошибок в тесте - будет вывод основных критериев работы
-	echo "status=${status}"
-	echo "output=${output}"
+	print_on_error "${status}" "${output}"
 
 	[ "${status}" -eq 0 ]
 #	Блок проверок то, чего точно не должно быть, при нормальной работе скрипта
@@ -27,18 +26,21 @@ source ../tests_lib
     run on_server "kvas add yay.ruu"
     [ "${status}" -eq 0 ]
     [[ "${output}" == *"не отвечает"* ]]
+    print_on_error "${status}" "${output}"
 }
 
 @test "Проверка добавления уже существующего в списке хоста ya.ru" {
     run on_server "kvas add ya.ru"
     [ "${status}" -eq 0 ]
     [[ "${output}" == *"домен уже есть"* ]]
+    print_on_error "${status}" "${output}"
 }
 
 @test "Проверка добавления не корректного имени yaru" {
     run on_server "kvas add yaru"
     [ "${status}" -eq 0 ]
     [[ "${output}" == *"Некорректно указано"* ]]
+    print_on_error "${status}" "${output}"
 }
 
 @test "Проверка удаления хоста ya.ru" {
@@ -46,12 +48,14 @@ source ../tests_lib
     run on_server "kvas del ya.ru"
     [ "${status}" -eq 0 ]
     [[ "${output}" == *"УДАЛЕН"* ]]
+    print_on_error "${status}" "${output}"
 }
 
 @test "Проверка удаления отсутствующего в списке хоста ya.ru" {
     run on_server "kvas del ya.ru"
     [ "${status}" -eq 0 ]
     [[ "${output}" == *"Такая запись"* ]]
+    print_on_error "${status}" "${output}"
 }
 
 
@@ -60,6 +64,7 @@ source ../tests_lib
     run on_server "kvas purge " <<< y
     [ "${status}" -eq 0 ]
     [[ "${output}" == *"ОЧИЩЕН"* ]]
+    print_on_error "${status}" "${output}"
 #    run on_server "cp /opt/apps/kvas/files/etc/conf/hosts.list /opt/etc/hosts.list"
 }
 
@@ -70,7 +75,7 @@ source ../tests_lib
 	cmd="cmd_clear_list"
 	postfix="mv -f /opt/etc/hosts.list.test /opt/etc/hosts.list"
 	run on_server "${lib_load} && ${prefix} && ${cmd} && ${postfix}"
-	echo "status=${status}" && echo -e "output=${output}"
+	print_on_error "${status}" "${output}"
 
     [ "${status}" -eq 0 ]
     [[ "${output}" == *"Списочный файл не существует"* ]]
@@ -83,4 +88,5 @@ source ../tests_lib
     [ "${status}" -eq 0 ]
     [[ "${output}" == *"Список разблокировки не содержит записей"* ]]
     run on_server "cp /opt/apps/kvas/files/etc/conf/hosts.list /opt/etc/hosts.list"
+    print_on_error "${status}" "${output}"
 }

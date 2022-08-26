@@ -1,0 +1,123 @@
+#!/bin/bash
+set -e
+. /apps/kvas/build/library.run
+
+APP_VER_FULL_TEXT="${version}-${stage}-${release}"
+
+#POST_INST=$(cat < /apps/kvas/build/postinst | sed 's/@app_ver/'"${APP_VER_FULL_TEXT}"'/g')
+#POST_TERM=$(cat < /apps/kvas/build/postrm | sed 's/@app_ver/'"${APP_VER_FULL_TEXT}"'/g')
+
+makefile_path=/apps/kvas/build/Makefile
+POST_INST=$(cat < /apps/kvas/build/postinst \
+			| sed 's/\$/\$\$/g' \
+			| sed "s/@app_ver/${APP_VER_FULL_TEXT}/g" \
+			)
+POST_TERM=$(cat < /apps/kvas/build/postrm \
+			| sed 's/\$/\$\$/g' \
+			| sed "s/@app_ver/${APP_VER_FULL_TEXT}/g" \
+			)
+
+cat <<EOF > "${makefile_path}"
+include \$(TOPDIR)/rules.mk
+
+PKG_NAME:=kvas
+PKG_VERSION:=${version}
+PKG_RELEASE:=${stage}_${release}
+PKG_BUILD_DIR:=\$(BUILD_DIR)/\$(PKG_NAME)
+
+include \$(INCLUDE_DIR)/package.mk
+
+define Package/kvas
+	SECTION:=utils
+	CATEGORY:=Keendev
+	DEPENDS:=+jq +curl +knot-dig +nano-full +cron +bind-dig +dnsmasq-full +ipset +iptables +shadowsocks-libev-ss-redir +shadowsocks-libev-config +libpcre +lynx +dnscrypt-proxy2
+	URL:=no
+	TITLE:=VPN клиент для обработки запросов по внесению хостов в белый список.
+	PKGARCH:=all
+endef
+
+define Package/kvas/description
+	Данный пакет позволяет осуществлять контроль и поддерживать в актуальном состоянии
+	список разблокировки хостов или "Белый список". При обращении к любому хосту из
+	этого списка, весь трафик будет идти через фактические любое VPN соединение,
+	заранее настроенное на роутере, или через Shadowsocks соединение.
+endef
+
+define Build/Prepare
+endef
+define Build/Configure
+endef
+define Build/Compile
+endef
+
+# Во время инсталляции задаем папку в которую будем
+# копировать наш скрипт и затем копируем его в эту папку
+define Package/kvas/install
+
+	\$(INSTALL_DIR) \$(1)/opt/bin
+	\$(INSTALL_DIR) \$(1)/opt/etc/init.d
+	\$(INSTALL_DIR) \$(1)/opt/etc/ndm/fs.d
+	\$(INSTALL_DIR) \$(1)/opt/etc/ndm/netfilter.d
+	\$(INSTALL_DIR) \$(1)/opt/apps/kvas/files
+
+	\$(INSTALL_BIN) ./files/opt/etc/ndm/fs.d/100-ipset \$(1)/opt/etc/ndm/fs.d
+	\$(INSTALL_BIN) ./files/opt/etc/ndm/netfilter.d/100-proxy-redirect \$(1)/opt/etc/ndm/netfilter.d
+	\$(INSTALL_BIN) ./files/opt/etc/ndm/netfilter.d/100-dns-local \$(1)/opt/etc/ndm/netfilter.d
+
+	\$(INSTALL_BIN) ./files/opt/etc/init.d/S96kvas \$(1)/opt/etc/init.d
+#	\$(INSTALL_CONF) ./files/opt/etc/conf/kvas.conf \$(1)/opt/etc
+	\$(CP) ./files/opt/. \$(1)/opt/apps/kvas/files/
+
+endef
+
+#---------------------------------------------------------------------
+# Скрипт создаем, который выполняется после инсталляции пакета
+# Задаем в кроне время обновления ip адресов хостов
+#---------------------------------------------------------------------
+define Package/kvas/postinst
+
+${POST_INST}
+
+endef
+
+#---------------------------------------------------------------------
+# Создаем скрипт, который выполняется при удалении пакета
+# Удаляем из крона запись об обновлении ip адресов
+#---------------------------------------------------------------------
+define Package/kvas/postrm
+
+${POST_TERM}
+
+endef
+
+\$(eval \$(call BuildPackage,kvas))
+EOF
+
+chown -R ${UID}:${GID} /apps
+chmod -R +x /apps/kvas/build/*.run
+mkdir -p /apps/entware/package/utils/kvas/files/opt/
+
+cd /apps/entware || exit
+mv ${makefile_path} /apps/entware/package/utils/kvas/Makefile
+
+
+
+
+#MY_PASS=$(cat < "${APP_REMOTE_FILE}" | grep -E '^PASSWD' | cut -d'"' -f2| cut -d"=" -f2)
+#MY_PORT=$(cat < "${APP_REMOTE_FILE}" | grep -E '^PORT' | cut -d' ' -f3 | cut -d"=" -f2)
+#MY_ROUTER=$(cat < "${APP_REMOTE_FILE}" | grep -E '^ROUTER' | cut -d'"' -f2| cut -d"=" -f2)
+
+#rm -fR /apps/kvas/debug /apps/kvas/ipk
+
+#APP_PKG_TAR_NAME=kvas_${APP_VER_FULL}_all.ipk
+#APP_PKG_FILE="${ENTWARE_PATH}/bin/targets/mipsel-3.4/generic-glibc/packages/${APP_PKG_TAR_NAME}"
+##mkdir -p /opt/apps/kvas/ipk
+#cp "${APP_PKG_FILE}" "/apps/kvas/ipk"
+#
+#echo ${LINE}
+#find /opt/apps/Entware/bin/targets/mipsel-3.4/generic-glibc/packages/ | grep kvas
+#echo ${LINE}
+#ssh -p "${MY_PORT}" "${MY_ROUTER}" "mkdir -p /opt/packages/kvas/"
+#ssh -p "${MY_PORT}" "${MY_ROUTER}" 'rm -f '"/opt/packages/kvas/${APP_PKG_TAR_NAME}" #&> /dev/null
+#scp -P "${MY_PORT}" "${APP_PKG_FILE}" "${MY_ROUTER}:/opt/packages/kvas/${APP_PKG_TAR_NAME}"
+#ssh -p "${MY_PORT}" "${MY_ROUTER}" 'opkg remove 'kvas

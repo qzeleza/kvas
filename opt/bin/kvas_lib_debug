@@ -749,7 +749,7 @@ adblock_dnsmasq_debug() {
 iptables_debug() {
 	if [ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ]; then
 		print_line
-		shadowsocks_iptable_reset
+		cmd_shadowsocks_iptable_reset
 		result=$(/opt/sbin/iptables-save 2>/dev/null | grep unblock)
 	else
 		print_line

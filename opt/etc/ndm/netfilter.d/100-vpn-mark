@@ -18,8 +18,8 @@ if fastnet_enabled; then
 	ip4save | grep "\-j CONNMARK" | grep -qE 'mark|unblock' || {
 		# Без отключения ускорителей fastnat и hwnat
 		logger "Программное и аппаратное ускорение ПОДКЛЮЧЕНО."
-		ip4tables -A PREROUTING -t mangle -m conntrack --ctstate NEW -m set --match-set unblock dst -j CONNMARK --set-mark 0xd1000
-		ip4tables -A PREROUTING -t mangle -j CONNMARK --restore-mark
+		ip4tables PREROUTING -t mangle -m conntrack --ctstate NEW -m set --match-set unblock dst -j CONNMARK --set-mark 0xd1000
+		ip4tables PREROUTING -t mangle -j CONNMARK --restore-mark
 		logger "Маркировка трафика для подключенного ускорения ВКЛЮЧЕНА."
 	}
 else

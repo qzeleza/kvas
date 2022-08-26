@@ -1,0 +1,7 @@
+#!/bin/bash
+get_version_part()(cat < /apps/kvas/build/version | grep ${1} | cut -d'=' -f2)
+line()(printf '=%.s' {1..100} && printf '\n')
+
+version=$(get_version_part VERSION)
+stage=$(get_version_part STAGE)
+release=$(get_version_part RELEASE)

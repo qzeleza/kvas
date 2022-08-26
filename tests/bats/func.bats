@@ -1,17 +1,20 @@
-#!/opt/apps/kvas/bats/bin/bats
+#!/usr/bin/env bats
 source ../tests_lib
 
 #-----------------------------------------------------
 # 	ТЕСТЫ из библиотеки kvas_lib_main
 #-----------------------------------------------------
 VARIABLE=TEST_99999; VALUE=99999
+
 @test "Проверка записи переменной в файл конфигурации [set_config_value]" {
 	lib_load=". /opt/bin/kvas_lib_main"
 	cmd="set_config_value ${VARIABLE} ${VALUE}"
 	run on_server "${lib_load} && ${cmd}"
+	print_on_error "${status}" "${output}"
 	[ "${status}" -eq 0 ]
 
     run on_server "grep ${VARIABLE} /opt/etc/kvas.conf"
+    print_on_error "${status}" "${output}"
     [ "${status}" -eq 0 ]
     [[ "${output}" == *"${VARIABLE}"* ]]
 }
@@ -20,6 +23,7 @@ VARIABLE=TEST_99999; VALUE=99999
 	lib_load=". /opt/bin/kvas_lib_main"
 	cmd="get_config_value ${VARIABLE}"
 	run on_server "${lib_load} && ${cmd}"
+	print_on_error "${status}" "${output}"
 
     [ "${status}" -eq 0 ]
     [ "${output}" -eq "${VALUE}" ]
@@ -30,9 +34,11 @@ VARIABLE=TEST_99999; VALUE=99999
 	lib_load=". /opt/bin/kvas_lib_main"
 	cmd="del_config_value ${VARIABLE}"
 	run on_server "${lib_load} && ${cmd}"
+	print_on_error "${status}" "${output}"
     [ "${status}" -eq 0 ]
 
     run on_server "grep -co ${VALUE} /opt/etc/kvas.conf"
+    print_on_error "${status}" "${output}"
 	[ "${status}" -eq 1 ]
     [ "${output}" = 0 ]
 }
@@ -41,6 +47,7 @@ VARIABLE=TEST_99999; VALUE=99999
 	lib_load=". /opt/bin/kvas_lib_vpn"
 	cmd="get_separated_host_list"
 	run on_server "${lib_load} && ${cmd}"
+	print_on_error "${status}" "${output}"
 
     [ "${status}" -eq 0 ]
     echo "${output}" | grep -Eq "(www|\|)"
@@ -51,8 +58,10 @@ VARIABLE=TEST_99999; VALUE=99999
 	lib_load=". /opt/bin/kvas_lib_main"
 	cmd="dig_frm 3414321541"
 	run on_server "${lib_load} && ${cmd}"
+	print_on_error "${status}" "${output}"
     [ "${status}" -eq 0 ]
     [ "$(echo "${output}" | grep -o " " | wc -l)" -gt 2 ]
+
 }
 
 @test "Проверка получения текущего IP роутера [get_router_ip]" {
@@ -60,10 +69,9 @@ VARIABLE=TEST_99999; VALUE=99999
 	lib_load="source /opt/bin/kvas_lib_main"
 	cmd="get_router_ip"
 	run on_server "${lib_load} && ${cmd}"
+	print_on_error "${status}" "${output}"
 	dots="$(echo "${output}" | tr -d '0-9' | grep -o "." | wc -l)"
     [ "${status}" -eq 0 ]
-#    echo "${output} и ${status}"
-    echo "${output}"
     [ "${dots}" -eq 3 ]
 }
 
@@ -72,6 +80,7 @@ VARIABLE=TEST_99999; VALUE=99999
 	lib_load=". /opt/bin/kvas_lib_main"
 	cmd="get_inface_by_ip 10.130.2.74"
 	run on_server "${lib_load} && ${cmd}"
+	print_on_error "${status}" "${output}"
     [ "${status}" -eq 0 ]
 	[[ "${output}" == nwg* ]]
 }
@@ -81,6 +90,7 @@ VARIABLE=TEST_99999; VALUE=99999
 	lib_load=". /opt/bin/kvas_lib_main"
 	cmd="get_local_inface"
 	run on_server "${lib_load} && ${cmd}"
+	print_on_error "${status}" "${output}"
     [ "${status}" -eq 0 ]
 	[[ "${output}" == br* ]]
 }
@@ -88,14 +98,17 @@ VARIABLE=TEST_99999; VALUE=99999
 	lib_load=". /opt/bin/kvas_lib_main"
 	cmd="get_router_protocol"
 	run on_server "${lib_load} && ${cmd}"
+	print_on_error "${status}" "${output}"
     [ "${status}" -eq 0 ]
     echo "${output}" | grep -Eq "(http|https)"
 }
+
 
 @test "Проверка получения локального порта WUI роутера [get_router_wui_port]" {
 	lib_load=". /opt/bin/kvas_lib_main"
 	cmd="get_router_wui_port"
 	run on_server "${lib_load} && ${cmd}"
+	print_on_error "${status}" "${output}"
     [ "${status}" -eq 0 ]
     echo "${output}" | grep -Eq "[0-9]{2,4}"
 }
@@ -104,6 +117,7 @@ VARIABLE=TEST_99999; VALUE=99999
 	lib_load=". /opt/bin/kvas_lib_main"
 	cmd="get_router_host"
 	run on_server "${lib_load} && ${cmd}"
+	print_on_error "${status}" "${output}"
     [ "${status}" -eq 0 ]
     echo "${output}" | grep -Eq "(http|https)"
     echo "${output}" | grep -Eq "[0-9]{2,4}"
@@ -113,6 +127,7 @@ VARIABLE=TEST_99999; VALUE=99999
 	lib_load=". /opt/bin/kvas_lib_main"
 	cmd="clear_file /opt/apps/kvas/files/etc/conf/hosts.list"
 	run on_server "${lib_load} && ${cmd}"
+	print_on_error "${status}" "${output}"
     [ "${status}" -eq 0 ]
     echo "${output}" | grep -qv "#"
     echo "${output}" | grep -Eqv "^$"
@@ -122,6 +137,8 @@ VARIABLE=TEST_99999; VALUE=99999
 	lib_load=". /opt/bin/kvas_lib_main"
 	cmd="clear_content /opt/apps/kvas/files/etc/conf/hosts.list"
 	run on_server "${lib_load} && ${cmd}"
+	print_on_error "${status}" "${output}"
+
     [ "${status}" -eq 0 ]
     echo "${output}" | grep -qv "#"
     echo "${output}" | grep -Eqv "^$"
@@ -136,6 +153,8 @@ VARIABLE=TEST_99999; VALUE=99999
 	cmd="clear_file_content ${tmp_file}"
 	postfix="diff -a -s ${conf_file} ${tmp_file} && rm -f /tmp/tmp.test"
 	run on_server "${lib_load} && ${prefix} && ${cmd} && ${postfix}"
+	print_on_error "${status}" "${output}"
+
     ! echo "${output}" | grep -q "are identical"
 }
 
@@ -144,38 +163,42 @@ VARIABLE=TEST_99999; VALUE=99999
 	conf_file=/opt/apps/kvas/files/etc/conf/hosts.list
 	cmd="rec_in_file ${conf_file}"
 	run on_server "${lib_load} && ${cmd}"
+	print_on_error "${status}" "${output}"
 	[ "${status}" -eq 0 ]
     [ "${output}" -gt 0 ]
+
     run on_server "${lib_load} && ${cmd} *"
+    print_on_error "${status}" "${output}"
     [ "${status}" -eq 0 ]
     [ "${output}" -gt 0 ]
-
 }
 
 @test "Проверка вывода заголовка при вводе ответа на запрос [read_ynq]" {
 	lib_load=". /opt/bin/kvas_lib_main"
 	cmd="answer=''; read_ynq 'Проверка ввода' answer"
 	run on_server "${lib_load} && ${cmd}" <<< n
+	print_on_error "${status}" "${output}"
 	[ "${status}" -eq 0 ]
     [[ "${output}" == *"Проверка ввода"* ]]
-
 }
 
 @test "Проверка ввода ответов на запрос [read_ynq]" {
 	lib_load=". /opt/bin/kvas_lib_main"
 	cmd="answer=''; read_ynq 'Проверка ввода' answer &> /dev/null && echo \${answer}"
 	run on_server "${lib_load} && ${cmd}" <<< n
+	print_on_error "${status}" "${output}"
 	[ "${status}" -eq 0 ]
     [ "${output}" = n ]
+
     run on_server "${lib_load} && ${cmd}" <<< y
+    print_on_error "${status}" "${output}"
 	[ "${status}" -eq 0 ]
     [ "${output}" = y ]
+
     run on_server "${lib_load} && ${cmd}" <<< q
+    print_on_error "${status}" "${output}"
 	[ "${status}" -eq 0 ]
     [ "${output}" = n ]
-#    run on_server "${lib_load} && ${cmd}" <<< s
-#	[ "${status}" -eq 0 ]
-#    [[ "${output}" == *"Пожалуйста ответьте на вопрос"* ]]
 }
 
 @test "Проверка ввода данных на запрос [read_value]" {
@@ -183,9 +206,8 @@ VARIABLE=TEST_99999; VALUE=99999
 	data=data
 	cmd="answer=''; read_value 'Введите данные' answer &>/dev/null && echo \${answer}"
 	run on_server "${lib_load} && ${cmd}" <<< ${data}
+	print_on_error "${status}" "${output}"
 	[ "${status}" -eq 0 ]
-#	echo "status=${status}"
-#	echo "output=${output}"
     [ "${output}" = "${data}" ]
 
 }
@@ -194,9 +216,8 @@ VARIABLE=TEST_99999; VALUE=99999
 	lib_load=". /opt/bin/kvas_lib_main"
 	cmd="data=\$(get_config_value DNS_STATIC_1) && get_server_date \${data}"
 	run on_server "${lib_load} && ${cmd}"
+	print_on_error "${status}" "${output}"
 	[ "${status}" -eq 0 ]
-	echo "status=${status}"
-	echo "output=${output}"
     echo "${output}" | grep 202 | grep ':' | grep -q GMT
 
 }
@@ -205,9 +226,8 @@ VARIABLE=TEST_99999; VALUE=99999
 	lib_load=". /opt/bin/kvas_lib_main"
 	cmd="date_update"
 	run on_server "${lib_load} && ${cmd}"
+	print_on_error "${status}" "${output}"
 	[ "${status}" -eq 0 ]
-	echo "status=${status}"
-	echo "output=${output}"
     [[ "${output}" == *"Системное время обновлено"* ]]
 
 }

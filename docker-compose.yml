@@ -1,0 +1,29 @@
+version: "3.9"
+services:
+  develop:
+    container_name: kvas_debian_10
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        UID: "${UID}"
+        GID: "${GID}"
+        NAME: "${NAME}"
+
+    volumes:
+      - .:/apps/kvas
+      - ~/.ssh/id_rsa.pub:/pubkey:ro
+    ports:
+      - "22:111"
+    environment:
+      VERSION: "${VERSION}"
+      UID: "${UID}"
+      GID: "${GID}"
+      TZ: "${TZ}"
+      PUBLIC_KEY_FILE: "/pubkey"
+      SUDO_ACCESS: "false"
+      PASSWORD_ACCESS: "false"
+      USER: "${USER}"
+    restart: "always"
+#    command: "/apps/kvas/build/build.run init"
+

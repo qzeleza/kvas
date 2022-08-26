@@ -65,7 +65,7 @@ get_value_interface_field() {
 }
 # ------------------------------------------------------------------------------------------
 #
-#	Получаем нумерованный список с именами интерфейсов
+#	Получаем текущий интерфейс по умолчанию через который раздается интеренет
 #
 # ------------------------------------------------------------------------------------------
 get_defaultgw_interface() {
@@ -80,11 +80,17 @@ get_defaultgw_interface() {
 ipv6_inface_off() {
 
 	inface="${1}"
-	ready "Поддержка IPv6 на интерфейсе ${inface} отключена"
-	for cmd in ${CMD_LIST}; do
-		curl -s -d '{"auto":true,"no":true}' "${INFACE_PART_REQUEST}/${inface}/ipv6/${cmd}" &> /dev/null
-	done
-	if [ $? = 0 ]; then when_ok "УСПЕШНО"; else when_bad "СБОЙ"; fi
+	if [ -n "${inface}" ]; then
+		ready "Поддержка IPv6 на интерфейсе ${inface} отключена"
+		for cmd in ${CMD_LIST}; do
+	#		для отключения инфейса необходимо отправить команду no
+	#		по всем командам ipv6: address prefix name-servers
+			curl -s -d '{"auto":true,"no":true}' "${INFACE_PART_REQUEST}/${inface}/ipv6/${cmd}" &> /dev/null
+		done
+		if [ $? = 0 ]; then when_ok "УСПЕШНО"; else when_bad "СБОЙ"; fi
+	else
+		when_bad "СБОЙ" && error "Не задан интерфейс"
+	fi
 
 }
 # ------------------------------------------------------------------------------------------
@@ -95,11 +101,17 @@ ipv6_inface_off() {
 # ------------------------------------------------------------------------------------------
 ipv6_inface_on() {
 	inface="${1}"
-	ready "Поддержка IPv6 на интерфейсе ${inface} подключена"
-        for cmd in ${CMD_LIST}; do
-			curl -s -d '{"auto":true}' "${INFACE_PART_REQUEST}/${inface}/ipv6/${cmd}" &> /dev/null
-        done
-	if [ $? = 0 ]; then when_ok "УСПЕШНО"; else when_bad "СБОЙ"; fi
+	if [ -n "${inface}" ]; then
+		ready "Поддержка IPv6 на интерфейсе ${inface} подключена"
+			for cmd in ${CMD_LIST}; do
+	#		для отключения инфейса необходимо отправить команду auto
+	#		по всем командам ipv6: address prefix name-servers
+				curl -s -d '{"auto":true}' "${INFACE_PART_REQUEST}/${inface}/ipv6/${cmd}" &> /dev/null
+			done
+		if [ $? = 0 ]; then when_ok "УСПЕШНО"; else when_bad "СБОЙ"; fi
+	else
+		when_bad "СБОЙ" && error "Не задан интерфейс"
+	fi
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -108,14 +120,31 @@ ipv6_inface_on() {
 #	Возвращает:
 #	0 - ipv6 подключен
 #	1- ipv6 отключен
+#	2 - ipv6 не совместим с указанным интерфейсом
 #
 # ------------------------------------------------------------------------------------------
 ipv6_status() {
 	inface="${1}"; res=0
-	for cmd in ${CMD_LIST}; do
-		 [ -n "$(curl -s "${INFACE_PART_REQUEST}/${inface}/ipv6/${cmd}" | grep true )" ] && res=$((res+1))
-	done
-	if [ "${res}" -eq 3 ]; then echo 0; else echo 1; fi
+	if [ -n "${inface}" ]; then
+		for cmd in ${CMD_LIST}; do
+			#		для отключения инфейса необходимо получить ответ true
+			#		по всем командам ipv6: address prefix name-servers
+			request=$(curl -s "${INFACE_PART_REQUEST}/${inface}/ipv6/${cmd}")
+#			если интерфейс не совместим с IPV6, то выходим из цикла
+			echo "${request}" | grep -q 'not IPv6 compatible' && res=-1 && break
+			echo "${request}" | grep -q true && res=$((res+1))
+
+		done
+#		если вернем 1 - то IPv6 отключен
+#		если вернем 0 - то IPv6 включен
+#		если вернем 2 - то IPv6 не соместим с указанным интерфейсом
+
+		if [ "${res}" -eq 3 ]; then echo 0; else echo 1; fi
+		if [ "${res}" -eq -1 ]; then echo 2; fi
+	else
+		when_bad "СБОЙ"
+		error "Не задан интерфейс"
+	fi
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -125,7 +154,12 @@ ipv6_status() {
 # ------------------------------------------------------------------------------------------
 is_cli_inface_present() {
 	inface="${1}"
-	curl -s "${INFACE_REQUEST}" | grep interface-name | grep -q "${inface}"
+	if [ -n "${inface}" ]; then
+		curl -s "${INFACE_REQUEST}" | grep interface-name | grep -q "${inface}"
+	else
+		when_bad "СБОЙ"
+		error "Не задан интерфейс"
+	fi
 }
 
 # ------------------------------------------------------------------------------------------
@@ -136,14 +170,20 @@ is_cli_inface_present() {
 # ------------------------------------------------------------------------------------------
 ipv6_inface_status() {
 	inface="${1}"
-	if is_cli_inface_present "${inface}" ; then
-		ready "Поддержка IPv6 на интерфейсе ${inface}"
-		if [ "$(ipv6_status "${inface}")" = 0 ];
-		then when_ok "ПОДКЛЮЧЕНА";
-		else when_alert "ОТКЛЮЧЕНА"; fi
+	if [ -n "${inface}" ]; then
+		if is_cli_inface_present "${inface}" ; then
+			ready "Поддержка IPv6 на интерфейсе ${inface}"
+			ipv6_status=$(ipv6_status "${inface}")
+			[ "${ipv6_status}" = 0 ] && when_ok "ПОДКЛЮЧЕНА"
+			[ "${ipv6_status}" = 1 ] && when_alert "ОТКЛЮЧЕНА"
+			[ "${ipv6_status}" = 2 ] && when_error "НЕ ВОЗМОЖНА"
+		else
+			error "Указанный интерфейс ${inface} в системе не существует."
+			exit 1
+		fi
 	else
-		error "Указанный интерфейс ${inface} в системе не существует."
-		exit 1
+		when_bad "СБОЙ"
+		error "Не задан интерфейс"
 	fi
 
 }
@@ -1082,16 +1122,22 @@ cmd_shadowsocks_local_port_change() {
 	if cmd_vpn_status | grep -iq 'shadowsocks' ; then
 
 		port_new=${1}; cmd=${2:-restart}
-		ready "Замена порта на ${port_new} в shadowsocks завершена"
+		if [ -n "${port_new}" ]	; then
 
-		sed -i "s/\(--to-port\).*/\1 ${local_ip}/g" "/opt/etc/ndm/netfilter.d/100-proxy-redirect"
-		sed -i "s/\(local_port\":\).*/\1 ${local_ip}/g" "${SHADOWSOCKS_CONF}"
+			ready "Замена порта на ${port_new} в shadowsocks завершена"
 
-		set_config_value SSR_DNS_PORT "${port_new}"
-		cmd_shadowsocks_iptable_reset &> /dev/null
+			sed -i "s/\(--to-port\).*/\1 ${port_new}/g" "/opt/etc/ndm/netfilter.d/100-proxy-redirect"
+			sed -i "s/\(local_port\":\).*/\1 ${port_new}/g" "${SHADOWSOCKS_CONF}"
 
-		[ "${cmd}" = restart ] && /opt/etc/init.d/S22shadowsocks restart &> /dev/null
-		[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
+			set_config_value SSR_DNS_PORT "${port_new}"
+			cmd_shadowsocks_iptable_reset &> /dev/null
+
+			[ "${cmd}" = restart ] && /opt/etc/init.d/S22shadowsocks restart &> /dev/null
+			[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
+		else
+			ready "Текущий номер порта shadowsocks соединения:"
+			when_ok get_config_value SSR_DNS_PORT
+		fi
 	else
 		answer=''
 		error "shadowsocks клиент не выбран в настройках"

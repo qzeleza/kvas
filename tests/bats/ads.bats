@@ -1,4 +1,4 @@
-#!/opt/apps/kvas/bats/bin/bats
+#!/usr/bin/env bats
 source ../tests_lib
 
 lib_load=". /opt/bin/kvas_lib_vpn"
@@ -8,6 +8,7 @@ adblock_bin_file='/opt/bin/kvas_adblock'
 adblock_src_file=/opt/etc/adblock.sources
 adblock_src_file_copy=/opt/apps/kvas/files/etc/conf/adblock.sources
 
+
 #-----------------------------------------------------
 # 	ТЕСТЫ из библиотеки kvas_lib_vpn БЛОКИРОВКА РЕКЛАМЫ
 #-----------------------------------------------------
@@ -16,8 +17,7 @@ adblock_src_file_copy=/opt/apps/kvas/files/etc/conf/adblock.sources
 	run on_server "${lib_load} && ${cmd} "
 
 # 	в случае ошибок в тесте - будет вывод основных критериев работы
-	echo "status=${status}"
-	echo "output=${output}"
+	print_on_error "${status}" "${output}"
 
 	[ "${status}" -eq 0 ]
 
@@ -32,8 +32,7 @@ adblock_src_file_copy=/opt/apps/kvas/files/etc/conf/adblock.sources
 	cmd="cmd_ads_protect_off"
 
 	run on_server "${lib_load} && ${prefix} && ${cmd}"
-	echo "status=${status}"
-	echo "output=${output}"
+	print_on_error "${status}" "${output}"
 	[ "${status}" -eq 0 ]
 
 	[[ "${output}" == *"Блокировка рекламы"* ]]
@@ -47,8 +46,7 @@ adblock_src_file_copy=/opt/apps/kvas/files/etc/conf/adblock.sources
 	cmd="cmd_ads_protect_on"
 
 	run on_server "${lib_load} && ${prefix} && ${cmd}"
-	echo "status=${status}"
-	echo "output=${output}"
+	print_on_error "${status}" "${output}"
 	[ "${status}" -eq 0 ]
 
 	[[ "${output}" == *"Блокировка рекламы"* ]]
@@ -59,8 +57,7 @@ adblock_src_file_copy=/opt/apps/kvas/files/etc/conf/adblock.sources
 @test "Проверка включения блокировки рекламы при уже включенном статусе [cmd_ads_protect_on]" {
 	cmd="cmd_ads_protect_on"
 	run on_server "${lib_load} && ${cmd}"
-	echo "status=${status}"
-	echo "output=${output}"
+	print_on_error "${status}" "${output}"
 	[ "${status}" -eq 0 ]
 
 	[[ "${output}" == *"Блокировка рекламы уже "* ]]
@@ -75,8 +72,7 @@ adblock_src_file_copy=/opt/apps/kvas/files/etc/conf/adblock.sources
 	run on_server "${lib_load} && ${prefix} && ${cmd} && ${postfix}"
 
 # 	в случае ошибок в тесте - будет вывод основных критериев работы
-	echo "status=${status}"
-	echo "output=${output}"
+	print_on_error "${status}" "${output}"
 
 #	[ "${status}" -eq 0 ]
 
@@ -94,8 +90,7 @@ adblock_src_file_copy=/opt/apps/kvas/files/etc/conf/adblock.sources
 	run on_server "${lib_load} && ${prefix} && ${cmd}"
 
 # 	в случае ошибок в тесте - будет вывод основных критериев работы
-	echo "status=${status}"
-	echo "output=${output}"
+	print_on_error "${status}" "${output}"
 
 	[ "${status}" -eq 0 ]
 
@@ -116,8 +111,8 @@ adblock_src_file_copy=/opt/apps/kvas/files/etc/conf/adblock.sources
 	run on_server "${lib_load} && ${prefix} && ${cmd} && ${postfix}"
 
 # 	в случае ошибок в тесте - будет вывод основных критериев работы
-	echo "status=${status}"
-	echo "output=${output}"
+	print_on_error "${status}" "${output}"
+
 	[ "${status}" -eq 0 ]
 	#	Блок проверок то, чего точно не должно быть, при нормальной работе скрипта
 	echo "${output}" | grep -qo "Скрипт обработки рекламы отсутствует"
@@ -129,8 +124,7 @@ adblock_src_file_copy=/opt/apps/kvas/files/etc/conf/adblock.sources
 	cmd="ads_request_to_upload ask"
 
 	run on_server "${lib_load} && ${prefix} && ${cmd}" <<< n
-	echo "status=${status}"
-	echo "output=${output}"
+	print_on_error "${status}" "${output}"
 #	[ "${status}" -eq 0 ]
 
 	[[ "${output}" == *"Загрузка источников рекламы"* ]]
@@ -151,8 +145,8 @@ adblock_src_file_copy=/opt/apps/kvas/files/etc/conf/adblock.sources
 			  && rm -f ${adblock_src_file}.kvas \
 			  || rm -f ${adblock_src_file}"
 	run on_server "${lib_load} && ${prefix} && ${cmd}" <<< y
-	echo "status=${status}"
-	echo "output=${output}"
+	print_on_error "${status}" "${output}"
+
 	[ "${status}" -eq 0 ]
 	[[ "${output}" == *"Обнаружен архивный файл"* ]]
     [[ "${output}" == *"УДАЧНО"* ]]
@@ -171,8 +165,8 @@ adblock_src_file_copy=/opt/apps/kvas/files/etc/conf/adblock.sources
 #	prefix="touch /opt/tmp/adblock/hosts"
 	cmd="ads_request_to_upload ask"
 	run on_server "${lib_load} && ${prefix} && ${cmd}" <<< y
-#	echo "status=${status}"
-	echo "output=${output}"
+	print_on_error "${status}" "${output}"
+
 	[ "${status}" -eq 0 ]
 	[[ "${output}" == *"Обновить списки блокировки"* ]]
 	postfix="[ \$flag = 1 ] && rm -f /opt/etc/adblock.sources; \
@@ -194,8 +188,7 @@ adblock_src_file_copy=/opt/apps/kvas/files/etc/conf/adblock.sources
 	cmd="ads_request_to_upload"
 	run on_server "${lib_load} && ${prefix} && ${cmd}"
 
-	echo "status=${status}"
-	echo "output=${output}"
+	print_on_error "${status}" "${output}"
 
 	[ "${status}" -eq 0 ]
 

@@ -1,0 +1,34 @@
+#!/bin/bash
+set -e
+. /apps/kvas/build/library.run
+
+DEBUG=YES
+
+if ${DEBUG} == YES ; then
+	num_proc=1
+	deb="-j${num_proc}"
+else
+	num_proc=$(nproc)
+	deb="-j${num_proc} V=sc";
+fi
+
+line
+echo "Задействовано ${num_proc} яд. процессора"
+line
+
+#make menuconfig
+! grep -q kvas .config && make oldconfig <<< y
+
+line
+
+
+make tools/install ${deb}
+make toolchain/install ${deb}
+make target/compile ${deb}
+make package/kvas/compile ${deb}
+
+line
+
+APP_PKG_TAR_NAME=kvas_${version}-${stage}_${release}_all.ipk
+APP_PKG_FILE="/apps/entware/bin/targets/mipsel-3.4/generic-glibc/packages/${APP_PKG_TAR_NAME}"
+cp "${APP_PKG_FILE}" "/apps/kvas/ipk"
