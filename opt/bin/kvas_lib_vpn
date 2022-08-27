@@ -139,8 +139,10 @@ ipv6_status() {
 #		если вернем 0 - то IPv6 включен
 #		если вернем 2 - то IPv6 не соместим с указанным интерфейсом
 
-		if [ "${res}" -eq 3 ]; then echo 0; else echo 1; fi
-		if [ "${res}" -eq -1 ]; then echo 2; fi
+		[ "${res}" -eq 3 ] && echo 0
+		[ "${res}" -eq -1 ] && echo 2
+		[[ "${res}" -ge 0 ]] && [[ "${res}" -lt 3 ]] && echo 1
+
 	else
 		when_bad "СБОЙ"
 		error "Не задан интерфейс"
@@ -172,11 +174,11 @@ ipv6_inface_status() {
 	inface="${1}"
 	if [ -n "${inface}" ]; then
 		if is_cli_inface_present "${inface}" ; then
-			ready "Поддержка IPv6 на интерфейсе ${inface}"
+			ready "IPv6 на интерфейсе ${inface}"
 			ipv6_status=$(ipv6_status "${inface}")
-			[ "${ipv6_status}" = 0 ] && when_ok "ПОДКЛЮЧЕНА"
-			[ "${ipv6_status}" = 1 ] && when_alert "ОТКЛЮЧЕНА"
-			[ "${ipv6_status}" = 2 ] && when_error "НЕ ВОЗМОЖНА"
+			[ "${ipv6_status}" -eq 0 ] && when_ok "ПОДКЛЮЧЕН"
+			[ "${ipv6_status}" -eq 1 ] && when_alert "ОТКЛЮЧЕН"
+			[ "${ipv6_status}" -eq 2 ] && when_bad "НЕ ВОЗМОЖЕН"
 		else
 			error "Указанный интерфейс ${inface} в системе не существует."
 			exit 1
@@ -184,6 +186,7 @@ ipv6_inface_status() {
 	else
 		when_bad "СБОЙ"
 		error "Не задан интерфейс"
+		exit 1
 	fi
 
 }
