@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 source ../tests_lib
-
+lib_load=". /opt/bin/kvas_lib_vpn"
 #-----------------------------------------------------
 # 	ТЕСТЫ из библиотеки kvas_lib_vpn ОБЩИЕ
 #-----------------------------------------------------
@@ -81,11 +81,11 @@ TEST_EXIST_INTERFACE=OpenVPN0
 }
 @test "Проверка статуса IPv6 интерфейса: OFF [ipv6_inface_on]" {
 
-	cmd="ipv6_inface_off ${TEST_NoN_IPv6_INTERFACE}"
+	cmd="ipv6_inface_off ${TEST_IPv6_INTERFACE}"
 	run on_server "${lib_load} && ${cmd} "
 	print_on_error "${status}" "${output}"
 	[ "${status}" -eq 0 ]
-	cmd="ipv6_status ${TEST_NoN_IPv6_INTERFACE}"
+	cmd="ipv6_status ${TEST_IPv6_INTERFACE}"
 	run on_server "${lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
 	#	Блок проверок то, что точно должно быть при нормальной работе скрипта
@@ -141,5 +141,51 @@ TEST_EXIST_INTERFACE=OpenVPN0
 
 	[ "${status}" -eq 0 ]
 	echo "${output}" | grep -q "Не задан интерфейс"
+
+}
+
+@test "Проверка включения IPv6 на существующем интерфейсе ${TEST_EXIST_INTERFACE} CLI в системе [ipv6_inface_status]" {
+	cmd="ipv6_inface_on ${TEST_EXIST_INTERFACE}"
+	run on_server "${lib_load} && ${cmd} "
+	print_on_error "${status}" "${output}"
+
+	[ "${status}" -eq 0 ]
+
+	cmd="ipv6_inface_status ${TEST_EXIST_INTERFACE}"
+	run on_server "${lib_load} && ${cmd} "
+	print_on_error "${status}" "${output}"
+
+	echo "${output}" | grep -q "ПОДКЛЮЧЕН"
+
+}
+@test "Проверка отключения IPv6 на существующем интерфейсе ${TEST_EXIST_INTERFACE} CLI в системе [ipv6_inface_status]" {
+	cmd="ipv6_inface_off ${TEST_EXIST_INTERFACE}"
+	run on_server "${lib_load} && ${cmd} "
+	print_on_error "${status}" "${output}"
+
+	[ "${status}" -eq 0 ]
+
+	cmd="ipv6_inface_status ${TEST_EXIST_INTERFACE}"
+	run on_server "${lib_load} && ${cmd} "
+	print_on_error "${status}" "${output}"
+
+	echo "${output}" | grep -q "ОТКЛЮЧЕН"
+
+}
+@test "Проверка подключения IPV6 на интефейсе без поддержки IPV6 ${TEST_NoN_IPv6_INTERFACE} [ipv6_inface_status]" {
+	cmd="ipv6_inface_status ${TEST_NoN_IPv6_INTERFACE}"
+	run on_server "${lib_load} && ${cmd} "
+	print_on_error "${status}" "${output}"
+
+	echo "${output}" | grep -q "НЕ ВОЗМОЖЕН"
+
+}
+
+@test "Проверка наличия несуществующего интерфейса ${TEST_NOT_EXIST_INTERFACE} CLI в системе [ipv6_inface_status]" {
+	cmd="ipv6_inface_status ${TEST_NOT_EXIST_INTERFACE}"
+	run on_server "${lib_load} && ${cmd} "
+	print_on_error "${status}" "${output}"
+
+	echo "${output}" | grep -q "не существует"
 
 }
