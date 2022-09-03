@@ -719,7 +719,7 @@ unblock_adguard_debug() {
 
 	result=$(cat < "/opt/bin/kvas_adguard")
 	echo_debug "Скрипт заполнения списка разблокировки /opt/bin/kvas_dnsmasq" "${result}"
-	result=$(cat < "${ADGUARDHOME_CONFIG}" | grep ipset)
+	result=$(cat < "${ADGUARDHOME_CONFIG}" | sed -n '/ipset/,/filtering_enabled/p' | sed -e '$d' )
 	echo_debug "Блок записей по ipset в ${ADGUARDHOME_CONFIG}" "${result}"
 	result=$(cat < "${ADGUARDHOME_LOG}" | tail -20)
 	echo_debug "Журнал загрузки AdGuard Home в ${ADGUARDHOME_LOG}" "${result}"

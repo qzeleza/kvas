@@ -194,43 +194,47 @@ ipv6_inface_status() {
 # ------------------------------------------------------------------------------------------
 #
 #	 Производим настройку работы AdGuard Home
+# 	 $1 - содержит 'ip:port' для работы adguardhome
 #
 # ------------------------------------------------------------------------------------------
 adguardhome_setup() {
 
+#	в случае наличия аргумента функции получаем из него номер порта и IP
 	[ -n "${1}" ] && ip=$(echo "${1}" | cut -d'#' -f1) && port=$(echo "${1}" | cut -d'#' -f2)
+#	в случае отсуствия аргумента получаем ip и порт из глобальных переменных
 	[ -z "${1}" ] && ip="${LOCALHOST_IP}" && port=${MAIN_DNS_PORT}
 
 	ready "AdGuard Home установлен в качестве основного DNS сервера"
 
+#	в солучае установленного dnsmasq отстанавливаем его и архивируем
 	[ -f /opt/etc/init.d/S56dnsmasq ] && {
 		/opt/etc/init.d/S56dnsmasq stop &> /dev/null
 		mv -f /opt/etc/init.d/S56dnsmasq "${KVAS_BACKUP_PATH}"
 	}
+#	в случае наличия сервиса dnscrypt_proxy2 отсанавливаем его и архивируем
 	[ -f /opt/etc/init.d/S09dnscrypt-proxy2 ] && {
 		/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
 		mv -f /opt/etc/init.d/S09dnscrypt-proxy2 "${KVAS_BACKUP_PATH}"
 	}
-
+#   останавливаем adg сервис, если он запущен
 	${ADGUARDHOME_DEMON} stop &> /dev/null
-
-	dns_prev=$(grep ' port:' "${ADGUARDHOME_CONFIG}" | cut -d' ' -f2)
-#	set_config_value ADGUARDHOME_PREV_DNS "${dns_prev}"
+#	устанавливаем DNS по умолчанию на ADGUARD
 	set_config_value DNS_DEFAULT "${ip}#${port}"
-
+#	меняем номер порта в файле конфигурации adguard
 	sed -i "s/\( port:\) .*/\1 ${port}/" "${ADGUARDHOME_CONFIG}"
-
+#	если файл сервис adguard в налиии то архивируем файл конфигурации
 	if [ -f "${ADGUARDHOME_DEMON}" ]; then
-#		mv -f "${ADGUARDHOME_DEMON}" "${KVAS_BACKUP_PATH}"/S99adguardhome
 		cp /opt/etc/AdGuardHome/AdGuardHome.yaml "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml
 	fi
+#	и копируем подготовленный файл сервиса adguard в папку запуска сервисов
 	cp /opt/apps/kvas/files/etc/init.d/S99adguard "${ADGUARDHOME_DEMON}"
+#	удаляем сервис запуса квас так как его теперь будет заменять файл сервиса adguard
 	rm -f "${KVAS_START_FILE}"
-
+#	меняем dns в настройках ipset
 	ipset_dns_change "${ip}#${port}"
-
+#	теперь просто перезагружаем сервис adguard
 	"${ADGUARDHOME_DEMON}" restart &> /dev/null
-
+#	отслеживаем результат запуска сервиса adguard
 	if [ $? = 0 ]; then
 		when_ok "УСПЕШНО"
 	else
