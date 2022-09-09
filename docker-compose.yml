@@ -1,7 +1,7 @@
 version: "3.9"
 services:
   develop:
-    container_name: kvas_debian_10
+    container_name: kvas_develop
     build:
       context: .
       dockerfile: Dockerfile
@@ -20,6 +20,7 @@ services:
       UID: "${UID}"
       GID: "${GID}"
       TZ: "${TZ}"
+      DEBUG: "${DEBUG}"
       PUBLIC_KEY_FILE: "/pubkey"
       SUDO_ACCESS: "false"
       PASSWORD_ACCESS: "false"

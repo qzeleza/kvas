@@ -2,14 +2,14 @@
 set -e
 . /apps/kvas/build/library.run
 
-DEBUG=YES
+#DEBUG=NO
 
-if ${DEBUG} == YES ; then
+if [ ${DEBUG} = YES ] ; then
 	num_proc=1
-	deb="-j${num_proc}"
+	deb="-j${num_proc} V=sc"
 else
 	num_proc=$(nproc)
-	deb="-j${num_proc} V=sc";
+	deb="-j${num_proc}";
 fi
 
 line
@@ -17,7 +17,7 @@ echo "Задействовано ${num_proc} яд. процессора"
 line
 
 #make menuconfig
-! grep -q kvas .config && make oldconfig <<< y
+! grep -q kvas /apps/entware/.config && make oldconfig <<< y
 
 line
 
@@ -32,3 +32,23 @@ line
 APP_PKG_TAR_NAME=kvas_${version}-${stage}_${release}_all.ipk
 APP_PKG_FILE="/apps/entware/bin/targets/mipsel-3.4/generic-glibc/packages/${APP_PKG_TAR_NAME}"
 cp "${APP_PKG_FILE}" "/apps/kvas/ipk"
+
+
+#MY_PASS=$(cat < "${APP_REMOTE_FILE}" | grep -E '^PASSWD' | cut -d'"' -f2| cut -d"=" -f2)
+#MY_PORT=$(cat < "${APP_REMOTE_FILE}" | grep -E '^PORT' | cut -d' ' -f3 | cut -d"=" -f2)
+#MY_ROUTER=$(cat < "${APP_REMOTE_FILE}" | grep -E '^ROUTER' | cut -d'"' -f2| cut -d"=" -f2)
+
+#rm -fR /apps/kvas/debug /apps/kvas/ipk
+
+#APP_PKG_TAR_NAME=kvas_${APP_VER_FULL}_all.ipk
+#APP_PKG_FILE="${ENTWARE_PATH}/bin/targets/mipsel-3.4/generic-glibc/packages/${APP_PKG_TAR_NAME}"
+##mkdir -p /opt/apps/kvas/ipk
+#cp "${APP_PKG_FILE}" "/apps/kvas/ipk"
+#
+#echo ${LINE}
+#find /opt/apps/Entware/bin/targets/mipsel-3.4/generic-glibc/packages/ | grep kvas
+#echo ${LINE}
+#ssh -p "${MY_PORT}" "${MY_ROUTER}" "mkdir -p /opt/packages/kvas/"
+#ssh -p "${MY_PORT}" "${MY_ROUTER}" 'rm -f '"/opt/packages/kvas/${APP_PKG_TAR_NAME}" #&> /dev/null
+#scp -P "${MY_PORT}" "${APP_PKG_FILE}" "${MY_ROUTER}:/opt/packages/kvas/${APP_PKG_TAR_NAME}"
+#ssh -p "${MY_PORT}" "${MY_ROUTER}" 'opkg remove 'kvas

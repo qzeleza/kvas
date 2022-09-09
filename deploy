@@ -11,17 +11,21 @@ version="${1:-1.0.beta.16}"
 user=develop
 user_uid=5001
 user_gid=5001
+DEBUG=NO
 
 put "NAME=${user}"
 put "UID=${user_uid}"
 put "GID=${user_gid}"
 put "TZ=Europe/Moscow"
 put "VERSION=${version}"
+put "DEBUG=${DEBUG}"
 
-#dock
-#docker image prune -f
-#docker-compose build
-docker-compose up --build -d
-#docker run -it kvas_develop /bin/bash
-#docker run --user 5001:5001 -it kvas_develop /bin/bash
-#docker exec --user 5001:5001 -it kvas_debian_10 /bin/bash
+# Если уже создан образ kvas_develop
+docker container prune -f
+if ! docker ps -a -f 'status=running' | grep -q kvas ; then
+#	то заходим внуть контейнера kvas_develop и сразу запускаем соборку пакета
+#	если не создан образ, то запускаем сборку образа
+	docker-compose up --build -d
+fi
+# Запускаем контейнер и срузу запускаем сборку пакета
+docker run --user 5001:5001 -it kvas_develop /apps/kvas/build/make_app.run /bin/bash
