@@ -1,4 +1,4 @@
-FROM amd64/debian:9
+FROM ubuntu
 
 ARG NAME="${NAME}"
 ARG UID="${UID}"
@@ -6,26 +6,34 @@ ARG GID="${GID}"
 
 RUN groupadd --gid ${GID} ${NAME} && \
     useradd --no-create-home --uid ${UID} --gid ${GID} --shell /bin/bash ${NAME} && \
-    echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
-    apt-get update && apt upgrade -y && \
-    apt-get install -y locales && locale-gen
+    apt-get update && apt-get install -y locales && rm -rf /var/lib/apt/lists/* \
+	&& localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 && \
+    dpkg --add-architecture i386
+ENV LANG en_US.utf8
+
 
 RUN apt-get install -y \
-#   Основные пакеты по учебнику
-    python-dev python-distutils-extra \
-#    python3 python3-distutils-extra  \
-    python3-dev python3-setuptools bash binutils bzip2 \
-    flex git-core g++ gcc util-linux gawk \
-    help2man intltool libelf-dev zlib1g-dev make libncurses5-dev libssl-dev patch \
-    perl-modules unzip wget gettext xsltproc zlib1g-dev \
-    \
-    libboost-dev libxml-parser-perl libusb-dev bin86 bcc sharutils \
-    build-essential ccache ecj fastjar file gawk gcc-multilib \
-    gettext git java-propose-classpath libelf-dev libncurses5-dev \
-    libncursesw5-dev libssl-dev  unzip wget rsync subversion \
-    swig time xsltproc zlib1g-dev
+    libc6:i386 libncurses5:i386 libstdc++6:i386 \
+    # ubuntu
+    build-essential subversion libncurses5-dev zlib1g-dev gawk  \
+    gcc-multilib flex git-core gettext libssl-dev
 
-RUN apt-get install -y curl golang
+
+#   Основные пакеты по учебнику
+#    python-dev python-distutils-extra \
+#    python3 python3-distutils-extra  \
+#    python3-dev python3-setuptools bash binutils bzip2 \
+#    flex git-core g++ gcc util-linux gawk \
+#    help2man intltool libelf-dev zlib1g-dev make libncurses5-dev libssl-dev patch \
+#    perl-modules unzip wget gettext xsltproc zlib1g-dev \
+#    \
+#    libboost-dev libxml-parser-perl libusb-dev bin86 bcc sharutils \
+#    build-essential ccache ecj fastjar file gawk gcc-multilib \
+#    gettext git java-propose-classpath libelf-dev libncurses5-dev \
+#    libncursesw5-dev libssl-dev  unzip wget rsync subversion \
+#    swig time xsltproc zlib1g-dev
+
+#RUN apt-get install -y curl golang python
 
 RUN rm -rf /var/lib/apt/lists/* && \
     mkdir -p /apps/kvas/ && cd /apps && \
