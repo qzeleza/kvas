@@ -3,10 +3,6 @@
 rm .env
 put()(echo "${1}" >> .env)
 
-#user=$(cat < ./debug/remote.conf | grep USER_NAME | cut -d'=' -f2)
-#user_uid=$(id -u ${user})
-#user_gid=$(id -g ${user})
-
 version="${1:-1.0.beta.16}"
 user=develop
 user_uid=5001
@@ -28,4 +24,5 @@ if ! docker ps -a -f 'status=running' | grep -q kvas ; then
 	docker-compose up --build -d
 fi
 # Запускаем контейнер и срузу запускаем сборку пакета
-docker run --user 5001:5001 -it kvas_develop /apps/kvas/build/make_app.run /bin/bash
+docker run --user "${user_uid}:${user_gid}" -it kvas_${user} /apps/kvas/build/make_app.run /bin/bash
+#docker run --user 5001:5001 -it --mount type=bind,src=/apps/kvas,dst=/apps/kvas kvas_develop /bin/bash

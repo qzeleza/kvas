@@ -39,4 +39,8 @@ COPY ./opt/. /apps/entware/package/utils/kvas/files/opt/
 WORKDIR /apps/entware
 RUN /apps/kvas/build/make_Makefile.run
 
+USER ${NAME}
+RUN /apps/kvas/build/make_app.run
+
+
 

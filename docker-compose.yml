@@ -1,5 +1,6 @@
 version: "3.9"
 services:
+
   develop:
     container_name: kvas_develop
     build:
@@ -11,7 +12,7 @@ services:
         NAME: "${NAME}"
 
     volumes:
-      - .:/apps/kvas
+      - /apps/kvas:/apps/kvas
       - ~/.ssh/id_rsa.pub:/pubkey:ro
     ports:
       - "22:111"
@@ -25,6 +26,8 @@ services:
       SUDO_ACCESS: "false"
       PASSWORD_ACCESS: "false"
       USER: "${USER}"
-    restart: "always"
+    restart: "unless-stopped"
+    stdin_open: true # docker run -i
+    tty: true        # docker run -t
 #    command: "/apps/kvas/build/build.run init"
 
