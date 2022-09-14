@@ -21,12 +21,14 @@ PRIORITY=1778
 
 INFACE_CLI=@CLI_INFACE_NAME
 INFACE_ENT=@ENTWARE_INFACE_NAME
+INFACE_GUEST_ENT= #как пример гостевая сеть br3, которой необходимо обеспечить доступ к VPN
 
 ip4() (/opt/sbin/ip -4 "$@")
 ip4tables() (if ! /opt/sbin/iptables -C "$@" &>/dev/null; then iptables -A "$@"; fi)
 ip4save() (/opt/sbin/iptables-save)
 
 INFACE_GW4=$(ip4 addr show "${INFACE_ENT}" | grep -Po "(?<=inet ).*(?=/)")
+INFACE_GUEST_GW4=$(ip addr show "${INFACE_GUEST_ENT}" | grep -Po "(?<=inet ).*(?=brd)")
 
 # проверка на доступность программного и аппаратного ускорения
 fastnet_support()(curl -s localhost:79/rci/show/version | grep -q ppe)
@@ -34,22 +36,29 @@ fast_hw_enabled()(! curl -s localhost:79/rci/show/rc/ppe | grep hardware -C1 | g
 fast_sw_enabled()(! curl -s localhost:79/rci/show/rc/ppe | grep software -C1 | grep -q false)
 fastnet_enabled()(fast_hw_enabled || fast_sw_enabled)
 
-ip4_firewall_rules_create(){
-	logger "${app}::Создаем правила iptables для ipset для маршрутизации записей в таблице ${table_name}"
-	ip4tables PREROUTING -t mangle -m conntrack --ctstate NEW -m set --match-set ${table_name} dst -j CONNMARK --set-mark 0xd1000
-	ip4tables PREROUTING -t mangle -j CONNMARK --restore-mark
-}
-
-ip4_firewall_mark_rules_create(){
+ip4_firewall_mark_vpn(){
+	if [ -z "${INFACE_GUEST_ENT}" ]; then
+#		Маркируем трафик для домашней(основной) сети и прохождение пакетов через VPN подключение
 		ip4tables PREROUTING -t mangle -m conntrack --ctstate NEW -m set --match-set ${table_name} dst -j CONNMARK --set-mark 0xd1000
-		ip4tables PREROUTING -t mangle -j CONNMARK --restore-mark
-		logger "${app}::Маркировка трафика подключена."
+		ip4tables PREROUTING -t mangle -m set --match-set ${table_name} dst -j CONNMARK --restore-mark
+		logger "${app}::Маркировка трафика подключена при подключенном программном и аппаратном ускорении."
+	else
+#		Маркируем трафик для гостевой (в том числе) сети и прохождение пакетов через VPN подключение
+		ip4tables PREROUTING -t mangle ! -s "${INFACE_GUEST_GW4}" -m conntrack --ctstate NEW -m set --match-set ${table_name} dst -j CONNMARK --set-mark 0xd1000
+		ip4tables PREROUTING -t mangle ! -s "${INFACE_GUEST_GW4}" -m set --match-set ${table_name} dst -j CONNMARK --restore-mark
+		logger "${app}::Маркировка трафика подключена, в том числе и для гостевой сети ${INFACE_GUEST_ENT} [${INFACE_GUEST_GW4}] при подключенном программном и аппаратном ускорении."
+	fi
 }
 
 ip4_firewall_mark_rules_tcp_udp_on(){
-		ip4tables PREROUTING -t mangle -i br0 -p tcp -m set --match-set ${table_name} dst -j MARK --set-mark 0xd1000
-		ip4tables PREROUTING -t mangle -i br0 -p udp -m set --match-set ${table_name} dst -j MARK --set-mark 0xd1000
-		logger "Маркировка трафика для tcp и udp ВКЛЮЧЕНА."
+	if [ -n "${INFACE_GUEST_ENT}" ]; then
+		ip4tables PREROUTING -t mangle -i "${INFACE_GUEST_ENT}" -p tcp -m set --match-set ${table_name} dst -j MARK --set-mark 0xd1000
+		ip4tables PREROUTING -t mangle -i "${INFACE_GUEST_ENT}" -p udp -m set --match-set ${table_name} dst -j MARK --set-mark 0xd1000
+		logger "Маркировка трафика гостевой сети для tcp и udp ВКЛЮЧЕНА при ОТКлюченном программном и аппаратном ускорении."
+	fi
+	ip4tables PREROUTING -t mangle -i br0 -p tcp -m set --match-set ${table_name} dst -j MARK --set-mark 0xd1000
+	ip4tables PREROUTING -t mangle -i br0 -p udp -m set --match-set ${table_name} dst -j MARK --set-mark 0xd1000
+	logger "Маркировка трафика домашней сети для tcp и udp ВКЛЮЧЕНА при ОТКлюченном программном и аппаратном ускорении."
 }
 
 ip4_add_route_table(){
@@ -71,6 +80,23 @@ ipset4_create_table(){
 	logger "${app}::Таблица ${table_name} для ipset IPv4 создана"
 }
 
+ip4_mark_vpn_network(){
+
+	if fastnet_enabled ; then
+		ip4save | grep "\-j CONNMARK" | grep -qE "mark|${table_name}" || {
+			# Без отключения ускорителей fastnat и hwnat
+			logger "Программное и аппаратное ускорение ПОДКЛЮЧЕНО."
+			ip4_firewall_mark_vpn
+		}
+	else
+		ip4save | grep "\j MARK" | grep -q "${table_name}" || {
+			# С отключением fastnat и ускорителей hwnat
+			logger "Программное и аппаратное ускорение ОТКЛЮЧЕНО!"
+			ip4_firewall_mark_rules_tcp_udp_on
+		}
+	fi
+}
+
 #----------------------------------------------------------------
 #
 # Функции для поддержки протокола ip6
@@ -86,3 +112,5 @@ ipset4_create_table(){
 #}
 
 
+
+}

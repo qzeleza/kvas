@@ -1,5 +1,7 @@
 #!/bin/bash
 
+lib_load=". /opt/bin/kvas/libs/vpn"
+
 on_server(){
 	APP_REMOTE_FILE="../../debug/remote.conf"
 	MY_PORT=$(cat < "${APP_REMOTE_FILE}" | grep -E '^PORT' | cut -d' ' -f3 | cut -d"=" -f2)

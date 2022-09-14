@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-source ../tests_lib
+source ../libs/main
 lib_load=". /opt/bin/kvas/libs/vpn"
 #-----------------------------------------------------
 # 	ТЕСТЫ из библиотеки vpn ОБЩИЕ

@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-source ../tests_lib
+source ../libs/main
 
 #-----------------------------------------------------
 # 	ТЕСТЫ из библиотеки main
@@ -16,7 +16,7 @@ VARIABLE=TEST_99999; VALUE=99999
     run on_server "grep ${VARIABLE} /opt/etc/kvas.conf"
     print_on_error "${status}" "${output}"
     [ "${status}" -eq 0 ]
-    [[ "${output}" == *"${VARIABLE}"* ]]
+    [[ "${output}" = *"${VARIABLE}"* ]]
 }
 
 @test "Проверка получения переменной из файла конфигурации [get_config_value]" {
@@ -82,7 +82,7 @@ VARIABLE=TEST_99999; VALUE=99999
 	run on_server "${lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
     [ "${status}" -eq 0 ]
-	[[ "${output}" == nwg* ]]
+	[[ "${output}" = nwg* ]]
 }
 
 
@@ -92,7 +92,7 @@ VARIABLE=TEST_99999; VALUE=99999
 	run on_server "${lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
     [ "${status}" -eq 0 ]
-	[[ "${output}" == br* ]]
+	[[ "${output}" = br* ]]
 }
 @test "Проверка получения протокола работы WUI роутера [get_router_protocol]" {
 	lib_load=". /opt/bin/kvas/libs/vpn"
@@ -167,7 +167,7 @@ VARIABLE=TEST_99999; VALUE=99999
 	[ "${status}" -eq 0 ]
     [ "${output}" -gt 0 ]
 
-    run on_server "${lib_load} && ${cmd} *"
+    run on_server "${lib_load} && ${cmd} '*'"
     print_on_error "${status}" "${output}"
     [ "${status}" -eq 0 ]
     [ "${output}" -gt 0 ]
@@ -179,7 +179,7 @@ VARIABLE=TEST_99999; VALUE=99999
 	run on_server "${lib_load} && ${cmd}" <<< n
 	print_on_error "${status}" "${output}"
 	[ "${status}" -eq 0 ]
-    [[ "${output}" == *"Проверка ввода"* ]]
+    [[ "${output}" = *"Проверка ввода"* ]]
 }
 
 @test "Проверка ввода ответов на запрос [read_ynq]" {
@@ -228,6 +228,6 @@ VARIABLE=TEST_99999; VALUE=99999
 	run on_server "${lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
 	[ "${status}" -eq 0 ]
-    [[ "${output}" == *"Системное время обновлено"* ]]
+    [[ "${output}" = *"Системное время обновлено"* ]]
 
 }

@@ -31,18 +31,6 @@
 
 # Создаем таблицу unblock для ipset ip4
 ipset4_create_table
+ip4_mark_vpn_network
 
-if fastnet_enabled ; then
-	ip4save | grep "\-j CONNMARK" | grep -qE "mark|${table_name}" || {
-		# Без отключения ускорителей fastnat и hwnat
-		logger "Программное и аппаратное ускорение ПОДКЛЮЧЕНО."
-		ip4_firewall_mark_rules_create
-	}
-else
-	ip4save | grep "\j MARK" | grep -q "${table_name}" || {
-		# С отключением fastnat и ускорителей hwnat
-		logger "Программное и аппаратное ускорение ОТКЛЮЧЕНО!"
-		ip4_firewall_mark_rules_tcp_udp_on
-	}
-fi
 exit 0

@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-source ../tests_lib
+source ../libs/main
 
 lib_load=". /opt/bin/kvas/libs/vpn"
 dnsmasq_conf='/opt/etc/dnsmasq.conf'
@@ -24,7 +24,6 @@ adblock_src_file_copy=/opt/apps/kvas/files/etc/conf/adblock.sources
 	#	Блок проверок то, что точно должно быть при нормальной работе скрипта
 	! echo "${output}" | grep -q "not installed"
 	echo "${output}" | grep -q "nano"
-
 }
 
 @test "Проверка отключения блокировки рекламы [cmd_ads_protect_off]" {
@@ -35,10 +34,10 @@ adblock_src_file_copy=/opt/apps/kvas/files/etc/conf/adblock.sources
 	print_on_error "${status}" "${output}"
 	[ "${status}" -eq 0 ]
 
-	[[ "${output}" == *"Блокировка рекламы"* ]]
-    [[ "${output}" == *"ОТКЛЮЧЕНА"* ]]
-    [[ "${output}" == *"Перезапуск службы dnsmasq"* ]]
-    [[ "${output}" == *"ГОТОВО"* ]]
+	[[ "${output}" = *"Блокировка рекламы"* ]]
+    [[ "${output}" = *"ОТКЛЮЧЕНА"* ]]
+    [[ "${output}" = *"Перезапуск службы dnsmasq"* ]]
+    [[ "${output}" = *"ГОТОВО"* ]]
 }
 
 @test "Проверка включения блокировки рекламы [cmd_ads_protect_on]" {
@@ -49,10 +48,10 @@ adblock_src_file_copy=/opt/apps/kvas/files/etc/conf/adblock.sources
 	print_on_error "${status}" "${output}"
 	[ "${status}" -eq 0 ]
 
-	[[ "${output}" == *"Блокировка рекламы"* ]]
-    [[ "${output}" == *"ВКЛЮЧЕНА"* ]]
-    [[ "${output}" == *"Перезапуск службы dnsmasq"* ]]
-    [[ "${output}" == *"ГОТОВО"* ]]
+	[[ "${output}" = *"Блокировка рекламы"* ]]
+    [[ "${output}" = *"ВКЛЮЧЕНА"* ]]
+    [[ "${output}" = *"Перезапуск службы dnsmasq"* ]]
+    [[ "${output}" = *"ГОТОВО"* ]]
 }
 @test "Проверка включения блокировки рекламы при уже включенном статусе [cmd_ads_protect_on]" {
 	cmd="cmd_ads_protect_on"
@@ -60,7 +59,7 @@ adblock_src_file_copy=/opt/apps/kvas/files/etc/conf/adblock.sources
 	print_on_error "${status}" "${output}"
 	[ "${status}" -eq 0 ]
 
-	[[ "${output}" == *"Блокировка рекламы уже "* ]]
+	[[ "${output}" = *"Блокировка рекламы уже "* ]]
 }
 @test "Проверка статуса блокировки рекламы, если блок подключен [cmd_ads_status]" {
 	prefix="new_dn=0; ! [ -f ${adblock_bin_file} ] && ( cp ${adblock_bin_file_copy} ${adblock_bin_file}; chmod +x ${adblock_bin_file}; ); \
@@ -127,8 +126,8 @@ adblock_src_file_copy=/opt/apps/kvas/files/etc/conf/adblock.sources
 	print_on_error "${status}" "${output}"
 #	[ "${status}" -eq 0 ]
 
-	[[ "${output}" == *"Загрузка источников рекламы"* ]]
-    [[ "${output}" == *"УДАЧНО"* ]]
+	[[ "${output}" = *"Загрузка источников рекламы"* ]]
+    [[ "${output}" = *"УДАЧНО"* ]]
 
 	postfix="[ -f ${adblock_src_file}.kvas ] \
 		  && rm -f ${adblock_src_file}.kvas \
@@ -148,8 +147,8 @@ adblock_src_file_copy=/opt/apps/kvas/files/etc/conf/adblock.sources
 	print_on_error "${status}" "${output}"
 
 	[ "${status}" -eq 0 ]
-	[[ "${output}" == *"Обнаружен архивный файл"* ]]
-    [[ "${output}" == *"УДАЧНО"* ]]
+	[[ "${output}" = *"Обнаружен архивный файл"* ]]
+    [[ "${output}" = *"УДАЧНО"* ]]
     run on_server "${lib_load} && ${postfix}"
 }
 
@@ -168,7 +167,7 @@ adblock_src_file_copy=/opt/apps/kvas/files/etc/conf/adblock.sources
 	print_on_error "${status}" "${output}"
 
 	[ "${status}" -eq 0 ]
-	[[ "${output}" == *"Обновить списки блокировки"* ]]
+	[[ "${output}" = *"Обновить списки блокировки"* ]]
 	postfix="[ \$flag = 1 ] && rm -f /opt/etc/adblock.sources; \
 			([ -f /tmp/adblock.sources.kvas ] && mv /tmp/adblock.sources.kvas ${adblock_src_file}.kvas); \
 			(grep -q '${host_record}' /opt/tmp/adblock/hosts && rm /opt/tmp/adblock/hosts)"

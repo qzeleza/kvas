@@ -71,6 +71,7 @@ case "${1}" in
 		case "${2}" in
 			set) 			cmd_interface_change aks ;;
 			reset) 			cmd_vpn_iptable_reset ;;
+			add) 	        cmd_vpn_add_guest_network "${3}" ;;
 			status | *) 	cmd_vpn_status ;;
 		esac
 		;;
