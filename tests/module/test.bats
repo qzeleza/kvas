@@ -6,7 +6,7 @@ source ../tests_lib
 #	файлы етосв с расширением bats
 #================================================================
 
-lib_load=". /opt/bin/kvas_lib_vpn"
+lib_load=". /opt/bin/kvas/libs/vpn"
 
 @test "Проверка отключения сервиса AdGuardHome [cmd_adguardhome_off]" {
 	cmd="cmd_adguardhome_off "

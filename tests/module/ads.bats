@@ -1,16 +1,16 @@
 #!/usr/bin/env bats
 source ../tests_lib
 
-lib_load=". /opt/bin/kvas_lib_vpn"
+lib_load=". /opt/bin/kvas/libs/vpn"
 dnsmasq_conf='/opt/etc/dnsmasq.conf'
-adblock_bin_file_copy='/opt/apps/kvas/files/bin/kvas_adblock'
-adblock_bin_file='/opt/bin/kvas_adblock'
+adblock_bin_file_copy='/opt/apps/kvas/files/bin/kvas/adblock'
+adblock_bin_file='/opt/bin/kvas/adblock'
 adblock_src_file=/opt/etc/adblock.sources
 adblock_src_file_copy=/opt/apps/kvas/files/etc/conf/adblock.sources
 
 
 #-----------------------------------------------------
-# 	ТЕСТЫ из библиотеки kvas_lib_vpn БЛОКИРОВКА РЕКЛАМЫ
+# 	ТЕСТЫ из библиотеки vpn БЛОКИРОВКА РЕКЛАМЫ
 #-----------------------------------------------------
 @test "Проверка наличия редактора nano для редактирования списка блокировки рекламы [cmd_ads_edit]" {
 	cmd="opkg files nano-full"
@@ -176,8 +176,8 @@ adblock_src_file_copy=/opt/apps/kvas/files/etc/conf/adblock.sources
 	echo "output=${output}"
 }
 
-@test "Проверка работы файла обновления списков рекламы из источников [/opt/bin/kvas_adblock]" {
-	lib_load=". /opt/bin/kvas_lib_vpn"
+@test "Проверка работы файла обновления списков рекламы из источников [/opt/bin/kvas/adblock]" {
+	lib_load=". /opt/bin/kvas/libs/vpn"
 #	нужно сделать копию данных и затем восстановить их
 	prefix="[ -f ${adblock_src_file} ] \
 			&& mv ${adblock_src_file} ${adblock_src_file}.test; \

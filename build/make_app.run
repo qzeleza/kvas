@@ -16,6 +16,10 @@ line
 echo "Задействовано ${num_proc} яд. процессора"
 line
 
+rm -rf /apps/entware/package/utils/kvas/files/*
+rm -rf /apps/entware/staging_dir/target-mipsel_mips32r2_glibc-2.27/root-mipsel-3.4/./opt/apps/kvas
+cp -rf /apps/kvas/opt/ /apps/entware/package/utils/kvas/files/
+chown -R develop:develop /apps/entware/package/utils/kvas
 cd /apps/entware/
 
 #    make menuconfig
@@ -24,8 +28,9 @@ if ! grep -q kvas /apps/entware/.config ; then
 	make tools/install ${deb}
 	make toolchain/install ${deb}
 	make target/compile ${deb}
+else
+	/apps/kvas/build/make_Makefile.run
 fi
-#line
 
 make package/kvas/compile ${deb}
 
@@ -35,24 +40,13 @@ APP_PKG_TAR_NAME=kvas_${version}-${stage}_${release}_all.ipk
 APP_PKG_FILE="/apps/entware/bin/targets/mipsel-3.4/generic-glibc/packages/${APP_PKG_TAR_NAME}"
 cp "${APP_PKG_FILE}" "/apps/kvas/ipk"
 
-
 cd /apps/kvas/build
 
-#MY_PASS=$(cat < "${APP_REMOTE_FILE}" | grep -E '^PASSWD' | cut -d'"' -f2| cut -d"=" -f2)
-#MY_PORT=$(cat < "${APP_REMOTE_FILE}" | grep -E '^PORT' | cut -d' ' -f3 | cut -d"=" -f2)
-#MY_ROUTER=$(cat < "${APP_REMOTE_FILE}" | grep -E '^ROUTER' | cut -d'"' -f2| cut -d"=" -f2)
+APP_REMOTE_FILE='../debug/remote.conf'
+MY_PORT=$(cat < "${APP_REMOTE_FILE}" | grep -E '^PORT' | cut -d' ' -f3 | cut -d"=" -f2)
+MY_ROUTER=$(cat < "${APP_REMOTE_FILE}" | grep -E '^ROUTER' | cut -d'"' -f2| cut -d"=" -f2)
 
-#rm -fR /apps/kvas/debug /apps/kvas/ipk
-
-#APP_PKG_TAR_NAME=kvas_${APP_VER_FULL}_all.ipk
-#APP_PKG_FILE="${ENTWARE_PATH}/bin/targets/mipsel-3.4/generic-glibc/packages/${APP_PKG_TAR_NAME}"
-##mkdir -p /opt/apps/kvas/ipk
-#cp "${APP_PKG_FILE}" "/apps/kvas/ipk"
-#
-#echo ${LINE}
-#find /opt/apps/Entware/bin/targets/mipsel-3.4/generic-glibc/packages/ | grep kvas
-#echo ${LINE}
-#ssh -p "${MY_PORT}" "${MY_ROUTER}" "mkdir -p /opt/packages/kvas/"
-#ssh -p "${MY_PORT}" "${MY_ROUTER}" 'rm -f '"/opt/packages/kvas/${APP_PKG_TAR_NAME}" #&> /dev/null
-#scp -P "${MY_PORT}" "${APP_PKG_FILE}" "${MY_ROUTER}:/opt/packages/kvas/${APP_PKG_TAR_NAME}"
-#ssh -p "${MY_PORT}" "${MY_ROUTER}" 'opkg remove 'kvas
+ssh -p "${MY_PORT}" "${MY_ROUTER}" "mkdir -p /opt/packages/"
+ssh -p "${MY_PORT}" "${MY_ROUTER}" 'rm -f '"/opt/packages/${APP_PKG_TAR_NAME}" #&> /dev/null
+scp -P "${MY_PORT}" "${APP_PKG_FILE}" "${MY_ROUTER}:/opt/packages/${APP_PKG_TAR_NAME}"
+ssh -p "${MY_PORT}" "${MY_ROUTER}" 'opkg remove kvas'

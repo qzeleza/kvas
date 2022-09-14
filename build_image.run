@@ -23,6 +23,6 @@ if ! docker ps -a -f 'status=running' | grep -q kvas ; then
 #	если не создан образ, то запускаем сборку образа
 	docker-compose up --build -d
 fi
-# Запускаем контейнер и срузу запускаем сборку пакета
-docker run --user "${user_uid}:${user_gid}" -it kvas_${user} /apps/kvas/build/make_app.run /bin/bash
+# Запускаем контейнер и сразу запускаем сборку пакета в самом контейнере
+docker run --user "${user_uid}:${user_gid}" -it --mount type=bind,src=/apps/kvas,dst=/apps/kvas kvas_${user} /apps/kvas/build/make_app.run /bin/bash
 #docker run --user 5001:5001 -it --mount type=bind,src=/apps/kvas,dst=/apps/kvas kvas_develop /bin/bash

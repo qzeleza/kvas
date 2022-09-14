@@ -6,7 +6,7 @@ source ../tests_lib
 #-----------------------------------------------------
 
 @test "Проверка добавления правильного хоста ya.ru" {
-	lib_load=". /opt/bin/kvas_lib_vpn"
+	lib_load=". /opt/bin/kvas/libs/vpn"
 	domain="ya.ru"
 	prefix="cmd_del_one_host ${domain} || echo 0"
 	postfix="cmd_del_one_host ${domain} || echo 0"
@@ -70,7 +70,7 @@ source ../tests_lib
 
 @test "Проверка вывода ошибки при отсутствии списочного файла при удалении всех записей." {
 #    skip
-	lib_load=". /opt/bin/kvas_lib_vpn"
+	lib_load=". /opt/bin/kvas/libs/vpn"
 	prefix="mv -f /opt/etc/hosts.list /opt/etc/hosts.list.test"
 	cmd="cmd_clear_list"
 	postfix="mv -f /opt/etc/hosts.list.test /opt/etc/hosts.list"

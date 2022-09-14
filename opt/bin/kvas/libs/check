@@ -1,6 +1,17 @@
 #!/bin/sh
+#------------------------------------------------------------------------------
+#	ПАКЕТ КВАС
+#------------------------------------------------------------------------------
+#
+#	Данный файл содержит функции для проверки работы пакета Квас
+#
+# ------------------------------------------------------------------------------
+#	Разработчик: mail@zeleza.ru
+#	Дата создания: 13/09/2022
+#	Лицензия: GPL 2.0
+# ------------------------------------------------------------------------------------------
 
-. /opt/bin/kvas_lib_main
+. /opt/bin/kvas/libs/main
 
 NOT_IN_TABLE=false
 IPSET=$(which ipset)
@@ -47,7 +58,7 @@ dns_override_check() {
 	if [ ! "${dns_prov}" = true ]; then
 	  	cli="$(get_router_host)/a"
 	#	print_line
-		echo -e "${RED}Для корректной работы dnsmasq необходимо отключить использование DNS от провайдера!"
+		echo -e "${RED}Для корректной работы dnsmasq необходимо исключить влияние провайдера на Ваши DNS запросы!"
 		echo -e "С этой целью зайдите в админ панель роутера по адресу: ${GREEN}${cli}"
 		echo -e "${RED}и введите в поле Command следующую команду ${GREEN}opkg dns-override ${RED}, затем нажмите ENTER."
 		echo -e "далее в том же поле введите команду ${GREEN}system configuration save ${RED}, затем нажмите ENTER."
@@ -94,6 +105,7 @@ vpn_check(){
 
 	vpn_cli_desc=$(get_current_vpn_interface "cli_desc")
 	vpn_cli=$(get_current_vpn_interface "cli")
+#	если выбрано vpn подключение отличное от shadowsocks
 	if ! [ "${vpn_cli}" = 'shadowsocks' ]; then
 		connected=$(is_vpn_interface_connected "${vpn_cli}")
 		ready "Состояние vpn соединения ${vpn_cli_desc}"
@@ -101,7 +113,7 @@ vpn_check(){
 			when_ok "ПОДКЮЧЕНО"
 
 			ready "Таблица VPN маршрутов id=1001"
-			/opt/etc/ndm/fs.d/100-vpn
+			/opt/etc/ndm/fs.d/100-vpn start
 			if /opt/sbin/ip route show table 1001 | grep -qv 'default'; then
 				when_ok "ЗАПОЛНЕНА"
 
@@ -260,19 +272,19 @@ ipset_check() {
 		[ "$(grep -vcE '^$|#' "${UNBLOCK_LIST_FILE}" )" -eq 0 ] && {
 		cp /opt/apps/kvas/files/etc/conf/hosts.list "${UNBLOCK_LIST_FILE}"
 	}
-	/opt/bin/kvas_ipset &> /dev/null
+	/opt/bin/kvas/ipset &> /dev/null
 	if ipset list unblock | grep -vEi '^[a-z]' &> /dev/null; then
 		when_ok "ЗАПОЛНЕНА"
 	else
 		when_bad "ПУСТАЯ"
 		ipset_flush &> /dev/null
-		/opt/bin/kvas_ipset &> /dev/null
+		/opt/bin/kvas/ipset &> /dev/null
 		ready "Повторная проверка заполнения ipset таблицы"
 		if ipset list unblock | grep -vEi '^[a-z]' &> /dev/null; then
 			when_ok "ПРОЙДЕНА"
 		else
 			when_bad "ОШИБКА"
-			error "Проверьте работу скрипта /opt/etc/ndm/fs.d/100-ipset"
+			error "Проверьте работу скрипта /opt/bin/kvas/ipset"
 			exit 1
 		fi
 	fi
@@ -289,7 +301,7 @@ unblock_dnsmasq_check() {
 		when_ok "ЗАПОЛНЕН"
 	else
 		when_bad "ПУСТ"
-		/opt/bin/kvas_dnsmasq
+		/opt/bin/kvas/dnsmasq
 		ready "Повторная проверка заполнения списка правил ipset для dnsmasq"
 		if [ "$(cat </opt/etc/kvas.dnsmasq | wc -l)" -gt 0 ]; then
 			when_ok "ПРОЙДЕНА"
@@ -300,7 +312,7 @@ unblock_dnsmasq_check() {
 				error "Белый список пуст - /opt/etc/hosts.list"
 				warning "Добавьте туда хосты командой ${BLUE}kvas add host.com"
 			else
-				error "Проверьте работу скрипта /opt/bin/kvas_dnsmasq"
+				error "Проверьте работу скрипта /opt/bin/kvas/dnsmasq"
 			fi
 			print_line
 			exit 1
@@ -319,7 +331,7 @@ cmd_adguard_check() {
 		echo_debug "Журнал загрузки AdGuard Home (20 крайних записей)\nиз файла ${ADGUARDHOME_LOG}" "$(cat < "${ADGUARDHOME_LOG}" | tail )"
 	else
 		when_bad "ПУСТ"
-		/opt/bin/kvas_adguard &> /dev/null
+		/opt/bin/kvas/adguard &> /dev/null
 		ready "Повторная проверка заполнения списка правил ipset для AdGuard Home"
 		if [ "$(cat < "${ADGUARDHOME_CONFIG}" | grep ipset | wc -c)" -gt 6 ]; then
 			when_ok "ПРОЙДЕНА"
@@ -328,9 +340,9 @@ cmd_adguard_check() {
 			print_line
 			if [ "$(cat <"${UNBLOCK_LIST_FILE}" | wc -l)" -gt 0 ]; then
 				error "Белый список пуст - /opt/etc/hosts.list"
-				warning "Добавьте в него хосты командой ${BLUE}kvas add host.com${NOCL}"
+				warning "Добавьте в него хосты командой ${BLUE}kvas add имя_домена${NOCL}"
 			else
-				error "Проверьте работу скрипта /opt/bin/kvas_adguard"
+				error "Проверьте работу скрипта /opt/bin/kvas/adguard"
 			fi
 			print_line
 			exit 1
@@ -351,7 +363,7 @@ adblock_dnsmasq_check() {
 			when_bad "ПУСТ"
 			warning "Заполняем список блокировки рекламы принудительно "
 			print_line
-			/opt/bin/kvas_adblock
+			/opt/bin/kvas/adblock
 			ready "Перезапуск службы dnsmasq"
 			/opt/etc/init.d/S56dnsmasq restart &> /dev/null
 			[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
@@ -382,7 +394,7 @@ internet_check() {
 }
 # ------------------------------------------------------------------------------------------
 #
-#	 Проверяем наличие самого файла и число записей в нем
+#	 Проверяем наличие самого списочного файла и число записей в нем
 #
 # ------------------------------------------------------------------------------------------
 hosts_list_check(){
@@ -399,18 +411,24 @@ hosts_list_check(){
 #
 # ------------------------------------------------------------------------------------------
 ipset_site_visit_check() {
+	echo "ВНИМАНИЕ!!!  ПРЕЖДЕ, ЧЕМ ПРИСТУПИТЬ К ДАЛЬНЕЙШИМ ДЕЙСТВИЯМ, СДЕЛАЙТЕ СЛЕДУЮЩЕЕ:"
+	echo
+	echo "1. ОЧИСТИТЕ КЕШ НА ВАШЕМ КОМПЬЮТЕРЕ (КАК ЭТО СДЕЛАТЬ ДЛЯ ВАШЕЙ СИСТЕМЫ - ИЩИТЕ В СЕТИ)."
+	echo "2. ОБЯЗАТЕЛЬНО ПРОВЕРЬТЕ, ЧТО АДРЕС DNS КЛИЕНТА СООТВЕТСТВУЕТ АДРЕСУ ВАШЕГО РОУТЕРА!"
+	echo "3. ДАЛЕЕ, ОЧИСТИТЕ ВСЕ КУКИ НА БРАЗУРЕ, В КОТОРОМ ХОТИТЕ УВИДИТЬ РЕЗУЛЬТАТ!"
+	echo
+	echo "Для продолжения нажмите на любую клавишу."
+	print_line
+	pause
+	clear
 	warning "Проверка заполнения ipset таблицы при посещении сайта."
 	print_line
-	#  host_to_visit=$(clear_content "${UNBLOCK_LIST_FILE}" | head -1 | sed 's/\*//')
-	echo "Для проверки заполнения откройте на компьютере браузер"
-	echo "Если браузер открыт, то очистите все куки в нем."
+	echo "Далее, для проверки заполнения, откройте на компьютере браузер"
 	echo "Затем зайдите на сайт https://2ip.ru"
-	echo "На странице должен появиться IP Вашего VDS провайдера."
+	echo "На странице должен появиться IP Вашего VDS/VPN провайдера."
 	echo -n "После чего вновь перейдите сюда и нажмите на любую клавишу."
-	ipset_flush
-	/opt/bin/kvas_ipset
-	read -r pause &> /dev/null
-	#  update_list &> /dev/null
+	pause
+	/opt/bin/kvas/update &> /dev/null
 	print_line
 	ready "Таблица ipset"
 	res=$(ipset list unblock | grep -vEi '^[a-z]' )
@@ -421,6 +439,8 @@ ipset_site_visit_check() {
 		print_line
 		warning "Попробуйте запустить тест снова"
 	fi
+#	print_line
+
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -428,36 +448,53 @@ ipset_site_visit_check() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_state_checker() {
+#	проверяем интернет
 	internet_check
+#	Проверяем включен ли dns-override (отключены ли DNS провайдера)
 	dns_override_check
+#	Проверяем наличие самого списочного файла и число записей в нем
 	hosts_list_check
+# Проверяем подлючен ли AdGuard Home
 	adguardhome_status=$(cmd_adguardhome_status)
 	if cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then
+#		AdGuard Home включен
 		echo "${adguardhome_status}"
 		cmd_adguard_check
 	else
+#		AdGuard Home отключен
+#		Проверяем работу dnsmasq
 		dnsmasq_check
+#		Проверяем работу dnscrypt_proxy
 		dnscrypt_proxy_check
+# 		Проверяем работу блокировки рекламы
 		adblock_dnsmasq_check
 	fi
 
 	print_line
+#	По наличию файла ниже определяем наличие использования shadowsocks
 	if [ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ]; then
+#		Проверяем работу shadowsocks
 		shadowsocks_check
 	else
+#		Проверяем работу vpn подключения
 		vpn_check
 	fi
 	print_line
+#	Проверяем правила в таблице iptable
 	iptable_check
+#	Проверяем таблицу ipset
 	ipset_check
 	print_line
-
+#
+#	Проверка наличия ip адресов хостов в таблице ipset - попытка номер раз
 	unblock_list_ipset_check
 	if [ "${NOT_IN_TABLE}" = true ]; then
-		/opt/bin/kvas_ipset
+#		если хотябы один из адресов не находится в таблице, то делаем проверку повторно
+		/opt/bin/kvas/ipset
 		print_line
 		warning "Пробуем запустить повторно."
 		print_line
+#		Проверка наличия ip адресов хостов в таблице ipset
 		unblock_list_ipset_check
 		NOT_IN_TABLE=false
 	fi
@@ -473,384 +510,4 @@ cmd_state_checker() {
 ipset_flush() {
 	ipset flush unblock
 	#  	ipset flush unblock6
-}
-
-# ------------------------------------------------------------------------------------------
-#
-#	 Формируем лог отладочной информации
-#
-# ------------------------------------------------------------------------------------------
-dnsmasq_debug() {
-
-	warning "Состояние службы dnsmasq по команде "
-	ready "/opt/etc/init.d/S56dnsmasq status"
-	if /opt/etc/init.d/S56dnsmasq status &> /dev/null; then
-		when_ok "ЗАПУЩЕНА"
-	else
-		when_bad "ОСТАНОВЛЕНА"
-		print_line
-		result=$(/opt/sbin/dnsmasq)
-		case "${result}" in
-		0) warning "Dnsmasq успешно повторно запущен." ;;
-		1)
-			error "Обнаружена проблема с файлом конфигурации"
-			error "Запускаем проверку файла конфигурации dnsmasq"
-			print_line
-			/opt/sbin/dnsmasq --test
-			print_line
-			warning "Файл конфигурации dnsmasq"
-			print_line
-			cat <"/opt/etc/dnsmasq.conf"
-			print_line
-			exit 1
-			;;
-		2)
-			error "Возникла проблема с доступом к сети"
-			error "используемый адрес, попытка использовать "
-			error "привилегированные порты без разрешения"
-			exit 1
-			;;
-		3)
-			error "Возникла проблема при обращении к файловой системе"
-			error "отсутствующий файл /каталог или разрешения на них."
-			exit 1
-			;;
-		4)
-			error "Сбой выделения памяти."
-			exit 1
-			;;
-		5)
-			error "Невыявленная проблема."
-			exit 1
-			;;
-		11 | *)
-			error "[${result}] Проблемы при выделении адресов для аренды DHCP "
-			exit 1
-			;;
-		esac
-	fi
-	result=$(cat < /opt/etc/dnsmasq.conf)
-	echo_debug "Выборка из файла конфигурации dnsmasq: /opt/etc/dnsmasq.conf" "${result}"
-}
-
-# ------------------------------------------------------------------------------------------
-#
-#	 Формируем лог отладочной информации
-#
-# ------------------------------------------------------------------------------------------
-vpn_debug() {
-
-	vpn_cli_desc=$(get_current_vpn_interface "cli_desc")
-	vpn_cli=$(get_current_vpn_interface "cli")
-	connected=$(is_vpn_interface_connected "${vpn_cli}")
-	ready "Состояние vpn соединения ${vpn_cli_desc}"
-	if [ "${connected}" = 'on' ]; then
-		when_ok "ПОДКЛЮЧЕНО"
-		result="$(/opt/sbin/ip route show table 1001)"
-		echo_debug "Таблица заполнения маршрутов VPN списка id=1001\nкоманда: 'ip route show table 1001'" "${result}"
-		result="$(/opt/sbin/ip rule show)"
-		echo_debug "Таблица правил маршрутизации VPN списка id=1001\nкоманда: 'ip rule show'" "${result}"
-
-#		ip_vpn=$(ip a | grep "${vpn_entware}:" -A2 | grep inet | tr -s ' ' | cut -d" " -f3 | cut -d"/" -f1)
-#		result=$()
-	else
-		when_bad "ОСТАНОВЛЕНО"
-		print_line
-		warning "Проверьте конфигурацию ${vpn_cli_desc} соединения"
-		warning "на странице $(get_router_ip)/controlPanel/otherConnections"
-		print_line
-		exit 1
-	fi
-}
-
-# ------------------------------------------------------------------------------------------
-#
-#	 Формируем лог отладочной информации
-#
-# ------------------------------------------------------------------------------------------
-shadowsocks_debug() {
-
-	ready "Состояние службы shadowsocks"
-	if /opt/etc/init.d/S22shadowsocks status &> /dev/null; then
-		when_ok "ЗАПУЩЕНА"
-		port=$(cat <'/opt/etc/shadowsocks.json' | grep local_port | cut -d':' -f2 | tr -d ' ,')
-		result=$(netstat -ltunp 2> /dev/null | grep "ss-redir" | tr -s " ")
-		echo_debug "Отчет по прослушиванию порта shadowsocks [${port}]\nкоманда: netstat -ltunp | grep \"ss-redir\"" "${result}"
-		result=$(cat < /opt/etc/shadowsocks.json | grep -vE "password|server")
-		echo_debug "Выборка из файла конфигурации shadowsocks /opt/etc/shadowsocks.json" "${result}"
-
-	else
-		when_bad "ОСТАНОВЛЕНА"
-		print_line
-		warning "Файл конфигурации shadowsocks"
-		print_line
-		cat <"/opt/etc/shadowsocks.json"
-		print_line
-		warning "Запускаем shadowsocks в режиме отладки"
-		print_line
-		ss-redir -vc /opt/etc/shadowsocks.json
-		print_line
-		exit 1
-	fi
-}
-
-# ------------------------------------------------------------------------------------------
-#
-#	 Формируем лог отладочной информации
-#
-# ------------------------------------------------------------------------------------------
-dnscrypt_proxy_debug() {
-
-	ready "Состояние службы dnscrypt-proxy2"
-
-	if /opt/etc/init.d/S09dnscrypt-proxy2 status &> /dev/null; then
-		when_ok "ЗАПУЩЕНА"
-		port=$(cat /opt/etc/dnscrypt-proxy.toml | grep -v '^#' | grep listen_addresses | cut -d ":" -f4)
-		port="${port::-2}"
-		result=$(netstat -ltunp 2> /dev/null | grep "dnscrypt" | tr -s " ")
-		echo_debug "Отчет по прослушиванию порта dnscrypt-proxy [${port}]\nкоманда: netstat -ltunp | grep \"dnscrypt\"" "${result}"
-
-	else
-		when_bad "ОСТАНОВЛЕНА"
-		print_line
-		warning "Файл конфигурации dnscrypt-proxy"
-		print_line
-		config=$(cat <"/opt/etc/dnscrypt-proxy.toml" | tr -d '^ '| grep -v "^#" )
-		echo_debug "Содержание файла конфигурации /opt/etc/dnscrypt-proxy.toml" "${config}"
-
-		log=$(netstat -ltunp 2> /dev/null | grep 'dnscrypt')
-		echo_debug "Журнал с фильтрацией по порту ${port::-2} dnscrypt-proxy2\nКоманда: netstat -ltunp" "${log}"
-	fi
-
-	result=$(cat <"/opt/etc/dnscrypt-proxy.toml" | grep -v "^#" | grep -E 'listen_addresses.=|cache.=')
-	echo_debug "Выборка из файла конфигурации dnscrypt-proxy2 /opt/etc/dnscrypt-proxy.toml" "${result}"
-
-}
-
-# ------------------------------------------------------------------------------------------
-#
-#	 Формируем лог отладочной информации
-#
-# ------------------------------------------------------------------------------------------
-kvas_list_debug() {
-
-	result=$(cat <"${UNBLOCK_LIST_FILE}" | tail -20)
-	echo_debug "Список разблокировки /opt/etc/hosts.list (20 записей)" "${result}"
-}
-
-# ------------------------------------------------------------------------------------------
-#
-#	 Формируем лог отладочной информации
-#
-# ------------------------------------------------------------------------------------------
-unblock_list_ipset_check(){
-
-	echo "Проверка наличия ip адресов хостов в таблице ipset "
-	echo "команда 'ipset list unblock'"
-	print_line
-	if [ -f "${UNBLOCK_LIST_FILE}" ]; then
-		/opt/bin/kvas_ipset &> /dev/null
-		result_ipset=$(ipset list unblock | grep -vEi '^[a-z]' | sort)
-		if [ -n "${result_ipset}" ]; then
-			while read -r line || [ -n "${line}" ]; do
-				[  -z "${line}" ] && continue
-				[ "${line::1}" = "#" ] && continue
-				line="${line/\*/}"
-				dns_ip=$(get_config_value DNS_DEFAULT)
-				ip=$(kdig "${line}" +short "@${dns_ip}" | tr '\n' ',')
-				ip="${ip::-1}"
-				if [ -z "$ip" ]; then
-					ready "${line}" && when_alert "АДРЕСА НЕТ"
-				else
-					ip=$(echo "${ip}" | tr ',' '|')
-					ready "${line} (${ip})"
-					res=$(echo "${result_ipset}" | grep -E "${ip}")
-					[ -n "${res}" ] && when_ok "В ТАБЛИЦЕ" || {
-						when_bad "ОТСУСТВУЕТ"
-						NOT_IN_TABLE=true
-					}
-				fi
-			done < "${UNBLOCK_LIST_FILE}"
-		else
-			error "Таблица разблокировки unblock отсутствует в списке ipset"
-			echo -e "Проверьте работу скрипта ${GREN}/opt/bin/kvas_ipset${NOCL}"
-		fi
-	else
-		error "Отсутствует список разблокировки /opt/etc/hosts.list"
-		echo -e "Добавьте домены в этот список командой ${GREN}kvas add <domain.ru>${NOCL}"
-	fi
-}
-# ------------------------------------------------------------------------------------------
-#
-#	 Формируем лог отладочной информации
-#
-# ------------------------------------------------------------------------------------------
-unblock_ipset_debug() {
-
-	result=$(cat <"/opt/bin/kvas_ipset")
-	echo_debug "Скрипт заполнения таблицы ipset /opt/bin/kvas_ipset" "${result}"
-	/opt/bin/kvas_ipset &>/dev/null
-	result_ipset=$(ipset list unblock | grep -vEi '^[a-z]' | sort)
-	result=$(echo "${result_ipset}" | tail -20)
-	echo_debug "Таблица ipset (20 записей)\nкоманда: 'ipset list unblock'" "${result}"
-	print_line
-	unblock_list_ipset_check
-
-}
-
-# ------------------------------------------------------------------------------------------
-#
-#	 Формируем лог отладочной информации
-#
-# ------------------------------------------------------------------------------------------
-unblock_dnsmasq_debug() {
-
-	result=$(cat <"/opt/bin/kvas_dnsmasq")
-	echo_debug "Скрипт заполнения списка разблокировки /opt/bin/kvas_dnsmasq" "${result}"
-	result=$(cat <'/opt/etc/kvas.dnsmasq' | tail -20)
-	echo_debug "Список разблокировки в /opt/etc/kvas.dnsmasq (20 записей)" "${result}"
-}
-# ------------------------------------------------------------------------------------------
-#
-#	 Формируем лог отладочной информации
-#
-# ------------------------------------------------------------------------------------------
-unblock_adguard_debug() {
-
-	result=$(cat < "/opt/bin/kvas_adguard")
-	echo_debug "Скрипт заполнения списка разблокировки /opt/bin/kvas_dnsmasq" "${result}"
-	result=$(cat < "${ADGUARDHOME_CONFIG}" | sed -n '/ipset/,/filtering_enabled/p' | sed -e '$d' )
-	echo_debug "Блок записей по ipset в ${ADGUARDHOME_CONFIG}" "${result}"
-	result=$(cat < "${ADGUARDHOME_LOG}" | tail -20)
-	echo_debug "Журнал загрузки AdGuard Home в ${ADGUARDHOME_LOG}" "${result}"
-
-
-}
-# ------------------------------------------------------------------------------------------
-#
-#	 Формируем лог отладочной информации
-#
-# ------------------------------------------------------------------------------------------
-adblock_dnsmasq_debug() {
-
-	if [ -n "$(cat <'/opt/etc/dnsmasq.conf' | grep "adblock.dnsmasq")" ]; then
-		result=$(cat <"/opt/bin/update_adblock")
-		echo_debug "Скрипт заполнения списка блокировки рекламы /opt/bin/update_adblock" "${result}"
-		result=$(cat <'/opt/etc/adblock.dnsmasq' | tail -20)
-		echo_debug "Список блокировки рекламы /opt/etc/adblock.dnsmasq (20 записей)" "${result}"
-	fi
-}
-
-# ------------------------------------------------------------------------------------------
-#
-#	 Формируем лог отладочной информации
-#
-# ------------------------------------------------------------------------------------------
-iptables_debug() {
-	if [ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ]; then
-		print_line
-		cmd_shadowsocks_iptable_reset
-		result=$(/opt/sbin/iptables-save 2>/dev/null | grep unblock)
-	else
-		print_line
-		cmd_vpn_iptable_reset
-		result=$(/opt/sbin/iptables-save 2>/dev/null | grep CONNMARK | grep -E "restore-mark|unblock")
-	fi
-	echo_debug "Правила перенаправления трафика unblock в iptables\nкоманда: iptables-save 2>/dev/null | grep CONNMARK | grep -E \"restore-mark|unblock\"" "${result}"
-}
-
-# ------------------------------------------------------------------------------------------
-#
-#	 Формируем лог отладочной информации
-#
-# ------------------------------------------------------------------------------------------
-syslog_debug() {
-
-	result=$(curl -s -d '{"once": false, "max-lines": 66}' "${LOCALHOST_IP}"':79/rci/show/log' \
-			| grep -A3 -B1 \"E\" | grep -E "message|timestamp" \
-			| cut -d":" -f2- | tr -d '"' | sed 's/\,$/\n/g'\
-			)
-	echo_debug "Список ошибок из системного журнала" "${result}"
-}
-
-# ------------------------------------------------------------------------------------------
-#
-#	 Формируем лог отладочной информации
-#
-# ------------------------------------------------------------------------------------------
-ping_debug() {
-	#  host=$(cat < '"${UNBLOCK_LIST_FILE}"' | grep -v '^#' | tr -s '\n' | head -1)
-	host='2ip.ru'
-	result=$(ping -c3 "${host}")
-	echo_debug "Прозвон ${host}" "${result}"
-}
-
-# ------------------------------------------------------------------------------------------
-#
-#	 Формируем лог отладочной информации
-#
-# ------------------------------------------------------------------------------------------
-router_info() {
-
-	result=$(curl -s "${LOCALHOST_IP}:79/rci/show/defaults" \
-			| grep -Ei "country|ndmhwid|product" \
-			| tr -d ' ",' \
-			| sed 's/:/: /; s/country/Страна/; s/ndmhwid/Модель/; s/product/Продукт/' \
-			)
-	arch=$(grep "arch" /opt/etc/entware_release | sed 's/arch=/Тип архитектуры: /'
-)
-	result="${result}\n${arch}"
-	echo_debug "Информация о роутере" "${result}"
-
-}
-
-# ------------------------------------------------------------------------------------------
-#
-#	 Формируем лог отладочной информации
-#
-# ------------------------------------------------------------------------------------------
-date_info() {
-	echo_debug "Версия пакета КВАС" "${APP_VERSION}-${APP_RELEASE}"
-	echo_debug "Текущая дата и время" "$(date)"
-}
-
-show_install_log(){
-	[ -f "${INSTALL_LOG}" ] && cat < "${INSTALL_LOG}"
-}
-# ------------------------------------------------------------------------------------------
-#
-#	 Формируем лог отладочной информации
-#
-# ------------------------------------------------------------------------------------------
-cmd_print_debug() {
-
-	internet_check
-	dns_override_check
-
-	if cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then
-		unblock_adguard_debug
-	else
-		dnsmasq_debug
-		dnscrypt_proxy_debug
-		adblock_dnsmasq_debug
-		unblock_dnsmasq_debug
-	fi
-
-	print_line
-	if [ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ]; then
-		shadowsocks_debug
-	else
-		vpn_debug
-	fi
-#	print_line
-	iptables_debug
-	print_line
-	kvas_list_debug
-	unblock_ipset_debug
-	syslog_debug
-#	ping_debug
-	date_info
-	router_info
-	print_line
-	show_install_log
 }

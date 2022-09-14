@@ -1,5 +1,5 @@
 #!/bin/sh
-. /opt/bin/kvas_lib_debug
+. /opt/bin/kvas/libs/debug
 # ------------------------------------------------------------------------------------------
 #
 # 	Добавляет хосты в белый список, доступ к сайтам которого
@@ -17,7 +17,7 @@ APP_NAME=kvas
 INSTALL_LOG=/opt/tmp/kvas.install.log
 UNBLOCK_LIST_FILE=/opt/etc/hosts.list
 CRONTAB_FILE=/opt/etc/crontab
-UPDATE_BIN_FILE=/opt/bin/kvas_update
+UPDATE_BIN_FILE=/opt/bin/kvas/update
 DNS_LOCAL_DEMON_FILE=/opt/etc/ndm/netfilter.d/100-dns-local
 IPSET_REDIRECT_DEMON_FILE=/opt/etc/ndm/netfilter.d/100-proxy-redirect
 HOOK_INFACE_FILE=/opt/etc/ndm/ifstatechanged.d/100-save-inface_entware
@@ -28,6 +28,7 @@ DNSMASQ_CONFIG=/opt/etc/dnsmasq.conf
 DNSCRYPT_CONFIG=/opt/etc/dnscrypt-proxy.toml
 KVAS_FILES_PATH=/opt/apps/kvas/files
 KVAS_BACKUP_PATH=/opt/etc/.kvas/backup
+KVAS_BACKUP_LIST_FILE=/opt/etc/.kvas/backup/hosts.list
 
 KVAS_START_FILE=/opt/etc/init.d/S96kvas
 
@@ -206,7 +207,7 @@ adguardhome_setup() {
 
 	ready "AdGuard Home установлен в качестве основного DNS сервера"
 
-#	в солучае установленного dnsmasq отстанавливаем его и архивируем
+#	в случае установленного dnsmasq отстанавливаем его и архивируем
 	[ -f /opt/etc/init.d/S56dnsmasq ] && {
 		/opt/etc/init.d/S56dnsmasq stop &> /dev/null
 		mv -f /opt/etc/init.d/S56dnsmasq "${KVAS_BACKUP_PATH}"
@@ -250,9 +251,11 @@ adguardhome_setup() {
 # ------------------------------------------------------------------------------------------
 cmd_adguardhome_status() {
 	ready "Сервис AdGuard Home "
-#	agh_port=$(cat < "${ADGUARDHOME_CONFIG}" | grep ' port: ' | cut -d':' -f2 | tr -d ' ')
+	# Проверяем наличие исполяемого файла AdGuardHome
 	if [ -f /opt/bin/AdGuardHome ] ; then
+#		Проверяем наличие файла конфигурации AdGuardHome
 		if [ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ]; then
+#			Проверяем наличие сервиса AdGuardHome
 			if [ -f "${ADGUARDHOME_DEMON}" ] ; then
 				if "${ADGUARDHOME_DEMON}" status | grep -q alive ; then
 					 when_ok "ВКЛЮЧЕН";
@@ -267,50 +270,18 @@ cmd_adguardhome_status() {
 		when_bad "НЕ УСТАНОВЛЕН"
 	fi
 
-#
-#	if ! [ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ]; then
-#		! [ -f "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml ]; then
-#			if [ -f "${ADGUARDHOME_DEMON}" ] && [ -f /opt/bin/AdGuardHome ]
-#
-#	if [ -f "${ADGUARDHOME_DEMON}" ] && [ -f /opt/bin/AdGuardHome ] && {
-# 		[ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ] || [ -f "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml ]
-# 		 }; then
-#		adguardhome_demon_status
-#
-#	elif ! [ -f "${ADGUARDHOME_DEMON}" ] && [ -f /opt/bin/AdGuardHome ] ; then
-#			cp "${KVAS_FILES_PATH}/etc/init.d/S99adguard" "${ADGUARDHOME_DEMON}"
-#			"${ADGUARDHOME_DEMON}" restart &> /dev/null
-#			adguardhome_demon_status
-#	elif ! [ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ]
-#		when_bad "НЕ УСТАНОВЛЕН"
-#	fi
 }
-adguardhome_tuning() {
-#	ip=$(get_router_ip)
-	if [ -f /opt/bin/AdGuardHome.yaml ]; then
-		cp /opt/apps/kvas/files/etc/init.d/S99adguard  /opt/etc/init.d/S99adguardhome
-		mv /opt/bin/AdGuardHome.yaml /opt/etc/AdGuardHome/AdGuardHome.yaml
-		"${ADGUARDHOME_DEMON}" restart  &> /dev/null
-	else
-		echo "Следуйте инструкциям на экране ниже..."
-		echo "После всех произведенных настроек нажмите Ctrl-C"
-		echo -e "И затем снова запустите ${BLUE}kvas adguard on${NOCL}"
-		print_line
-		/opt/bin/AdGuardHome #&& {
-#			cp /opt/apps/kvas/files/etc/init.d/S99adguard  /opt/etc/init.d/S99adguardhome
-#			mv /opt/bin/AdGuardHome.yaml /opt/etc/AdGuardHome/AdGuardHome.yaml
-#			"${ADGUARDHOME_DEMON}" restart  &> /dev/null
-#		}
-	fi
-#	read -r pause &> /dev/null
-}
+# ------------------------------------------------------------------------------------------
+#
+#	 Производим настройку AdGuard Home в качестве основного DNS сервера
+#
+# ------------------------------------------------------------------------------------------
 adguardhome_check_config() {
-
-		ip=$(get_router_ip)
+		# Проверяем наличие	архивной копии AdGuardHome
 		if [ -f "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml ]; then
 			cp "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml /opt/etc/AdGuardHome/AdGuardHome.yaml
 			"${ADGUARDHOME_DEMON}" restart  &> /dev/null
-			print_line
+			ip=$(get_router_ip)
 			port=$(cat < "${ADGUARDHOME_CONFIG}" | grep '^bind_port: ' | cut -d':' -f2 | tr -d ' \n')
 			echo -e "Был обнаружен и восстановлен архивный файл конфигурации AdGuard Home."
 			echo -e "Панель управления находится по адресу: ${BLUE}http://${ip}:${port}${NOCL}"
@@ -319,9 +290,25 @@ adguardhome_check_config() {
 			[ -f /opt/etc/init.d/S56dnsmasq ] && /opt/etc/init.d/S56dnsmasq stop &> /dev/null
 			[ -f /opt/etc/init.d/S09dnscrypt-proxy2 ] && /opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
 			rm -f /opt/var/log/AdGuardHome.log
-			adguardhome_tuning
+#			Проверяем наличие файла конфигурации AdGuardHome в папке исполняемых файлов
+			if [ -f /opt/bin/AdGuardHome.yaml ]; then
+				cp /opt/apps/kvas/files/etc/init.d/S99adguard  /opt/etc/init.d/S99adguardhome
+				mv /opt/bin/AdGuardHome.yaml /opt/etc/AdGuardHome/AdGuardHome.yaml
+				"${ADGUARDHOME_DEMON}" restart  &> /dev/null
+			else
+				echo "Следуйте инструкциям на экране ниже..."
+				echo "После всех произведенных настроек нажмите Ctrl-C"
+				echo -e "И затем снова запустите ${BLUE}kvas adguard on${NOCL}"
+				print_line
+				/opt/bin/AdGuardHome
+			fi
 		fi
 }
+# ------------------------------------------------------------------------------------------
+#
+#	 Производим локальную установку AdGuard Home в качестве основного DNS сервера
+#
+# ------------------------------------------------------------------------------------------
 adguardhome_install_locally() {
 
 	if [ -f /opt/tmp/opkg.lock ]; then
@@ -340,23 +327,29 @@ adguardhome_install_locally() {
 		adguardhome_setup
 	fi
 }
-adguardhome_install_remotely() {
+# ------------------------------------------------------------------------------------------
+#
+#	 Производим удаленную установку AdGuard Home в качестве основного DNS сервера
+#
+# ------------------------------------------------------------------------------------------
+# Пока не ясно как реализовать данный подход потому баним данный функционал
+#adguardhome_install_remotely() {
+#
+#	echo -e "${BLUE}Если Ваш AdGuard Home находится на другом устройстве, то ${NOCL}"
+#	ip_port=''; read_value "Введите IP и номер порта AdGuard Home через двоеточие" ip_port
+#	[ "${ip_port}" != q ] && {
+#		ready "AdGuard Home установлен в качестве DNS сервера в КВАС "
+#		adguardhome_setup "${ip_port}" &> /dev/null
+#		if [ $? = 0 ]; then
+#			when_ok "УСПЕШНО"
+#		else
+#			when_bad "СБОЙ";
+#			error "Возникла ошибка при установке AdGuard Home в качестве DNS сервера."
+#			exit 1
+#		fi
+#	}
 
-	echo -e "${BLUE}Если Ваш AdGuard Home находится на другом устройстве, то ${NOCL}"
-	ip_port=''; read_value "Введите IP и номер порта AdGuard Home через двоеточие" ip_port
-	[ "${ip_port}" != q ] && {
-		ready "AdGuard Home установлен в качестве DNS сервера в КВАС "
-		adguardhome_setup "${ip_port}" &> /dev/null
-		if [ $? = 0 ]; then
-			when_ok "УСПЕШНО"
-		else
-			when_bad "СБОЙ";
-			error "Возникла ошибка при установке AdGuard Home в качестве DNS сервера."
-			exit 1
-		fi
-	}
-
-}
+#}
 # ------------------------------------------------------------------------------------------
 #
 #	 Включаем работу AdGuard Home в качестве основного DNS сервера
@@ -367,11 +360,9 @@ cmd_adguardhome_on() {
 	status=$(cmd_adguardhome_status)
 	if echo "${status}" | grep -q "НЕ УСТАНОВЛЕН" ; then
 		echo "Пакет AdGuard Home не установлен на роутере."
-		answer=''; read_ynq "Установить его на этот роутер [Y] или на удаленный [N]?" answer
+		answer=''; read_ynq "Установить его на роутер [Y] или отказаться [N]?" answer
 		if [ "${answer}" = y ]; then
 			adguardhome_install_locally
-		else
-			adguardhome_install_remotely
 		fi
 	elif echo "${status}" | grep -q "НЕ НАСТРОЕН" ; then
 		adguardhome_check_config
@@ -395,25 +386,13 @@ cmd_adguardhome_off() {
 		when_alert "НЕ УСТАНОВЛЕН"
 	else
 		ready "AdGuard Home в качестве DNS сервера удален"
-		sed -i "s/\( port:\) .*/\1 0/" "${ADGUARDHOME_CONFIG}"
+		[ -f "${ADGUARDHOME_CONFIG}" ] && sed -i "s/\( port:\) .*/\1 0/" "${ADGUARDHOME_CONFIG}"
 		${ADGUARDHOME_DEMON} stop &> /dev/null
-#			[ -f "${ADGUARDHOME_DEMON}" ] && mv -f "${ADGUARDHOME_DEMON}" "${KVAS_BACKUP_PATH}/S99adguardhome"
 		[ -f "${ADGUARDHOME_CONFIG}" ] && mv -f "${ADGUARDHOME_CONFIG}" "${KVAS_BACKUP_PATH}/AdGuardHome.yaml"
 		[ -f /opt/etc/init.d/S56dnsmasq ] && /opt/etc/init.d/S56dnsmasq stop &> /dev/null
 		[ -f /opt/etc/init.d/S09dnscrypt-proxy2 ] && /opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
 		cp /opt/apps/kvas/files/etc/init.d/S96kvas "${KVAS_START_FILE}"
 		dnsmasq_install &> /dev/null
-		dns_crypt_install &> /dev/null
-
-#			if [ -f "${KVAS_BACKUP_PATH}"/S99adguardhome ]; then
-#				mv -f "${KVAS_BACKUP_PATH}"/S99adguardhome "${ADGUARDHOME_DEMON}"
-#				mv -f "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml /opt/etc/AdGuardHome/
-#			else
-#				mv -f "${ADGUARDHOME_DEMON}" "${KVAS_BACKUP_PATH}"/S99adguardhome
-#				cp "${ADGUARDHOME_CONFIG}" "${KVAS_BACKUP_PATH}"/
-#			fi
-
-
 
 		if [ $? = 0 ]; then
 			when_ok "УСПЕШНО"
@@ -637,8 +616,8 @@ ipset_dns_change() {
 	dns_new=${1};
 	if echo "${dns_new}" | grep -qE ':|#'; then
 	_dns_clear=$(echo "${dns_new}" | tr '#' ':' )
-	sed -i "s/\(@\).*)/@${_dns_clear} )/" "/opt/bin/kvas_ipset"
-	sed -i "s/\(@\).*|/@${_dns_clear} |/" "/opt/bin/kvas_ipset"
+	sed -i "s/\(@\).*)/@${_dns_clear} )/" "/opt/bin/kvas/ipset"
+	sed -i "s/\(@\).*|/@${_dns_clear} |/" "/opt/bin/kvas/ipset"
 	fi
 }
 
@@ -716,9 +695,9 @@ dnsmasq_install() {
 
 	ready "Настройка файлов конфигурации dnsmasq"
 	sed -i "s/@LOCAL_IP/${local_ip}/g; s/@INFACE/${inface}/g; s/@UPLEVEL_DNS/${uplevel_dns}/g;" /opt/etc/dnsmasq.conf
-#	sed -i "s/@UNBLOCK_LIST/\/opt\/etc\/hosts.list/g" /opt/bin/kvas_dnsmasq
+#	sed -i "s/@UNBLOCK_LIST/\/opt\/etc\/hosts.list/g" /opt/bin/kvas/dnsmasq
 	if [ $? = 0 ]; then
-		when_ok "ГОТОВО"; /opt/bin/kvas_update
+		when_ok "ГОТОВО"; /opt/bin/kvas/update
 	else
 		when_bad "ОШИБКА"
 		mess="Проблема при настройке файлов конфигурации dnsmasq"
@@ -879,7 +858,7 @@ cmd_vpn_iptable_flush() {
 cmd_vpn_iptable_reset() {
 	ready "Переустановка iptables для vpn завершена"
 	cmd_vpn_iptable_flush  &> /dev/null
-	/opt/etc/ndm/fs.d/100-vpn &> /dev/null
+	/opt/etc/ndm/fs.d/100-vpn start &> /dev/null
 	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
 }
 # ------------------------------------------------------------------------------------------
@@ -923,16 +902,16 @@ vpn_on() {
 	ready "Интерфейс ${inface_cli_desc} подключен "
 
 	cp "/opt/apps/${APP_NAME}/files/etc/ndm/fs.d/100-vpn" "/opt/etc/ndm/fs.d/100-vpn"
-	chmod +x "/opt/etc/ndm/fs.d/100-vpn"
-	sed -i "s/@ENTWARE_INFACE_NAME/${inface_entware}/g" "/opt/etc/ndm/fs.d/100-vpn"
+	cp /opt/apps/${APP_NAME}/files/etc/ndm/ndm /opt/bin/kvas/libs/ndm
+	chmod +x "/opt/etc/ndm/fs.d/100-vpn" /opt/bin/kvas/libs/ndm
+	sed -i "s/@ENTWARE_INFACE_NAME/${inface_entware}/g" "/opt/bin/kvas/libs/ndm"
+	sed -i "s/@CLI_INFACE_NAME/${inface_cli}/g" "/opt/bin/kvas/libs/ndm"
 
 	cp "/opt/apps/${APP_NAME}/files/etc/ndm/netfilter.d/100-vpn-mark" "/opt/etc/ndm/netfilter.d/100-vpn-mark"
 	chmod +x "/opt/etc/ndm/netfilter.d/100-vpn-mark"
 
 	cp "/opt/apps/${APP_NAME}/files/etc/ndm/ifstatechanged.d/100-unblock-vpn" "/opt/etc/ndm/ifstatechanged.d/100-unblock-vpn"
 	chmod +x "/opt/etc/ndm/ifstatechanged.d/100-unblock-vpn"
-	sed -i "s/@ENTWARE_INFACE_NAME/${inface_entware}/g" "/opt/etc/ndm/ifstatechanged.d/100-unblock-vpn"
-	sed -i "s/@CLI_INFACE_NAME/${inface_cli}/g" "/opt/etc/ndm/ifstatechanged.d/100-unblock-vpn"
 
 	state=$(get_value_interface_field "${inface_cli}" state)
 
@@ -950,7 +929,7 @@ vpn_on() {
 	else
 		ipset create unblock hash:net family inet -exist &> /dev/null
 		cmd_vpn_iptable_flush  &> /dev/null
-		/opt/etc/ndm/fs.d/100-vpn &> /dev/null
+		/opt/etc/ndm/fs.d/100-vpn start &> /dev/null
 	fi
 	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
 
@@ -1065,6 +1044,11 @@ shadowsocks_read_data() {
 		s/@SSR_SERVER_CRYPT/${SSR_SERVER_CRYPT}/g; \
 		s/@PROXY_PORT/${proxy_port}/g;" \
 		"${SHADOWSOCKS_CONF}"
+
+	cp /opt/apps/${APP_NAME}/files/etc/ndm/ndm /opt/bin/kvas/libs/ndm
+	chmod +x /opt/bin/kvas/libs/ndm
+	sed -i "s/@ENTWARE_INFACE_NAME/shadowsocks/g" "/opt/bin/kvas/libs/ndm"
+	sed -i "s/@CLI_INFACE_NAME/shadowsocks/g" "/opt/bin/kvas/libs/ndm"
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -1168,10 +1152,14 @@ shadowsocks_on() {
 	cp "/opt/apps/${APP_NAME}/files/etc/ndm/netfilter.d/100-proxy-redirect" "/opt/etc/ndm/netfilter.d/100-proxy-redirect"
 	chmod +x "/opt/etc/ndm/netfilter.d/100-proxy-redirect"
 
-	sed -i "s/@LOCAL_IP/${local_ip}/g; \
-        s/@PROXY_PORT/${proxy_port}/g; \
-        s/@INFACE/${inface}/g;" \
-		"/opt/etc/ndm/netfilter.d/100-proxy-redirect"
+	sed -i "s/@PROXY_PORT/${proxy_port}/g; \
+			s/@INFACE/${inface}/g;" \
+			"/opt/etc/ndm/netfilter.d/100-proxy-redirect"
+
+	cp /opt/apps/${APP_NAME}/files/etc/ndm/ndm /opt/bin/kvas/libs/ndm
+	chmod +x /opt/bin/kvas/libs/ndm
+	sed -i "s/@ENTWARE_INFACE_NAME/shadowsocks/g" "/opt/bin/kvas/libs/ndm"
+	sed -i "s/@CLI_INFACE_NAME/shadowsocks/g" "/opt/bin/kvas/libs/ndm"
 
 	cmd_shadowsocks_iptable_reset  &> /dev/null
 	#   настройка S22shadowsocks конфигурации
@@ -1290,7 +1278,7 @@ get_current_vpn_interface() {
 			cli_desc) col=3 ;;
 			*) col=1 ;;
 		esac
-		inface_entware=$(grep 'INFACE_ENT=' "/opt/etc/ndm/ifstatechanged.d/100-unblock-vpn" | cut -d'=' -f2)
+		inface_entware=$(grep 'INFACE_ENT=' "/opt/bin/kvas/libs/ndm" | cut -d'=' -f2)
 		inface=$(grep "${inface_entware}" "${INFACE_NAMES_FILE}" | cut -d'|' -f"${col}")
 	fi
 	echo "${inface}"
@@ -1427,13 +1415,13 @@ dns_crypt_port_change() {
 
 	set_config_value DNS_CRYPT_PORT "${port_new}"
 	sed -i "s/\(^listen_addresses.=.\).*$/\1['[::]:${port_new}']/g" "${DNSCRYPT_CONFIG}" &> /dev/null
-	sed -i "s/\(@.*\)\(:[0-9]\{2,6\}\)/\1:${port_new} /g" '/opt/bin/kvas_ipset' &> /dev/null
+	sed -i "s/\(@.*\)\(:[0-9]\{2,6\}\)/\1:${port_new} /g" '/opt/bin/kvas/ipset' &> /dev/null
 
 	server_crypt_0="echo \"server=\/:.*\${host}:\/${LOCALHOST_IP}#${port_new}\" >> \/opt\/etc\/kvas.dnsmasq"
 	server_crypt_1="echo \"server=\/\${host}\/${LOCALHOST_IP}#${port_new}\" >> \/opt\/etc\/kvas.dnsmasq"
-	sed -i '/server/d' '/opt/bin/kvas_dnsmasq' &> /dev/null
-	sed -i "s/\(echo \"ipset=\/:.*\)/\1\n\t${server_crypt_0}/" '/opt/bin/kvas_dnsmasq' &> /dev/null
-	sed -i "s/\(echo \"ipset=\/\$.*\)/\1\n\t${server_crypt_1}/" '/opt/bin/kvas_dnsmasq' &> /dev/null
+	sed -i '/server/d' '/opt/bin/kvas/dnsmasq' &> /dev/null
+	sed -i "s/\(echo \"ipset=\/:.*\)/\1\n\t${server_crypt_0}/" '/opt/bin/kvas/dnsmasq' &> /dev/null
+	sed -i "s/\(echo \"ipset=\/\$.*\)/\1\n\t${server_crypt_1}/" '/opt/bin/kvas/dnsmasq' &> /dev/null
 
 	if [ "${cmd}" = restart ]; then
 		cmd_dnsmasq_dns_change "${LOCALHOST_IP}#${port_new}" restart &> /dev/null
@@ -1463,8 +1451,8 @@ dns_crypt_port_change() {
 get_dns_crypt_status() {
 	crypt_port=$(get_config_value DNS_CRYPT_PORT)
 	if [ -f '/opt/sbin/dnscrypt-proxy' ] &&
-		cat <'/opt/bin/kvas_ipset' | grep '@' | grep -q "${crypt_port}" &&
-		cat <'/opt/bin/kvas_dnsmasq' | grep -q 'server' &&
+		cat <'/opt/bin/kvas/ipset' | grep '@' | grep -q "${crypt_port}" &&
+		cat <'/opt/bin/kvas/dnsmasq' | grep -q 'server' &&
 		netstat -tulnp 2> /dev/null | grep -q dnscrypt; then
 
 		echo on
@@ -1559,10 +1547,10 @@ cmd_dns_crypt_off() {
 	ready "Шифрование DNS"
 	crypt_port=$(get_config_value DNS_CRYPT_PORT)
 	static_dns=$(get_config_value DNS_STATIC_1)
-	sed -i "s/\(@.*\)\(:[0-9]\{2,6\}\)/@localhost/g" '/opt/bin/kvas_ipset' &> /dev/null
+	sed -i "s/\(@.*\)\(:[0-9]\{2,6\}\)/@localhost/g" '/opt/bin/kvas/ipset' &> /dev/null
 	sed -i "/proxy-dnssec/d" /opt/etc/dnsmasq.conf
 	sed -i "s/\(^server=\)${LOCALHOST_IP}#${crypt_port}/\1${static_dns}/" /opt/etc/dnsmasq.conf
-	sed -i '/server/d' '/opt/bin/kvas_dnsmasq' &> /dev/null
+	sed -i '/server/d' '/opt/bin/kvas/dnsmasq' &> /dev/null
 
 	rm '/opt/etc/kvas.dnsmasq' &> /dev/null
 	set_config_value DNS_CRYPT_PORT "${crypt_port}"
@@ -1857,35 +1845,53 @@ cmd_import_hosts() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_export_hosts() {
-	if [ -z "${1}" ]; then
-		error "Не задано имя файла для экспорта."
-		error "Укажите его вторым аргументом при запуске!"
+	HOSTS_LIST=$(cat <"${UNBLOCK_LIST_FILE}" | sed 's/\(^.*\)#.*$/\1/g' | grep -v '#' | tr -s '\n')
+	backup_name=${1}
+	if [ -z "${backup_name}" ]; then
+		error "Так как не задано имя файла для экспорта, то"
+		error "Сохраняем архив в файл ${KVAS_BACKUP_LIST_FILE}"
 	else
-		HOSTS_LIST=$(cat <"${UNBLOCK_LIST_FILE}" | sed 's/\(^.*\)#.*$/\1/g' | grep -v '#' | tr -s '\n')
-		ready "Экспортируем/сохраняем записи в файл ${YELLOW}${1}${GREEN}..."
-		mkdir -p "$(dirname "${1}")" && touch "${1}" &> /dev/null
-		echo "${HOSTS_LIST}" >"${1}"
-		[ $? = 0 ] && when_ok "СОХРАНЕНЫ" || when_bad "ОШИБКА"
+		mkdir -p "$(dirname "${backup_name}")" && touch "${backup_name}" &> /dev/null
 	fi
+	ready "Сохраняем записи в файл ${YELLOW}${backup_name}${GREEN}..."
+	echo "${HOSTS_LIST}" > "${backup_name}"
+	[ $? = 0 ] && when_ok "СОХРАНЕНЫ" || when_bad "ОШИБКА"
 }
 # ------------------------------------------------------------------------------------------
 #
 #	Отображаем БС
 #
 # ------------------------------------------------------------------------------------------
+print_host_list(){
+	warning "Список разблокировки содержит ${YELLOW}${num_plus}${GREEN} записей:"
+	print_line
+	clear_content "${UNBLOCK_LIST_FILE}"
+}
 cmd_show_list() {
 
 	if [ -f "${UNBLOCK_LIST_FILE}" ]; then
 		num_plus=$(rec_in_file "${UNBLOCK_LIST_FILE}")
 		if [ "${num_plus}" -eq 0 ]; then
-			error "Список разблокировки пуст!"
+#			Если список хостов пуст, то провряем есть ли архивная копия
+			if [ -f "${KVAS_BACKUP_LIST_FILE}" ] ; then
+				cp "${KVAS_BACKUP_LIST_FILE}" "${UNBLOCK_LIST_FILE}"
+				print_host_list
+			else
+				error "Список разблокировки пуст!"
+				warning "Пожалуйста, добавьте в него данные при помощи 'kvas add имя_домена'"
+			fi
 		else
-			warning "Список разблокировки содержит ${YELLOW}${num_plus}${GREEN} записей:"
-			print_line
-			clear_content "${UNBLOCK_LIST_FILE}"
+			print_host_list
 		fi
 	else
-		error "Список не существует."
+#		Если список хостов не существует, то провряем есть ли архивная копия
+		if [ -f "${KVAS_BACKUP_LIST_FILE}" ] ; then
+			cp "${KVAS_BACKUP_LIST_FILE}" "${UNBLOCK_LIST_FILE}"
+			print_host_list
+		else
+			error "Списка разблокировки не существует."
+			warning "Пожалуйста, добавьте в него данные при помощи 'kvas add имя_домена'"
+		fi
 	fi
 }
 # ------------------------------------------------------------------------------------------
@@ -1961,7 +1967,7 @@ cmd_set_period_update() {
 			error "Период задать возможно только в одном из форматов:"
 			error "в минутах(m), часах(h), днях(d), неделях(w), мсяцах(M)."
 		else
-			sed -i "/kvas_update/d" ${CRONTAB_FILE}
+			sed -i "/update/d" ${CRONTAB_FILE}
 			echo -n "Период обновления "
 			if [ -n "${_mins}" ]; then
 				echo "0/${_mins} * * * * root ${UPDATE_BIN_FILE} update" >>${CRONTAB_FILE}
@@ -2005,12 +2011,12 @@ cmd_ads_edit() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_ads_protect_off() {
-	if ! [ -f '/opt/bin/kvas_adblock' ]; then
-		cp -f '/opt/apps/kvas/files/bin/kvas_adblock' '/opt/bin/kvas_adblock'
-		chmod +x '/opt/bin/kvas_adblock'
+	if ! [ -f '/opt/bin/kvas/adblock' ]; then
+		cp -f '/opt/apps/kvas/files/bin/kvas/adblock' '/opt/bin/kvas/adblock'
+		chmod +x '/opt/bin/kvas/adblock'
 	fi
 	ready "Блокировка рекламы"
-	sed -i 's/\(^ADS_BLOCKER_ON=.*\)/\10/' '/opt/bin/kvas_update'
+	sed -i 's/\(^ADS_BLOCKER_ON=.*\)/\10/' '/opt/bin/kvas/update'
 	sed -i '/addn-hosts=\/opt\/tmp\/adblock/d' '/opt/etc/dnsmasq.conf'
 	OFF="ПОДКЛЮЧЕНА.\nПроизошла не предвиденная ошибка."
 	[ $? = 0 ] && when_ok "ОТКЛЮЧЕНА" || when_bad "${OFF}"
@@ -2026,9 +2032,9 @@ cmd_ads_protect_off() {
 # ------------------------------------------------------------------------------------------
 cmd_ads_protect_on() {
 	perform_to_aks="${1}"
-	if ! [ -f '/opt/bin/kvas_adblock' ]; then
-		cp -f '/opt/apps/kvas/files/bin/kvas_adblock' '/opt/bin/kvas_adblock'
-		chmod +x '/opt/bin/kvas_adblock'
+	if ! [ -f '/opt/bin/kvas/adblock' ]; then
+		cp -f '/opt/apps/kvas/files/bin/kvas/adblock' '/opt/bin/kvas/adblock'
+		chmod +x '/opt/bin/kvas/adblock'
 	fi
 	adblock_file=/opt/tmp/adblock
 	if cat < '/opt/etc/dnsmasq.conf' | sed '/^#/d' | grep -q "${adblock_file}" ; then
@@ -2037,7 +2043,7 @@ cmd_ads_protect_on() {
 	else
 		ready "Блокировка рекламы"
 		sed -i '/addn-hosts=\/opt\/tmp\/adblock/d' '/opt/etc/dnsmasq.conf'
-		sed -i 's/\(^ADS_BLOCKER_ON=.*\)/\11/' '/opt/bin/kvas_update'
+		sed -i 's/\(^ADS_BLOCKER_ON=.*\)/\11/' '/opt/bin/kvas/update'
 		echo "addn-hosts=${adblock_file}" >> '/opt/etc/dnsmasq.conf'
 		OFF="ОТКЛЮЧЕНА.\nПроизошла не предвиденная ошибка."
 		[ $? = 0 ] && when_ok "ВКЛЮЧЕНА" || when_bad "${OFF}"
@@ -2055,7 +2061,7 @@ cmd_ads_protect_on() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_ads_status() {
-	if [ -f '/opt/bin/kvas_adblock' ]; then
+	if [ -f '/opt/bin/kvas/adblock' ]; then
 		ready "Блокировка рекламы "
 		if [ -f '/opt/etc/dnsmasq.conf' ]; then
 			cat < '/opt/etc/dnsmasq.conf' | sed '/^#/d' | grep -q "/opt/tmp/adblock" &> /dev/null
@@ -2094,9 +2100,9 @@ ads_request_to_upload() {
 	fi
 	if [ -f /opt/tmp/adblock/hosts ]; then
 		[ "${answer}" = ask ] && read_ynq "Обновить списки блокировки рекламы" answer
-		[ "${answer}" = y ] && /opt/bin/kvas_adblock
+		[ "${answer}" = y ] && /opt/bin/kvas/adblock
 	else
-		/opt/bin/kvas_adblock
+		/opt/bin/kvas/adblock
 	fi
 }
 

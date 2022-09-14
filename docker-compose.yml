@@ -29,5 +29,4 @@ services:
     restart: "unless-stopped"
     stdin_open: true # docker run -i
     tty: true        # docker run -t
-#    command: "/apps/kvas/build/build.run init"
 

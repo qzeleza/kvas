@@ -30,16 +30,16 @@ RUN rm -rf /var/lib/apt/lists/*  \
     && chown -R ${UID}:${GID} /apps/entware
 
 COPY . /apps/kvas/
-RUN chown -R ${UID}:${GID} /apps/kvas \
-    && chmod -R +x /apps/kvas/build/*.run  \
+RUN chmod -R +x /apps/kvas/build/*.run  \
     && mkdir -p /apps/entware/package/utils/kvas/files/opt/
 
 COPY ./opt/. /apps/entware/package/utils/kvas/files/opt/
 
-WORKDIR /apps/entware
 RUN /apps/kvas/build/make_Makefile.run
+RUN chown -R ${UID}:${GID} /apps/
 
 USER ${NAME}
+WORKDIR /apps/kvas/build/
 RUN /apps/kvas/build/make_app.run
 
 

@@ -1,16 +1,9 @@
 #!/bin/sh
-
-TABLE_ID=1001
-PRIORITY=1778
-INFACE_CLI=@CLI_INFACE_NAME
-INFACE_ENT=@ENTWARE_INFACE_NAME
-ip4() (/opt/sbin/ip -4 "$@")
+. /opt/bin/kvas/libs/ndm
 
 [ "${1}" == "hook" ] || exit 0
 [ "${change}" == "link" ] || exit 0
 [ "${id}" == "${INFACE_CLI}" ] || exit 0
-
-INFACE_GW4=$(ip4 addr show "${INFACE_ENT}" | grep -Po "(?<=inet ).*(?=/)")
 
 case "${id}-${change}-${connected}-${link}-${up}" in
     "${id}-link-no-down-down" )

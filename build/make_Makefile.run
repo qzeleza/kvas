@@ -13,8 +13,6 @@ POST_TERM=$(cat < /apps/kvas/build/postrm \
 			| sed "s/@app_ver/${APP_VER_FULL_TEXT}/g" \
 			)
 
-echo "Начало сборки Makefile"
-
 cat <<EOF > "${makefile_path}"
 include \$(TOPDIR)/rules.mk
 
@@ -53,6 +51,8 @@ endef
 define Package/kvas/install
 
 	\$(INSTALL_DIR) \$(1)/opt/bin
+	\$(INSTALL_DIR) \$(1)/opt/bin/kvas
+	\$(INSTALL_DIR) \$(1)/opt/bin/kvas/libs
 	\$(INSTALL_DIR) \$(1)/opt/etc/init.d
 	\$(INSTALL_DIR) \$(1)/opt/etc/ndm/fs.d
 	\$(INSTALL_DIR) \$(1)/opt/etc/ndm/netfilter.d
@@ -63,7 +63,6 @@ define Package/kvas/install
 	\$(INSTALL_BIN) ./files/opt/etc/ndm/netfilter.d/100-dns-local \$(1)/opt/etc/ndm/netfilter.d
 
 	\$(INSTALL_BIN) ./files/opt/etc/init.d/S96kvas \$(1)/opt/etc/init.d
-#	\$(INSTALL_CONF) ./files/opt/etc/conf/kvas.conf \$(1)/opt/etc
 	\$(CP) ./files/opt/. \$(1)/opt/apps/kvas/files/
 
 endef

@@ -1,28 +1,35 @@
 #!/bin/sh
+. /opt/bin/kvas/libs/ndm
 
-TABLE_ID=1001
-PRIORITY=1778
-INFACE_VPN=@ENTWARE_INFACE_NAME
-INFACE_GW4=$(ip addr show ${INFACE_VPN} | grep -Po "(?<=inet ).*(?=/)")
+#------------------------------------------------------------------------------
+#
+#	ПАКЕТ КВАС
+#
+#------------------------------------------------------------------------------
+#
+#	Данный файл служит для создания новых правил iptables для версии IPv4
+#	при использовании VPN подключения отличного от shadowsocks,
+#	при запуске монтирования какой либо файловой системы (при загрузке системы)
+#	https://github.com/ndmsystems/packages/wiki/Opkg-Component
+#	при заупске с командой start, где основными задачами являются:
+#
+#	1. Создание правил iptables для ipset для маршрутизации записей в таблице unblock
+#	2. Поднятие ${INFACE_CLI} интерфейса
+#	3. Создание и установка приоритета таблицы ID#${TABLE_ID} в значение ${PRIORITY}
+#	4. Очистка DNS кеша
+#
+# ------------------------------------------------------------------------------
+#	Разработчик: mail@zeleza.ru
+#	Дата создания: 21/05/2022
+#	Лицензия: GPL 2.0
+# ------------------------------------------------------------------------------
 
-ip4() (/opt/sbin/ip -4 "$@")
-ip4tables() (if ! /opt/sbin/iptables -C "$@" &>/dev/null; then iptables -A "$@"; fi)
-
-logger "Создаем правила iptables для ipset для маршрутизации записей в таблице unblock"
-ip4tables PREROUTING -t mangle -m conntrack --ctstate NEW -m set --match-set unblock dst -j CONNMARK --set-mark 0xd1000
-ip4tables PREROUTING -t mangle -j CONNMARK --restore-mark
-logger "unblock::Таблица ipset ID#${TABLE_ID} создана"
-logger "Правила для unblock настроены."
-
-logger "unblock::Поднимаем ${INFACE_CLI} интерфейс"
-ip4 route add table ${TABLE_ID} default via ${INFACE_GW4} dev ${INFACE_ENT} 2>/dev/null
-ip4 route show table main |grep -Ev ^default | while read -r ROUTE; do ip4 route add table ${TABLE_ID} ${ROUTE} 2>/dev/null; done
-logger "unblock::Устанавливаем приоритет таблицы ID#${TABLE_ID} в значение ${PRIORITY}"
-ip4 rule add fwmark 0xd1000 lookup ${TABLE_ID} priority ${PRIORITY} 2>/dev/null
-ip4 route flush cache
-logger "unblock::DNS кэш очищен."
-logger "unblock::Таблица ID#${TABLE_ID} создана"
-
-
-
+[ "$1" = "start" ] && {
+#	Создаем правила iptables
+	ip4_firewall_rules_create
+#	Создаем талицу IP адресов для  VPN подключения отличного от shadowsocks
+	ip4_add_route_table
+#	Устанавливаем приоритет таблицы
+	ip4_rule_set_priority
+}
 

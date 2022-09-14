@@ -1,11 +1,31 @@
 #!/bin/sh
+. /opt/bin/kvas/libs/ndm
+
+#------------------------------------------------------------------------------
+#
+#	ПАКЕТ КВАС
+#
+#------------------------------------------------------------------------------
+#
+#	Данный файл служит для создания правил для пропуска Shadowsocks трафика (tcp)
+#	при использовании любого shadowsocks подключения.
+#	Они срабатывают при пепезаписи правил в таблице netfilter
+#	https://github.com/ndmsystems/packages/wiki/Opkg-Component
+#
+# ------------------------------------------------------------------------------
+#	Разработчик: mail@zeleza.ru
+#	Дата создания: 21/05/2022
+#	Лицензия: GPL 2.0
+# ------------------------------------------------------------------------------
+
+# пропускаем в работу только подключения с типом iptables
 [ "${type}" = "iptables" ] || exit 0
-#[ "${table}" = "nat" ] || exit 0
 
 # Shadowsocks+
-if ! /opt/sbin/iptables-save 2>/dev/null | grep unblock | grep -q @PROXY_PORT ; then
-	ipset create unblock hash:net family inet -exist
-	/opt/sbin/iptables -w -t nat -A PREROUTING -i @INFACE -p tcp -m set --match-set unblock dst -j REDIRECT --to-port @PROXY_PORT
+if ! ip4save 2>/dev/null | grep "${table_name}" | grep -q @PROXY_PORT ; then
+#	 создаем таблицу ipset и првила для shadowsocks подключения
+	ipset4_create_table
+	ip4tables -w -t nat PREROUTING -i @INFACE -p tcp -m set --match-set "${table_name}" dst -j REDIRECT --to-port @PROXY_PORT
 fi
 
 exit 0

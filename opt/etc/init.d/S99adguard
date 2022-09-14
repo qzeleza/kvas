@@ -1,4 +1,23 @@
 #!/bin/sh
+#------------------------------------------------------------------------------
+#	ПАКЕТ КВАС
+#------------------------------------------------------------------------------
+#
+#	Данный файл служит для запуска AdguardHome соместно с пакетом КВАС
+#	1. Создает новую таблицу ipset под названием unblock
+#	2. Обновляет таблицу ipset данными из файла с доменными именами, IP и сетями
+#
+#	Файл содержит основные аргументы запуска AdguardHome,
+#	основные из которых являются:
+#	1. Файл конфигурации
+#	2. Файл журналирования
+#	3. Папка из которой запускается пакет
+#
+# ------------------------------------------------------------------------------
+#	Разработчик: mail@zeleza.ru
+#	Дата создания: 21/05/2022
+#	Лицензия: GPL 2.0
+# ------------------------------------------------------------------------------
 
 CNF="-c /opt/etc/AdGuardHome/AdGuardHome.yaml"
 DIR="-w /opt/etc/AdGuardHome"
@@ -12,12 +31,12 @@ PROCS=AdGuardHome
 ARGS="${OPT}"
 PREARGS=""
 DESC=${PROCS}
-PATH=/opt/sbin:/opt/bin:/opt/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+PATH=/opt/sbin:/opt/bin:/opt/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/bin/kvas
 
 case ${1} in
 	start|restart)
-	/opt/etc/ndm/fs.d/100-ipset "${1}"
-	/opt/bin/kvas_adguard
+	ipset create unblock hash:net family inet -exist
+	/opt/bin/kvas/adguard
 	;;
 esac
 

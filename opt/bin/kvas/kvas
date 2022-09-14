@@ -1,17 +1,28 @@
 #!/bin/sh
-. /opt/bin/kvas_lib_vpn
+. /opt/bin/kvas/libs/vpn
+. /opt/bin/kvas/libs/check
 
 APP_VERSION=
 APP_RELEASE=
 
-# ------------------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 #
-# 	ОСНОВНОЙ БЛОК ОБРАБОТКИ
+#	ПАКЕТ КВАС
+#
+#------------------------------------------------------------------------------
+#
+#	Данный файл служит для запуска пакета КВАС из командной строки
+#	и содержит основные команды запуска пакета:
 #	Обработка получаемых аргументов скрипта
 #	$1 - комманда для обработки
 #	$2 - аргумент для работы команды (опционно)
 #
-# ------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+#	Разработчик: mail@zeleza.ru
+#	Дата создания: 21/05/2022
+#	Лицензия: GPL 2.0
+# ------------------------------------------------------------------------------
+
 clear_file_content "${UNBLOCK_LIST_FILE}"
 
 print_line
@@ -35,7 +46,6 @@ case "${1}" in
 		case "${2}" in
 			new)			cmd_shadowsocks_read_new_data ;;
 			port) 			cmd_shadowsocks_local_port_change "${3}" ;;
-			#flush) 			cmd_shadowsocks_iptable_flush ;;
 			reset) 			cmd_shadowsocks_iptable_reset ;;
 			status | *) 	cmd_vpn_status ;;
 		esac
@@ -52,7 +62,6 @@ case "${1}" in
 
 	dns)
 		case "${2}" in
-			#adguard) 		cmd_adguardhome_on ;;
 			test) 			cmd_dns_test ;;
 			*) 				cmd_dnsmasq_dns_change "${2}" ;;
 		esac
@@ -61,7 +70,6 @@ case "${1}" in
 	vpn)
 		case "${2}" in
 			set) 			cmd_interface_change aks ;;
-			#flush) 			cmd_vpn_iptable_flush ;;
 			reset) 			cmd_vpn_iptable_reset ;;
 			status | *) 	cmd_vpn_status ;;
 		esac

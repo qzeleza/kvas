@@ -1,12 +1,30 @@
 #!/bin/sh
+. /opt/bin/kvas/libs/ndm
+
+#------------------------------------------------------------------------------
+#
+#	ПАКЕТ КВАС
+#
+#------------------------------------------------------------------------------
+#
+#	Данный файл служит для создания правил для пропуска DNS трафика по 53 порту (tcp и udp)
+#	при использовании любого VPN подключения (в том числе и shadowsocks).
+#	Они срабатывают при пепезаписи правил в таблице netfilter
+#	https://github.com/ndmsystems/packages/wiki/Opkg-Component
+#
+# ------------------------------------------------------------------------------
+#	Разработчик: mail@zeleza.ru
+#	Дата создания: 21/05/2022
+#	Лицензия: GPL 2.0
+# ------------------------------------------------------------------------------
 
 [ "${type}" = "iptables" ] || exit 0
-#[ "${table}" = "nat" ] || exit 0
 
-# DNS to Local
+# если правила для tcp есть, то пропускаем их добавление
 if ! /opt/sbin/iptables-save 2>/dev/null | grep -q "tcp \-\-dport 53 \-j DNAT"; then
     /opt/sbin/iptables -w -t nat -I PREROUTING -i @INFACE -p tcp --dport 53 -j DNAT --to @LOCAL_IP
 fi
+# если правила для udp есть, то пропускаем их добавление
 if ! /opt/sbin/iptables-save 2>/dev/null | grep -q "udp \-\-dport 53 \-j DNAT"; then
     /opt/sbin/iptables -w -t nat -I PREROUTING -i @INFACE -p udp --dport 53 -j DNAT --to @LOCAL_IP
 fi

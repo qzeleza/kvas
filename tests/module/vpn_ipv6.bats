@@ -1,8 +1,8 @@
 #!/usr/bin/env bats
 source ../tests_lib
-lib_load=". /opt/bin/kvas_lib_vpn"
+lib_load=". /opt/bin/kvas/libs/vpn"
 #-----------------------------------------------------
-# 	ТЕСТЫ из библиотеки kvas_lib_vpn ОБЩИЕ
+# 	ТЕСТЫ из библиотеки vpn ОБЩИЕ
 #-----------------------------------------------------
 TEST_NoN_IPv6_INTERFACE=Wireguard0
 TEST_IPv6_INTERFACE=OpenVPN0

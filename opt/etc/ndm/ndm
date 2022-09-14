@@ -1,0 +1,88 @@
+#!/bin/sh
+#------------------------------------------------------------------------------
+#	ПАКЕТ КВАС
+#------------------------------------------------------------------------------
+#
+#	Данный файл служит библиотекой переменых среды и функций,
+#	которые используются в событийном пакете ndm
+#	https://github.com/ndmsystems/packages/wiki/Opkg-Component
+#
+# ------------------------------------------------------------------------------
+#	Разработчик: mail@zeleza.ru
+#	Дата создания: 13/09/2022
+#	Лицензия: GPL 2.0
+# ------------------------------------------------------------------------------------------
+app="КВАС"
+# имя таблицы для ipset
+table_name=unblock
+
+TABLE_ID=1001
+PRIORITY=1778
+
+INFACE_CLI=@CLI_INFACE_NAME
+INFACE_ENT=@ENTWARE_INFACE_NAME
+
+ip4() (/opt/sbin/ip -4 "$@")
+ip4tables() (if ! /opt/sbin/iptables -C "$@" &>/dev/null; then iptables -A "$@"; fi)
+ip4save() (/opt/sbin/iptables-save)
+
+INFACE_GW4=$(ip4 addr show "${INFACE_ENT}" | grep -Po "(?<=inet ).*(?=/)")
+
+# проверка на доступность программного и аппаратного ускорения
+fastnet_support()(curl -s localhost:79/rci/show/version | grep -q ppe)
+fast_hw_enabled()(! curl -s localhost:79/rci/show/rc/ppe | grep hardware -C1 | grep -q false)
+fast_sw_enabled()(! curl -s localhost:79/rci/show/rc/ppe | grep software -C1 | grep -q false)
+fastnet_enabled()(fast_hw_enabled || fast_sw_enabled)
+
+ip4_firewall_rules_create(){
+	logger "${app}::Создаем правила iptables для ipset для маршрутизации записей в таблице ${table_name}"
+	ip4tables PREROUTING -t mangle -m conntrack --ctstate NEW -m set --match-set ${table_name} dst -j CONNMARK --set-mark 0xd1000
+	ip4tables PREROUTING -t mangle -j CONNMARK --restore-mark
+}
+
+ip4_firewall_mark_rules_create(){
+		ip4tables PREROUTING -t mangle -m conntrack --ctstate NEW -m set --match-set ${table_name} dst -j CONNMARK --set-mark 0xd1000
+		ip4tables PREROUTING -t mangle -j CONNMARK --restore-mark
+		logger "${app}::Маркировка трафика подключена."
+}
+
+ip4_firewall_mark_rules_tcp_udp_on(){
+		ip4tables PREROUTING -t mangle -i br0 -p tcp -m set --match-set ${table_name} dst -j MARK --set-mark 0xd1000
+		ip4tables PREROUTING -t mangle -i br0 -p udp -m set --match-set ${table_name} dst -j MARK --set-mark 0xd1000
+		logger "Маркировка трафика для tcp и udp ВКЛЮЧЕНА."
+}
+
+ip4_add_route_table(){
+	logger "${app}::Поднимаем ${INFACE_CLI} интерфейс"
+	ip4 route add table ${TABLE_ID} default via ${INFACE_GW4} dev ${INFACE_ENT} 2>/dev/null
+	ip4 route show table main |grep -Ev ^default | while read -r ROUTE; do ip4 route add table ${TABLE_ID} ${ROUTE} 2>/dev/null; done
+	logger "${app}::Таблица ID#${TABLE_ID} создана"
+}
+
+ip4_rule_set_priority(){
+	logger "${app}::Устанавливаем приоритет таблицы ID#${TABLE_ID} в значение ${PRIORITY}"
+	ip4 rule add fwmark 0xd1000 lookup ${TABLE_ID} priority ${PRIORITY} 2>/dev/null
+	ip4 route flush cache
+	logger "${app}::DNS кэш очищен."
+}
+
+ipset4_create_table(){
+	ipset create ${table_name} hash:net family inet -exist
+	logger "${app}::Таблица ${table_name} для ipset IPv4 создана"
+}
+
+#----------------------------------------------------------------
+#
+# Функции для поддержки протокола ip6
+#
+#----------------------------------------------------------------
+#ip6() (/opt/sbin/ip -6 "$@")
+#ip6tables() (if ! /opt/sbin/ip6tables -C "$@" &>/dev/null; then ip6tables -A "$@"; fi)
+#ip6save() (/opt/sbin/ip6tables-save)
+#
+#ipset6_create_table(){
+#	ipset create "${table_name}6" hash:net family inet6 -exist
+#	logger "${app}::Таблица ${table_name} для ipset IPv6 создана"
+#}
+
+

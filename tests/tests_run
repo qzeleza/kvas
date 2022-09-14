@@ -34,3 +34,7 @@ echo
 header "ПРОВЕРКА РАБОТЫ БЛОКА ОБНОВЛЕНИЯ ПРАВИЛ КВАСа"
 ./cron.bats
 echo
+
+header "ПРОВЕРКА РАБОТЫ БЛОКА ADGUARD"
+./adguard.bats
+echo
