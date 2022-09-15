@@ -21,14 +21,17 @@ PRIORITY=1778
 
 INFACE_CLI=@CLI_INFACE_NAME
 INFACE_ENT=@ENTWARE_INFACE_NAME
-INFACE_GUEST_ENT= #как пример гостевая сеть br3, которой необходимо обеспечить доступ к VPN
+#как пример гостевая сеть br3, которой необходимо обеспечить доступ к VPN
+INFACE_GUEST_ENT=
 
 ip4() (/opt/sbin/ip -4 "$@")
 ip4tables() (if ! /opt/sbin/iptables -C "$@" &>/dev/null; then iptables -A "$@"; fi)
 ip4save() (/opt/sbin/iptables-save)
+get_gw4()(ip4 addr show "${1}" | grep -Po "(?<=inet ).*(?=/)")
 
-INFACE_GW4=$(ip4 addr show "${INFACE_ENT}" | grep -Po "(?<=inet ).*(?=/)")
-INFACE_GUEST_GW4=$(ip addr show "${INFACE_GUEST_ENT}" | grep -Po "(?<=inet ).*(?=brd)")
+INFACE_GW4=$(get_gw4 "${INFACE_ENT}")
+INFACE_GUEST_GW4=$([ -n "${INFACE_GUEST_ENT}" ] && get_gw4 "${INFACE_GUEST_ENT}")
+GUEST_NET="$([ -n "${INFACE_GUEST_ENT}" ] && echo "${INFACE_GUEST_GW4}" | cut -d'.' -f1-3).0/24"
 
 # проверка на доступность программного и аппаратного ускорения
 fastnet_support()(curl -s localhost:79/rci/show/version | grep -q ppe)
@@ -37,28 +40,17 @@ fast_sw_enabled()(! curl -s localhost:79/rci/show/rc/ppe | grep software -C1 | g
 fastnet_enabled()(fast_hw_enabled || fast_sw_enabled)
 
 ip4_firewall_mark_vpn(){
-	if [ -z "${INFACE_GUEST_ENT}" ]; then
 #		Маркируем трафик для домашней(основной) сети и прохождение пакетов через VPN подключение
-		ip4tables PREROUTING -t mangle -m conntrack --ctstate NEW -m set --match-set ${table_name} dst -j CONNMARK --set-mark 0xd1000
-		ip4tables PREROUTING -t mangle -m set --match-set ${table_name} dst -j CONNMARK --restore-mark
-		logger "${app}::Маркировка трафика подключена при подключенном программном и аппаратном ускорении."
-	else
-#		Маркируем трафик для гостевой (в том числе) сети и прохождение пакетов через VPN подключение
-		ip4tables PREROUTING -t mangle ! -s "${INFACE_GUEST_GW4}" -m conntrack --ctstate NEW -m set --match-set ${table_name} dst -j CONNMARK --set-mark 0xd1000
-		ip4tables PREROUTING -t mangle ! -s "${INFACE_GUEST_GW4}" -m set --match-set ${table_name} dst -j CONNMARK --restore-mark
-		logger "${app}::Маркировка трафика подключена, в том числе и для гостевой сети ${INFACE_GUEST_ENT} [${INFACE_GUEST_GW4}] при подключенном программном и аппаратном ускорении."
-	fi
+	ip4tables PREROUTING -t mangle -m conntrack --ctstate NEW -m set --match-set "${table_name}" dst -j CONNMARK --set-mark 0xd1000
+	ip4tables PREROUTING -t mangle -j CONNMARK --restore-mark
+	logger "${app}::Маркировка трафика подключена при подключенном программном и аппаратном ускорении."
 }
 
 ip4_firewall_mark_rules_tcp_udp_on(){
-	if [ -n "${INFACE_GUEST_ENT}" ]; then
-		ip4tables PREROUTING -t mangle -i "${INFACE_GUEST_ENT}" -p tcp -m set --match-set ${table_name} dst -j MARK --set-mark 0xd1000
-		ip4tables PREROUTING -t mangle -i "${INFACE_GUEST_ENT}" -p udp -m set --match-set ${table_name} dst -j MARK --set-mark 0xd1000
-		logger "Маркировка трафика гостевой сети для tcp и udp ВКЛЮЧЕНА при ОТКлюченном программном и аппаратном ускорении."
-	fi
-	ip4tables PREROUTING -t mangle -i br0 -p tcp -m set --match-set ${table_name} dst -j MARK --set-mark 0xd1000
-	ip4tables PREROUTING -t mangle -i br0 -p udp -m set --match-set ${table_name} dst -j MARK --set-mark 0xd1000
-	logger "Маркировка трафика домашней сети для tcp и udp ВКЛЮЧЕНА при ОТКлюченном программном и аппаратном ускорении."
+	# Исключаем маркировку трафика для гостевой (в том числе) сети
+	ip4tables PREROUTING -t mangle -i "${INFACE_GUEST_ENT}" -p tcp -m set --match-set ${table_name} dst -j MARK --set-mark 0xd1000
+	ip4tables PREROUTING -t mangle -i "${INFACE_GUEST_ENT}" -p udp -m set --match-set ${table_name} dst -j MARK --set-mark 0xd1000
+	logger "${app}::Маркировка трафика гостевой сети для tcp и udp ВКЛЮЧЕНА при ОТКлюченном программном и аппаратном ускорении."
 }
 
 ip4_add_route_table(){
@@ -85,15 +77,22 @@ ip4_mark_vpn_network(){
 	if fastnet_enabled ; then
 		ip4save | grep "\-j CONNMARK" | grep -qE "mark|${table_name}" || {
 			# Без отключения ускорителей fastnat и hwnat
-			logger "Программное и аппаратное ускорение ПОДКЛЮЧЕНО."
+			logger "${app}::Программное и аппаратное ускорение ПОДКЛЮЧЕНО."
 			ip4_firewall_mark_vpn
 		}
 	else
 		ip4save | grep "\j MARK" | grep -q "${table_name}" || {
 			# С отключением fastnat и ускорителей hwnat
-			logger "Программное и аппаратное ускорение ОТКЛЮЧЕНО!"
+			logger "${app}::Программное и аппаратное ускорение ОТКЛЮЧЕНО!"
 			ip4_firewall_mark_rules_tcp_udp_on
 		}
+	fi
+#	в случае наличия гостевой сети
+	if [ -n "${INFACE_GUEST_ENT}" ]; then
+		# Маркируем трафик гостевой сети
+		ip4tables PREROUTING -t nat -p udp -d "${INFACE_GUEST_GW4}" --dport 53 -j DNAT --to "${INFACE_GW4}:53"
+		ip4tables POSTROUTING -t nat -s "${GUEST_NET}" -o "${INFACE_GUEST_ENT}" -j MASQUERADE
+		logger "${app}::Маркировка гостевого трафика подключена ${INFACE_GUEST_ENT} [${INFACE_GUEST_GW4}]."
 	fi
 }
 
@@ -102,15 +101,13 @@ ip4_mark_vpn_network(){
 # Функции для поддержки протокола ip6
 #
 #----------------------------------------------------------------
-#ip6() (/opt/sbin/ip -6 "$@")
-#ip6tables() (if ! /opt/sbin/ip6tables -C "$@" &>/dev/null; then ip6tables -A "$@"; fi)
-#ip6save() (/opt/sbin/ip6tables-save)
-#
-#ipset6_create_table(){
-#	ipset create "${table_name}6" hash:net family inet6 -exist
-#	logger "${app}::Таблица ${table_name} для ipset IPv6 создана"
-#}
+ip6() (/opt/sbin/ip -6 "$@")
+ip6tables() (if ! /opt/sbin/ip6tables -C "$@" &>/dev/null; then ip6tables -A "$@"; fi)
+ip6save() (/opt/sbin/ip6tables-save)
 
-
-
+ipset6_create_table(){
+	ipset create "${table_name}6" hash:net family inet6 -exist
+	logger "${app}::Таблица ${table_name} для ipset IPv6 создана"
 }
+
+

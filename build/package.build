@@ -29,7 +29,7 @@ if ! grep -q kvas /apps/entware/.config ; then
 	make toolchain/install ${deb}
 	make target/compile ${deb}
 else
-	/apps/kvas/build/make_Makefile.run
+	/apps/kvas/build/Makefile.build
 fi
 
 make package/kvas/compile ${deb}

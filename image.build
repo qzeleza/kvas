@@ -1,4 +1,5 @@
 #! /usr/bin/env bash
+set -e
 
 rm .env
 put()(echo "${1}" >> .env)
@@ -18,11 +19,15 @@ put "DEBUG=${DEBUG}"
 
 # Если уже создан образ kvas_develop
 docker container prune -f
-if ! docker ps -a -f 'status=running' | grep -q kvas ; then
+if [ "${1}" = build ] || [ ! docker ps -a -f 'status=running' | grep -q kvas ]; then
 #	то заходим внуть контейнера kvas_develop и сразу запускаем соборку пакета
 #	если не создан образ, то запускаем сборку образа
 	docker-compose up --build -d
 fi
 # Запускаем контейнер и сразу запускаем сборку пакета в самом контейнере
-docker run --user "${user_uid}:${user_gid}" -it --mount type=bind,src=/apps/kvas,dst=/apps/kvas kvas_${user} /apps/kvas/build/make_app.run /bin/bash
+docker run \
+		--user "${user_uid}:${user_gid}" -it \
+		--mount type=bind,src=/apps/kvas,dst=/apps/kvas kvas_${user} \
+		/apps/kvas/build/package.build \
+		/bin/bash
 #docker run --user 5001:5001 -it --mount type=bind,src=/apps/kvas,dst=/apps/kvas kvas_develop /bin/bash

@@ -92,4 +92,4 @@ EOF
 
 cd /apps/entware || exit
 mv ${makefile_path} /apps/entware/package/utils/kvas/Makefile
-echo "Завершил создание Makefile"
+echo "Makefile успешно создан"

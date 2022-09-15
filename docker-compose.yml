@@ -14,8 +14,10 @@ services:
     volumes:
       - /apps/kvas:/apps/kvas
       - ~/.ssh/id_rsa.pub:/pubkey:ro
+
     ports:
-      - "22:111"
+      - "6191:22"
+
     environment:
       VERSION: "${VERSION}"
       UID: "${UID}"
@@ -26,6 +28,7 @@ services:
       SUDO_ACCESS: "false"
       PASSWORD_ACCESS: "false"
       USER: "${USER}"
+
     restart: "unless-stopped"
     stdin_open: true # docker run -i
     tty: true        # docker run -t

@@ -4,7 +4,9 @@ ARG NAME="${NAME}"
 ARG UID="${UID}"
 ARG GID="${GID}"
 
-RUN dpkg --add-architecture i386  \
+RUN add-apt-repository -r ppa:fossfreedom/byzanz \
+    && apt-get update
+    && dpkg --add-architecture i386  \
     && groupadd --gid ${GID} ${NAME}  \
     && useradd --create-home --uid ${UID} --gid ${GID} --shell /bin/bash ${NAME}  \
     && apt-get update \
@@ -35,12 +37,12 @@ RUN chmod -R +x /apps/kvas/build/*.run  \
 
 COPY ./opt/. /apps/entware/package/utils/kvas/files/opt/
 
-RUN /apps/kvas/build/make_Makefile.run
+RUN /apps/kvas/build/Makefile.build
 RUN chown -R ${UID}:${GID} /apps/
 
 USER ${NAME}
-WORKDIR /apps/kvas/build/
-RUN /apps/kvas/build/make_app.run
+RUN /apps/kvas/build/firstrun.build
 
+WORKDIR /apps/kvas/
 
 
