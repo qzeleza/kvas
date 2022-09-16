@@ -2,8 +2,6 @@
 set -e
 . /apps/kvas/build/library.run
 
-DEBUG=NO
-
 if [ ${DEBUG} = YES ] ; then
 	num_proc=1
 	deb="-j${num_proc} V=sc"

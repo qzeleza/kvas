@@ -4,9 +4,7 @@ ARG NAME="${NAME}"
 ARG UID="${UID}"
 ARG GID="${GID}"
 
-RUN add-apt-repository -r ppa:fossfreedom/byzanz \
-    && apt-get update
-    && dpkg --add-architecture i386  \
+RUN dpkg --add-architecture i386  \
     && groupadd --gid ${GID} ${NAME}  \
     && useradd --create-home --uid ${UID} --gid ${GID} --shell /bin/bash ${NAME}  \
     && apt-get update \

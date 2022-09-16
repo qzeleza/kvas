@@ -4,12 +4,17 @@ set -e
 rm .env
 put()(echo "${1}" >> .env)
 
+#------------------------------------------------------------
+DEBUG=NO
+
 version="${1:-1.0.beta.16}"
 user=develop
 user_uid=5001
 user_gid=5001
-DEBUG=NO
+image_name="kvas_develop"
+# ------------------------------------------------------------
 
+put "IMAGE_NAME=${image_name}"
 put "NAME=${user}"
 put "UID=${user_uid}"
 put "GID=${user_gid}"
@@ -27,7 +32,7 @@ fi
 # Запускаем контейнер и сразу запускаем сборку пакета в самом контейнере
 docker run \
 		--user "${user_uid}:${user_gid}" -it \
-		--mount type=bind,src=/apps/kvas,dst=/apps/kvas kvas_${user} \
+		--mount type=bind,src=/apps/kvas,dst=/apps/kvas ${image_name} \
 		/apps/kvas/build/package.build \
 		/bin/bash
 #docker run --user 5001:5001 -it --mount type=bind,src=/apps/kvas,dst=/apps/kvas kvas_develop /bin/bash
