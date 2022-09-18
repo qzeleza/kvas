@@ -2,20 +2,18 @@
 
 DEBUG=false
 
-chmod -R +x /opt/apps/kvas/files/bin/*
-chmod -R +x /opt/apps/kvas/files/sbin/dnsmasq/*
-chmod -R +x /opt/apps/kvas/files/etc/init.d/*
-chmod -R +x /opt/apps/kvas/files/etc/ndm/*
+chmod -R +x /opt/apps/kvas/bin/*
+chmod -R +x /opt/apps/kvas/sbin/dnsmasq/*
+chmod -R +x /opt/apps/kvas/etc/init.d/*
+chmod -R +x /opt/apps/kvas/etc/ndm/*
 
-export PATH="${PATH}:/opt/bin/kvas"
+ln -sf /opt/apps/kvas/bin/kvas /opt/bin/kvas
 
-cp -rf /opt/apps/kvas/files/bin/kvas/* /opt/bin/kvas/
-cp -f /opt/apps/kvas/files/etc/conf/kvas.conf /opt/etc/kvas.conf
-cp /opt/bin/kvas/libs/vpn /opt/bin/postrm.kvas
-cp /opt/apps/kvas/files/etc/ndm/ndm /opt/bin/kvas/libs/ndm
+cp -f /opt/apps/kvas/etc/conf/kvas.conf /opt/etc/kvas.conf
+cp /opt/apps/kvas/bin/libs/vpn /opt/bin/postrm.kvas.vpn
 
-. /opt/bin/kvas/libs/vpn
-. /opt/bin/kvas/libs/check
+. /opt/apps/kvas/bin/libs/vpn
+. /opt/apps/kvas/bin/libs/check
 
 mkdir -p "${KVAS_BACKUP_PATH}"
 cat /dev/null > "${INSTALL_LOG}"
@@ -126,7 +124,6 @@ ready "Настройка файлов конфигурации пакета"
 		exit 1;
 	}
 
-#sed -i "s/@UNBLOCK_LIST/\/opt\/etc\/hosts.list/g" 				/opt/bin/kvas/ipset
 [ $? = 0 ] && when_ok "ГОТОВО" || {
 	when_bad "ОШИБКА"
 	log_in_file "ОШИБКА: при настройке файлов конфигурации пакета"
@@ -140,7 +137,7 @@ copy_unblock_list(){
 
 	log_in_file "УСТАНОВЛЕН список разблокировки ПО УМОЛЧАНИЮ."
 	ready "Копируем файл со списком разблокировки по умолчанию"
-	cp /opt/apps/kvas/files/etc/conf/hosts.list "${UNBLOCK_LIST_FILE}" &>/dev/null
+	cp /opt/apps/kvas/etc/conf/hosts.list "${UNBLOCK_LIST_FILE}" &>/dev/null
 	[ $? = 0 ] && when_ok "УСПЕШНО" || {
 		when_bad "ОШИБКА"
 		log_in_file "ОШИБКА: при копировании списка разблокировки по умолчанию"
@@ -220,7 +217,7 @@ fi
 #------------------------------------------------------
 ready "Ставим обновление ip адресов по умолчанию - каждые 12 часов..."
 sed -i '/update/d' /opt/etc/crontab
-echo '0 */12 * * * root /opt/bin/kvas/update' >> /opt/etc/crontab
+echo '0 */12 * * * root /opt/apps/kvas/bin/main/update' >> /opt/etc/crontab
 [ $? = 0 ] && when_ok "ГОТОВО" || {
 	when_bad "ОШИБКА"
 	mess="Проблема при установки задания в cron"

@@ -9,7 +9,7 @@ source ../libs/main
 #    skip
 	prefix="rm /opt/etc/hosts.list && touch /opt/etc/hosts.list"
 	cmd="cmd_clear_list"
-	postfix="cp /opt/apps/kvas/files/etc/conf/hosts.list /opt/etc/hosts.list"
+	postfix="cp /opt/apps/kvas/etc/conf/hosts.list /opt/etc/hosts.list"
 	run on_server "${lib_load} && ${prefix} && ${cmd} && ${postfix}"
 	print_on_error "${status}" "${output}"
 

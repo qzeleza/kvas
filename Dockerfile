@@ -31,9 +31,9 @@ RUN rm -rf /var/lib/apt/lists/*  \
 
 COPY . /apps/kvas/
 RUN chmod -R +x /apps/kvas/build/*.run  \
-    && mkdir -p /apps/entware/package/utils/kvas/files/opt/
+    && mkdir -p /apps/entware/package/utils/kvas/opt/
 
-COPY ./opt/. /apps/entware/package/utils/kvas/files/opt/
+COPY ./opt/. /apps/entware/package/utils/kvas/opt/
 
 RUN /apps/kvas/build/Makefile.build
 RUN chown -R ${UID}:${GID} /apps/

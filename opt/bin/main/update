@@ -1,5 +1,5 @@
 #!/bin/sh
-. /opt/bin/kvas/libs/vpn
+. /opt/apps/kvas/bin/libs/vpn
 #------------------------------------------------------------------------------
 #
 #	ПАКЕТ КВАС
@@ -27,7 +27,7 @@ ipset flush unblock
 
 # Обновляем таблицу ipset
 ready "Обновление таблицы ipset"
-/opt/bin/kvas/ipset &> /dev/null &
+/apps/kvas/bin/main/ipset &> /dev/null &
 [ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 
 # ------------------------------------------------------------------------------------------
@@ -40,14 +40,14 @@ ADS_BLOCKER_ON=0
 
 # Обновляем список рекламы..."
 if [ -z "$1" ] && [ "${ADS_BLOCKER_ON}" = 1 ]; then
-	/opt/bin/kvas/update/adblock
+	/apps/kvas/bin/main/adblock
 	print_line
 fi
 
 # Проверяем установлен ли AdGuard Home
 if [ -f "${ADGUARDHOME_CONFIG}" ]; then
 	ready "Обновление списка ipset для AdGuard Home"
-	/opt/bin/kvas/adguard
+	/apps/kvas/bin/main/adguard
 	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 
 	ready "Перезапуск службы AdGuard Home"
@@ -56,7 +56,7 @@ if [ -f "${ADGUARDHOME_CONFIG}" ]; then
 else
 #	Если установлен dnsmasq
 	ready "Обновление списка dnsmasq"
-	/opt/bin/kvas/dnsmasq
+	/apps/kvas/bin/main/dnsmasq
 	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 
 	ready "Перезапуск службы dnsmasq"

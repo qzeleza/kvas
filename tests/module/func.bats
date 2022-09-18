@@ -7,7 +7,7 @@ source ../libs/main
 VARIABLE=TEST_99999; VALUE=99999
 
 @test "Проверка записи переменной в файл конфигурации [set_config_value]" {
-	lib_load=". /opt/bin/kvas/libs/vpn"
+
 	cmd="set_config_value ${VARIABLE} ${VALUE}"
 	run on_server "${lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
@@ -20,7 +20,7 @@ VARIABLE=TEST_99999; VALUE=99999
 }
 
 @test "Проверка получения переменной из файла конфигурации [get_config_value]" {
-	lib_load=". /opt/bin/kvas/libs/vpn"
+
 	cmd="get_config_value ${VARIABLE}"
 	run on_server "${lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
@@ -31,7 +31,7 @@ VARIABLE=TEST_99999; VALUE=99999
 }
 
 @test "Проверка удаления переменной из файла конфигурации [del_config_value]" {
-	lib_load=". /opt/bin/kvas/libs/vpn"
+
 	cmd="del_config_value ${VARIABLE}"
 	run on_server "${lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
@@ -44,7 +44,7 @@ VARIABLE=TEST_99999; VALUE=99999
 }
 
 @test "Проверка получения списка хостов через разделитель [get_separated_host_list]" {
-	lib_load=". /opt/bin/kvas/libs/vpn"
+
 	cmd="get_separated_host_list"
 	run on_server "${lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
@@ -55,7 +55,7 @@ VARIABLE=TEST_99999; VALUE=99999
 
 }
 @test "Проверка форматирования числа [dig_frm]" {
-	lib_load=". /opt/bin/kvas/libs/vpn"
+
 	cmd="dig_frm 3414321541"
 	run on_server "${lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
@@ -66,7 +66,7 @@ VARIABLE=TEST_99999; VALUE=99999
 
 @test "Проверка получения текущего IP роутера [get_router_ip]" {
 #	skip "Непонятная ошибка sh: ip: not found"
-	lib_load="source /opt/bin/kvas/libs/vpn"
+
 	cmd="get_router_ip"
 	run on_server "${lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
@@ -77,7 +77,7 @@ VARIABLE=TEST_99999; VALUE=99999
 
 
 @test "Проверка получения ID интерфейса на заданном IP адресе [get_inface_by_ip]" {
-	lib_load=". /opt/bin/kvas/libs/vpn"
+
 	cmd="get_inface_by_ip 10.130.2.74"
 	run on_server "${lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
@@ -87,7 +87,7 @@ VARIABLE=TEST_99999; VALUE=99999
 
 
 @test "Проверка получения ID локального интерфейса роутера [get_local_inface]" {
-	lib_load=". /opt/bin/kvas/libs/vpn"
+
 	cmd="get_local_inface"
 	run on_server "${lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
@@ -95,7 +95,7 @@ VARIABLE=TEST_99999; VALUE=99999
 	[[ "${output}" = br* ]]
 }
 @test "Проверка получения протокола работы WUI роутера [get_router_protocol]" {
-	lib_load=". /opt/bin/kvas/libs/vpn"
+
 	cmd="get_router_protocol"
 	run on_server "${lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
@@ -105,7 +105,7 @@ VARIABLE=TEST_99999; VALUE=99999
 
 
 @test "Проверка получения локального порта WUI роутера [get_router_wui_port]" {
-	lib_load=". /opt/bin/kvas/libs/vpn"
+
 	cmd="get_router_wui_port"
 	run on_server "${lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
@@ -114,7 +114,7 @@ VARIABLE=TEST_99999; VALUE=99999
 }
 
 @test "Проверка получения локальный хост роутера с протоколом и портом [get_router_host]" {
-	lib_load=". /opt/bin/kvas/libs/vpn"
+
 	cmd="get_router_host"
 	run on_server "${lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
@@ -124,8 +124,8 @@ VARIABLE=TEST_99999; VALUE=99999
 }
 
 @test "Проверка чистки содержимого файла [clear_file]" {
-	lib_load=". /opt/bin/kvas/libs/vpn"
-	cmd="clear_file /opt/apps/kvas/files/etc/conf/hosts.list"
+
+	cmd="clear_file /opt/apps/kvas/etc/conf/hosts.list"
 	run on_server "${lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
     [ "${status}" -eq 0 ]
@@ -134,8 +134,8 @@ VARIABLE=TEST_99999; VALUE=99999
 }
 
 @test "Проверка чистки и сортировки содержимого файла [clear_content]" {
-	lib_load=". /opt/bin/kvas/libs/vpn"
-	cmd="clear_content /opt/apps/kvas/files/etc/conf/hosts.list"
+
+	cmd="clear_content /opt/apps/kvas/etc/conf/hosts.list"
 	run on_server "${lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
 
@@ -146,9 +146,9 @@ VARIABLE=TEST_99999; VALUE=99999
 
 
 @test "Проверка чистки и сортировки содержимого файла с его заменой [clear_file_content]" {
-	lib_load=". /opt/bin/kvas/libs/vpn"
+
 	tmp_file=/tmp/tmp.test
-	conf_file=/opt/apps/kvas/files/etc/conf/hosts.list
+	conf_file=/opt/apps/kvas/etc/conf/hosts.list
 	prefix="cp ${conf_file} ${tmp_file}"
 	cmd="clear_file_content ${tmp_file}"
 	postfix="diff -a -s ${conf_file} ${tmp_file} && rm -f /tmp/tmp.test"
@@ -159,8 +159,8 @@ VARIABLE=TEST_99999; VALUE=99999
 }
 
 @test "Проверка подсчета строк в файле [rec_in_file]" {
-	lib_load=". /opt/bin/kvas/libs/vpn"
-	conf_file=/opt/apps/kvas/files/etc/conf/hosts.list
+
+	conf_file=/opt/apps/kvas/etc/conf/hosts.list
 	cmd="rec_in_file ${conf_file}"
 	run on_server "${lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
@@ -174,7 +174,7 @@ VARIABLE=TEST_99999; VALUE=99999
 }
 
 @test "Проверка вывода заголовка при вводе ответа на запрос [read_ynq]" {
-	lib_load=". /opt/bin/kvas/libs/vpn"
+
 	cmd="answer=''; read_ynq 'Проверка ввода' answer"
 	run on_server "${lib_load} && ${cmd}" <<< n
 	print_on_error "${status}" "${output}"
@@ -183,7 +183,7 @@ VARIABLE=TEST_99999; VALUE=99999
 }
 
 @test "Проверка ввода ответов на запрос [read_ynq]" {
-	lib_load=". /opt/bin/kvas/libs/vpn"
+
 	cmd="answer=''; read_ynq 'Проверка ввода' answer &> /dev/null && echo \${answer}"
 	run on_server "${lib_load} && ${cmd}" <<< n
 	print_on_error "${status}" "${output}"
@@ -202,7 +202,7 @@ VARIABLE=TEST_99999; VALUE=99999
 }
 
 @test "Проверка ввода данных на запрос [read_value]" {
-	lib_load=". /opt/bin/kvas/libs/vpn"
+
 	data=data
 	cmd="answer=''; read_value 'Введите данные' answer &>/dev/null && echo \${answer}"
 	run on_server "${lib_load} && ${cmd}" <<< ${data}
@@ -213,7 +213,7 @@ VARIABLE=TEST_99999; VALUE=99999
 }
 
 @test "Проверка получения даты с сервера [get_server_date]" {
-	lib_load=". /opt/bin/kvas/libs/vpn"
+
 	cmd="data=\$(get_config_value DNS_STATIC_1) && get_server_date \${data}"
 	run on_server "${lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
@@ -223,7 +223,7 @@ VARIABLE=TEST_99999; VALUE=99999
 }
 
 @test "Проверка обновления даты с сервера [date_update]" {
-	lib_load=". /opt/bin/kvas/libs/vpn"
+
 	cmd="date_update"
 	run on_server "${lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"

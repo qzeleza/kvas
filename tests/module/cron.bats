@@ -1,8 +1,6 @@
 #!/usr/bin/env bats
 source ../libs/main
 
-lib_load=". /opt/bin/kvas/libs/vpn"
-
 @test "Проверка обнаружения неверного формата при обновлении заданий в cron [cmd_set_period_update]" {
 	cmd="cmd_set_period_update 22s"
 	run on_server "${lib_load} && ${cmd} "

@@ -1,5 +1,5 @@
 #!/bin/sh
-. /opt/bin/kvas/libs/ndm
+. /opt/apps/kvas/bin/libs/ndm
 
 [ "${1}" = "hook" ] || exit 0
 [ "${change}" = "link" ] || exit 0

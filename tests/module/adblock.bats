@@ -1,12 +1,11 @@
 #!/usr/bin/env bats
 source ../libs/main
 
-lib_load=". /opt/bin/kvas/libs/vpn"
 dnsmasq_conf='/opt/etc/dnsmasq.conf'
-adblock_bin_file_copy='/opt/apps/kvas/files/bin/kvas/adblock'
-adblock_bin_file='/opt/bin/kvas/adblock'
+adblock_bin_file_copy='/opt/apps/kvas/bin/main/adblock'
+adblock_bin_file='/opt/apps/kvas/bin/main/adblock'
 adblock_src_file=/opt/etc/adblock.sources
-adblock_src_file_copy=/opt/apps/kvas/files/etc/conf/adblock.sources
+adblock_src_file_copy=/opt/apps/kvas/etc/conf/adblock.sources
 
 
 #-----------------------------------------------------
@@ -175,8 +174,8 @@ adblock_src_file_copy=/opt/apps/kvas/files/etc/conf/adblock.sources
 	echo "output=${output}"
 }
 
-@test "Проверка работы файла обновления списков рекламы из источников [/opt/bin/kvas/adblock]" {
-	lib_load=". /opt/bin/kvas/libs/vpn"
+@test "Проверка работы файла обновления списков рекламы из источников [/apps/kvas/bin/main/adblock]" {
+	lib_load="./opt/apps/kvas/bin/libs/vpn"
 #	нужно сделать копию данных и затем восстановить их
 	prefix="[ -f ${adblock_src_file} ] \
 			&& mv ${adblock_src_file} ${adblock_src_file}.test; \

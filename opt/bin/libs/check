@@ -11,7 +11,7 @@
 #	Лицензия: GPL 2.0
 # ------------------------------------------------------------------------------------------
 
-. /opt/bin/kvas/libs/main
+. /opt/apps/kvas/bin/libs/main
 
 NOT_IN_TABLE=false
 IPSET=$(which ipset)
@@ -270,21 +270,21 @@ ipset_check() {
 	ready "Заполнение ipset таблицы скриптами КВАСа"
 	! [ -f "${UNBLOCK_LIST_FILE}" ] || \
 		[ "$(grep -vcE '^$|#' "${UNBLOCK_LIST_FILE}" )" -eq 0 ] && {
-		cp /opt/apps/kvas/files/etc/conf/hosts.list "${UNBLOCK_LIST_FILE}"
+		cp /opt/apps/kvas/etc/conf/hosts.list "${UNBLOCK_LIST_FILE}"
 	}
-	/opt/bin/kvas/ipset &> /dev/null
+	/opt/apps/kvas/bin/main/ipset &> /dev/null
 	if ipset list unblock | grep -vEi '^[a-z]' &> /dev/null; then
 		when_ok "ЗАПОЛНЕНА"
 	else
 		when_bad "ПУСТАЯ"
 		ipset_flush &> /dev/null
-		/opt/bin/kvas/ipset &> /dev/null
+		/opt/apps/kvas/bin/main/ipset &> /dev/null
 		ready "Повторная проверка заполнения ipset таблицы"
 		if ipset list unblock | grep -vEi '^[a-z]' &> /dev/null; then
 			when_ok "ПРОЙДЕНА"
 		else
 			when_bad "ОШИБКА"
-			error "Проверьте работу скрипта /opt/bin/kvas/ipset"
+			error "Проверьте работу скрипта /opt/apps/kvas/bin/main/ipset"
 			exit 1
 		fi
 	fi
@@ -301,7 +301,7 @@ unblock_dnsmasq_check() {
 		when_ok "ЗАПОЛНЕН"
 	else
 		when_bad "ПУСТ"
-		/opt/bin/kvas/dnsmasq
+		/opt/apps/kvas/bin/main/dnsmasq
 		ready "Повторная проверка заполнения списка правил ipset для dnsmasq"
 		if [ "$(cat </opt/etc/kvas.dnsmasq | wc -l)" -gt 0 ]; then
 			when_ok "ПРОЙДЕНА"
@@ -312,7 +312,7 @@ unblock_dnsmasq_check() {
 				error "Белый список пуст - /opt/etc/hosts.list"
 				warning "Добавьте туда хосты командой ${BLUE}kvas add host.com"
 			else
-				error "Проверьте работу скрипта /opt/bin/kvas/dnsmasq"
+				error "Проверьте работу скрипта/opt/apps/kvas/bin/main/dnsmasq"
 			fi
 			print_line
 			exit 1
@@ -331,7 +331,7 @@ cmd_adguard_check() {
 		echo_debug "Журнал загрузки AdGuard Home (20 крайних записей)\nиз файла ${ADGUARDHOME_LOG}" "$(cat < "${ADGUARDHOME_LOG}" | tail )"
 	else
 		when_bad "ПУСТ"
-		/opt/bin/kvas/adguard &> /dev/null
+		/opt/apps/kvas/bin/main/adguard &> /dev/null
 		ready "Повторная проверка заполнения списка правил ipset для AdGuard Home"
 		if [ "$(cat < "${ADGUARDHOME_CONFIG}" | grep ipset | wc -c)" -gt 6 ]; then
 			when_ok "ПРОЙДЕНА"
@@ -342,7 +342,7 @@ cmd_adguard_check() {
 				error "Белый список пуст - /opt/etc/hosts.list"
 				warning "Добавьте в него хосты командой ${BLUE}kvas add имя_домена${NOCL}"
 			else
-				error "Проверьте работу скрипта /opt/bin/kvas/adguard"
+				error "Проверьте работу скрипта/opt/apps/kvas/bin/main/adguard"
 			fi
 			print_line
 			exit 1
@@ -363,7 +363,7 @@ adblock_dnsmasq_check() {
 			when_bad "ПУСТ"
 			warning "Заполняем список блокировки рекламы принудительно "
 			print_line
-			/opt/bin/kvas/adblock
+			/apps/kvas/bin/main/adblock
 			ready "Перезапуск службы dnsmasq"
 			/opt/etc/init.d/S56dnsmasq restart &> /dev/null
 			[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
@@ -428,7 +428,7 @@ ipset_site_visit_check() {
 	echo "На странице должен появиться IP Вашего VDS/VPN провайдера."
 	echo -n "После чего вновь перейдите сюда и нажмите на любую клавишу."
 	pause
-	/opt/bin/kvas/update &> /dev/null
+	/apps/kvas/bin/main/update &> /dev/null
 	print_line
 	ready "Таблица ipset"
 	res=$(ipset list unblock | grep -vEi '^[a-z]' )
@@ -490,7 +490,7 @@ cmd_state_checker() {
 	unblock_list_ipset_check
 	if [ "${NOT_IN_TABLE}" = true ]; then
 #		если хотябы один из адресов не находится в таблице, то делаем проверку повторно
-		/opt/bin/kvas/ipset
+		/opt/apps/kvas/bin/main/ipset
 		print_line
 		warning "Пробуем запустить повторно."
 		print_line

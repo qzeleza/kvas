@@ -12,7 +12,7 @@
 #	Лицензия: GPL 2.0
 # ------------------------------------------------------------------------------------------
 
-. /opt/bin/kvas/libs/main
+. /opt/apps/kvas/bin/libs/main
 
 # ------------------------------------------------------------------------------------------
 #
@@ -188,7 +188,7 @@ unblock_list_ipset_check(){
 	echo "команда 'ipset list unblock'"
 	print_line
 	if [ -f "${UNBLOCK_LIST_FILE}" ]; then
-		/opt/bin/kvas/ipset &> /dev/null
+		/opt/apps/kvas/bin/main/ipset &> /dev/null
 		result_ipset=$(ipset list unblock | grep -vEi '^[a-z]' | sort)
 		if [ -n "${result_ipset}" ]; then
 			while read -r line || [ -n "${line}" ]; do
@@ -212,7 +212,7 @@ unblock_list_ipset_check(){
 			done < "${UNBLOCK_LIST_FILE}"
 		else
 			error "Таблица разблокировки unblock отсутствует в списке ipset"
-			echo -e "Проверьте работу скрипта ${GREN}/opt/bin/kvas/ipset${NOCL}"
+			echo -e "Проверьте работу скрипта ${GREN}/opt/apps/kvas/bin/main/ipset${NOCL}"
 		fi
 	else
 		error "Отсутствует список разблокировки /opt/etc/hosts.list"
@@ -226,9 +226,9 @@ unblock_list_ipset_check(){
 # ------------------------------------------------------------------------------------------
 unblock_ipset_debug() {
 
-	result=$(cat <"/opt/bin/kvas/ipset")
-	echo_debug "Скрипт заполнения таблицы ipset /opt/bin/kvas/ipset" "${result}"
-	/opt/bin/kvas/ipset &>/dev/null
+	result=$(cat <"/opt/apps/kvas/bin/main/ipset")
+	echo_debug "Скрипт заполнения таблицы ipset /opt/apps/kvas/bin/main/ipset" "${result}"
+	/opt/apps/kvas/bin/main/ipset &>/dev/null
 	result_ipset=$(ipset list unblock | grep -vEi '^[a-z]' | sort)
 	result=$(echo "${result_ipset}" | tail -20)
 	echo_debug "Таблица ipset (20 записей)\nкоманда: 'ipset list unblock'" "${result}"
@@ -244,8 +244,8 @@ unblock_ipset_debug() {
 # ------------------------------------------------------------------------------------------
 unblock_dnsmasq_debug() {
 
-	result=$(cat <"/opt/bin/kvas/dnsmasq")
-	echo_debug "Скрипт заполнения списка разблокировки /opt/bin/kvas/dnsmasq" "${result}"
+	result=$(cat <"/opt/apps/kvas/bin/main/dnsmasq")
+	echo_debug "Скрипт заполнения списка разблокировки/opt/apps/kvas/bin/main/dnsmasq" "${result}"
 	result=$(cat <'/opt/etc/kvas.dnsmasq' | tail -20)
 	echo_debug "Список разблокировки в /opt/etc/kvas.dnsmasq (20 записей)" "${result}"
 }
@@ -256,8 +256,8 @@ unblock_dnsmasq_debug() {
 # ------------------------------------------------------------------------------------------
 unblock_adguard_debug() {
 
-	result=$(cat < "/opt/bin/kvas/adguard")
-	echo_debug "Скрипт заполнения списка разблокировки /opt/bin/kvas/dnsmasq" "${result}"
+	result=$(cat < "/opt/apps/kvas/bin/main/adguard")
+	echo_debug "Скрипт заполнения списка разблокировки/opt/apps/kvas/bin/main/dnsmasq" "${result}"
 	result=$(cat < "${ADGUARDHOME_CONFIG}" | sed -n '/ipset/,/filtering_enabled/p' | sed -e '$d' )
 	echo_debug "Блок записей по ipset в ${ADGUARDHOME_CONFIG}" "${result}"
 	result=$(cat < "${ADGUARDHOME_LOG}" | tail -20)
@@ -273,8 +273,8 @@ unblock_adguard_debug() {
 adblock_dnsmasq_debug() {
 
 	if [ -n "$(cat <'/opt/etc/dnsmasq.conf' | grep "adblock.dnsmasq")" ]; then
-		result=$(cat <"/opt/bin/kvas/adblock")
-		echo_debug "Скрипт заполнения списка блокировки рекламы /opt/bin/kvas/adblock" "${result}"
+		result=$(cat <"/opt/apps/kvas/bin/main/adblock")
+		echo_debug "Скрипт заполнения списка блокировки рекламы/opt/apps/kvas/bin/main/adblock" "${result}"
 		result=$(cat <'/opt/etc/adblock.dnsmasq' | tail -20)
 		echo_debug "Список блокировки рекламы /opt/etc/adblock.dnsmasq (20 записей)" "${result}"
 	fi

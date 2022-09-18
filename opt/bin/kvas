@@ -1,6 +1,6 @@
 #!/bin/sh
-. /opt/bin/kvas/libs/vpn
-. /opt/bin/kvas/libs/check
+. /opt/apps/kvas/bin/libs/vpn
+. /opt/apps/kvas/bin/libs/check
 
 APP_VERSION=
 APP_RELEASE=

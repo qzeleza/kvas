@@ -31,12 +31,12 @@ PROCS=AdGuardHome
 ARGS="${OPT}"
 PREARGS=""
 DESC=${PROCS}
-PATH=/opt/sbin:/opt/bin:/opt/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/bin/kvas
+PATH=/opt/sbin:/opt/bin:/opt/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 case ${1} in
 	start|restart)
 	ipset create unblock hash:net family inet -exist
-	/opt/bin/kvas/adguard
+	/apps/kvas/bin/main/adguard
 	;;
 esac
 

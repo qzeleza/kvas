@@ -1,6 +1,6 @@
 #!/bin/sh
 
-[ -f /opt/bin/postrm.kvas ] && . /opt/bin/postrm.kvas || exit 1
+[ -f /opt/bin/postrm.kvas.vpn ] && . /opt/bin/postrm.kvas.vpn || exit 1
 #------------------------------------------------------
 # 	УДАЛЕНИЕ ФАЙЛОВ КОНФИГУРАЦИИ
 #------------------------------------------------------

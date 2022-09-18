@@ -4,8 +4,6 @@ source ../libs/main
 # 	Данный файл предназначен для проверки функций AdGuardHome
 #================================================================
 
-lib_load=". /opt/bin/kvas/libs/vpn"
-
 @test "Проверка отключения сервиса AdGuardHome [cmd_adguardhome_off]" {
 	cmd="cmd_adguardhome_off "
 	run on_server "${lib_load} && ${cmd} " <<< y
