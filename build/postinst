@@ -10,10 +10,18 @@ chmod -R +x /opt/apps/kvas/etc/ndm/*
 ln -sf /opt/apps/kvas/bin/kvas /opt/bin/kvas
 
 cp -f /opt/apps/kvas/etc/conf/kvas.conf /opt/etc/kvas.conf
-cp /opt/apps/kvas/bin/libs/vpn /opt/bin/postrm.kvas.vpn
+# Делаем копии файлов для того чтобы была возможность
+# использовтаь функции в них в скрипте при удалении пакета
+cp -f /opt/apps/kvas/bin/libs/vpn /opt/apps/kvas/bin/libs/.vpn
+cp -f /opt/apps/kvas/bin/libs/main /opt/apps/kvas/bin/libs/.main
+cp -f /opt/apps/kvas/bin/libs/debug /opt/apps/kvas/bin/libs/.debug
+#cp -f /opt/apps/kvas/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
 
-. /opt/apps/kvas/bin/libs/vpn
+
+
 . /opt/apps/kvas/bin/libs/check
+. /opt/apps/kvas/bin/libs/vpn
+
 
 mkdir -p "${KVAS_BACKUP_PATH}"
 cat /dev/null > "${INSTALL_LOG}"

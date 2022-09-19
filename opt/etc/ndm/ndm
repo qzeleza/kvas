@@ -25,7 +25,7 @@ INFACE_ENT=@ENTWARE_INFACE_NAME
 INFACE_GUEST_ENT=
 
 ip4() (/opt/sbin/ip -4 "$@")
-ip4tables() (if ! /opt/sbin/iptables -C "$@" &>/dev/null; then iptables -A "$@"; fi)
+ip4tables() (if ! /opt/sbin/iptables -C "$@" &>/dev/null; then /opt/sbin/iptables -A "$@"; fi)
 ip4save() (/opt/sbin/iptables-save)
 get_gw4()(ip4 addr show "${1}" | grep -Po "(?<=inet ).*(?=/)")
 
@@ -61,10 +61,10 @@ ip4_firewall_set_ssr_rules(){
 }
 
 ip4_firewall_flush_vpn_rules(){
-	num_lines=$(ip4tables -t mangle -L PREROUTING --line-numbers | grep CONNMARK | grep -cE "(${table_name}|restore-mark)")
+	num_lines=$(/opt/sbin/iptables -t mangle -L PREROUTING --line-numbers | grep CONNMARK | grep -cE "(${table_name}|restore-mark)")
 	if [ "${num_lines}" -gt 0 ]; then
 		for b in $(seq 1 ${num_lines}); do
-			nline=$(ip4tables -t mangle -L PREROUTING --line-numbers \
+			nline=$(/opt/sbin/iptables -t mangle -L PREROUTING --line-numbers \
 					| grep CONNMARK \
 					| grep -E "(${table_name}|restore-mark)" \
 					| cut -d" " -f1 \
@@ -79,10 +79,10 @@ ip4_firewall_flush_vpn_rules(){
 }
 
 ip4_firewall_flush_ssr_rules(){
-	num_lines=$(ip4tables -t nat -L PREROUTING --line-numbers | grep -c "${table_name}")
+	num_lines=$(/opt/sbin/iptables -t nat -L PREROUTING --line-numbers | grep -c "${table_name}")
 	if [ "${num_lines}" -gt 0 ]; then
 		for b in $(seq 1 ${num_lines}); do
-			nline=$(ip4tables -t nat -L PREROUTING --line-numbers \
+			nline=$(/opt/sbin/iptables -t nat -L PREROUTING --line-numbers \
 					| grep "${table_name}" \
 					| cut -d" " -f1 \
 					| head -1\
@@ -142,13 +142,51 @@ ip4_mark_vpn_network(){
 	fi
 #	в случае наличия гостевой сети
 	if [ -n "${INFACE_GUEST_ENT}" ]; then
-		# Маркируем трафик гостевой сети
-		ip4tables PREROUTING -t nat -p udp -d "${INFACE_GUEST_GW4}" --dport 53 -j DNAT --to "${INFACE_GW4}:53"
-		ip4tables POSTROUTING -t nat -s "${GUEST_NET}" -o "${INFACE_GUEST_ENT}" -j MASQUERADE
-		logger "${app}::Маркировка гостевого трафика подключена ${INFACE_GUEST_ENT} [${INFACE_GUEST_GW4}]."
+		ip4_add_guest_to_vpn_network
 	fi
 }
 
+ip4_add_guest_to_vpn_network(){
+	# Маркируем трафик гостевой сети
+	ip4tables PREROUTING -t nat -p udp -d "${INFACE_GUEST_GW4}" --dport 53 -j DNAT --to "${INFACE_GW4}:53"
+	ip4tables POSTROUTING -t nat -s "${GUEST_NET}" -o "${INFACE_GUEST_ENT}" -j MASQUERADE
+	logger "${app}::Маркировка гостевого трафика подключена ${INFACE_GUEST_ENT} [${INFACE_GUEST_GW4}]."
+}
+
+ip4_del_guest_to_vpn_network(){
+
+	iptab=/opt/sbin/iptables
+	num_lines=$(iptab -t nat -L PREROUTING --line-numbers | grep "${INFACE_GUEST_GW4}")
+	if [ "${num_lines}" -gt 0 ]; then
+		for b in $(seq 1 ${num_lines}); do
+			nline=$(iptab -t nat -L PREROUTING --line-numbers \
+					| grep "${INFACE_GUEST_GW4}" \
+					| cut -d" " -f1 \
+					| head -1\
+					)
+			/opt/sbin/iptables -t nat -D PREROUTING "${nline}"
+		done
+		logger "${app}::Маркировка гостевого PREROUTING трафика отключена ${INFACE_GUEST_ENT} [${INFACE_GUEST_GW4}]."
+	else
+		logger "${app}::Правила PREROUTING iptable для гостевой сети ${INFACE_GUEST_ENT} [${INFACE_GUEST_GW4}] отсуствуют."
+	fi
+	filter="$(echo ${INFACE_GUEST_GW4} | sed 's/\.1$/\.0/')/24"
+	num_lines=$(iptab -t nat -L POSTROUTING --line-numbers | grep "${filter}")
+	if [ "${num_lines}" -gt 0 ]; then
+		for b in $(seq 1 ${num_lines}); do
+			nline=$(iptab -t nat -L POSTROUTING --line-numbers \
+					| grep "${filter}" \
+					| cut -d" " -f1 \
+					| head -1\
+					)
+			/opt/sbin/iptables -t nat -D PREROUTING "${nline}"
+		done
+		logger "${app}::Маркировка гостевого POSTROUTING трафика отключена ${INFACE_GUEST_ENT} [${INFACE_GUEST_GW4}]."
+	else
+		logger "${app}::Правила POSTROUTING iptable для гостевой сети ${INFACE_GUEST_ENT} [${INFACE_GUEST_GW4}] отсуствуют."
+	fi
+
+}
 #----------------------------------------------------------------
 #
 # Функции для поддержки протокола ip6
@@ -162,5 +200,3 @@ ipset6_create_table(){
 	ipset create "${table_name}6" hash:net family inet6 -exist
 	logger "${app}::Таблица ${table_name} для ipset IPv6 создана"
 }
-
-
