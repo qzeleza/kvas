@@ -1468,9 +1468,12 @@ get_dns_crypt_status() {
 # ------------------------------------------------------------------------------------------
 dns_crypt_install() {
 
+#	В случае наличия архива файла запуска сервиса dnscrypt_proxy2
 	if [ -f "${KVAS_BACKUP_PATH}/S09dnscrypt-proxy2" ]; then
+#		реанимируем его из аррхива
 		cp "${KVAS_BACKUP_PATH}/S09dnscrypt-proxy2" /opt/etc/init.d/S09dnscrypt-proxy2
 	else
+#		при его отсутвии - устанавливаем пакет
 		ready "Устанавливаем пакет dnscrypt-proxy2..."
 		opkg remove dnscrypt-proxy2 &>/dev/null && opkg install dnscrypt-proxy2 &>/dev/null
 		[ $? = 0 ] && when_ok "ГОТОВО" || {
@@ -1481,7 +1484,9 @@ dns_crypt_install() {
 			exit 1
 		}
 	fi
-	if /opt/etc/init.d/S09dnscrypt-proxy2 status | grep -q alive &>/dev/null; then
+#	Если dnscrypt_proxy2 запущен, то останавиваем его,
+#	так как необходимо его предварительно настроить
+	if /opt/etc/init.d/S09dnscrypt-proxy2 status | grep -q alive ; then
 		ready "Останавливаем службу dnscrypt-proxy2..."
 		/opt/etc/init.d/S09dnscrypt-proxy2 stop &>/dev/null
 		[ $? = 0 ] && when_ok "ГОТОВО" || {
@@ -1491,13 +1496,15 @@ dns_crypt_install() {
 			exit 1
 		}
 	fi
+
+#	архивируем предыдушие настройки
 	if [ -f '/opt/etc/dnscrypt-proxy.toml' ]; then
-#			print_line
 		warning "Файл конфигурации dnscrypt-proxy2 сохраняем"
 		cp /opt/etc/dnscrypt-proxy.toml /opt/etc/dnscrypt-proxy.toml.kvas
 		warning "под именем /opt/etc/dnscrypt-proxy.toml.kvas"
-#			print_line
 	fi
+
+#	Настраиваеи сервис
 	ready "Настраиваем dnscrypt-proxy2..."
 	cmd_dns_crypt_on &>/dev/null
 	[ $? = 0 ] && when_ok "ГОТОВО" || {
@@ -1522,9 +1529,6 @@ cmd_dns_crypt_on() {
 		ready "Шифрование DNS"
 		sed -i "s/\(^cache.=.\).*$/\1${dns_cache_enabled}/g" '/opt/etc/dnscrypt-proxy.toml' &> /dev/null
 		sed -i "s/\(^require_dnssec.=.\).*$/\1true/g" '/opt/etc/dnscrypt-proxy.toml' &> /dev/null
-
-#		servers="server_names = ['google', 'cloudflare', 'yandex']"
-#		grep -E ' server_names ='  '/opt/etc/dnscrypt-proxy.toml' | sed "s/^\(.*\)\(server_names.=.\).*/\2${servers}/"
 
 		sed -i "/proxy-dnssec/d" /opt/etc/dnsmasq.conf &> /dev/null
 		echo "proxy-dnssec" >>/opt/etc/dnsmasq.conf
