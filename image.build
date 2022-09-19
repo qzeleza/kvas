@@ -1,17 +1,16 @@
 #! /usr/bin/env bash
 set -e
 
+. ./build/library.run
 rm .env
 put()(echo "${1}" >> .env)
 
 #------------------------------------------------------------
 DEBUG=NO
-
-version="${1:-1.0.beta.16}"
+image_name="kvas_develop"
 user=develop
 user_uid=5001
 user_gid=5001
-image_name="kvas_develop"
 # ------------------------------------------------------------
 
 put "IMAGE_NAME=${image_name}"
@@ -19,7 +18,7 @@ put "NAME=${user}"
 put "UID=${user_uid}"
 put "GID=${user_gid}"
 put "TZ=Europe/Moscow"
-put "VERSION=${version}"
+put "VERSION=${version}.${stage}.${release}"
 put "DEBUG=${DEBUG}"
 
 # Если уже создан образ kvas_develop
