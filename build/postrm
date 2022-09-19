@@ -1,6 +1,21 @@
 #!/bin/sh
 
-[ -f /opt/bin/postrm.kvas.vpn ] && . /opt/bin/postrm.kvas.vpn || exit 1
+. /opt/apps/kvas/bin/libs/main
+. /opt/apps/kvas/bin/libs/ndm
+#------------------------------------------------------------------------------
+#
+#	ПАКЕТ КВАС
+#
+#------------------------------------------------------------------------------
+#
+#	Данный файл служит для удаления пакета Квас с роутера
+#
+# ------------------------------------------------------------------------------
+#	Разработчик: mail@zeleza.ru
+#	Дата создания: 21/05/2022
+#	Лицензия: GPL 2.0
+# ------------------------------------------------------------------------------
+
 #------------------------------------------------------
 # 	УДАЛЕНИЕ ФАЙЛОВ КОНФИГУРАЦИИ
 #------------------------------------------------------
@@ -15,7 +30,6 @@ rm_package_files(){
 	[ -d /opt/tmp/adblock ] && rm -rf /opt/tmp/adblock
 
 	rm -rf /opt/bin/kvas
-	rm -fr /opt/apps/kvas
 	rm -fr /opt/etc/kvas*
 	rm -f /opt/lib/opkg/info/kvas*
 }
@@ -38,30 +52,11 @@ sed -i '/ipset/d' /opt/etc/crontab &>/dev/null && when_ok "УСПЕШНО" || wh
 # 	ОЧИЩЕНИЕ ВСЕХ ПРАВИЛ И ТАБЛИЦ
 #------------------------------------------------------
 ready "Очищаем все правила и таблицы..."
-ipset flush unblock &>/dev/null
-/opt/sbin/ip route flush table 1001 &>/dev/null
-/opt/sbin/ip route flush cache &>/dev/null
 
-num_lines=$(/opt/sbin/iptables -t nat -L PREROUTING --line-numbers | grep CONNMARK | grep -c 'unblock')
-for b in $(seq 1 "${num_lines}"); do
-	nline=$(/opt/sbin/iptables -t nat -L PREROUTING --line-numbers \
-			| grep CONNMARK \
-			| grep unblock \
-			| cut -d" " -f1 \
-			| head -1\
-			)
-	/opt/sbin/iptables -t nat -D PREROUTING "${nline}"
-done
-num_lines=$(/opt/sbin/iptables -t mangle -L PREROUTING --line-numbers | grep CONNMARK | grep -cE 'unblock|restore-mark')
-for b in $(seq 1 "${num_lines}"); do
-	nline=$(/opt/sbin/iptables -t mangle -L PREROUTING --line-numbers \
-			| grep CONNMARK \
-			| grep -E 'unblock|restore-mark' \
-			| cut -d" " -f1 \
-			| head -1 \
-			)
-	/opt/sbin/iptables -t mangle -D PREROUTING "${nline}"
-done
+ip4_flush_all_tables &>/dev/null
+ip4_firewall_flush_vpn_rules &>/dev/null
+ip4_firewall_flush_ssr_rules &>/dev/null
+
 if [ $? = 0 ]; then when_ok "УСПЕШНО"; else when_bad "ОШИБКА"; fi
 
 print_line
@@ -75,5 +70,5 @@ echo -e "командой ${RED}opkg remove <package1 package2 package3...>${NOC
 print_line
 echo "Удаление КВАСа завершено."
 print_line
-# удаляем библиотеку крайним шагом
-[ -f /opt/bin/postrm.kvas ] && rm -f /opt/bin/postrm.kvas || exit 1
+# удаляем файлы пакета крайним шагом
+rm -fr /opt/apps/kvas
