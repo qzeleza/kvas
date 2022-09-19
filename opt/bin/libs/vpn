@@ -1,5 +1,6 @@
 #!/bin/sh
 . /opt/apps/kvas/bin/libs/debug
+. /opt/apps/kvas/bin/libs/ndm
 # ------------------------------------------------------------------------------------------
 #
 # 	Добавляет хосты в белый список, доступ к сайтам которого
@@ -26,10 +27,8 @@ SHADOWSOCKS_CONF=/opt/etc/shadowsocks.json
 ADS_HOSTS_FILE=/opt/tmp/adblock/hosts
 DNSMASQ_CONFIG=/opt/etc/dnsmasq.conf
 DNSCRYPT_CONFIG=/opt/etc/dnscrypt-proxy.toml
-KVAS_FILES_PATH=/opt/apps/kvas/files
 KVAS_BACKUP_PATH=/opt/etc/.kvas/backup
 KVAS_BACKUP_LIST_FILE=/opt/etc/.kvas/backup/hosts.list
-
 KVAS_START_FILE=/opt/etc/init.d/S96kvas
 
 MAIN_DNS_PORT=53
@@ -327,29 +326,7 @@ adguardhome_install_locally() {
 		adguardhome_setup
 	fi
 }
-# ------------------------------------------------------------------------------------------
-#
-#	 Производим удаленную установку AdGuard Home в качестве основного DNS сервера
-#
-# ------------------------------------------------------------------------------------------
-# Пока не ясно как реализовать данный подход потому баним данный функционал
-#adguardhome_install_remotely() {
-#
-#	echo -e "${BLUE}Если Ваш AdGuard Home находится на другом устройстве, то ${NOCL}"
-#	ip_port=''; read_value "Введите IP и номер порта AdGuard Home через двоеточие" ip_port
-#	[ "${ip_port}" != q ] && {
-#		ready "AdGuard Home установлен в качестве DNS сервера в КВАС "
-#		adguardhome_setup "${ip_port}" &> /dev/null
-#		if [ $? = 0 ]; then
-#			when_ok "УСПЕШНО"
-#		else
-#			when_bad "СБОЙ";
-#			error "Возникла ошибка при установке AdGuard Home в качестве DNS сервера."
-#			exit 1
-#		fi
-#	}
 
-#}
 # ------------------------------------------------------------------------------------------
 #
 #	 Включаем работу AdGuard Home в качестве основного DNS сервера
@@ -681,7 +658,6 @@ dnsmasq_install() {
 			exit 1
 		;;
 	esac
-#	log_in_file "Установлен dnsmasq для ${arch} архитектуры."
 	[ $? = 0 ] && when_ok "ГОТОВО" || {
 		when_bad "НЕ УДАЧНО"
 		mess="Проблема при замене dnsmasq на версию с поддержкой wildcard"
@@ -695,7 +671,6 @@ dnsmasq_install() {
 
 	ready "Настройка файлов конфигурации dnsmasq"
 	sed -i "s/@LOCAL_IP/${local_ip}/g; s/@INFACE/${inface}/g; s/@UPLEVEL_DNS/${uplevel_dns}/g;" /opt/etc/dnsmasq.conf
-#	sed -i "s/@UNBLOCK_LIST/\/opt\/etc\/hosts.list/g"/opt/apps/kvas/bin/main/dnsmasq
 	if [ $? = 0 ]; then
 		when_ok "ГОТОВО";/opt/apps/kvas/bin/main/update
 	else
@@ -743,17 +718,6 @@ cmd_dnsmasq_dns_change() {
 		dns_prev=$(get_config_value DNS_DEFAULT)
 		port_prev=$(get_config_value DNS_CRYPT_PORT)
 		dnsmasq_dns_change "${dns_new}" "${cmd}"
-#		if echo "${dns_prev}" | grep -qE "(localhost|${LOCALHOST_IP})#${port_prev}" ; then
-#			warning "Сейчас DNS шифруется при помощи dnscrypt_proxy2"
-#			read_ynq "Заменить DNS в любом случае, уверены" answer
-#			if [ "${answer}" = y ]; then
-#				dnsmasq_dns_change "${dns_new}" "${cmd}"
-#			else
-#				ready "Замена DNS на ${dns_new} в dnsmasq"; when_bad "ОТМЕНЕНА"
-#			fi
-#		else
-#			dnsmasq_dns_change "${dns_new}" "${cmd}"
-#		fi
 	fi
 }
 
@@ -822,7 +786,7 @@ dns_show() {
 	dns_crypt=$(get_config_value DNS_CRYPT_PORT)
 	if  echo "${dns}" | grep -q "${dns_crypt}" ; then
 		mess="${mess} (dnscrypt_proxy2)"
-	elif echo "${dns}" | grep -q "127.0.0.1#53" ; then
+	elif echo "${dns}" | grep -q "127.0.0.1#${MAIN_DNS_PORT}" ; then
 		mess="${mess} (AdGuard Home)"
 	else
 		mess="${mess} (dnsmasq)"
@@ -837,17 +801,7 @@ dns_show() {
 # ------------------------------------------------------------------------------------------
 cmd_vpn_iptable_flush() {
 	ready "Очистка iptables для vpn завершена"
-	num_lines=$(/opt/sbin/iptables -t mangle -L PREROUTING --line-numbers | grep CONNMARK | grep -cE '(unblock|restore-mark)')
-	for b in $(seq 1 ${num_lines}); do
-		nline=$(/opt/sbin/iptables -t mangle -L PREROUTING --line-numbers \
-				| grep CONNMARK \
-				| grep -E '(unblock|restore-mark)' \
-				| cut -d" " -f1 \
-				| head -1 \
-				)
-		/opt/sbin/iptables -t mangle -D PREROUTING "${nline}"
-	done
-
+	ip4_firewall_flush_vpn_rules
 	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
 }
 # ------------------------------------------------------------------------------------------
@@ -961,7 +915,7 @@ shadowsocks_backup() {
 		fi
 		if [ -f "${SHADOWSOCKS_CONF}.kvas" ] && {
 				 ! grep -qE '""|@' "${SHADOWSOCKS_CONF}.kvas" || \
-				 ! cat <"${SHADOWSOCKS_CONF}.kvas" | grep 'server' | grep -q '127.0.0.1'
+				 ! cat < "${SHADOWSOCKS_CONF}.kvas" | grep 'server' | grep -q '127.0.0.1'
 			}; then
 			echo "Обнаружен архивный файл конфигурации shadowsocks."
 			answer=''; read_ynq "Удалить его и создать новый" answer
@@ -1052,21 +1006,12 @@ shadowsocks_read_data() {
 }
 # ------------------------------------------------------------------------------------------
 #
-#	Чистим таблицу правил iptables для vpn подключений
+#	Чистим таблицу правил iptables для shadowsocks подключений
 #
 # ------------------------------------------------------------------------------------------
 cmd_shadowsocks_iptable_flush() {
 	ready "Удаление правил iptables для shadowsocks завершено"
-#	proxy_port=$(get_config_value SSR_DNS_PORT)
-	num_lines=$(/opt/sbin/iptables -t nat -L PREROUTING --line-numbers | grep -c 'unblock')
-	for b in $(seq 1 ${num_lines}); do
-		nline=$(/opt/sbin/iptables -t nat -L PREROUTING --line-numbers \
-				| grep unblock \
-				| cut -d" " -f1 \
-				| head -1\
-				)
-		/opt/sbin/iptables -t nat -D PREROUTING "${nline}"
-	done
+	ip4_firewall_flush_ssr_rules
 	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
 }
 # ------------------------------------------------------------------------------------------
@@ -1080,8 +1025,8 @@ cmd_shadowsocks_iptable_reset() {
 	local_ip=$(get_router_ip)
 	inface=$(get_inface_by_ip "${local_ip}")
 	proxy_port=$(get_config_value SSR_DNS_PORT)
-	ipset create unblock hash:net family inet -exist
-	/opt/sbin/iptables -w -t nat -A PREROUTING -i "${inface}" -p tcp -m set --match-set unblock dst -j REDIRECT --to-port "${proxy_port}"
+	ipset4_create_table
+	ip4_firewall_set_ssr_rules "${inface}" "${proxy_port}"
 	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
 }
 # ------------------------------------------------------------------------------------------
@@ -1258,7 +1203,7 @@ get_vpn_interface_by_num() {
 	type_data=${2:-entware}
 
 	if [ "${type_data}" = entware ]; then _type=2; else _type=1; fi
-	cat <"${INFACE_NAMES_FILE}" | sed -n "${number}"'p' | cut -d'|' -f"${_type}"
+	cat < "${INFACE_NAMES_FILE}" | sed -n "${number}"'p' | cut -d'|' -f"${_type}"
 }
 
 # ------------------------------------------------------------------------------------------
@@ -1335,8 +1280,6 @@ cmd_interface_change() {
 
 		if [ -n "${is_current_vpn}" ]; then
 			mess="${BLUE}${mess} [текущий]${NOCL}"
-#			sel=${num}
-#			connected_cur=${connected}
 		fi
 
 		ready "${mess}"
@@ -1344,15 +1287,12 @@ cmd_interface_change() {
 
 	done <${INFACE_NAMES_FILE}
 
-	total=$(cat <"${INFACE_NAMES_FILE}" | wc -l)
+	total=$(cat < "${INFACE_NAMES_FILE}" | wc -l)
 
 	while true; do
 		print_line
 		ready "${BLUE}Выберите номер варианта VPN соединения [1-${total}]:${NOCL}"
 		read -r num_vpn_inface
-#		if echo "${num_vpn_inface}" | grep -q "${sel}" && [ "${connected_cur}" = "on" ]; then
-#			warning "Выбранный интерфейс уже установлен, выберите иной вариант"
-#		else
 		if ! echo "${num_vpn_inface}" | grep -qE "[1-${total}]"; then
 			error "Введите цифру от 1 до ${total}."
 		else
@@ -1451,8 +1391,8 @@ dns_crypt_port_change() {
 get_dns_crypt_status() {
 	crypt_port=$(get_config_value DNS_CRYPT_PORT)
 	if [ -f '/opt/sbin/dnscrypt-proxy' ] &&
-		cat <'/opt/apps/kvas/bin/main/ipset' | grep '@' | grep -q "${crypt_port}" &&
-		cat <'/opt/apps/kvas/bin/main/dnsmasq' | grep -q 'server' &&
+		cat < '/opt/apps/kvas/bin/main/ipset' | grep '@' | grep -q "${crypt_port}" &&
+		cat < '/opt/apps/kvas/bin/main/dnsmasq' | grep -q 'server' &&
 		netstat -tulnp 2> /dev/null | grep -q dnscrypt; then
 
 		echo on
@@ -1531,11 +1471,11 @@ cmd_dns_crypt_on() {
 		sed -i "s/\(^require_dnssec.=.\).*$/\1true/g" '/opt/etc/dnscrypt-proxy.toml' &> /dev/null
 
 		sed -i "/proxy-dnssec/d" /opt/etc/dnsmasq.conf &> /dev/null
-		echo "proxy-dnssec" >>/opt/etc/dnsmasq.conf
+		echo "proxy-dnssec" >> /opt/etc/dnsmasq.conf
 
 		dns_crypt_port_change "${dns_crypt_port}" restart &> /dev/null
 
-		OFF="ОТКЛЮЧЕНО.\nПроизошла не предвиденная ошибка."
+		OFF="ОТКЛЮЧЕНО.\nПроизошла непредвиденная ошибка."
 		[ $? = 0 ] && when_ok "ПОДКЛЮЧЕНО" || when_bad "${OFF}"
 	fi
 }
@@ -1578,9 +1518,6 @@ cmd_dns_crypt_status_show() {
 }
 
 
-
-
-
 # ------------------------------------------------------------------------------------------
 #
 #	Тестируем хост на доступноость
@@ -1620,7 +1557,7 @@ host_add() {
 	host="${1}"
 	clear_host=$(echo "${host}" | sed 's/\*//')
 	ready "Добавляем ${YELLOW}${clear_host}${NOCL} в список разблокировки..."
-	echo "${host}" >>"${UNBLOCK_LIST_FILE}"
+	echo "${host}" >> "${UNBLOCK_LIST_FILE}"
 #	если включен блокирощик рекламы
 	if cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then
 
@@ -1652,7 +1589,7 @@ cmd_add_one_host() {
 					echo 0
 				fi
 			else
-				is_here=$(cat <"${UNBLOCK_LIST_FILE}" | grep -e "${clear_host}$")
+				is_here=$(cat < "${UNBLOCK_LIST_FILE}" | grep -e "${clear_host}$")
 				if [ -n "${is_here}" ]; then
 					if [ -z "${2}" ]; then
 						error "Такой домен уже есть в списке разблокировки!"
@@ -1685,7 +1622,7 @@ cmd_add_one_host() {
 # ------------------------------------------------------------------------------------------
 cmd_del_one_host() {
 	host="${1}"
-	if cat <"${UNBLOCK_LIST_FILE}" | grep -qe "${host}$" ; then
+	if cat < "${UNBLOCK_LIST_FILE}" | grep -qe "${host}$" ; then
 		ready "Удаляем ${YELLOW}${host}${NOCL} из списка разблокировки..."
 		sed -i "/${host}/d" "${UNBLOCK_LIST_FILE}"
 		cmd_update_list &> /dev/null
@@ -1793,11 +1730,11 @@ cmd_import_hosts() {
 				+) hosts_to_add_ubl="${hosts_to_add_ubl}${host}\n" ;;
 				*) ;;
 				esac
-			done <"${host_list}"
+			done < "${host_list}"
 
 			#     добавляем хосты в файл списочный
 			_hosts_to_add_ubl=$(echo -e "${hosts_to_add_ubl}" | sed '/^$/d; /^[-+.]/!s/\(.*\)/\1/')
-			echo -e "${_hosts_to_add_ubl}" >>"${UNBLOCK_LIST_FILE}"
+			echo -e "${_hosts_to_add_ubl}" >> "${UNBLOCK_LIST_FILE}"
 			#     обновляем таблицу ipset
 
 			ads_hosts_remove "$(get_separated_host_list)" &> /dev/null
@@ -1847,7 +1784,7 @@ cmd_import_hosts() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_export_hosts() {
-	HOSTS_LIST=$(cat <"${UNBLOCK_LIST_FILE}" | sed 's/\(^.*\)#.*$/\1/g' | grep -v '#' | tr -s '\n')
+	HOSTS_LIST=$(cat < "${UNBLOCK_LIST_FILE}" | sed 's/\(^.*\)#.*$/\1/g' | grep -v '#' | tr -s '\n')
 	backup_name=${1}
 	if [ -z "${backup_name}" ]; then
 		error "Так как не задано имя файла для экспорта, то"
@@ -1906,7 +1843,7 @@ cmd_show_list() {
 #
 # ------------------------------------------------------------------------------------------
 get_time() {
-	cat <"${CRONTAB_FILE}" | grep "kvas_update" | cut -d' ' -f"${1}" | cut -d'/' -f2 | sed 's/[a-zA-Z\*]//g'
+	cat < "${CRONTAB_FILE}" | grep "kvas_update" | cut -d' ' -f"${1}" | cut -d'/' -f2 | sed 's/[a-zA-Z\*]//g'
 }
 get_period_update() {
 	mm=$(get_time 1)
@@ -1972,19 +1909,19 @@ cmd_set_period_update() {
 			sed -i "/update/d" ${CRONTAB_FILE}
 			echo -n "Период обновления "
 			if [ -n "${_mins}" ]; then
-				echo "0/${_mins} * * * * root ${UPDATE_BIN_FILE} update" >>${CRONTAB_FILE}
+				echo "0/${_mins} * * * * root ${UPDATE_BIN_FILE} update" >> ${CRONTAB_FILE}
 				echo -e "установлен на каждые ${YELLOW}${_mins} мин.${NOCL}"
 			elif [ -n "${_hours}" ]; then
-				echo "0 */${_hours} * * * root ${UPDATE_BIN_FILE} update" >>${CRONTAB_FILE}
+				echo "0 */${_hours} * * * root ${UPDATE_BIN_FILE} update" >> ${CRONTAB_FILE}
 				echo -e "установлен на каждые ${YELLOW}${_hours} ч.${NOCL}"
 			elif [ -n "${_days}" ]; then
-				echo "0 * */${_days} * * root ${UPDATE_BIN_FILE} update" >>${CRONTAB_FILE}
+				echo "0 * */${_days} * * root ${UPDATE_BIN_FILE} update" >> ${CRONTAB_FILE}
 				echo -e "установлен на каждые ${YELLOW}${_days} дн.${NOCL}"
 			elif [ -n "${_weeks}" ]; then
-				echo "0 * * */${_weeks} * root ${UPDATE_BIN_FILE} update" >>${CRONTAB_FILE}
+				echo "0 * * */${_weeks} * root ${UPDATE_BIN_FILE} update" >> ${CRONTAB_FILE}
 				echo -e "установлен на каждые ${YELLOW}${_weeks} нед.${NOCL}"
 			elif [ -n "${_months}" ]; then
-				echo "0 * * * */${_months} root ${UPDATE_BIN_FILE} update" >>${CRONTAB_FILE}
+				echo "0 * * * */${_months} root ${UPDATE_BIN_FILE} update" >> ${CRONTAB_FILE}
 				echo -e "установлен на каждые ${YELLOW}${_months} мес.${NOCL}"
 			fi
 		fi
@@ -1997,14 +1934,13 @@ cmd_set_period_update() {
 # ------------------------------------------------------------------------------------------
 cmd_ads_edit() {
 	nano '/opt/etc/adblock.sources' &&
-		(
+		{
 			cmd_ads_protect_on ask
-#			ads_request_to_upload
 			print_line
 			ready "Перезапуск службы dnsmasq"
 			/opt/etc/init.d/S56dnsmasq restart &> /dev/null
 			[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
-		)
+		}
 }
 
 # ------------------------------------------------------------------------------------------
@@ -2102,7 +2038,7 @@ ads_request_to_upload() {
 	fi
 	if [ -f /opt/tmp/adblock/hosts ]; then
 		[ "${answer}" = ask ] && read_ynq "Обновить списки блокировки рекламы" answer
-		[ "${answer}" = y ] &&/opt/apps/kvas/bin/main/adblock
+		[ "${answer}" = y ] && /opt/apps/kvas/bin/main/adblock
 	else
 		/apps/kvas/bin/main/adblock
 	fi
@@ -2117,7 +2053,7 @@ ads_request_to_upload() {
 cmd_vpn_add_guest_network() {
 
 	if [ -z ${1} ] ; then
-		guest_network_ent=$(cat/opt/apps/kvas/bin/libs/ndm | sed "s/\(INFACE_GUEST_ENT=\).*/\1/g")
+		guest_network_ent=$(cat /opt/apps/kvas/bin/libs/ndm | sed "s/\(INFACE_GUEST_ENT=\).*/\1/g")
 		if [ -z "${guest_network_ent}" ]; then
 			ip_net=$(ip addr show "${guest_network_ent}" | grep -Po "(?<=inet ).*(?=brd)")
 			warning "Текущая гостевая сеть - ${guest_network_ent} [${ip_net}]"
@@ -2130,8 +2066,8 @@ cmd_vpn_add_guest_network() {
 		else
 			ready "Маркировка гостевой сети ${guest_network_ent} добавлена"
 			guest_network_ent="${1}"
-			sed -i "s/\(INFACE_GUEST_ENT=\).*/\1${guest_network_ent}/g"/opt/apps/kvas/bin/libs/ndm
-			./opt/apps/kvas/bin/libs/ndm
+			sed -i "s/\(INFACE_GUEST_ENT=\).*/\1${guest_network_ent}/g" /opt/apps/kvas/bin/libs/ndm
+			. /opt/apps/kvas/bin/libs/ndm
 			ip4_mark_vpn_network
 			[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 		fi
