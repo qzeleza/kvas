@@ -33,7 +33,7 @@ test_status(){
 		[ -f /opt/etc/init.d/S09dnscrypt-proxy2 ] && /opt/etc/init.d/S09dnscrypt-proxy2  status
 		get_config_value DNS_DEFAULT
 		echo "Число строк в AdGuardHome.yaml $(cat < /opt/etc/AdGuardHome/AdGuardHome.yaml | wc -l)"
-		#	echo "Число записей $(cat < "${UNBLOCK_LIST_FILE}" | wc -l)"
+			echo "Число записей $(cat < "${UNBLOCK_LIST_FILE}" | wc -l)"
 	}
 }
 log_in_file(){
@@ -141,8 +141,17 @@ test_status
 #------------------------------------------------------
 # ВОССТАНАВЛИВАЕМ ФАЙЛ СО СПИСКОМ РАЗБЛОКИРОВКИ
 #------------------------------------------------------
-copy_unblock_list(){
-
+if [ -f "${UNBLOCK_LIST_FILE}.kvas" ]; then
+	warning "Обнаружен список разблокировки от предыдущей установки"
+	log_in_file "Список разблокировки ВОССТАНОВЛЕН из архива."
+	ready "Список разблокировки восстановлен"
+	mv -f "${UNBLOCK_LIST_FILE}.kvas" "${UNBLOCK_LIST_FILE}"
+	[ $? = 0 ] && when_ok "УСПЕШНО" || {
+		when_bad "ОШИБКА"
+		log_in_file "ОШИБКА: при восстановлении списка разблокировки"
+		exit 1
+	}
+else
 	log_in_file "УСТАНОВЛЕН список разблокировки ПО УМОЛЧАНИЮ."
 	ready "Копируем файл со списком разблокировки по умолчанию"
 	cp /opt/apps/kvas/etc/conf/hosts.list "${UNBLOCK_LIST_FILE}" &>/dev/null
@@ -151,27 +160,6 @@ copy_unblock_list(){
 		log_in_file "ОШИБКА: при копировании списка разблокировки по умолчанию"
 		exit 1
 	}
-
-}
-if [ -f "${UNBLOCK_LIST_FILE}.kvas" ]; then
-	warning "Обнаружен список разблокировки от предыдущей установки"
-	answer='y';
-	#read_ynq "Восстановить файл из архива" answer
-	if [ "${answer}" = y ]; then
-		log_in_file "Список разблокировки ВОССТАНОВЛЕН из архива."
-		ready "Список разблокировки восстановлен"
-		mv -f "${UNBLOCK_LIST_FILE}.kvas" "${UNBLOCK_LIST_FILE}"
-		[ $? = 0 ] && when_ok "УСПЕШНО" || {
-			when_bad "ОШИБКА"
-			log_in_file "ОШИБКА: при восстановлении списка разблокировки"
-			exit 1
-		}
-
-	else
-		copy_unblock_list
-	fi
-else
-	copy_unblock_list
 fi
 test_status
 #----------------------------------------------------------
@@ -189,14 +177,13 @@ if [ "${answer_agh}" = n ]; then
 	#------------------------------------------------------
 	# DNSMASQ
 	#------------------------------------------------------
+#	adguardhome_remove
 	dnsmasq_install
 	test_status
 	#------------------------------------------------------
 	# DNSCRYPT-PROXY2
 	#------------------------------------------------------
-	answer='y';
-	#read_ynq "Установить шифрование DNS трафика (dnscrypt-proxy2)" answer
-	if [ "${answer}" = y ] && [ -f /opt/etc/init.d/S09dnscrypt-proxy2 ]; then
+	if [ -f /opt/etc/init.d/S09dnscrypt-proxy2 ]; then
 		log_in_file "Шифрование DNS трафика (dnscrypt-proxy2) ВКЛЮЧЕНО."
 		dns_crypt_install
 	else
@@ -206,16 +193,16 @@ if [ "${answer_agh}" = n ]; then
 	#------------------------------------------------------
 	# Блокировка рекламы
 	#------------------------------------------------------
-	answer='n';
-	#read_ynq "Установить блокировку рекламы" answer
-	if [ "${answer}" = y ]; then
-		print_line
-		cmd_ads_protect_on yes
-		log_in_file "Блокировка рекламы УСТАНОВЛЕНА."
-	else
-		log_in_file "Блокировка рекламы ОТМЕНЕНА.."
-		print_line
-	fi
+#	answer='n';
+#	#read_ynq "Установить блокировку рекламы" answer
+#	if [ "${answer}" = y ]; then
+#		print_line
+#		cmd_ads_protect_on yes
+#		log_in_file "Блокировка рекламы УСТАНОВЛЕНА."
+#	else
+	log_in_file "Блокировка рекламы НЕ УСТАНОВЛЕНА.."
+	print_line
+#	fi
 	test_status
 fi
  
