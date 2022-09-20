@@ -1,4 +1,4 @@
-FROM ubuntu
+FROM ubuntu:22.04
 
 ARG NAME="${NAME}"
 ARG UID="${UID}"

@@ -155,14 +155,13 @@ ip4_add_guest_to_vpn_network(){
 
 ip4_del_guest_to_vpn_network(){
 
-	iptab=/opt/sbin/iptables
-	num_lines=$(iptab -t nat -L PREROUTING --line-numbers | grep "${INFACE_GUEST_GW4}")
+	num_lines=$(/opt/sbin/iptables -t nat -L PREROUTING --line-numbers | grep -c "${INFACE_GUEST_GW4}")
 	if [ "${num_lines}" -gt 0 ]; then
 		for b in $(seq 1 ${num_lines}); do
-			nline=$(iptab -t nat -L PREROUTING --line-numbers \
+			nline=$(/opt/sbin/iptables -t nat -L PREROUTING --line-numbers \
 					| grep "${INFACE_GUEST_GW4}" \
 					| cut -d" " -f1 \
-					| head -1\
+					| head -1 \
 					)
 			/opt/sbin/iptables -t nat -D PREROUTING "${nline}"
 		done
@@ -171,13 +170,13 @@ ip4_del_guest_to_vpn_network(){
 		logger "${app}::Правила PREROUTING iptable для гостевой сети ${INFACE_GUEST_ENT} [${INFACE_GUEST_GW4}] отсуствуют."
 	fi
 	filter="$(echo ${INFACE_GUEST_GW4} | sed 's/\.1$/\.0/')/24"
-	num_lines=$(iptab -t nat -L POSTROUTING --line-numbers | grep "${filter}")
+	num_lines=$(/opt/sbin/iptables -t nat -L POSTROUTING --line-numbers | grep -c "${filter}")
 	if [ "${num_lines}" -gt 0 ]; then
 		for b in $(seq 1 ${num_lines}); do
-			nline=$(iptab -t nat -L POSTROUTING --line-numbers \
+			nline=$(/opt/sbin/iptables -t nat -L POSTROUTING --line-numbers \
 					| grep "${filter}" \
 					| cut -d" " -f1 \
-					| head -1\
+					| head -1 \
 					)
 			/opt/sbin/iptables -t nat -D PREROUTING "${nline}"
 		done

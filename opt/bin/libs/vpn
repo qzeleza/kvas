@@ -2052,40 +2052,25 @@ ads_request_to_upload() {
 #	 $1 - тип гостевой сети в терминах entware
 #
 # ------------------------------------------------------------------------------------------
-cmd_vpn_add_guest_network() {
+vpn_add_guest_network() {
 
-	if ! cmd_vpn_status | grep -iq 'shadowsocks' ; then
-
-		if [ -z ${1} ] ; then
-			guest_network_ent=$(cat /opt/apps/kvas/bin/libs/ndm | grep INFACE_GUEST_ENT | head -1 | cut -d'=' -f2)
-			if [ -n "${guest_network_ent}" ]; then
-				ip_net=$(ip addr show "${guest_network_ent}" | grep -Po "(?<=inet ).*(?=brd)")
-				warning "Текущая гостевая сеть ${guest_network_ent} -> ${ip_net}"
-			else
-				error "Гостевая сеть НЕ задана!"
-			fi
-		else
-			if cmd_vpn_status | grep -qi shadowsocks ; then
-				error "Добавление гостевой сети возможно только для VPN подключений, отличных от shadowsocks"
-			else
-				if ip a | grep -qe " ${1}:" ; then
-					guest_network_ent="${1}"
-					ip_net=$(ip addr show "${guest_network_ent}" | grep -Po "(?<=inet ).*(?=brd)")
-					ready "Правила для маркировки гостевой сети ${guest_network_ent} -> ${ip_net} добавлены"
-					sed -i "s/\(INFACE_GUEST_ENT=\).*/\1${guest_network_ent}/g" /opt/apps/kvas/bin/libs/ndm
-					. /opt/apps/kvas/bin/libs/ndm
-					ip4_add_guest_to_vpn_network
-					[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "С ОШИБКОЙ"
-				else
-					error "Такой сети '${1}' не существует. "
-					error "Проверьте правильность ее написания."
-				fi
-			fi
-		fi
+	if cmd_vpn_status | grep -qi shadowsocks ; then
+		error "Добавление гостевой сети возможно только для VPN подключений, отличных от shadowsocks"
 	else
-		error "Сейчас используется shadowsocks соединение."
-		error "Добавление гостевой сети для vpn пока не доступно."
+		if ip a | grep -qe " ${1}:" ; then
+			guest_network_ent="${1}"
+			ip_net=$(ip addr show "${guest_network_ent}" | grep -Po "(?<=inet ).*(?=brd)")
+			ready "Правила для маркировки гостевой сети ${guest_network_ent} -> ${ip_net} добавлены"
+			sed -i "s/\(INFACE_GUEST_ENT=\).*/\1${guest_network_ent}/g" /opt/apps/kvas/bin/libs/ndm
+			. /opt/apps/kvas/bin/libs/ndm
+			ip4_add_guest_to_vpn_network
+			[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+		else
+			error "Такой сети '${1}' не существует. "
+			error "Проверьте правильность ее написания."
+		fi
 	fi
+
 }
 
 # ------------------------------------------------------------------------------------------
@@ -2094,7 +2079,7 @@ cmd_vpn_add_guest_network() {
 #	 $1 - тип гостевой сети в терминах entware
 #
 # ------------------------------------------------------------------------------------------
-cmd_vpn_del_guest_network() {
+vpn_del_guest_network() {
 
 	if cmd_vpn_status | grep -iq 'shadowsocks' ; then
 		error "Сейчас используется shadowsocks соединение."
@@ -2111,3 +2096,25 @@ cmd_vpn_del_guest_network() {
 			error "Нечего удалять, гостевой сети не существует."
 		fi
 	fi
+}
+
+cmd_vpn_guest_network() {
+
+	if ! cmd_vpn_status | grep -iq 'shadowsocks' ; then
+		cmd="${1}"
+		if [ -n "${cmd}" ]; then
+			[ "${cmd}" = del ] && vpn_del_guest_network || vpn_add_guest_network "${cmd}"
+		else
+			guest_network_ent=$(cat /opt/apps/kvas/bin/libs/ndm | grep INFACE_GUEST_ENT | head -1 | cut -d'=' -f2)
+			if [ -n "${guest_network_ent}" ]; then
+				ip_net=$(ip addr show "${guest_network_ent}" | grep -Po "(?<=inet ).*(?=brd)")
+				warning "Текущая гостевая сеть ${guest_network_ent} -> ${ip_net}"
+			else
+				error "Гостевая сеть НЕ задана!"
+			fi
+		fi
+	else
+		error "Сейчас используется shadowsocks соединение."
+		error "Добавление гостевой сети для vpn пока не доступно."
+	fi
+}
