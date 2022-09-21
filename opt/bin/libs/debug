@@ -39,7 +39,7 @@ dnsmasq_debug() {
 			print_line
 			warning "Файл конфигурации dnsmasq"
 			print_line
-			cat < "/opt/etc/dnsmasq.conf"
+			cat < "/opt/etc/dnsmasq.conf" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d'
 			print_line
 			exit 1
 			;;
@@ -68,7 +68,7 @@ dnsmasq_debug() {
 			;;
 		esac
 	fi
-	result=$(cat < /opt/etc/dnsmasq.conf)
+	result=$(cat < /opt/etc/dnsmasq.conf | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
 	echo_debug "Выборка из файла конфигурации dnsmasq: /opt/etc/dnsmasq.conf" "${result}"
 }
 
@@ -123,7 +123,7 @@ shadowsocks_debug() {
 		print_line
 		warning "Файл конфигурации shadowsocks"
 		print_line
-		cat < "/opt/etc/shadowsocks.json"
+		cat < "/opt/etc/shadowsocks.json" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d'
 		print_line
 		warning "Запускаем shadowsocks в режиме отладки"
 		print_line
@@ -144,7 +144,7 @@ dnscrypt_proxy_debug() {
 
 	if /opt/etc/init.d/S09dnscrypt-proxy2 status &> /dev/null; then
 		when_ok "ЗАПУЩЕНА"
-		port=$(cat /opt/etc/dnscrypt-proxy.toml | grep -v '^#' | grep listen_addresses | cut -d ":" -f4)
+		port=$(cat /opt/etc/dnscrypt-proxy.toml | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep listen_addresses | cut -d ":" -f4)
 		port="${port::-2}"
 		result=$(netstat -ltunp 2> /dev/null | grep "dnscrypt" | tr -s " ")
 		echo_debug "Отчет по прослушиванию порта dnscrypt-proxy [${port}]\nкоманда: netstat -ltunp | grep \"dnscrypt\"" "${result}"
@@ -154,14 +154,14 @@ dnscrypt_proxy_debug() {
 		print_line
 		warning "Файл конфигурации dnscrypt-proxy"
 		print_line
-		config=$(cat < "/opt/etc/dnscrypt-proxy.toml" | tr -d '^ '| grep -v "^#" )
+		config=$(cat < "/opt/etc/dnscrypt-proxy.toml" | tr -d '^ '| grep -vE "^#" | grep -vE '^$')
 		echo_debug "Содержание файла конфигурации /opt/etc/dnscrypt-proxy.toml" "${config}"
 
 		log=$(netstat -ltunp 2> /dev/null | grep 'dnscrypt')
 		echo_debug "Журнал с фильтрацией по порту ${port::-2} dnscrypt-proxy2\nКоманда: netstat -ltunp" "${log}"
 	fi
 
-	result=$(cat < "/opt/etc/dnscrypt-proxy.toml" | grep -v "^#" | grep -E 'listen_addresses.=|cache.=')
+	result=$(cat < "/opt/etc/dnscrypt-proxy.toml" | grep -vE "^#" | grep -E 'listen_addresses.=|cache.=')
 	echo_debug "Выборка из файла конфигурации dnscrypt-proxy2 /opt/etc/dnscrypt-proxy.toml" "${result}"
 
 }
@@ -173,7 +173,7 @@ dnscrypt_proxy_debug() {
 # ------------------------------------------------------------------------------------------
 kvas_list_debug() {
 
-	result=$(cat < "${UNBLOCK_LIST_FILE}" | tail -20)
+	result=$(cat < "${UNBLOCK_LIST_FILE}" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | tail -20)
 	echo_debug "Список разблокировки /opt/etc/hosts.list (20 записей)" "${result}"
 }
 
@@ -226,7 +226,7 @@ unblock_list_ipset_check(){
 # ------------------------------------------------------------------------------------------
 unblock_ipset_debug() {
 
-	result=$(cat < "/opt/apps/kvas/bin/main/ipset")
+	result=$(cat < "/opt/apps/kvas/bin/main/ipset" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
 	echo_debug "Скрипт заполнения таблицы ipset /opt/apps/kvas/bin/main/ipset" "${result}"
 	/opt/apps/kvas/bin/main/ipset &>/dev/null
 	result_ipset=$(ipset list unblock | grep -vEi '^[a-z]' | sort)
@@ -244,9 +244,9 @@ unblock_ipset_debug() {
 # ------------------------------------------------------------------------------------------
 unblock_dnsmasq_debug() {
 
-	result=$(cat < "/opt/apps/kvas/bin/main/dnsmasq")
+	result=$(cat < "/opt/apps/kvas/bin/main/dnsmasq" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
 	echo_debug "Скрипт заполнения списка разблокировки/opt/apps/kvas/bin/main/dnsmasq" "${result}"
-	result=$(cat < '/opt/etc/kvas.dnsmasq' | tail -20)
+	result=$(cat < '/opt/etc/kvas.dnsmasq' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | tail -20)
 	echo_debug "Список разблокировки в /opt/etc/kvas.dnsmasq (20 записей)" "${result}"
 }
 # ------------------------------------------------------------------------------------------
@@ -256,11 +256,11 @@ unblock_dnsmasq_debug() {
 # ------------------------------------------------------------------------------------------
 unblock_adguard_debug() {
 
-	result=$(cat < "/opt/apps/kvas/bin/main/adguard")
+	result=$(cat < "/opt/apps/kvas/bin/main/adguard" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
 	echo_debug "Скрипт заполнения списка разблокировки/opt/apps/kvas/bin/main/dnsmasq" "${result}"
-	result=$(cat < "${ADGUARDHOME_CONFIG}" | sed -n '/ipset/,/filtering_enabled/p' | sed -e '$d' )
+	result=$(cat < "${ADGUARDHOME_CONFIG}" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | sed -n '/ipset/,/filtering_enabled/p' | sed -e '$d' )
 	echo_debug "Блок записей по ipset в ${ADGUARDHOME_CONFIG}" "${result}"
-	result=$(cat < "${ADGUARDHOME_LOG}" | tail -20)
+	result=$(cat < "${ADGUARDHOME_LOG}" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | tail -20)
 	echo_debug "Журнал загрузки AdGuard Home в ${ADGUARDHOME_LOG}" "${result}"
 
 
@@ -272,10 +272,10 @@ unblock_adguard_debug() {
 # ------------------------------------------------------------------------------------------
 adblock_dnsmasq_debug() {
 
-	if [ -n "$(cat < '/opt/etc/dnsmasq.conf' | grep "adblock.dnsmasq")" ]; then
+	if [ -n "$(cat < '/opt/etc/dnsmasq.conf' | sed '/^$/d' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep "adblock.dnsmasq")" ]; then
 		result=$(cat < "/opt/apps/kvas/bin/main/adblock")
 		echo_debug "Скрипт заполнения списка блокировки рекламы/opt/apps/kvas/bin/main/adblock" "${result}"
-		result=$(cat < '/opt/etc/adblock.dnsmasq' | tail -20)
+		result=$(cat < '/opt/etc/adblock.dnsmasq' | sed -e '/^#/d; /^$/d' | tail -20)
 		echo_debug "Список блокировки рекламы /opt/etc/adblock.dnsmasq (20 записей)" "${result}"
 	fi
 }
@@ -307,7 +307,7 @@ syslog_debug() {
 
 	result=$(curl -s -d '{"once": false, "max-lines": 66}' "${LOCALHOST_IP}"':79/rci/show/log' \
 			| grep -A3 -B1 \"E\" | grep -E "message|timestamp" \
-			| cut -d":" -f2- | tr -d '"' | sed 's/\,$/\n/g'\
+			| cut -d":" -f2- | tr -d '"' | sed 's/\,$/\n/g' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' \
 			)
 	echo_debug "Список ошибок из системного журнала" "${result}"
 }
@@ -318,7 +318,7 @@ syslog_debug() {
 #
 # ------------------------------------------------------------------------------------------
 ping_debug() {
-	#  host=$(cat < '"${UNBLOCK_LIST_FILE}"' | grep -v '^#' | tr -s '\n' | head -1)
+	#  host=$(cat < '"${UNBLOCK_LIST_FILE}"' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | tr -s '\n' | head -1)
 	host='2ip.ru'
 	result=$(ping -c3 "${host}")
 	echo_debug "Прозвон ${host}" "${result}"

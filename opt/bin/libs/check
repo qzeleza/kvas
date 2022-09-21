@@ -178,7 +178,7 @@ shadowsocks_check() {
 			fi
 		fi
 
-		port=$(cat < '/opt/etc/shadowsocks.json' | grep local_port | cut -d':' -f2 | tr -d ' ,')
+		port=$(cat < '/opt/etc/shadowsocks.json' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep local_port | cut -d':' -f2 | tr -d ' ,')
 		ready "Отслеживание порта #${port} shadowsocks "
 		if netstat -ltunp 2> /dev/null | grep ':'"${port}" &> /dev/null; then
 			when_ok "СЛЕДИМ"
@@ -213,7 +213,7 @@ dnscrypt_proxy_check() {
 			fi
 		fi
 
-		port=$(cat < "/opt/etc/dnscrypt-proxy.toml" | grep -v "^#" | grep -E 'listen_addresses.=' | cut -d":" -f4)
+		port=$(cat < "/opt/etc/dnscrypt-proxy.toml" | grep -vE "^#" | grep -E 'listen_addresses.=' | cut -d":" -f4)
 		ready "Отслеживание порта #${port::-2} dnscrypt-proxy2 "
 		if netstat -ltunp 2> /dev/null | grep 'dnscrypt' &> /dev/null; then when_ok "СЛЕДИМ"; else
 			when_bad "НЕТ ЗАПИСИ"
@@ -355,7 +355,7 @@ cmd_adguard_check() {
 #
 # ------------------------------------------------------------------------------------------
 adblock_dnsmasq_check() {
-	if cat < '/opt/etc/dnsmasq.conf' | sed '/^#/d' | grep "adblock.dnsmasq" &> /dev/null; then
+	if cat < '/opt/etc/dnsmasq.conf' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep "adblock.dnsmasq" &> /dev/null; then
 		ready "Список блокировки рекламы"
 		if [ "$(cat </opt/etc/adblock.dnsmasq | wc -l)" -gt 0 ]; then
 			when_ok "ЗАПОЛНЕН"

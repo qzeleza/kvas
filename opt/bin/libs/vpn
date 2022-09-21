@@ -1580,7 +1580,7 @@ host_add() {
 #	если включен блокирощик рекламы
 	if cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then
 
-		if cat < '/opt/etc/dnsmasq.conf' | sed '/^#/d' | grep -q "adblock.dnsmasq"; then
+		if cat < '/opt/etc/dnsmasq.conf' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep -q "adblock.dnsmasq"; then
 			ads_hosts_remove "${host}" &> /dev/null
 		fi
 	fi
@@ -1994,7 +1994,7 @@ cmd_ads_protect_on() {
 		chmod +x '/opt/apps/kvas/bin/main/adblock'
 	fi
 	adblock_file=/opt/tmp/adblock
-	if cat < '/opt/etc/dnsmasq.conf' | sed '/^#/d' | grep -q "${adblock_file}" ; then
+	if cat < '/opt/etc/dnsmasq.conf' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep -q "${adblock_file}" ; then
 		ready "Блокировка рекламы уже "
 		when_ok "ВКЛЮЧЕНА"
 	else
@@ -2021,7 +2021,7 @@ cmd_ads_status() {
 	if [ -f '/opt/apps/kvas/bin/main/adblock' ]; then
 		ready "Блокировка рекламы "
 		if [ -f '/opt/etc/dnsmasq.conf' ]; then
-			cat < '/opt/etc/dnsmasq.conf' | sed '/^#/d' | grep -q "/opt/tmp/adblock" &> /dev/null
+			cat < '/opt/etc/dnsmasq.conf' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep -q "/opt/tmp/adblock" &> /dev/null
 			[ $? = 0 ] && when_ok "ВКЛЮЧЕНА" || when_bad "ОТКЛЮЧЕНА"
 		else
 			when_bad "ОТКЛЮЧЕНА"
