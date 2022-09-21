@@ -234,7 +234,7 @@ dnscrypt_proxy_check() {
 # ------------------------------------------------------------------------------------------
 iptable_check() {
 	ready "Наличие правил разблокировки в iptable"
-	if /opt/sbin/iptables-save 2>/dev/null | grep unblock &> /dev/null; then
+	if /opt/sbin/iptables-save | grep -q unblock ; then
 		when_ok "ЕСТЬ"
 	else
 		when_bad "ПРАВИЛ НЕТ"
@@ -246,7 +246,7 @@ iptable_check() {
 			/opt/etc/ndm/netfilter.d/100-vpn-mark
 		fi
 		ready "Повторная проверка правил разблокировки в iptable"
-		if /opt/sbin/iptables-save 2>/dev/null | grep unblock &> /dev/null; then
+		if /opt/sbin/iptables-save | grep -q unblock;  then
 			when_ok "ПРОЙДЕНА"
 		else
 			when_bad "ОШИБКА"
@@ -363,7 +363,7 @@ adblock_dnsmasq_check() {
 			when_bad "ПУСТ"
 			warning "Заполняем список блокировки рекламы принудительно "
 			print_line
-			/apps/kvas/bin/main/adblock
+			/opt/apps/kvas/bin/main/adblock
 			ready "Перезапуск службы dnsmasq"
 			/opt/etc/init.d/S56dnsmasq restart &> /dev/null
 			[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
@@ -428,7 +428,7 @@ ipset_site_visit_check() {
 	echo "На странице должен появиться IP Вашего VDS/VPN провайдера."
 	echo -n "После чего вновь перейдите сюда и нажмите на любую клавишу."
 	pause
-	/apps/kvas/bin/main/update &> /dev/null
+	/opt/apps/kvas/bin/main/update &> /dev/null
 	print_line
 	ready "Таблица ipset"
 	res=$(ipset list unblock | grep -vEi '^[a-z]' )

@@ -21,5 +21,5 @@
 
 [ "$1" = "start" ] && {
 	/opt/etc/ndm/fs.d/100-ipset start
-	/apps/kvas/bin/main/ipset &
+	/opt/apps/kvas/bin/main/ipset &
 }

@@ -17,7 +17,7 @@ APP_NAME=kvas
 INSTALL_LOG=/opt/tmp/kvas.install.log
 UNBLOCK_LIST_FILE=/opt/etc/hosts.list
 CRONTAB_FILE=/opt/etc/crontab
-UPDATE_BIN_FILE=/apps/kvas/bin/main/update
+UPDATE_BIN_FILE=/opt/apps/kvas/bin/main/update
 DNS_LOCAL_DEMON_FILE=/opt/etc/ndm/netfilter.d/100-dns-local
 IPSET_REDIRECT_DEMON_FILE=/opt/etc/ndm/netfilter.d/100-proxy-redirect
 HOOK_INFACE_FILE=/opt/etc/ndm/ifstatechanged.d/100-save-inface_entware
@@ -31,8 +31,9 @@ KVAS_BACKUP_LIST_FILE=/opt/etc/.kvas/backup/hosts.list
 KVAS_START_FILE=/opt/etc/init.d/S96kvas
 
 MAIN_DNS_PORT=53
-
 LOCALHOST_IP=127.0.0.1
+
+DNS_IP_PORT="${LOCALHOST_IP}#${MAIN_DNS_PORT}"
 
 INFACE_REQUEST="${LOCALHOST_IP}:79/rci/show/interface"
 INFACE_PART_REQUEST="${LOCALHOST_IP}:79/rci/interface"
@@ -255,8 +256,12 @@ cmd_adguardhome_status() {
 		if [ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ]; then
 #			Проверяем наличие сервиса AdGuardHome
 			if [ -f "${ADGUARDHOME_DEMON}" ] ; then
-				if "${ADGUARDHOME_DEMON}" status | grep -q alive ; then
-					 when_ok "ВКЛЮЧЕН";
+
+				adguard_is_dns_default=$(get_config_value 'DNS_DEFAULT' | grep "${DNS_IP_PORT}")
+				adguard_is_alive=$("${ADGUARDHOME_DEMON}" status | grep alive)
+
+				if [ -n "${adguard_is_dns_default}" ] && [ -n "${adguard_is_alive}" ];
+				then when_ok "ВКЛЮЧЕН";
 				else when_bad "ОТКЛЮЧЕН"; fi
 			else
 				when_bad "НУЖНО ПЕРЕУСТАНОВИТЬ"
@@ -354,7 +359,7 @@ cmd_adguardhome_on() {
 #	 Выключаем работу AdGuard Home в качестве основного DNS сервера
 #
 # ------------------------------------------------------------------------------------------
-adguardhome_remove(){
+cmd_adguardhome_off(){
 	ready "AdGuard Home в качестве DNS сервера удален"
 	[ -f "${ADGUARDHOME_CONFIG}" ] && sed -i "s/\( port:\) .*/\1 0/" "${ADGUARDHOME_CONFIG}"
 	${ADGUARDHOME_DEMON} stop &> /dev/null
@@ -366,29 +371,16 @@ adguardhome_remove(){
 
 	if [ $? = 0 ]; then
 		when_ok "УСПЕШНО"
-		answer=''; read_ynq "Шифровать трафик посредством dnscrypt_proxy2 [Y/N]?" answer
-		[ "${answer}" = y ] && dns_crypt_install
+#		answer=''; read_ynq "Шифровать трафик посредством dnscrypt_proxy2 [Y/N]?" answer
+#		[ "${answer}" = y ] &&
+		dns_crypt_install
 	else
 		when_bad "С ОШИБКОЙ";
 		error "Возникла ошибка при удалении AdGuard Home из системы."
 		exit 1
 	fi
 }
-# ------------------------------------------------------------------------------------------
-#
-#	 Выключаем работу AdGuard Home в качестве основного DNS сервера
-#
-# ------------------------------------------------------------------------------------------
-cmd_adguardhome_off() {
 
-	if cmd_adguardhome_status | grep -qE "(НЕ УСТАНОВЛЕН|ОТКЛЮЧЕН)" ; then
-		warning "AdGuard Home в качестве основного DNS сервера "
-		when_ok "НЕ УСТАНОВЛЕН"
-	else
-		adguardhome_remove
-	fi
-
-}
 # ------------------------------------------------------------------------------------------
 #
 #	Функция подключает гостевую сеть к активному vpn
@@ -802,7 +794,7 @@ dns_show() {
 	dns_crypt=$(get_config_value DNS_CRYPT_PORT)
 	if  echo "${dns}" | grep -q "${dns_crypt}" ; then
 		mess="${mess} (dnscrypt_proxy2)"
-	elif echo "${dns}" | grep -q "127.0.0.1#${MAIN_DNS_PORT}" ; then
+	elif echo "${dns}" | grep -q "${DNS_IP_PORT}" ; then
 		mess="${mess} (AdGuard Home)"
 	else
 		mess="${mess} (dnsmasq)"
@@ -907,7 +899,6 @@ vpn_on() {
 }
 
 
-
 # ------------------------------------------------------------------------------------------
 #
 #	Сохраняем данные для shadowsocks в архивный файл ${SHADOWSOCKS_CONF}.kvas
@@ -915,7 +906,7 @@ vpn_on() {
 # ------------------------------------------------------------------------------------------
 shadowsocks_backup() {
 	# Проверяем установлен ли сервис shadowsocks
-	if [ -f /opt/bin/ss-redir ]; then
+	if [ -f /opt/bin/ss-redir ] && [ -f /opt/etc/init.d/S22shadowsocks ]; then
 		# меняем данные в файлах shadowsocks
 		sed -i 's/ss-local/ss-redir/g' /opt/etc/init.d/S22shadowsocks
 
@@ -932,7 +923,7 @@ shadowsocks_backup() {
 		fi
 		if [ -f "${SHADOWSOCKS_CONF}.kvas" ] && {
 				 ! grep -qE '""|@' "${SHADOWSOCKS_CONF}.kvas" || \
-				 ! cat < "${SHADOWSOCKS_CONF}.kvas" | grep 'server' | grep -q '127.0.0.1'
+				 ! cat < "${SHADOWSOCKS_CONF}.kvas" | grep 'server' | grep -q "${LOCALHOST_IP}"
 			}; then
 			echo "Обнаружен архивный файл конфигурации shadowsocks."
 			answer=''; read_ynq "Удалить его и создать новый" answer
@@ -1016,8 +1007,8 @@ shadowsocks_read_data() {
 		s/@PROXY_PORT/${proxy_port}/g;" \
 		"${SHADOWSOCKS_CONF}"
 
-	cp /opt/apps/${APP_NAME}/etc/ndm/ndm/opt/apps/kvas/bin/libs/ndm
-	chmod +x/opt/apps/kvas/bin/libs/ndm
+	cp /opt/apps/${APP_NAME}/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
+	chmod +x /opt/apps/kvas/bin/libs/ndm
 	sed -i "s/@ENTWARE_INFACE_NAME/shadowsocks/g" "/opt/apps/kvas/bin/libs/ndm"
 	sed -i "s/@CLI_INFACE_NAME/shadowsocks/g" "/opt/apps/kvas/bin/libs/ndm"
 }
@@ -1120,20 +1111,27 @@ shadowsocks_on() {
 			s/@INFACE/${inface}/g;" \
 			"/opt/etc/ndm/netfilter.d/100-proxy-redirect"
 
-	cp /opt/apps/${APP_NAME}/etc/ndm/ndm/opt/apps/kvas/bin/libs/ndm
-	chmod +x/opt/apps/kvas/bin/libs/ndm
-	sed -i "s/@ENTWARE_INFACE_NAME/shadowsocks/g" "/opt/apps/kvas/bin/libs/ndm"
+	cp /opt/apps/${APP_NAME}/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
+	chmod +x /opt/apps/kvas/bin/libs/ndm
+
 	sed -i "s/@CLI_INFACE_NAME/shadowsocks/g" "/opt/apps/kvas/bin/libs/ndm"
+	inface_ent=$(ip a | grep ezcfg | head -1 | cut -d': ' -f2 | tr -d ' ')
+	sed -i "s/@ENTWARE_INFACE_NAME/${inface_ent}/g" "/opt/apps/kvas/bin/libs/ndm"
+
 
 	cmd_shadowsocks_iptable_reset  &> /dev/null
 	#   настройка S22shadowsocks конфигурации
-	if [ -f "${SHADOWSOCKS_CONF}.kvas" ] && ! grep -qE '""|@' "${SHADOWSOCKS_CONF}" && ! grep -q '["::1", "127.0.0.1"]'; then
+	if [ -f "${SHADOWSOCKS_CONF}.kvas" ] && ! grep -qE '""|@' "${SHADOWSOCKS_CONF}" && ! grep -q '["::1", '"${LOCALHOST_IP}"']'; then
 	   	ready "Используем данные"
 		cp "${SHADOWSOCKS_CONF}.kvas" "${SHADOWSOCKS_CONF}"
 		when_alert "ИЗ АРХИВА"
 	else
-		print_line
-		shadowsocks_read_data
+		/opt/etc/init.d/S22shadowsocks restart &> /dev/null
+		/opt/etc/init.d/S22shadowsocks status | grep -q 'alive' &> /dev/null
+		if [ $? -ne 0 ]; then
+			print_line
+			shadowsocks_read_data
+		fi
 	fi
 	# меняем данные в файлах shadowsocks
 	sed -i 's/ss-local/ss-redir/g' "/opt/etc/init.d/S22shadowsocks"
@@ -1585,7 +1583,7 @@ host_add() {
 		fi
 	fi
 	cmd_update_list &> /dev/null
-	[ $? = 0 ] && when_ok "ДОБАВЛЕН"; exit 0 || when_bad "НЕ ДОБАВЛЕН"; exit 1;
+	[ $? = 0 ] && when_ok "ДОБАВЛЕН" || when_bad "НЕ ДОБАВЛЕН"
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -2059,7 +2057,7 @@ ads_request_to_upload() {
 		[ "${answer}" = ask ] && read_ynq "Обновить списки блокировки рекламы" answer
 		[ "${answer}" = y ] && /opt/apps/kvas/bin/main/adblock
 	else
-		/apps/kvas/bin/main/adblock
+		/opt/apps/kvas/bin/main/adblock
 	fi
 }
 

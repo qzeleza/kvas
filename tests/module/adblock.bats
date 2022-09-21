@@ -174,7 +174,7 @@ adblock_src_file_copy=/opt/apps/kvas/etc/conf/adblock.sources
 	echo "output=${output}"
 }
 
-@test "Проверка работы файла обновления списков рекламы из источников [/apps/kvas/bin/main/adblock]" {
+@test "Проверка работы файла обновления списков рекламы из источников [/opt/apps/kvas/bin/main/adblock]" {
 #	нужно сделать копию данных и затем восстановить их
 	prefix="[ -f ${adblock_src_file} ] \
 			&& mv ${adblock_src_file} ${adblock_src_file}.test; \

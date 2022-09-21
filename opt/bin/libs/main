@@ -19,14 +19,14 @@ DATE_FORMAT='+%d/%m/%Y %H:%M:%S'
 # ------------------------------------------------------------------------------------------
 #	Вспомогательные переменные для работы скрипта
 # ------------------------------------------------------------------------------------------
-LENGTH=66
+LENGTH=68
 PROGRESS_BAR_WIDTH=$((LENGTH-5))  # progress bar length in characters
 KVAS_CONF_FILE=/opt/etc/kvas.conf
 ADGUARDHOME_CONFIG=/opt/etc/AdGuardHome/AdGuardHome.yaml
 ADGUARDHOME_LOG=/opt/var/log/AdGuardHome.log
 ADGUARDHOME_DEMON=/opt/etc/init.d/S99adguardhome
 DNSMASQ_DEMON=/opt/etc/init.d/S56dnsmasq
-
+HOME_PATH=/opt/apps/kvas
 
 pause()(read -r pause &> /dev/null)
 

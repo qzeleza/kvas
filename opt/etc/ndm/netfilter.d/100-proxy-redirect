@@ -18,13 +18,11 @@
 #	Лицензия: GPL 2.0
 # ------------------------------------------------------------------------------
 
-# пропускаем в работу только подключения с типом iptables
-[ "${type}" = "iptables" ] || exit 0
-
 # Shadowsocks+
-if ! ip4save 2>/dev/null | grep "${table_name}" | grep -q @PROXY_PORT ; then
+if ! ip4save | grep "${table_name}" | grep -q @PROXY_PORT ; then
 #	 создаем таблицу ipset и првила для shadowsocks подключения
 	ipset4_create_table
+	ip4_firewall_flush_vpn_rules
 	ip4_firewall_set_ssr_rules @INFACE @PROXY_PORT
 fi
 
