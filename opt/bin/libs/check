@@ -73,8 +73,10 @@ dns_override_check() {
 #
 # ------------------------------------------------------------------------------------------
 dnsmasq_check() {
+
+	! [ -f /opt/etc/kvas.dnsmasq ] && /opt/apps/kvas/bin/main/dnsmasq &> /dev/null
 	ready "Состояние службы dnsmasq"
-	if /opt/etc/init.d/S56dnsmasq status &> /dev/null; then
+	if /opt/etc/init.d/S56dnsmasq status | grep -q alive ; then
 		when_ok "ЗАПУЩЕНА"
 	else
 		when_bad "ОСТАНОВЛЕНА"
@@ -117,7 +119,7 @@ vpn_check(){
 			if /opt/sbin/ip route show table 1001 | grep -qv 'default'; then
 				when_ok "ЗАПОЛНЕНА"
 
-				ready "Таблица VPN маршрутов id=1001 в правила маркировки "
+				ready "Таблица VPN маршрутов id=1001 в правилах маркировки "
 				if [ -n "$(/opt/sbin/ip rule show | grep 1001)" ]; then
 					when_ok "ПРИСУТСТВУЕТ"
 
