@@ -71,5 +71,5 @@ ssh -p "${MY_PORT}" "${MY_ROUTER}" 'rm -f '"/opt/packages/${APP_PKG_TAR_NAME}" #
 scp -P "${MY_PORT}" "${APP_PKG_FILE}" "${MY_ROUTER}:/opt/packages/${APP_PKG_TAR_NAME}"
 ssh -p "${MY_PORT}" "${MY_ROUTER}" 'opkg remove kvas'
 line
-echo "Сборка завершена $(date)"
+echo "Сборка завершена $(zdump EST-3)"
 line

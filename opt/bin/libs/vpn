@@ -1457,8 +1457,12 @@ dns_crypt_install() {
 #	архивируем предыдушие настройки
 	if [ -f '/opt/etc/dnscrypt-proxy.toml' ]; then
 		warning "Файл конфигурации dnscrypt-proxy2 сохраняем"
-		cp /opt/etc/dnscrypt-proxy.toml /opt/etc/dnscrypt-proxy.toml.kvas
-		warning "под именем /opt/etc/dnscrypt-proxy.toml.kvas"
+		cp /opt/etc/dnscrypt-proxy.toml ${KVAS_BACKUP_PATH}/dnscrypt-proxy.toml
+		warning "под именем ${KVAS_BACKUP_PATH}/dnscrypt-proxy.toml"
+	elif [ -f "${KVAS_BACKUP_PATH}/dnscrypt-proxy.toml" ]; then
+		warning "Обнаружен файл конфигурации dnscrypt-proxy2 "
+		cp "${KVAS_BACKUP_PATH}/dnscrypt-proxy.toml" /opt/etc/dnscrypt-proxy.toml
+		warning "Восстанавливаем предыдущие настройки."
 	fi
 
 #	Настраиваеи сервис
