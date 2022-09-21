@@ -17,8 +17,6 @@ cp -f /opt/apps/kvas/bin/libs/main /opt/apps/kvas/bin/libs/.main
 cp -f /opt/apps/kvas/bin/libs/debug /opt/apps/kvas/bin/libs/.debug
 cp -f /opt/apps/kvas/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
 
-
-
 . /opt/apps/kvas/bin/libs/check
 . /opt/apps/kvas/bin/libs/vpn
 
@@ -172,8 +170,11 @@ test_status
 #----------------------------------------------------------
  
 if [ "${answer_agh}" = n ]; then
-#	sed -i "s/\( port:\) .*/\1 0/" "${ADGUARDHOME_CONFIG}"
-	[ -f "${ADGUARDHOME_DEMON}" ] && "${ADGUARDHOME_DEMON}" status | grep -q alive && "${ADGUARDHOME_DEMON}" stop &> /dev/null
+	if [ -f "${ADGUARDHOME_DEMON}" ]; then
+		if "${ADGUARDHOME_DEMON}" status | grep -q alive; then
+			"${ADGUARDHOME_DEMON}" stop &> /dev/null
+		fi
+	fi
 	#------------------------------------------------------
 	# DNSMASQ
 	#------------------------------------------------------
@@ -183,12 +184,8 @@ if [ "${answer_agh}" = n ]; then
 	#------------------------------------------------------
 	# DNSCRYPT-PROXY2
 	#------------------------------------------------------
-	if [ -f /opt/etc/init.d/S09dnscrypt-proxy2 ]; then
-		log_in_file "Шифрование DNS трафика (dnscrypt-proxy2) ВКЛЮЧЕНО."
-		dns_crypt_install
-	else
-		log_in_file "Шифрование DNS трафика ОТМЕНЕНО."
-	fi
+	dns_crypt_install
+	log_in_file "Шифрование DNS трафика (dnscrypt-proxy2) ВКЛЮЧЕНО."
 	test_status
 	#------------------------------------------------------
 	# Блокировка рекламы
