@@ -1,8 +1,14 @@
 
 # [КВАС](https://forum.keenetic.com/topic/14415-пробуем-квас-shadowsocks-и-другие-vpn-клиенты/?do=findComment&comment=152234) - выборочный обход блокировок
-Автор: **[Zeleza](https://forum.keenetic.com/profile/20603-zeleza/)**, крайняя версия [1.0 beta 16](https://github.com/qzeleza/kvas/blob/main/ipk/kvas_1.0-beta_16_all.ipk)
 ### VPN и SHADOWSOCKS клиент для [роутеров Keenetic](https://keenetic.ru/ru/)
-### Пакет представляет собой обвязку или интерфейс командной строки для работы с белым списком.
+
+--- 
+
+Автор: **[Zeleza](https://forum.keenetic.com/profile/20603-zeleza/)**, крайняя версия Кваса [1.0 beta 17](https://github.com/qzeleza/kvas/blob/main/ipk/), история изменений [здесь](https://github.com/qzeleza/kvas/blob/main/HISTORY.md).
+
+---
+
+#### Пакет представляет собой обвязку или интерфейс командной строки для работы с белым списком.
 
 Данный пакет позволяет осуществлять
 контроль и поддерживать в актуальном состоянии 

@@ -234,20 +234,16 @@ if [ "${answer_agh}" = n ] ; then
 		exit 1
 	}
 fi
-answer='y';
-#read_ynq "Запустить диагностику" answer
-if [ "${answer}" = y ]; then
+clear
 test_status
-	print_line
-	log_in_file "Был произведен запуск диагностики после установки."
-	warning "ПРОИЗВОДИМ ТЕСТИРОВАНИЕ УСТАНОВЛЕННОГО VPN СОЕДИНЕНИЯ"
-	print_line
-	cmd_state_checker
-	print_line
+print_line
+log_in_file "Был произведен запуск диагностики после установки."
+warning "ПРОИЗВОДИМ ТЕСТИРОВАНИЕ УСТАНОВЛЕННОГО VPN СОЕДИНЕНИЯ"
+print_line
+cmd_state_checker
+print_line
 test_status
-else
-	log_in_file "Диагностика после установки пакета проведена НЕ была."
-fi
+
 log_in_file line
 log_in_file "Установка завершена: $(date "${DATE_FORMAT}")"
 echo "Установка КВАСа завершена."
