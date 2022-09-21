@@ -120,7 +120,9 @@ case "${1}" in
 		;;
 	version | ver)			warning "Версия скрипта ${APP_VERSION}-${APP_RELEASE}"
 		;;
-	help | *)				cmd_show_list
+	help ) 					cmd_help
+		;;
+	*)						cmd_show_list
 		;;
 esac
 
