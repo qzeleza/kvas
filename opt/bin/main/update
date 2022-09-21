@@ -45,7 +45,7 @@ if [ -z "$1" ] && [ "${ADS_BLOCKER_ON}" = 1 ]; then
 fi
 
 # Проверяем установлен ли AdGuard Home
-if [ -f "${ADGUARDHOME_CONFIG}" ]; then
+if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
 	ready "Обновление списка ipset для AdGuard Home"
 	/opt/apps/kvas/bin/main/adguard
 	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
