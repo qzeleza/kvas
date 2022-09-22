@@ -6,7 +6,7 @@ source ../libs/main
 
 @test "Проверка отключения сервиса AdGuardHome [cmd_adguardhome_off]" {
 	cmd="cmd_adguardhome_off "
-	run on_server "${lib_load} && ${cmd} " <<< y
+	run on_server "${vpn_lib_load} && ${cmd} " <<< y
 	print_on_error "${status}" "${output}"
 
 	[ "${status}" -eq 0 ]
@@ -15,7 +15,7 @@ source ../libs/main
 }
 @test "Проверка включения сервиса AdGuardHome [cmd_adguardhome_on]" {
 	cmd="cmd_adguardhome_on "
-	run on_server "${lib_load} && ${cmd} "
+	run on_server "${vpn_lib_load} && ${cmd} "
 	print_on_error "${status}" "${output}"
 
 	[ "${status}" -eq 0 ]
@@ -24,7 +24,7 @@ source ../libs/main
 }
 @test "Проверка статуса сервиса AdGuardHome [cmd_adguardhome_status]" {
 	cmd="cmd_adguardhome_status "
-	run on_server "${lib_load} && ${cmd} "
+	run on_server "${vpn_lib_load} && ${cmd} "
 	print_on_error "${status}" "${output}"
 
 	[ "${status}" -eq 0 ]

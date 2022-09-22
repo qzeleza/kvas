@@ -1,6 +1,6 @@
 #!/bin/bash
 
-lib_load=". /opt/apps/kvas/bin/libs/vpn"
+vpn_lib_load=". /opt/apps/kvas/bin/libs/vpn"
 
 on_server(){
 	APP_REMOTE_FILE="../../debug/remote.conf"

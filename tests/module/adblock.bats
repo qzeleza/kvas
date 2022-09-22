@@ -8,12 +8,20 @@ adblock_src_file=/opt/etc/adblock.sources
 adblock_src_file_copy=/opt/apps/kvas/etc/conf/adblock.sources
 
 
+@test "Отключаем AdGuard Home [cmd_adguardhome_off]" {
+	cmd="cmd_adguardhome_off"
+	run on_server "${vpn_lib_load} && ${cmd} "
+# 	в случае ошибок в тесте - будет вывод основных критериев работы
+	print_on_error "${status}" "${output}"
+	[ "${status}" -eq 0 ]
+	echo "${output}" | grep -q "УСПЕШНО"
+}
 #-----------------------------------------------------
 # 	ТЕСТЫ из библиотеки vpn БЛОКИРОВКА РЕКЛАМЫ
 #-----------------------------------------------------
 @test "Проверка наличия редактора nano для редактирования списка блокировки рекламы [cmd_ads_edit]" {
 	cmd="opkg files nano-full"
-	run on_server "${lib_load} && ${cmd} "
+	run on_server "${vpn_lib_load} && ${cmd} "
 
 # 	в случае ошибок в тесте - будет вывод основных критериев работы
 	print_on_error "${status}" "${output}"
@@ -26,10 +34,11 @@ adblock_src_file_copy=/opt/apps/kvas/etc/conf/adblock.sources
 }
 
 @test "Проверка отключения блокировки рекламы [cmd_ads_protect_off]" {
-	prefix="cmd_ads_protect_on | grep -q 'рекламы уже' || cmd_ads_protect_on"
+#	prefix="cmd_adguardhome_status | grep -q 'ВКЛЮЧЕН' && cmd_adguardhome_off"
+	prefix="cmd_ads_protect_on | grep -q 'рекламы уже' || cmd_ads_protect_on "
 	cmd="cmd_ads_protect_off"
 
-	run on_server "${lib_load} && ${prefix} && ${cmd}"
+	run on_server "${vpn_lib_load} && ${prefix} && ${cmd}"
 	print_on_error "${status}" "${output}"
 	[ "${status}" -eq 0 ]
 
@@ -43,7 +52,7 @@ adblock_src_file_copy=/opt/apps/kvas/etc/conf/adblock.sources
 	prefix="cmd_ads_protect_off"
 	cmd="cmd_ads_protect_on"
 
-	run on_server "${lib_load} && ${prefix} && ${cmd}"
+	run on_server "${vpn_lib_load} && ${prefix} && ${cmd}"
 	print_on_error "${status}" "${output}"
 	[ "${status}" -eq 0 ]
 
@@ -54,7 +63,7 @@ adblock_src_file_copy=/opt/apps/kvas/etc/conf/adblock.sources
 }
 @test "Проверка включения блокировки рекламы при уже включенном статусе [cmd_ads_protect_on]" {
 	cmd="cmd_ads_protect_on"
-	run on_server "${lib_load} && ${cmd}"
+	run on_server "${vpn_lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
 	[ "${status}" -eq 0 ]
 
@@ -67,7 +76,7 @@ adblock_src_file_copy=/opt/apps/kvas/etc/conf/adblock.sources
 	postfix="[ \${new_dn} = 1 ] && rm ${dnsmasq_conf}"
 
 	cmd="cmd_ads_status"
-	run on_server "${lib_load} && ${prefix} && ${cmd} && ${postfix}"
+	run on_server "${vpn_lib_load} && ${prefix} && ${cmd} && ${postfix}"
 
 # 	в случае ошибок в тесте - будет вывод основных критериев работы
 	print_on_error "${status}" "${output}"
@@ -85,7 +94,7 @@ adblock_src_file_copy=/opt/apps/kvas/etc/conf/adblock.sources
 			  [ -f ${dnsmasq_conf} ] && mv ${dnsmasq_conf} ${dnsmasq_conf}.test || echo 0"
 
 	cmd="cmd_ads_status"
-	run on_server "${lib_load} && ${prefix} && ${cmd}"
+	run on_server "${vpn_lib_load} && ${prefix} && ${cmd}"
 
 # 	в случае ошибок в тесте - будет вывод основных критериев работы
 	print_on_error "${status}" "${output}"
@@ -106,7 +115,7 @@ adblock_src_file_copy=/opt/apps/kvas/etc/conf/adblock.sources
 	cmd="cmd_ads_status"
 	postfix="[ -f ${adblock_bin_file}.test ] && mv ${adblock_bin_file}.test ${adblock_bin_file}"
 
-	run on_server "${lib_load} && ${prefix} && ${cmd} && ${postfix}"
+	run on_server "${vpn_lib_load} && ${prefix} && ${cmd} && ${postfix}"
 
 # 	в случае ошибок в тесте - будет вывод основных критериев работы
 	print_on_error "${status}" "${output}"
@@ -121,7 +130,7 @@ adblock_src_file_copy=/opt/apps/kvas/etc/conf/adblock.sources
 			|| cp -f ${adblock_src_file_copy} ${adblock_src_file}.kvas; echo 0"
 	cmd="ads_request_to_upload ask"
 
-	run on_server "${lib_load} && ${prefix} && ${cmd}" <<< n
+	run on_server "${vpn_lib_load} && ${prefix} && ${cmd}" <<< n
 	print_on_error "${status}" "${output}"
 #	[ "${status}" -eq 0 ]
 
@@ -131,7 +140,7 @@ adblock_src_file_copy=/opt/apps/kvas/etc/conf/adblock.sources
 	postfix="[ -f ${adblock_src_file}.kvas ] \
 		  && rm -f ${adblock_src_file}.kvas \
 		  || rm -f ${adblock_src_file}"
-    run on_server "${lib_load} && ${postfix}"
+    run on_server "${vpn_lib_load} && ${postfix}"
 }
 
 @test "Проверка активации блокировки рекламы при наличии архива с восстановлением [ads_request_to_upload]" {
@@ -142,13 +151,13 @@ adblock_src_file_copy=/opt/apps/kvas/etc/conf/adblock.sources
 	postfix="[ -f ${adblock_src_file}.kvas ] \
 			  && rm -f ${adblock_src_file}.kvas \
 			  || rm -f ${adblock_src_file}"
-	run on_server "${lib_load} && ${prefix} && ${cmd}" <<< y
+	run on_server "${vpn_lib_load} && ${prefix} && ${cmd}" <<< y
 	print_on_error "${status}" "${output}"
 
 	[ "${status}" -eq 0 ]
 	[[ "${output}" = *"Обнаружен архивный файл"* ]]
     [[ "${output}" = *"УДАЧНО"* ]]
-    run on_server "${lib_load} && ${postfix}"
+    run on_server "${vpn_lib_load} && ${postfix}"
 }
 
 @test "Проверка активации блокировки рекламы при наличии списка хостов [ads_request_to_upload]" {
@@ -162,7 +171,7 @@ adblock_src_file_copy=/opt/apps/kvas/etc/conf/adblock.sources
 			} || echo 0"
 #	prefix="touch /opt/tmp/adblock/hosts"
 	cmd="ads_request_to_upload ask"
-	run on_server "${lib_load} && ${prefix} && ${cmd}" <<< y
+	run on_server "${vpn_lib_load} && ${prefix} && ${cmd}" <<< y
 	print_on_error "${status}" "${output}"
 
 	[ "${status}" -eq 0 ]
@@ -183,7 +192,7 @@ adblock_src_file_copy=/opt/apps/kvas/etc/conf/adblock.sources
 			&& mv /opt/tmp/adblock/hosts /opt/tmp/adblock/hosts.test || echo 0"
 
 	cmd="ads_request_to_upload"
-	run on_server "${lib_load} && ${prefix} && ${cmd}"
+	run on_server "${vpn_lib_load} && ${prefix} && ${cmd}"
 
 	print_on_error "${status}" "${output}"
 
@@ -212,3 +221,12 @@ adblock_src_file_copy=/opt/apps/kvas/etc/conf/adblock.sources
 }
 
 
+
+@test "Включаем AdGuard Home [cmd_adguardhome_on]" {
+	cmd="cmd_adguardhome_on"
+	run on_server "${vpn_lib_load} && ${cmd} "
+# 	в случае ошибок в тесте - будет вывод основных критериев работы
+	print_on_error "${status}" "${output}"
+	[ "${status}" -eq 0 ]
+	echo "${output}" | grep -q "УСПЕШНО"
+}
