@@ -1431,15 +1431,17 @@ dns_crypt_install() {
 		cp "${KVAS_BACKUP_PATH}/S09dnscrypt-proxy2" /opt/etc/init.d/S09dnscrypt-proxy2
 	else
 #		при его отсутвии - устанавливаем пакет
-		ready "Устанавливаем пакет dnscrypt-proxy2..."
-		opkg remove dnscrypt-proxy2 &>/dev/null && opkg install dnscrypt-proxy2 &>/dev/null
-		[ $? = 0 ] && when_ok "ГОТОВО" || {
-			when_bad "ОШИБКА"
-			mess="Ошибка при установке пакета dnsmasq"
-			log_in_file "ОШИБКА: ${mess}"
-			error "${mess}"
-			exit 1
-		}
+		if ! [ -f /opt/etc/init.d/S09dnscrypt-proxy2 ]; then
+			ready "Устанавливаем пакет dnscrypt-proxy2..."
+			opkg remove dnscrypt-proxy2 &>/dev/null && opkg install dnscrypt-proxy2 &>/dev/null
+			[ $? = 0 ] && when_ok "ГОТОВО" || {
+				when_bad "ОШИБКА"
+				mess="Ошибка при установке пакета dnsmasq"
+				log_in_file "ОШИБКА: ${mess}"
+				error "${mess}"
+				exit 1
+			}
+		fi
 	fi
 #	Если dnscrypt_proxy2 запущен, то останавиваем его,
 #	так как необходимо его предварительно настроить

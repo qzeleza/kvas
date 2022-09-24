@@ -27,7 +27,7 @@ host_list=/opt/etc/hosts.list
 
 # В случае отсутствия списочного файла создаем его
 ! [ -f "${host_list}" ] && touch "${host_list}"
-# если списочный файл пуст, то сосздаем пустой ipset блок
+# если списочный файл пуст, то создаем пустой ipset блок
 [ "$(cat < "${host_list}" | wc -l )" = 0 ] && ipset="[]"
 sed -i '/ipset/,/tls/{//!d};' "${adguard_config}"
 

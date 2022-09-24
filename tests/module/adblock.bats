@@ -70,8 +70,7 @@ adblock_src_file_copy=/opt/apps/kvas/etc/conf/adblock.sources
 	[[ "${output}" = *"Блокировка рекламы уже "* ]]
 }
 @test "Проверка статуса блокировки рекламы, если блок подключен [cmd_ads_status]" {
-	prefix="new_dn=0; ! [ -f ${adblock_bin_file} ] && ( cp ${adblock_bin_file_copy} ${adblock_bin_file}; chmod +x ${adblock_bin_file}; ); \
-	 		if [ -f ${dnsmasq_conf} ]; then sed -i '/\/opt\/tmp\/adblock/d' ${dnsmasq_conf}; else new_dn=1; fi; \
+	prefix="new_dn=0; if [ -f ${dnsmasq_conf} ]; then sed -i '/\/opt\/tmp\/adblock/d' ${dnsmasq_conf}; else new_dn=1; fi; \
 	 		echo 'addn-hosts=/opt/tmp/adblock' >> ${dnsmasq_conf}; echo 0"
 	postfix="[ \${new_dn} = 1 ] && rm ${dnsmasq_conf}"
 
@@ -220,6 +219,16 @@ adblock_src_file_copy=/opt/apps/kvas/etc/conf/adblock.sources
 	echo "output=${output}"
 }
 
+@test "Проверка работы генерации ipset блока в файле конфигурации dnsmasq [/kvas/bin/main/dnsmasq]" {
+	adh_file=/opt/apps/kvas/bin/main/dnsmasq
+	run on_server "${adh_file} && cat /opt/etc/kvas.dnsmasq"
+# 	в случае ошибок в тесте - будет вывод основных критериев работы
+	print_on_error "${status}" "${output}"
+	[ "${status}" -eq 0 ]
+	ipset_num=$(echo "${output}" | grep -c "ipset")
+	unblock_num=$(echo "${output}" | grep -c "unblock")
+	[ "${ipset_num}" -gt 1 ] && [ "${ipset_num}" -ge "${unblock_num}" ]
+}
 
 
 @test "Включаем AdGuard Home [cmd_adguardhome_on]" {
