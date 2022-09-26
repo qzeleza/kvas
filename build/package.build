@@ -33,7 +33,11 @@ rm -rf /apps/entware/package/utils/kvas/*
 rm -rf /apps/entware/staging_dir/target-mipsel_mips32r2_glibc-2.27/root-mipsel-3.4/./opt/apps/kvas
 mkdir -p /apps/entware/package/utils/kvas/
 cp -rf /apps/kvas/opt/ /apps/entware/package/utils/kvas/files/
-chown -R develop:develop /apps/entware/package/utils/kvas
+
+USER=$(cat /apps/kvas/debug/remote.conf | grep "USER_NAME=" | cut -d'=' -f2)
+GROUP=$(cat /apps/kvas/debug/remote.conf | grep "USER_GROUP=" | cut -d'=' -f2)
+chown -R ${NAME}:${GROUP} /apps/entware/package/utils/kvas
+
 cd /apps/entware/
 
 #    make menuconfig
@@ -50,6 +54,11 @@ make package/kvas/compile ${deb}
 
 line
 
+sed -i "s/APP_VERSION=/APP_VERSION=${version}/g" \
+	/apps/entware/package/utils/kvas/files/bin/kvas
+sed -i "s/APP_RELEASE=/APP_RELEASE=${stage}-${release}/g" \
+	/apps/entware/package/utils/kvas/files/bin/kvas
+
 APP_PKG_TAR_NAME=kvas_${version}-${stage}_${release}_all.ipk
 APP_PKG_FILE="/apps/entware/bin/targets/mipsel-3.4/generic-glibc/packages/${APP_PKG_TAR_NAME}"
 cp "${APP_PKG_FILE}" "/apps/kvas/ipk"
@@ -58,6 +67,7 @@ cp "${APP_PKG_FILE}" "/apps/kvas/ipk"
 cd /apps/kvas/build
 
 APP_REMOTE_FILE='../debug/remote.conf'
+
 MY_PORT=$(cat < "${APP_REMOTE_FILE}" | grep -E '^PORT' | cut -d' ' -f3 | cut -d"=" -f2)
 MY_ROUTER=$(cat < "${APP_REMOTE_FILE}" | grep -E '^ROUTER' | cut -d'"' -f2| cut -d"=" -f2)
 

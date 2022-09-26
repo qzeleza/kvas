@@ -1,8 +1,9 @@
 FROM ubuntu:22.04
-
+ 
 ARG NAME="${NAME}"
 ARG UID="${UID}"
 ARG GID="${GID}"
+ARG GROUP="${GROUP}"
 
 RUN dpkg --add-architecture i386  \
     && groupadd --gid ${GID} ${NAME}  \
@@ -27,7 +28,7 @@ RUN rm -rf /var/lib/apt/lists/*  \
     && mv Entware/ entware/ && cd /apps/entware  \
     && make package/symlinks  \
     && cp `ls /apps/entware/configs/mipsel-*` .config \
-    && chown -R ${UID}:${GID} /apps/entware
+    && chown -R ${NAME}:${GROUP} /apps/entware
 
 COPY . /apps/kvas/
 RUN chmod -R +x /apps/kvas/build/*.run  \
@@ -36,7 +37,7 @@ RUN chmod -R +x /apps/kvas/build/*.run  \
 COPY ./opt/. /apps/entware/package/utils/kvas/opt/
 
 RUN /apps/kvas/build/Makefile.build
-RUN chown -R ${UID}:${GID} /apps/
+RUN chown -R ${NAME}:${GROUP} /apps/
 
 USER ${NAME}
 RUN /apps/kvas/build/firstrun.build

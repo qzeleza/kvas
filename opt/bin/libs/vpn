@@ -1082,7 +1082,7 @@ cmd_shadowsocks_local_port_change() {
 			[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
 		else
 			ready "Текущий номер порта shadowsocks соединения:"
-			when_ok get_config_value SSR_DNS_PORT
+			when_ok "$(get_config_value SSR_DNS_PORT)"
 		fi
 	else
 		answer=''

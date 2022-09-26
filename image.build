@@ -8,13 +8,15 @@ put()(echo "${1}" >> .env)
 #------------------------------------------------------------
 DEBUG=NO
 image_name="kvas_develop"
-user=develop
-user_uid=5001
-user_gid=5001
+user=$(cat /apps/kvas/debug/remote.conf | grep "USER_NAME=" | cut -d'=' -f2)
+group=$(cat /apps/kvas/debug/remote.conf | grep "USER_GROUP=" | cut -d'=' -f2)
+user_uid=$(cat /apps/kvas/debug/remote.conf | grep "U_ID=" | cut -d'=' -f2)
+user_gid=$(cat /apps/kvas/debug/remote.conf | grep "G_ID=" | cut -d'=' -f2)
 # ------------------------------------------------------------
 
 put "IMAGE_NAME=${image_name}"
 put "NAME=${user}"
+put "GROUP=${group}"
 put "UID=${user_uid}"
 put "GID=${user_gid}"
 put "TZ=Europe/Moscow"
