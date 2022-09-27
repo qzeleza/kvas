@@ -1,8 +1,8 @@
-#!/bin/bash
+#! /usr/bin/env bash
 set -e
 . /apps/kvas/build/library.run
 
-if [ ${DEBUG} = YES ] ; then
+if [ ${DEBUG} = 'YES' ]; then
 	num_proc=1
 	deb="-j${num_proc} V=sc"
 else
@@ -10,17 +10,13 @@ else
 	deb="-j${num_proc}";
 fi
 
-chown -R develop:develop /apps/entware/package/utils/kvas
+line; echo "Сборка запущена: $(zdump EST-3)"; line
+
 cd /apps/entware/
 
 make oldconfig <<< y
 make tools/install ${deb}
 make toolchain/install ${deb}
 make target/compile ${deb}
-make package/kvas/compile ${deb}
 
-APP_PKG_TAR_NAME=kvas_${version}-${stage}_${release}_all.ipk
-APP_PKG_FILE="/apps/entware/bin/targets/mipsel-3.4/generic-glibc/packages/${APP_PKG_TAR_NAME}"
-cp "${APP_PKG_FILE}" "/apps/kvas/ipk"
-
-ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa
+line; echo "Сборка завершена: $(zdump EST-3)"; line

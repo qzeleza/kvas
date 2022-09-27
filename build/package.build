@@ -34,9 +34,9 @@ rm -rf /apps/entware/staging_dir/target-mipsel_mips32r2_glibc-2.27/root-mipsel-3
 mkdir -p /apps/entware/package/utils/kvas/
 cp -rf /apps/kvas/opt/ /apps/entware/package/utils/kvas/files/
 
-USER=$(cat /apps/kvas/debug/remote.conf | grep "USER_NAME=" | cut -d'=' -f2)
-GROUP=$(cat /apps/kvas/debug/remote.conf | grep "USER_GROUP=" | cut -d'=' -f2)
-chown -R ${NAME}:${GROUP} /apps/entware/package/utils/kvas
+user=$(get_remove_value "USER_NAME")
+group=$(get_remove_value "USER_GROUP")
+chown -R ${user}:${group} /apps/entware/package/utils/kvas
 
 cd /apps/entware/
 
@@ -64,22 +64,5 @@ APP_PKG_FILE="/apps/entware/bin/targets/mipsel-3.4/generic-glibc/packages/${APP_
 cp "${APP_PKG_FILE}" "/apps/kvas/ipk"
 
 
-cd /apps/kvas/build
-
-APP_REMOTE_FILE='../debug/remote.conf'
-
-MY_PORT=$(cat < "${APP_REMOTE_FILE}" | grep -E '^PORT' | cut -d' ' -f3 | cut -d"=" -f2)
-MY_ROUTER=$(cat < "${APP_REMOTE_FILE}" | grep -E '^ROUTER' | cut -d'"' -f2| cut -d"=" -f2)
-
-if [ ! -f ~/.ssh/id_rsa ]; then
-	ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa
-	cat ~/.ssh/id_rsa.pub
-fi
-echo "Загрузка на роутер..."
-ssh -p "${MY_PORT}" "${MY_ROUTER}" "mkdir -p /opt/packages"
-ssh -p "${MY_PORT}" "${MY_ROUTER}" 'rm -f '"/opt/packages/${APP_PKG_TAR_NAME}" #&> /dev/null
-scp -P "${MY_PORT}" "${APP_PKG_FILE}" "${MY_ROUTER}:/opt/packages/${APP_PKG_TAR_NAME}"
-ssh -p "${MY_PORT}" "${MY_ROUTER}" 'opkg remove kvas'
-line
-echo "Сборка завершена $(zdump EST-3)"
-line
+line; copy_ssh_keys_to_router; line
+copy_kvas_to_router; line

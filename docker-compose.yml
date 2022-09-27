@@ -13,7 +13,7 @@ services:
 
     volumes:
       - /apps/kvas:/apps/kvas
-      - ~/.ssh/id_rsa.pub:/pubkey:ro
+      - /root/.ssh/id_rsa.pub:/pubkey:ro
 
     environment:
       VERSION: "${VERSION}"

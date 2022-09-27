@@ -6,12 +6,12 @@ rm .env
 put()(echo "${1}" >> .env)
 
 #------------------------------------------------------------
-DEBUG=NO
+DEBUG=YES
 image_name="kvas_develop"
-user=$(cat /apps/kvas/debug/remote.conf | grep "USER_NAME=" | cut -d'=' -f2)
-group=$(cat /apps/kvas/debug/remote.conf | grep "USER_GROUP=" | cut -d'=' -f2)
-user_uid=$(cat /apps/kvas/debug/remote.conf | grep "U_ID=" | cut -d'=' -f2)
-user_gid=$(cat /apps/kvas/debug/remote.conf | grep "G_ID=" | cut -d'=' -f2)
+user=$(get_remove_value "USER_NAME")
+group=$(get_remove_value "USER_GROUP")
+user_uid=$(get_remove_value "U_ID")
+user_gid=$(get_remove_value "G_ID")
 # ------------------------------------------------------------
 
 put "IMAGE_NAME=${image_name}"
@@ -28,9 +28,15 @@ docker container prune -f
 if [ "${1}" = build ] || [ ! docker ps -a -f 'status=running' | grep -q kvas ]; then
 #	то заходим внуть контейнера kvas_develop и сразу запускаем соборку пакета
 #	если не создан образ, то запускаем сборку образа
+	line
+	echo "Запускаем сборку образа ${IMAGE_NAME}"
+	line
 	docker-compose up --build -d
+
 fi
-# Запускаем контейнер и сразу запускаем сборку пакета в самом контейнере
+line
+echo "Запускаем контейнер и сразу запускаем сборку пакета в самом контейнере"
+line
 docker run \
 		--user "${user_uid}:${user_gid}" -it \
 		--mount type=bind,src=/apps/kvas,dst=/apps/kvas ${image_name} \
