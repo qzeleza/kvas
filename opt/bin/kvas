@@ -74,6 +74,7 @@ case "${1}" in
 			reset) 			cmd_vpn_iptable_reset ;;
 			guest) 	        cmd_vpn_guest_network "${3}" ;;
 			del|rm) 	    cmd_vpn_del_guest_network ;;
+			rescan|scan)	cmd_scan_interface_list ;;
 			status | *) 	cmd_vpn_status ;;
 		esac
 		;;
