@@ -35,7 +35,8 @@ PATH=/opt/sbin:/opt/bin:/opt/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/u
 
 case ${1} in
 	start|restart)
-	ipset create unblock hash:net family inet -exist
+	. /opt/apps/kvas/bin/libs/ndm
+	ip4_init_all
 	/opt/apps/kvas/bin/main/adguard
 	;;
 esac

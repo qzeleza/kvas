@@ -25,7 +25,7 @@ put "DEBUG=${DEBUG}"
 
 # Если уже создан образ kvas_develop
 docker container prune -f
-if [ "${1}" = build ] || [ ! docker ps -a -f 'status=running' | grep -q kvas ]; then
+if [ "${1}" = build ] || [ -z "$(docker ps -a -f 'status=running' | grep kvas)" ]; then
 #	то заходим внуть контейнера kvas_develop и сразу запускаем соборку пакета
 #	если не создан образ, то запускаем сборку образа
 	line

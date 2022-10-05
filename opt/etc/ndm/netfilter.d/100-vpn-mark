@@ -30,7 +30,7 @@
 [ "$table" != "mangle" ] && exit 0
 
 # Создаем таблицу unblock для ipset ip4
-ipset4_create_table
+ip4set_create_table
 ip4_mark_vpn_network
 
 exit 0

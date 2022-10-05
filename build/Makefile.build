@@ -1,9 +1,13 @@
 #!/bin/bash
-. /apps/kvas/build/library.run
+
+get_version_part()(cat < /apps/kvas/build/version | grep ${1} | cut -d'=' -f2)
+version=$(get_version_part VERSION)
+stage=$(get_version_part STAGE)
+release=$(get_version_part RELEASE)
 
 APP_VER_FULL_TEXT="${version}-${stage}-${release}"
 
-makefile_path=/apps/kvas/build/Makefile
+makefile=./build/Makefile
 POST_INST=$(cat < /apps/kvas/build/postinst \
 			| sed 's/\$/\$\$/g' \
 			| sed "s/@app_ver/${APP_VER_FULL_TEXT}/g" \
@@ -13,7 +17,7 @@ POST_TERM=$(cat < /apps/kvas/build/postrm \
 			| sed "s/@app_ver/${APP_VER_FULL_TEXT}/g" \
 			)
 
-cat <<EOF > "${makefile_path}"
+cat <<EOF > "${makefile}"
 include \$(TOPDIR)/rules.mk
 
 PKG_NAME:=kvas
@@ -88,5 +92,5 @@ endef
 EOF
 
 cd /apps/entware || exit
-mv ${makefile_path} /apps/entware/package/utils/kvas/Makefile
+mv ${makefile} /apps/entware/package/utils/kvas/Makefile
 echo "Makefile успешно создан"

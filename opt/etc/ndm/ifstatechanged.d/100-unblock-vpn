@@ -1,27 +1,20 @@
 #!/bin/sh
 . /opt/apps/kvas/bin/libs/ndm
 
-[ "${1}" = "hook" ] || exit 0
-[ "${change}" = "link" ] || exit 0
-[ "${id}" = "${INFACE_CLI}" ] || exit 0
+[ "${1}" = "hook" ] && \
+[ "${change}" = "link" ] && \
+[ "${id}" = "${INFACE_CLI}" ] && {
 
-case "${id}-${change}-${connected}-${link}-${up}" in
+	case "${id}-${change}-${connected}-${link}-${up}" in
     "${id}-link-no-down-down" )
-		logger "unblock::Интерфейс ${INFACE_CLI} разрывается"
-        ip4 rule del fwmark 0xd1000 lookup ${TABLE_ID} priority ${PRIORITY} 2>/dev/null
-        ip4 route flush table ${TABLE_ID}
-        logger "unblock::Таблица ID#${TABLE_ID} удалена"
+		ip4_rule_del_priority
     ;;
     "${id}-link-yes-up-up" )
-    	logger "unblock::Поднимаем ${INFACE_CLI} интерфейс"
-        ip4 route add table ${TABLE_ID} default via ${INFACE_GW4} dev ${INFACE_ENT} 2>/dev/null
-        ip4 route show table main |grep -Ev ^default | while read -r ROUTE; do ip4 route add table ${TABLE_ID} ${ROUTE} 2>/dev/null; done
-        logger "unblock::Устанавливаем приоритет таблицы ID#${TABLE_ID} в значение ${PRIORITY}"
-        ip4 rule add fwmark 0xd1000 lookup ${TABLE_ID} priority ${PRIORITY} 2>/dev/null
-        ip4 route flush cache
-        logger "unblock::DNS кэш очищен."
-        logger "unblock::Таблица ID#${TABLE_ID} создана"
+		ip4_add_route_table
+		ip4_rule_set_priority
     ;;
-esac
+	esac
 
-exit 0
+	exit 0
+}
+

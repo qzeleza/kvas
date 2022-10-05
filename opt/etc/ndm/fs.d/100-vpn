@@ -31,5 +31,6 @@
 	ip4_add_route_table
 #	Устанавливаем приоритет таблицы
 	ip4_rule_set_priority
+	exit 0
 }
 

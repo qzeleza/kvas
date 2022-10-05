@@ -18,14 +18,9 @@
 #	Лицензия: GPL 2.0
 # ------------------------------------------------------------------------------
 
-[ "${type}" = "iptables" ] || exit 0
+[ "${type}" = "iptables" ] && {
+	ip4_firewall_dns_rules_set @INFACE @LOCAL_IP tcp
+	ip4_firewall_dns_rules_set @INFACE @LOCAL_IP udp
+	exit 0
+}
 
-# если правила для tcp есть, то пропускаем их добавление
-if ! /opt/sbin/iptables-save 2>/dev/null | grep -q "tcp \-\-dport 53 \-j DNAT"; then
-    /opt/sbin/iptables -w -t nat -I PREROUTING -i @INFACE -p tcp --dport 53 -j DNAT --to @LOCAL_IP
-fi
-# если правила для udp есть, то пропускаем их добавление
-if ! /opt/sbin/iptables-save 2>/dev/null | grep -q "udp \-\-dport 53 \-j DNAT"; then
-    /opt/sbin/iptables -w -t nat -I PREROUTING -i @INFACE -p udp --dport 53 -j DNAT --to @LOCAL_IP
-fi
-exit 0

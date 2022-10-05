@@ -1035,7 +1035,7 @@ cmd_shadowsocks_iptable_reset() {
 	inface=$(get_inface_by_ip "${local_ip}")
 	proxy_port=$(get_config_value SSR_DNS_PORT)
 	. /opt/apps/kvas/bin/libs/ndm
-	ipset4_create_table
+	ip4set_create_table
 	ip4_firewall_set_ssr_rules "${inface}" "${proxy_port}"
 	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
 }

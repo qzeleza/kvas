@@ -1,6 +1,8 @@
 #! /usr/bin/env bash
 set -e
-. /apps/kvas/build/library.run
+DEBUG=NO
+
+line()(printf '=%.s' {1..100} && printf '\n')
 
 if [ ${DEBUG} = 'YES' ]; then
 	num_proc=1

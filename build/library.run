@@ -1,33 +1,38 @@
 #!/bin/bash
-get_version_part()(cat < /apps/kvas/build/version | grep ${1} | cut -d'=' -f2)
+set -e
+
+get_version_part()(cat < ./build/version | grep ${1} | cut -d'=' -f2)
 line()(printf '=%.s' {1..100} && printf '\n')
 
 version=$(get_version_part VERSION)
 stage=$(get_version_part STAGE)
 release=$(get_version_part RELEASE)
 
-remote_file=/apps/kvas/debug/remote.conf
+remote_dir=./debug
+remote_file=${remote_dir}/remote.conf
+
 # в случае первого запуска продукта
 if ! [ -f "${remote_file}" ]; then
-	read -p "Введите имя пользователя устройства, с которого Вы будете вести разработку: " user
-	read -p "Введите имя группы, к которой принадлежит пользовтаель: " group
+#	read -p "Введите ИМЯ пользователя на устройстве, с которого Вы будете вести разработку: " user
+#	read -p "Введите имя ГРУППЫ, к которой принадлежит пользователь: " group
 	read -p "Введите IP роутера, на котором планируется тестирование Кваса: " router_ip
-	read -p "Введите номер SSH порта роутера: " router_port
-	read -ps "Введите пароль доступа к роутеру: " router_passwd
+	read -p "Введите НОМЕР SSH порта роутера: " router_port
+	read -p "Введите ПАРОЛЬ доступа к роутеру для пользователя root: " router_passwd
 
-cat <<EOF > "${makefile_path}"
+mkdir -p "${remote_dir}"
+cat <<EOF > "${remote_file}"
 PASSWD=${router_passwd}
 PORT=${router_port}
 ROUTER=root@${router_ip}
-USER_NAME=${user}
-USER_GROUP=${group}
+USER_NAME=$(whoami)
+USER_GROUP=$(groups master | cut -d' ' -f1)
 U_ID=5001
 G_ID=5001
 EOF
 
 fi
 
-get_remove_value()(cat "${remote_file}" | grep -E "^${1}=" | cut -d'=' -f2)
+get_remove_value()(cat < "${remote_file}" | grep -E "^${1}=" | cut -d'=' -f2)
 
 copy_ssh_keys_to_router(){
 	# если ключи отсутствуют на NAS

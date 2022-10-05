@@ -13,8 +13,7 @@
 # ------------------------------------------------------------------------------
 
 [ "${1}" = "start" ] && {
-	export PATH="${PATH}:/opt/bin/kvas"
-	ipset4_create_table
-	# ipset6_create_table
+	ip4set_create_table
+	# ip6set_create_table
 	exit 0
 }

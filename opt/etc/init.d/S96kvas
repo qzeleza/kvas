@@ -19,7 +19,9 @@
 #	Лицензия: GPL 2.0
 # ------------------------------------------------------------------------------
 
-[ "$1" = "start" ] && {
-	/opt/etc/ndm/fs.d/100-ipset start
-	/opt/apps/kvas/bin/main/ipset &
-}
+case ${1} in
+	start|restart)
+		. /opt/apps/kvas/bin/libs/ndm
+		ip4_init_all
+	;;
+esac
