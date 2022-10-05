@@ -30,7 +30,7 @@ fi
 get_remove_value()(cat "${remote_file}" | grep -E "^${1}=" | cut -d'=' -f2)
 
 copy_ssh_keys_to_router(){
-	# если ключи отсуствуют на NAS
+	# если ключи отсутствуют на NAS
 	if [ ! -f ~/.ssh/id_rsa ]; then
 		_port=$(get_remove_value 'PORT')
 		_router=$(get_remove_value 'ROUTER')

@@ -36,7 +36,7 @@ host_vpn_pass_check() {
 	done
 	ip_list=$(echo "${ip_list}" | tr ' ' ', ' )
 	ready "Адреса домена [${ip_list::-2}] в списке ipset"
-	[ "${is_ok}" = 0 ] && when_ok "ЕСТЬ" || when_bad "ОТСУСТВУЮТ"
+	[ "${is_ok}" = 0 ] && when_ok "ЕСТЬ" || when_bad "ОТСУТСТВУЮТ"
 
 	if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН"; then
 		ready "Домен в файл конфигурации adguard добавлен "

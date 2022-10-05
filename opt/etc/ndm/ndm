@@ -12,6 +12,7 @@
 #	Дата создания: 13/09/2022
 #	Лицензия: GPL 2.0
 # ------------------------------------------------------------------------------------------
+LOG_ENABLE=YES
 app="КВАС"
 # имя таблицы для ipset
 table_name=unblock
@@ -25,6 +26,28 @@ INFACE_ENT=@ENTWARE_INFACE_NAME
 #как пример гостевая сеть br3, которой необходимо обеспечить доступ к VPN
 INFACE_GUEST_ENT=
 
+# Файл временного хранения результатов исполнения команды
+res_file=/opt/tmp.kvas.result
+# ------------------------------------------------------------------------------------------
+
+# Функции логирования результата
+logger_dev()( [ "${LOG_ENABLE}" ] && logger "${1}" )
+log_result(){
+#	Если логирование подключено
+	[ "${LOG_ENABLE}" = "YES" ] && {
+		operation_result="${1}"
+		log_message="${2}"
+		if [ "${operation_result}" = 0 ]; then
+			logger "${log_message} УСПЕШНО."
+		else
+			logger "${log_message} C ОШИБКОЙ!"
+			logger "$(cat "${res_file}")"
+		fi
+		rm -f "$(cat "${res_file}")"
+	}
+}
+# ------------------------------------------------------------------------------------------
+
 ip4() (/opt/sbin/ip -4 "$@")
 ip4tables() (if ! /opt/sbin/iptables -C "$@" &>/dev/null; then /opt/sbin/iptables -A "$@"; fi)
 ip4save() (/opt/sbin/iptables-save)
@@ -34,32 +57,38 @@ INFACE_GW4=$(get_gw4 "${INFACE_ENT}")
 INFACE_GUEST_GW4=$([ -n "${INFACE_GUEST_ENT}" ] && get_gw4 "${INFACE_GUEST_ENT}")
 GUEST_NET="$([ -n "${INFACE_GUEST_ENT}" ] && echo "${INFACE_GUEST_GW4}" | cut -d'.' -f1-3).0/24"
 
+# ------------------------------------------------------------------------------------------
 # проверка на доступность программного и аппаратного ускорения
+# ------------------------------------------------------------------------------------------
 fastnet_support()(curl -s localhost:79/rci/show/version | grep -q ppe)
 fast_hw_enabled()(! curl -s localhost:79/rci/show/rc/ppe | grep hardware -C1 | grep -q false)
 fast_sw_enabled()(! curl -s localhost:79/rci/show/rc/ppe | grep software -C1 | grep -q false)
 fastnet_enabled()(fast_hw_enabled || fast_sw_enabled)
+# ------------------------------------------------------------------------------------------
 
 ip4_firewall_mark_vpn(){
 #		Маркируем трафик для домашней(основной) сети и прохождение пакетов через VPN подключение
-	ip4tables PREROUTING -t mangle -m conntrack --ctstate NEW -m set --match-set "${table_name}" dst -j CONNMARK --set-mark 0xd1000
-	ip4tables PREROUTING -t mangle -j CONNMARK --restore-mark
-	logger "${app}::Маркировка трафика для VPN соединения подключена."
+	ip4tables PREROUTING -t mangle -m conntrack --ctstate NEW -m set --match-set "${table_name}" dst -j CONNMARK --set-mark 0xd1000 2>"${res_file}"
+	ip4tables PREROUTING -t mangle -j CONNMARK --restore-mark >> "${res_file}"
+	log_result "${?}" "${app}::Маркировка трафика для VPN соединений подключена"
 }
+# ------------------------------------------------------------------------------------------
 
 ip4_firewall_mark_rules_tcp_udp_on(){
 	# Исключаем маркировку трафика для гостевой (в том числе) сети
-	ip4tables PREROUTING -t mangle -i "${INFACE_GUEST_ENT}" -p tcp -m set --match-set ${table_name} dst -j MARK --set-mark 0xd1000
-	ip4tables PREROUTING -t mangle -i "${INFACE_GUEST_ENT}" -p udp -m set --match-set ${table_name} dst -j MARK --set-mark 0xd1000
-	logger "${app}::Маркировка трафика гостевой сети для tcp и udp ВКЛЮЧЕНА."
+	ip4tables PREROUTING -t mangle -i "${INFACE_GUEST_ENT}" -p tcp -m set --match-set ${table_name} dst -j MARK --set-mark 0xd1000 2>"${res_file}"
+	ip4tables PREROUTING -t mangle -i "${INFACE_GUEST_ENT}" -p udp -m set --match-set ${table_name} dst -j MARK --set-mark 0xd1000 2>>"${res_file}"
+	log_result "${?}" "${app}::Маркировка трафика гостевой сети для tcp и udp подключена"
 }
+# ------------------------------------------------------------------------------------------
 
 ip4_firewall_set_ssr_rules(){
 	inface="${1}"
 	proxy_port="${2}"
-	ip4tables PREROUTING -w -t nat -i ${inface} -p tcp -m set --match-set "${table_name}" dst -j REDIRECT --to-port ${proxy_port}
-	logger "${app}::Произведена установка правил iptable для Shadowsocks подключения"
+	ip4tables PREROUTING -w -t nat -i ${inface} -p tcp -m set --match-set "${table_name}" dst -j REDIRECT --to-port ${proxy_port} 2>"${res_file}"
+	log_result "${?}" "${app}::Установка установка правил iptable для Shadowsocks подключения произведена"
 }
+# ------------------------------------------------------------------------------------------
 
 ip4_firewall_flush_vpn_rules(){
 	num_lines=$(/opt/sbin/iptables -t mangle -L PREROUTING --line-numbers | grep CONNMARK | grep -cE "(${table_name}|restore-mark)")
@@ -71,13 +100,14 @@ ip4_firewall_flush_vpn_rules(){
 					| cut -d" " -f1 \
 					| head -1 \
 					)
-			/opt/sbin/iptables -t mangle -D PREROUTING "${nline}"
+			/opt/sbin/iptables -t mangle -D PREROUTING "${nline}" 2>"${res_file}"
 		done
-		logger "${app}::Произведена очистка правил iptable для VPN подключения"
+		log_result "${?}" "${app}::Очистка правил iptable для VPN подключения произведена"
 	else
-		logger "${app}::Правила iptable для VPN подключения отсуствуют."
+		logger_dev "${app}::Правила iptable для VPN подключения отсутствуют."
 	fi
 }
+# ------------------------------------------------------------------------------------------
 
 ip4_firewall_flush_ssr_rules(){
 	num_lines=$(/opt/sbin/iptables -t nat -L PREROUTING --line-numbers | grep -c "${table_name}")
@@ -88,74 +118,89 @@ ip4_firewall_flush_ssr_rules(){
 					| cut -d" " -f1 \
 					| head -1\
 					)
-			/opt/sbin/iptables -t nat -D PREROUTING "${nline}"
+			/opt/sbin/iptables -t nat -D PREROUTING "${nline}" 2>"${res_file}"
 		done
-		logger "${app}::Произведена очистка правил iptable для Shadowsocks подключения"
+		log_result "${?}" "${app}::Очистка правил iptable для Shadowsocks подключения произведена"
 	else
-		logger "${app}::Правила iptable для Shadowsocks подключения отсуствуют."
+		logger_dev "${app}::Правила iptable для Shadowsocks подключения отсутствуют."
 	fi
 }
-
+# ------------------------------------------------------------------------------------------
 
 
 ip4_flush_all_tables(){
-	ipset flush "${table_name}"
-	logger "${app}::Произведена очистка записей ipset таблицы ${table_name}."
-	ip4 route flush table "${TABLE_ID}"
-	logger "${app}::Произведена очистка таблица маршрутизации ID#${TABLE_ID}."
-	ip4 route flush cache
-	logger "${app}::Произведена очистка кеша маршрутизации."
+	ipset flush "${table_name}" 2>"${res_file}"
+	log_result "${?}" "${app}::Очистка произведена записей ipset таблицы ${table_name}"
+
+	ip4 route flush table "${TABLE_ID}" > "${res_file}"
+	log_result "${?}" "${app}::Очистка произведена таблица маршрутизации ID#${TABLE_ID}"
+
+	ip4 route flush cache > "${res_file}"
+	log_result "${?}" "${app}::Очистка произведена кеша маршрутизации"
 }
+# ------------------------------------------------------------------------------------------
 
 ip4_add_route_table(){
-	logger "${app}::Поднимаем ${INFACE_CLI} интерфейс"
-	ip4 route add table ${TABLE_ID} default via ${INFACE_GW4} dev ${INFACE_ENT} 2>/dev/null
-	ip4 route show table main |grep -Ev ^default | while read -r ROUTE; do ip4 route add table ${TABLE_ID} ${ROUTE} 2>/dev/null; done
-	logger "${app}::Таблица ID#${TABLE_ID} создана"
+	ip4 route add table ${TABLE_ID} default via ${INFACE_GW4} dev ${INFACE_ENT} 2>"${res_file}"
+	log_result "${?}" "${app}::Таблица маршрутизации ${TABLE_ID} для ${INFACE_CLI} интерфейса создана"
+
+	ip4 route show table main |grep -Ev ^default | while read -r ROUTE; do ip4 route add table ${TABLE_ID} ${ROUTE} 2>"${res_file}"; done
+	log_result "${?}" "${app}::Таблица ID #${TABLE_ID} создана"
 }
+# ------------------------------------------------------------------------------------------
 
 ip4_rule_set_priority(){
-	logger "${app}::Устанавливаем приоритет таблицы ID#${TABLE_ID} в значение ${PRIORITY}"
-	ip4 rule add fwmark 0xd1000 lookup ${TABLE_ID} priority ${PRIORITY} 2>/dev/null
-	ip4 route flush cache
-	logger "${app}::DNS кэш очищен."
+	ip4 rule add fwmark 0xd1000 lookup ${TABLE_ID} priority ${PRIORITY} 2>"${res_file}"
+	log_result "${?}" "${app}::Приоритет таблицы ID #${TABLE_ID} установлен в значение ${PRIORITY}"
+
+	ip4 route flush cache 2>>"${res_file}"
+	log_result "${?}" "${app}::DNS кэш очищен"
 }
+# ------------------------------------------------------------------------------------------
 
 ipset4_create_table(){
-	ipset create ${table_name} hash:net family inet -exist
-	logger "${app}::Таблица ${table_name} для ipset IPv4 создана"
+	ipset list ${table_name} | grep -q 'name does not exist' && {
+		ipset create ${table_name} hash:net family inet -exist 2>"${res_file}"
+		log_result "${?}" "${app}::Таблица ${table_name} для ipset IPv4 создана"
+	}
 }
+# ------------------------------------------------------------------------------------------
 
 ip4_mark_vpn_network(){
 
 	if fastnet_enabled ; then
-		ip4save | grep "\-j CONNMARK" | grep -qE "mark|${table_name}" || {
+		dev_logger "${app}::Проверка пройдена -> программное и аппаратное ускорение ПОДКЛЮЧЕНО."
+		if ! ip4save | grep "\-j CONNMARK" | grep -qE "mark|${table_name}" ; then
 			# Без отключения ускорителей fastnat и hwnat
-			logger "${app}::Программное и аппаратное ускорение ПОДКЛЮЧЕНО."
 			ip4_firewall_mark_vpn
-		}
+		fi
 	else
-		ip4save | grep "\j MARK" | grep -q "${table_name}" || {
+		dev_logger "${app}::Проверка пройдена -> программное и аппаратное ускорение ОТКЛЮЧЕНО!"
+		if ! ip4save | grep "\j MARK" | grep -q "${table_name}" ; then
 			# С отключением fastnat и ускорителей hwnat
-			logger "${app}::Программное и аппаратное ускорение ОТКЛЮЧЕНО!"
 			ip4_firewall_mark_rules_tcp_udp_on
-		}
+		fi
 	fi
 #	в случае наличия гостевой сети
 	if [ -n "${INFACE_GUEST_ENT}" ]; then
-		ip4_add_guest_to_vpn_network
+		ip4save | grep "\-j MASQUERADE" | grep -q "${INFACE_GUEST_ENT}" && ip4_add_guest_to_vpn_network
 	fi
 }
-
+# ------------------------------------------------------------------------------------------
+#
+# 	Правила маркировки гостевого трафика
+#
+# ------------------------------------------------------------------------------------------
 ip4_add_guest_to_vpn_network(){
 	# Маркируем трафик гостевой сети
-	ip4tables PREROUTING -t nat -p udp -d "${INFACE_GUEST_GW4}" --dport 53 -j DNAT --to "${INFACE_GW4}:53"
-	ip4tables POSTROUTING -t nat -s "${GUEST_NET}" -o "${INFACE_GUEST_ENT}" -j MASQUERADE
-	logger "${app}::Маркировка гостевого трафика подключена ${INFACE_GUEST_ENT} [${INFACE_GUEST_GW4}]."
+	ip4tables PREROUTING -t nat -p udp -d "${INFACE_GUEST_GW4}" --dport 53 -j DNAT --to "${INFACE_GW4}:53" 2>"${res_file}"
+	ip4tables POSTROUTING -t nat -s "${GUEST_NET}" -o "${INFACE_GUEST_ENT}" -j MASQUERADE  2>>"${res_file}"
+	log_result "${?}" "${app}::Маркировка гостевого трафика подключена ${INFACE_GUEST_ENT} [${INFACE_GUEST_GW4}]"
 }
 
-ip4_del_guest_to_vpn_network(){
+# ------------------------------------------------------------------------------------------
 
+ip4_flush_guest_preroute_rules (){
 	num_lines=$(/opt/sbin/iptables -t nat -L PREROUTING --line-numbers | grep -c "${INFACE_GUEST_GW4}")
 	if [ "${num_lines}" -gt 0 ]; then
 		for b in $(seq 1 ${num_lines}); do
@@ -164,12 +209,17 @@ ip4_del_guest_to_vpn_network(){
 					| cut -d" " -f1 \
 					| head -1 \
 					)
-			/opt/sbin/iptables -t nat -D PREROUTING "${nline}"
+			/opt/sbin/iptables -t nat -D PREROUTING "${nline}" 2>"${res_file}"
 		done
-		logger "${app}::Маркировка гостевого PREROUTING трафика отключена ${INFACE_GUEST_ENT} [${INFACE_GUEST_GW4}]."
+		log_result "${?}" "${app}::Маркировка гостевого PREROUTING трафика отключена ${INFACE_GUEST_ENT} [${INFACE_GUEST_GW4}]"
 	else
-		logger "${app}::Правила PREROUTING iptable для гостевой сети ${INFACE_GUEST_ENT} [${INFACE_GUEST_GW4}] отсуствуют."
+		logger_dev "${app}::Правила PREROUTING iptable для гостевой сети ${INFACE_GUEST_ENT} [${INFACE_GUEST_GW4}] отсутствуют."
 	fi
+}
+# ------------------------------------------------------------------------------------------
+
+ip4_flush_guest_postroute_rules(){
+
 	filter="$(echo ${INFACE_GUEST_GW4} | sed 's/\.1$/\.0/')/24"
 	num_lines=$(/opt/sbin/iptables -t nat -L POSTROUTING --line-numbers | grep -c "${filter}")
 	if [ "${num_lines}" -gt 0 ]; then
@@ -179,24 +229,29 @@ ip4_del_guest_to_vpn_network(){
 					| cut -d" " -f1 \
 					| head -1 \
 					)
-			/opt/sbin/iptables -t nat -D PREROUTING "${nline}"
+			/opt/sbin/iptables -t nat -D PREROUTING "${nline}" 2>"${res_file}"
 		done
-		logger "${app}::Маркировка гостевого POSTROUTING трафика отключена ${INFACE_GUEST_ENT} [${INFACE_GUEST_GW4}]."
+		log_result "${?}" "${app}::Маркировка гостевого POSTROUTING трафика отключена ${INFACE_GUEST_ENT} [${INFACE_GUEST_GW4}]"
 	else
-		logger "${app}::Правила POSTROUTING iptable для гостевой сети ${INFACE_GUEST_ENT} [${INFACE_GUEST_GW4}] отсуствуют."
+		logger_dev "${app}::Правила POSTROUTING iptable для гостевой сети ${INFACE_GUEST_ENT} [${INFACE_GUEST_GW4}] отсутствуют."
 	fi
-
 }
-#----------------------------------------------------------------
+# ------------------------------------------------------------------------------------------
+
+ip4_del_guest_to_vpn_network(){
+	ip4_flush_guest_preroute_rules
+	ip4_flush_guest_postroute_rules
+}
+# ------------------------------------------------------------------------------------------
 #
 # Функции для поддержки протокола ip6
 #
-#----------------------------------------------------------------
+# ------------------------------------------------------------------------------------------
 ip6() (/opt/sbin/ip -6 "$@")
 ip6tables() (if ! /opt/sbin/ip6tables -C "$@" &>/dev/null; then ip6tables -A "$@"; fi)
 ip6save() (/opt/sbin/ip6tables-save)
 
 ipset6_create_table(){
-	ipset create "${table_name}6" hash:net family inet6 -exist
-	logger "${app}::Таблица ${table_name} для ipset IPv6 создана"
+	ipset create "${table_name}6" hash:net family inet6 -exist 2>"${res_file}"
+	log_result "${?}" "${app}::Таблица ${table_name} для ipset IPv6 создана"
 }
