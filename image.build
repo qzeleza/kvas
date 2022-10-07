@@ -7,7 +7,8 @@ put()(echo "${1}" >> .env)
 
 #------------------------------------------------------------
 DEBUG=YES
-image_name="kvas_develop"
+container_name="kvas_develop"
+image_name="zeleza/kvas-dev"
 user=$(get_remove_value "USER_NAME")
 group=$(get_remove_value "USER_GROUP")
 user_uid=$(get_remove_value "U_ID")
@@ -15,6 +16,7 @@ user_gid=$(get_remove_value "G_ID")
 # ------------------------------------------------------------
 
 put "IMAGE_NAME=${image_name}"
+put "CONTAINER_NAME=${container_name}"
 put "NAME=${user}"
 put "GROUP=${group}"
 put "UID=${user_uid}"
@@ -24,22 +26,15 @@ put "VERSION=${version}.${stage}.${release}"
 put "DEBUG=${DEBUG}"
 
 # Если уже создан образ kvas_develop
+
 docker container prune -f
+
 if [ "${1}" = build ] || [ -z "$(docker ps -a -f 'status=running' | grep kvas)" ]; then
-#	то заходим внуть контейнера kvas_develop и сразу запускаем соборку пакета
+#	то заходим внутрь контейнера kvas_develop и сразу запускаем сборку пакета
 #	если не создан образ, то запускаем сборку образа
 	line
 	echo "Запускаем сборку образа ${IMAGE_NAME}"
 	line
 	docker-compose up --build -d
-
+	exit 0
 fi
-line
-echo "Запускаем контейнер и сразу запускаем сборку пакета в самом контейнере"
-line
-docker run \
-		--user "${user_uid}:${user_gid}" -it \
-		--mount type=bind,src=/apps/kvas,dst=/apps/kvas ${image_name} \
-		/apps/kvas/build/package.build \
-		/bin/bash
-#docker run --user 5001:5001 -it --mount type=bind,src=/apps/kvas,dst=/apps/kvas kvas_develop /bin/bash

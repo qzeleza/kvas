@@ -83,17 +83,43 @@ ip4_firewall_dns_rules_set(){
 		ip4tables PREROUTING -w -t nat -i ${inface} -p ${protocol} --dport ${DNS_PORT} -j DNAT --to ${local_ip}
 	fi
 }
-
+# ------------------------------------------------------------------------------------------
+# Маркировка VPN подключений когда программное и аппаратное ускорение ПОДКЛЮЧЕНО
+# ------------------------------------------------------------------------------------------
 ip4_firewall_mark_vpn(){
 	if ! ip4save | grep "\-j CONNMARK" | grep -qE "mark|${table_name}" ; then
 		# Маркируем трафик для домашней(основной) сети и прохождение пакетов через VPN подключение
-		ip4tables PREROUTING -t mangle -m conntrack --ctstate NEW -m set --match-set "${table_name}" dst -j CONNMARK --set-mark ${MARK_NUM} 2>"${res_file}"
-		ip4tables PREROUTING -t mangle -j CONNMARK --restore-mark >> "${res_file}"
+		{
+			iptables -N VPNREDIR -t mangle
+			ip4tables VPNREDIR -t mangle -m set ! --match-set "${table_name}" dst -j RETURN
+			ip4tables VPNREDIR -t mangle -d 0.0.0.0/8 -j RETURN
+			ip4tables VPNREDIR -t mangle -d 127.0.0.0/8 -j RETURN
+			ip4tables VPNREDIR -t mangle -d 10.0.0.0/8 -j RETURN
+			ip4tables VPNREDIR -t mangle -d 169.254.0.0/16 -j RETURN
+			ip4tables VPNREDIR -t mangle -d 172.16.0.0/12 -j RETURN
+			ip4tables VPNREDIR -t mangle -d 192.168.0.0/16 -j RETURN
+			ip4tables VPNREDIR -t mangle -j CONNMARK --restore-mark
+			ip4tables VPNREDIR -t mangle -m mark --mark ${MARK_NUM} -j RETURN
+			ip4tables VPNREDIR -t mangle -p tcp --syn -j MARK --set-mark ${MARK_NUM}
+			ip4tables VPNREDIR -t mangle -p udp -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM}
+			ip4tables VPNREDIR -t mangle -j CONNMARK --save-mark
+
+			ip4tables PREROUTING -t mangle -p tcp -m set --match-set "${table_name}" dst -j VPNREDIR
+			ip4tables PREROUTING -t mangle -p udp -m set --match-set "${table_name}" dst -j VPNREDIR
+			ip4tables OUTPUT     -t mangle -p tcp -m set --match-set "${table_name}" dst -j VPNREDIR
+			ip4tables OUTPUT     -t mangle -p udp -m set --match-set "${table_name}" dst -j VPNREDIR
+
+		} 2> "${res_file}"
+#
+#		ip4tables PREROUTING -t mangle -m conntrack --ctstate NEW -m set --match-set "${table_name}" dst -j CONNMARK --set-mark ${MARK_NUM} 2>"${res_file}"
+#		ip4tables PREROUTING -t mangle -j CONNMARK --restore-mark >> "${res_file}"
 		log_result "${?}" "${app}::Маркировка трафика для VPN соединений подключена"
 	fi
+	}
 }
 # ------------------------------------------------------------------------------------------
-
+# Маркировка VPN подключений когда программное и аппаратное ускорение ОТКЛЮЧЕНО
+# ------------------------------------------------------------------------------------------
 ip4_firewall_mark_rules_tcp_udp_on(){
 	if ! ip4save | grep "\j MARK" | grep -q "${table_name}" ; then
 		# Исключаем маркировку трафика для гостевой (в том числе) сети

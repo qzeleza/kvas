@@ -1,14 +1,15 @@
 #!/bin/bash
 set -e
 
-get_version_part()(cat < ./build/version | grep ${1} | cut -d'=' -f2)
+get_kvas_path()(echo $(pwd) | sed 's/\(.*\/kvas\).*/\1/')
+get_version_part()(cat < "$(get_kvas_path)"/build/version | grep ${1} | cut -d'=' -f2)
 line()(printf '=%.s' {1..100} && printf '\n')
 
 version=$(get_version_part VERSION)
 stage=$(get_version_part STAGE)
 release=$(get_version_part RELEASE)
 
-remote_dir=./debug
+remote_dir="$(get_kvas_path)/debug"
 remote_file=${remote_dir}/remote.conf
 
 # в случае первого запуска продукта
@@ -36,19 +37,11 @@ get_remove_value()(cat < "${remote_file}" | grep -E "^${1}=" | cut -d'=' -f2)
 
 copy_ssh_keys_to_router(){
 	# если ключи отсутствуют на NAS
-	if [ ! -f ~/.ssh/id_rsa ]; then
-		_port=$(get_remove_value 'PORT')
-		_router=$(get_remove_value 'ROUTER')
-		echo -n "Создаем ssh ключи "
-		ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa &>/dev/null
-		[ $? -ne 0 ] && ( echo ''; echo "Ошибка создания ключей."; exit 1)
-		echo "и копируем их на роутер ${_router} порт ${_port}..."
-		scp -P "${_port}" ~/.ssh/id_rsa.pub "${_router}:/opt/etc/.ssh/authorized_keys"
-		[ $? -ne 0 ] && echo "Ошибка копирования ключей на роутер."; exit 1
-	else
-		echo "ssh ключ уже создан: "
-		cat ~/.ssh/id_rsa.pub
-	fi
+	_port=$(get_remove_value 'PORT')
+	_router=$(get_remove_value 'ROUTER')
+	echo "Копируем ключи на роутер ${_router} порт ${_port}..."
+	scp -P "${_port}" /root/.ssh/id_rsa.pub "${_router}:/root/.ssh/authorized_keys"
+	[ $? -ne 0 ] && echo "Ошибка копирования ключей на роутер."; exit 1
 }
 
 copy_kvas_to_router(){

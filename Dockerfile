@@ -32,7 +32,8 @@ RUN rm -rf /var/lib/apt/lists/* \
     && cp `ls /apps/entware/configs/mipsel-*` .config \
     && chown -R ${NAME}:${GROUP} /apps/entware /apps/kvas \
     && chmod -R +x /apps/kvas/build/*.run \
-    && mkdir -p /apps/entware/package/utils/kvas/opt/
+    && mkdir -p /apps/entware/package/utils/kvas/opt/ \
+    && ssh-keygen -t rsa -N "" -f /root/.ssh/id_rsa
 
 COPY ./opt/. /apps/entware/package/utils/kvas/opt/
 

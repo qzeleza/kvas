@@ -1,5 +1,11 @@
 #!/bin/bash
 set -e
+
+[ "$(whoami)" = root ] || {
+	echo "Запуск контейнера при сборке пакета необходимо производить под именем root."
+	echo "Выйдете из контейнера и снова войдите в него с аргументом --user root:root !"
+	exit 1
+}
 . /apps/kvas/build/library.run
 #------------------------------------------------------------------------------
 #
@@ -14,7 +20,7 @@ set -e
 #	Дата создания: 01/09/2022
 #	Лицензия: GPL 2.0
 # ------------------------------------------------------------------------------
-DEBUG=NO
+DEBUG=YES #
 
 if [ "${DEBUG}" = 'YES' ] ; then
 	num_proc=1
@@ -66,3 +72,5 @@ cp "${APP_PKG_FILE}" "/apps/kvas/ipk"
 
 line; copy_ssh_keys_to_router; line
 copy_kvas_to_router; line
+
+}

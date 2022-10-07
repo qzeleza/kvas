@@ -6,6 +6,7 @@
 .DS_Store
 .idea/
 ipk/
+.env
 
 ## User-specific stuff
 #.idea/**/workspace.xml

@@ -50,25 +50,25 @@ cd <корневая папка>/apps/kvas/
     - **dst=/apps/kvas** - папка внутри контейнера, в которой хранятся исходники кода пакета **Квас** 
     - **kvas_develop** - имя собранного образа
 ```
-docker run -it --mount type=bind,src=<корневая папка>/apps/kvas,dst=/apps/kvas kvas_develop /bin/bash
+docker run -it --mount type=bind,src=$(pwd),dst=/apps/kvas kvas-develop /bin/bash
 ```
   - Если контейнер уже существует, но не запущен, то находим его **id** и затем запускаем его, после чего подключаемся к нему,
 ```
-docker exec -it $(docker start $(docker ps -a | grep kvas_develop | cut -d' ' -f1)) /bin/bash
+docker exec -it $(docker start $(docker ps -a | grep kvas-develop | cut -d' ' -f1)) /bin/bash
 ```
   - Если контейнер уже запущен (проверяем командой **docker ps**), то тогда подключаемся к нему.
 ```
-docker exec -it $(docker ps | grep kvas_develop | cut -d' ' -f1) /bin/bash
+docker exec -it $(docker ps | grep kvas-develop | cut -d' ' -f1) /bin/bash
 ```
 
 4. Если контейнер был только что собран, то в этом случае, генерируем ssh ключи внутри контейнера и копируем их в буфер обмена.
 ```
-! [ -f ~/.ssh/id_rsa ] && ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa
-cat ~/.ssh/id_rsa.pub 
+! [ -f /root/.ssh/id_rsa ] && ssh-keygen -t rsa -N "" -f /root/.ssh/id_rsa
+cat /root/.ssh/id_rsa.pub 
 ```
  - Далее, заходим на роутер и добавляем скопированный на предыдущем шаге ключ в файл **/opt/etc/.ssh/authorized_keys**
 ```
-nano /opt/etc/.ssh/authorized_keys
+nano /root/.ssh/authorized_keys
 ```
 5. Переходим в терминал контейнера в папку **/apps/kvas/build** (к которому мы подключились на **шаге 3**) и запускаем сборку пакета. Сборка занимает не продолжительное время (от **10** до **60** сек.), так как все необходимые файлы были уже ранее собраны при сборке образа.
 ```

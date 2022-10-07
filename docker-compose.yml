@@ -2,7 +2,7 @@ version: "3.9"
 services:
 
   develop:
-    container_name: "${IMAGE_NAME}"
+    container_name: "${CONTAINER_NAME}"
     build:
       context: .
       dockerfile: Dockerfile
@@ -12,8 +12,7 @@ services:
         NAME: "${NAME}"
 
     volumes:
-      - /apps/kvas:/apps/kvas
-      - /root/.ssh/id_rsa.pub:/pubkey:ro
+      - ./:/apps/kvas
 
     environment:
       VERSION: "${VERSION}"
