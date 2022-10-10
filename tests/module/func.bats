@@ -77,8 +77,10 @@ VARIABLE=TEST_99999; VALUE=99999
 
 
 @test "Проверка получения ID интерфейса на заданном IP адресе [get_inface_by_ip]" {
+	cmd_get_ip="/opt/sbin/ip a | grep inet | grep nwg | sed 's/.*inet[ ]\(.*\)\/24.*/\1/'"
+	run on_server "${cmd_get_ip}"
 
-	cmd="get_inface_by_ip 10.130.2.74"
+	cmd="get_inface_by_ip ${output}"
 	run on_server "${vpn_lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
     [ "${status}" -eq 0 ]

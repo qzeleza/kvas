@@ -1,7 +1,8 @@
 version: "3.9"
 services:
 
-  develop:
+  kvas:
+    image: "${IMAGE_NAME}"
     container_name: "${CONTAINER_NAME}"
     build:
       context: .
@@ -12,7 +13,7 @@ services:
         NAME: "${NAME}"
 
     volumes:
-      - ./:/apps/kvas
+      - .:/apps/kvas
 
     environment:
       VERSION: "${VERSION}"
@@ -20,9 +21,6 @@ services:
       GID: "${GID}"
       TZ: "${TZ}"
       DEBUG: "${DEBUG}"
-      PUBLIC_KEY_FILE: "/pubkey"
-      SUDO_ACCESS: "false"
-      PASSWORD_ACCESS: "false"
       USER: "${USER}"
 
     restart: "unless-stopped"

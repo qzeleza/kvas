@@ -1,7 +1,8 @@
 #! /usr/bin/env bash
-set -e
 
-. ./build/library.run
+RUN_INSIDE_CONTAINER=NO
+
+. ./build/library.run "$(pwd)"
 rm .env
 put()(echo "${1}" >> .env)
 
@@ -14,6 +15,7 @@ group=$(get_remove_value "USER_GROUP")
 user_uid=$(get_remove_value "U_ID")
 user_gid=$(get_remove_value "G_ID")
 # ------------------------------------------------------------
+
 
 put "IMAGE_NAME=${image_name}"
 put "CONTAINER_NAME=${container_name}"
@@ -36,5 +38,22 @@ if [ "${1}" = build ] || [ -z "$(docker ps -a -f 'status=running' | grep kvas)" 
 	echo "Запускаем сборку образа ${IMAGE_NAME}"
 	line
 	docker-compose up --build -d
-	exit 0
 fi
+
+if [ "${?}" = 0 ]; then
+	line
+	echo "Образ собран без ошибок."
+
+	echo "Запускаем сборку пакета в самом контейнере..."
+	docker exec --user "${user}:${group}" -it ${image_name} \
+			/apps/kvas/build/package.build \
+			/bin/bash
+else
+	line
+	echo "Образ собран с ошибками!"
+	exit 1
+fi
+line
+# docker  run --user 5001:5001 -it --mount type=bind,src=$(pwd),dst=/apps/kvas zeleza/kvas-dev /bin/bash
+
+#docker  run --user 5001:5001 -it --mount type=bind,src=$(pwd),dst=/apps/kvas zeleza/kvas-dev /apps/kvas/build/package.build /bin/bash

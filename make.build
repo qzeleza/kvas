@@ -1,17 +1,3 @@
 #! /usr/bin/env bash
 
 . ./image.build
-line
-if [ "${?}" = 0 ]; then
-	echo "Образ собран без ошибок."
-	line
-	echo "Запускаем сборку пакета в самом контейнере..."
-	line
-	docker run --user root:root -it --mount type=bind,src=$(pwd),dst=/apps/kvas ${image_name} \
-		/apps/kvas/build/package.build \
-		/bin/bash
-else
-	echo "Образ собран с ошибками!"
-	exit 1
-fi
-line

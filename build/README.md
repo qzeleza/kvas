@@ -50,7 +50,7 @@ cd <корневая папка>/apps/kvas/
     - **dst=/apps/kvas** - папка внутри контейнера, в которой хранятся исходники кода пакета **Квас** 
     - **kvas_develop** - имя собранного образа
 ```
-docker run -it --mount type=bind,src=$(pwd),dst=/apps/kvas kvas-develop /bin/bash
+docker run --user root:root -it --mount type=bind,src=$(pwd),dst=/apps/kvas kvas-develop /bin/bash
 ```
   - Если контейнер уже существует, но не запущен, то находим его **id** и затем запускаем его, после чего подключаемся к нему,
 ```

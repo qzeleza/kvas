@@ -1,13 +1,9 @@
 #!/bin/bash
-
-get_version_part()(cat < /apps/kvas/build/version | grep ${1} | cut -d'=' -f2)
-version=$(get_version_part VERSION)
-stage=$(get_version_part STAGE)
-release=$(get_version_part RELEASE)
+. /apps/kvas/build/library.run
 
 APP_VER_FULL_TEXT="${version}-${stage}-${release}"
 
-makefile=./build/Makefile
+makefile="${KVAS_PATH}/build/Makefile"
 POST_INST=$(cat < /apps/kvas/build/postinst \
 			| sed 's/\$/\$\$/g' \
 			| sed "s/@app_ver/${APP_VER_FULL_TEXT}/g" \
@@ -30,7 +26,7 @@ include \$(INCLUDE_DIR)/package.mk
 define Package/kvas
 	SECTION:=utils
 	CATEGORY:=Keendev
-	DEPENDS:=+jq +curl +knot-dig +nano-full +cron +bind-dig +dnsmasq-full +ipset +iptables +shadowsocks-libev-ss-redir +shadowsocks-libev-config +libpcre +lynx +dnscrypt-proxy2
+	DEPENDS:=+jq +curl +knot-dig +nano-full +cron +bind-dig +dnsmasq-full +ipset +iptables +shadowsocks-libev-ss-redir +shadowsocks-libev-config +libpcre +dnscrypt-proxy2
 	URL:=no
 	TITLE:=VPN клиент для обработки запросов по внесению хостов в белый список.
 	PKGARCH:=all
@@ -92,5 +88,10 @@ endef
 EOF
 
 cd /apps/entware || exit
-mv ${makefile} /apps/entware/package/utils/kvas/Makefile
-echo "Makefile успешно создан"
+
+make_link=/apps/entware/package/utils/kvas/Makefile
+
+[ -f "${make_link}" ] || {
+	ln -s "${makefile}" "${make_link}";
+	echo "Makefile успешно создан"
+}

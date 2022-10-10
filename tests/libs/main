@@ -2,6 +2,11 @@
 
 vpn_lib_load=". /opt/apps/kvas/bin/libs/vpn"
 
+TEST_NoN_IPv6_INTERFACE=Wireguard0
+TEST_IPv6_INTERFACE=VPS
+TEST_NOT_EXIST_INTERFACE=Wireguard8
+TEST_EXIST_INTERFACE="${TEST_IPv6_INTERFACE}"
+
 on_server(){
 	APP_REMOTE_FILE="../../debug/remote.conf"
 	MY_PORT=$(cat < "${APP_REMOTE_FILE}" | grep -E '^PORT' | cut -d' ' -f3 | cut -d"=" -f2)
@@ -24,7 +29,6 @@ print_line(){
 }
 
 run_test() {
-	print_line
 	echo ${1}
 	"${2}"
 	print_line

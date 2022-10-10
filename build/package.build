@@ -1,12 +1,18 @@
 #!/bin/bash
 set -e
+. /apps/kvas/build/library.run "/apps/kvas"
 
-[ "$(whoami)" = root ] || {
-	echo "Запуск контейнера при сборке пакета необходимо производить под именем root."
-	echo "Выйдете из контейнера и снова войдите в него с аргументом --user root:root !"
-	exit 1
+copy_changed_file_to_build(){
+	rm -rf /apps/entware/package/utils/kvas/*
+	rm -rf /apps/entware/staging_dir/target-mipsel_mips32r2_glibc-2.27/root-mipsel-3.4/./opt/apps/kvas
+	mkdir -p /apps/entware/package/utils/kvas/
+	cp -rf /apps/kvas/opt/ /apps/entware/package/utils/kvas/files/
+
+	user=$(get_remove_value "USER_NAME")
+	group=$(get_remove_value "USER_GROUP")
+	chown -R ${user}:${group} /apps/entware/package/utils/kvas
 }
-. /apps/kvas/build/library.run
+
 #------------------------------------------------------------------------------
 #
 #	ПАКЕТ КВАС
@@ -20,57 +26,70 @@ set -e
 #	Дата создания: 01/09/2022
 #	Лицензия: GPL 2.0
 # ------------------------------------------------------------------------------
-DEBUG=YES #
+DEBUG=NO # Допустимые значения NO, FULL, MEDIUM
 
-if [ "${DEBUG}" = 'YES' ] ; then
-	num_proc=1
-	deb="-j${num_proc} V=sc"
-else
-	num_proc=$(nproc)
-	deb="-j${num_proc}";
-fi
+case "${DEBUG}" in
+	FULL )
+		num_proc=1
+		deb="-j${num_proc} V=sc"
+	;;
+	MEDIUM )
+		num_proc=1
+		deb="-j${num_proc} V=s"
+	;;
+	* )
+		num_proc=$(nproc)
+		deb="-j${num_proc}"
+	;;
+esac
 
 line
 echo "Задействовано ${num_proc} яд. процессора"
 echo "Собираем пакет КВАС вер. ${version} ${stage} ${release}"
 line
 
-rm -rf /apps/entware/package/utils/kvas/*
-rm -rf /apps/entware/staging_dir/target-mipsel_mips32r2_glibc-2.27/root-mipsel-3.4/./opt/apps/kvas
-mkdir -p /apps/entware/package/utils/kvas/
-cp -rf /apps/kvas/opt/ /apps/entware/package/utils/kvas/files/
 
-user=$(get_remove_value "USER_NAME")
-group=$(get_remove_value "USER_GROUP")
-chown -R ${user}:${group} /apps/entware/package/utils/kvas
-
-cd /apps/entware/
-
-#    make menuconfig
-if ! grep -q kvas /apps/entware/.config ; then
-	make oldconfig <<< y
-	make tools/install ${deb}
-	make toolchain/install ${deb}
-	make target/compile ${deb}
-else
-	/apps/kvas/build/Makefile.build
-fi
-
-make package/kvas/compile ${deb}
-
-line
-
-sed -i "s/APP_VERSION=/APP_VERSION=${version}/g" \
-	/apps/entware/package/utils/kvas/files/bin/kvas
-sed -i "s/APP_RELEASE=/APP_RELEASE=${stage}-${release}/g" \
-	/apps/entware/package/utils/kvas/files/bin/kvas
+echo "Сборка запущена: $(zdump EST-3)"; line
 
 APP_PKG_TAR_NAME=kvas_${version}-${stage}_${release}_all.ipk
 APP_PKG_FILE="/apps/entware/bin/targets/mipsel-3.4/generic-glibc/packages/${APP_PKG_TAR_NAME}"
+rm -f "${APP_PKG_FILE}"
+
+/apps/kvas/build/Makefile.build
+
+#copy_changed_file_to_build
+
+#    make menuconfig
+if ! grep -q kvas /apps/entware/.config ; then
+	cd /apps/entware/
+	make oldconfig <<< y
+	make tools/install -j$(nproc)
+	make toolchain/install -j$(nproc)
+#	make target/compile -j${num_proc}
+	copy_ssh_keys_to_router;
+
+fi
+
+#makefile=/apps/entware/package/utils/kvas/Makefile
+#[ -f "${makefile}" ] || {
+
+#}
+
+cd /apps/entware/
+make package/kvas/compile ${deb}
+
+
+
+sed -i "s/^\(APP_VERSION=\).*/\1${version}/g" \
+	/apps/entware/package/utils/kvas/files/bin/kvas
+sed -i "s/^\(APP_RELEASE=\).*/\1${stage}-${release}/g" \
+	/apps/entware/package/utils/kvas/files/bin/kvas
+
+
 cp "${APP_PKG_FILE}" "/apps/kvas/ipk"
 
-
-line; copy_ssh_keys_to_router; line
-copy_kvas_to_router; line
-
-}
+line
+copy_kvas_to_router "${APP_PKG_FILE}" "${APP_PKG_TAR_NAME}"
+line;
+echo "Сборка завершена: $(zdump EST-3)";
+line

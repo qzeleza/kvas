@@ -30,17 +30,18 @@ RUN rm -rf /var/lib/apt/lists/* \
     && mv Entware/ entware/ && cd /apps/entware  \
     && make package/symlinks  \
     && cp `ls /apps/entware/configs/mipsel-*` .config \
+    && mkdir -p /apps/entware/package/utils/kvas/ \
+    && ln -s /apps/kvas/opt /apps/entware/package/utils/kvas/ \
+    && mv /apps/entware/package/utils/kvas/opt /apps/entware/package/utils/kvas/files \
     && chown -R ${NAME}:${GROUP} /apps/entware /apps/kvas \
-    && chmod -R +x /apps/kvas/build/*.run \
-    && mkdir -p /apps/entware/package/utils/kvas/opt/ \
-    && ssh-keygen -t rsa -N "" -f /root/.ssh/id_rsa
-
-COPY ./opt/. /apps/entware/package/utils/kvas/opt/
-
-RUN /apps/kvas/build/Makefile.build
-USER ${NAME}
-RUN /apps/kvas/build/firstrun.build
+    && chmod -R +x /apps/kvas/build/*.run
 
 WORKDIR /apps/kvas/
+RUN /apps/kvas/build/Makefile.build
+
+USER ${NAME}
+RUN ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa \
+    && /apps/kvas/build/firstrun.build
+
 
 

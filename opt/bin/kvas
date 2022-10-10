@@ -21,8 +21,8 @@
 #	Лицензия: GPL 2.0
 # ------------------------------------------------------------------------------
 
-APP_VERSION=
-APP_RELEASE=
+APP_VERSION=1.0
+APP_RELEASE=beta-18
 
 clear_file_content "${UNBLOCK_LIST_FILE}"
 

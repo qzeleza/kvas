@@ -236,7 +236,7 @@ dnscrypt_proxy_check() {
 # ------------------------------------------------------------------------------------------
 iptable_check() {
 	ready "Наличие правил разблокировки в iptable"
-	if /opt/sbin/iptables-save | grep -q unblock ; then
+	if /opt/sbin/iptables-save | grep -qE "${table_name}|VPNREDIR" ; then
 		when_ok "ЕСТЬ"
 	else
 		when_bad "ПРАВИЛ НЕТ"
@@ -245,10 +245,11 @@ iptable_check() {
 			/opt/etc/ndm/netfilter.d/100-proxy-redirect
 		else
 			cmd_vpn_iptable_flush
-			/opt/etc/ndm/netfilter.d/100-vpn-mark
+			ip4set_create_table
+			ip4_mark_vpn_network
 		fi
 		ready "Повторная проверка правил разблокировки в iptable"
-		if /opt/sbin/iptables-save | grep -q unblock;  then
+		if /opt/sbin/iptables-save | grep -qE "${table_name}|VPNREDIR";  then
 			when_ok "ПРОЙДЕНА"
 		else
 			when_bad "ОШИБКА"
@@ -270,19 +271,21 @@ iptable_check() {
 ipset_check() {
 
 	ready "Заполнение ipset таблицы скриптами КВАСа"
-	! [ -f "${UNBLOCK_LIST_FILE}" ] || \
-		[ "$(grep -vcE '^$|#' "${UNBLOCK_LIST_FILE}" )" -eq 0 ] && {
+	if ! [ -f "${UNBLOCK_LIST_FILE}" ] || \
+	[ "$(grep -vcE '^$|#' "${UNBLOCK_LIST_FILE}" )" -eq 0 ] ; then
 		cp /opt/apps/kvas/etc/conf/hosts.list "${UNBLOCK_LIST_FILE}"
-	}
+	fi
+	. /opt/apps/kvas/bin/libs/ndm
+	ip4set_create_table
 	/opt/apps/kvas/bin/main/ipset &> /dev/null
-	if ipset list unblock | grep -vEi '^[a-z]' &> /dev/null; then
+	if ipset list "${table_name}" | grep -vEi '^[a-z]' &> /dev/null; then
 		when_ok "ЗАПОЛНЕНА"
 	else
 		when_bad "ПУСТАЯ"
 		ipset_flush &> /dev/null
 		/opt/apps/kvas/bin/main/ipset &> /dev/null
 		ready "Повторная проверка заполнения ipset таблицы"
-		if ipset list unblock | grep -vEi '^[a-z]' &> /dev/null; then
+		if ipset list "${table_name}" | grep -vEi '^[a-z]' &> /dev/null; then
 			when_ok "ПРОЙДЕНА"
 		else
 			when_bad "ОШИБКА"

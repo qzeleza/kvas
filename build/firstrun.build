@@ -19,6 +19,6 @@ cd /apps/entware/
 make oldconfig <<< y
 make tools/install ${deb}
 make toolchain/install ${deb}
-make target/compile ${deb}
+make package/kvas/compile ${deb} #-j1 V=s
 
 line; echo "Сборка завершена: $(zdump EST-3)"; line

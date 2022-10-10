@@ -27,6 +27,7 @@ ADGUARDHOME_LOG=/opt/var/log/AdGuardHome.log
 ADGUARDHOME_DEMON=/opt/etc/init.d/S99adguardhome
 DNSMASQ_DEMON=/opt/etc/init.d/S56dnsmasq
 HOME_PATH=/opt/apps/kvas
+ERROR_LOG_FILE=/opt/etc/.kvas/logs/errors.log
 
 pause()(read -r pause &> /dev/null)
 
@@ -143,7 +144,7 @@ get_inface_by_ip() {
 # ------------------------------------------------------------------------------------------
 get_local_inface() {
 	local_ip="$(get_router_ip)"
-	/opt/sbin/ip a | grep "${local_ip}" | sed 's/^ *//g' | cut -d' ' -f7-
+	/opt/sbin/ip a | grep "${local_ip}" | sed 's/^ *//g' | grep -E -o '[^ ]+$'
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -406,17 +407,36 @@ date_update() {
 
 # ------------------------------------------------------------------------------------------
 #
-#	 Получаем ссылки из сайта
-#  $1 - ссылка на страницу сайта - лучший вариант с https в начале
+#	Печатаем сообщение в зависимости от результата
+#	содержания переданного статуса 0 - все Ок, 1 - Ошибка
+#
+#	$1 - статус результата выполнения функции
+# 	$2 - сообщение в случае когда все прошло удачно
+# 	$3 - сообщение для случая обнаружения ошибки
+# 	$4 - имя файла в который пишем лог, в случае отсутствия пишем в ERROR_LOG_FILE
 #
 # ------------------------------------------------------------------------------------------
-get_links_from_page() {
+show_result_status() {
 
-  lynx -dump -listonly -nonumbers -force_secure "${1}" \
-      | grep "${1}" \
-      | cut -d/ -f3 \
-      | grep -v ':' \
-      | sed '/^$/d' \
-      | sort -u
+	status_result="${1}"; ok_mess="${2}";
+	error_mess="${3}"; log_file="${4:-${ERROR_LOG_FILE}}"
+
+#	В случае, если отсутствует лог файл, то создаем его
+	[ -f "${log_file}" ] || {
+		mkdir -p "$(echo "${log_file}" | sed 's/\(.*\)\/.*$/\1/')"
+		touch "${log_file}"
+	}
+	if [ "${status_result}" = 0 ]; then
+		when_ok "${ok_mess}"
+	else
+		when_bad "ОШИБКА"
+		{
+			print_line
+			echo "[$(date "${DATE_FORMAT}")]: ${error_mess}"
+		} >> "${log_file}"
+		print_line
+		error "${error_mess}"
+		exit 1
+	fi
 
 }

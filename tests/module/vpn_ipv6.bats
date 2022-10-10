@@ -4,10 +4,7 @@ source ../libs/main
 #-----------------------------------------------------
 # 	ТЕСТЫ из библиотеки vpn ОБЩИЕ
 #-----------------------------------------------------
-TEST_NoN_IPv6_INTERFACE=Wireguard0
-TEST_IPv6_INTERFACE=OpenVPN0
-TEST_NOT_EXIST_INTERFACE=Wireguard8
-TEST_EXIST_INTERFACE=OpenVPN0
+
 
 @test "Проверка наличия файла справки [cmd_help]" {
 	cmd="cmd_help"
@@ -32,7 +29,7 @@ TEST_EXIST_INTERFACE=OpenVPN0
 	echo "${output}" | grep -qE "(no|yes)"
 
 }
-@test "Проверка получения интерфейса по умолчанию через который идут в инетернет [get_defaultgw_interface]" {
+@test "Проверка получения интерфейса по умолчанию через который идут в интернет [get_defaultgw_interface]" {
 	cmd="get_defaultgw_interface"
 	run on_server "${vpn_lib_load} && ${cmd} "
 	print_on_error "${status}" "${output}"
@@ -77,14 +74,16 @@ TEST_EXIST_INTERFACE=OpenVPN0
 	run on_server "${vpn_lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
 	#	Блок проверок то, что точно должно быть при нормальной работе скрипта
-	echo "${output}" | grep -q "0"
+	echo "${output}" | grep -q "1"
 }
+
 @test "Проверка статуса IPv6 интерфейса: OFF [ipv6_inface_on]" {
 
 	cmd="ipv6_inface_off ${TEST_IPv6_INTERFACE}"
 	run on_server "${vpn_lib_load} && ${cmd} "
 	print_on_error "${status}" "${output}"
 	[ "${status}" -eq 0 ]
+
 	cmd="ipv6_status ${TEST_IPv6_INTERFACE}"
 	run on_server "${vpn_lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
@@ -99,11 +98,12 @@ TEST_EXIST_INTERFACE=OpenVPN0
 	run on_server "${vpn_lib_load} && ${cmd} "
 	print_on_error "${status}" "${output}"
 	[ "${status}" -eq 0 ]
+
 	cmd="ipv6_status ${TEST_NoN_IPv6_INTERFACE}"
 	run on_server "${vpn_lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
 	#	Блок проверок то, что точно должно быть при нормальной работе скрипта
-	echo "${output}" | grep -q "2"
+	echo "${output}" | grep -qE "1|2"
 
 }
 @test "Проверка статуса IPv6 интерфейса: НЕ ЗАДАН ИНТЕРФЕЙС [ipv6_inface_on]" {
@@ -115,8 +115,6 @@ TEST_EXIST_INTERFACE=OpenVPN0
 	echo "${output}" | grep -q "Не задан интерфейс"
 
 }
-TEST_NOT_EXIST_INTERFACE=Wireguard8
-TEST_EXIST_INTERFACE=OpenVPN0
 
 @test "Проверка наличия интерфейса ${TEST_EXIST_INTERFACE} CLI в системе [is_cli_inface_present]" {
 	cmd="is_cli_inface_present ${TEST_EXIST_INTERFACE}"
@@ -126,7 +124,7 @@ TEST_EXIST_INTERFACE=OpenVPN0
 	[ "${status}" -eq 0 ]
 
 }
-@test "Проверка отсуствия интерфейса ${TEST_NOT_EXIST_INTERFACE} CLI в системе [is_cli_inface_present]" {
+@test "Проверка отсутствия интерфейса ${TEST_NOT_EXIST_INTERFACE} CLI в системе [is_cli_inface_present]" {
 	cmd="is_cli_inface_present ${TEST_NOT_EXIST_INTERFACE}"
 	run on_server "${vpn_lib_load} && ${cmd} "
 	print_on_error "${status}" "${output}"
@@ -134,7 +132,7 @@ TEST_EXIST_INTERFACE=OpenVPN0
 	[ "${status}" -eq 1 ]
 
 }
-@test "Проверка отсуствия интерфейса в качастве аргумента [is_cli_inface_present]" {
+@test "Проверка отсутствия интерфейса в качестве аргумента [is_cli_inface_present]" {
 	cmd="is_cli_inface_present"
 	run on_server "${vpn_lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
@@ -144,14 +142,14 @@ TEST_EXIST_INTERFACE=OpenVPN0
 
 }
 
-@test "Проверка включения IPv6 на существующем интерфейсе ${TEST_EXIST_INTERFACE} CLI в системе [ipv6_inface_status]" {
-	cmd="ipv6_inface_on ${TEST_EXIST_INTERFACE}"
+@test "Проверка включения IPv6 на существующем интерфейсе ${TEST_NOT_EXIST_INTERFACE} CLI в системе [ipv6_inface_status]" {
+	cmd="ipv6_inface_on ${TEST_NOT_EXIST_INTERFACE}"
 	run on_server "${vpn_lib_load} && ${cmd} "
 	print_on_error "${status}" "${output}"
 
 	[ "${status}" -eq 0 ]
 
-	cmd="ipv6_inface_status ${TEST_EXIST_INTERFACE}"
+	cmd="ipv6_inface_status ${TEST_NOT_EXIST_INTERFACE}"
 	run on_server "${vpn_lib_load} && ${cmd} "
 	print_on_error "${status}" "${output}"
 

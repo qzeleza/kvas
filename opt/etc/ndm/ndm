@@ -29,7 +29,7 @@ INFACE_ENT=@ENTWARE_INFACE_NAME
 INFACE_GUEST_ENT=
 
 # Файл временного хранения результатов исполнения команды
-res_file=/opt/tmp.kvas.result
+res_file=/opt/tmp/kvas.result
 # ------------------------------------------------------------------------------------------
 
 # Функции логирования результата
@@ -87,7 +87,7 @@ ip4_firewall_dns_rules_set(){
 # Маркировка VPN подключений когда программное и аппаратное ускорение ПОДКЛЮЧЕНО
 # ------------------------------------------------------------------------------------------
 ip4_firewall_mark_vpn(){
-	if ! ip4save | grep "\-j CONNMARK" | grep -qE "mark|${table_name}" ; then
+	if ! ip4save | grep -q "VPNREDIR" ; then
 		# Маркируем трафик для домашней(основной) сети и прохождение пакетов через VPN подключение
 		{
 			iptables -N VPNREDIR -t mangle
@@ -115,7 +115,6 @@ ip4_firewall_mark_vpn(){
 #		ip4tables PREROUTING -t mangle -j CONNMARK --restore-mark >> "${res_file}"
 		log_result "${?}" "${app}::Маркировка трафика для VPN соединений подключена"
 	fi
-	}
 }
 # ------------------------------------------------------------------------------------------
 # Маркировка VPN подключений когда программное и аппаратное ускорение ОТКЛЮЧЕНО
@@ -158,6 +157,7 @@ ip4_firewall_flush_vpn_rules(){
 # ------------------------------------------------------------------------------------------
 
 ip4_firewall_flush_ssr_rules(){
+
 	num_lines=$(/opt/sbin/iptables -t nat -L PREROUTING --line-numbers | grep -c "${table_name}")
 	if [ "${num_lines}" -gt 0 ]; then
 		for b in $(seq 1 ${num_lines}); do
@@ -229,7 +229,7 @@ ip4_rule_del_priority(){
 # ------------------------------------------------------------------------------------------
 
 ip4set_create_table(){
-	if ipset list ${table_name} | grep -q 'name does not exist' ; then
+	if ipset list ${table_name} 2>&1 | grep -q 'name does not exist' ; then
 		ipset create ${table_name} hash:net family inet -exist 2>"${res_file}"
 		log_result "${?}" "${app}::Таблица ${table_name} для ipset IPv4 создана"
 	fi
@@ -239,11 +239,11 @@ ip4set_create_table(){
 ip4_mark_vpn_network(){
 
 	if fastnet_enabled ; then
-		dev_logger "${app}::Проверка пройдена -> программное и аппаратное ускорение ПОДКЛЮЧЕНО."
+		logger_dev "${app}::Проверка пройдена -> программное и аппаратное ускорение ПОДКЛЮЧЕНО."
 		# Без отключения ускорителей fastnat и hwnat
 		ip4_firewall_mark_vpn
 	else
-		dev_logger "${app}::Проверка пройдена -> программное и аппаратное ускорение ОТКЛЮЧЕНО!"
+		logger_dev "${app}::Проверка пройдена -> программное и аппаратное ускорение ОТКЛЮЧЕНО!"
 		# С отключением fastnat и ускорителей hwnat
 		ip4_firewall_mark_rules_tcp_udp_on
 	fi

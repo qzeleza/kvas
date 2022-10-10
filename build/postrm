@@ -1,6 +1,5 @@
 #!/bin/sh
 
-#. /opt/apps/kvas/bin/libs/.main
 . /opt/apps/kvas/bin/libs/.vpn
 . /opt/apps/kvas/bin/libs/ndm
 #------------------------------------------------------------------------------
@@ -33,6 +32,7 @@ rm_package_files(){
 	rm -rf /opt/bin/kvas
 	rm -fr /opt/etc/kvas*
 	rm -f /opt/lib/opkg/info/kvas*
+	rm -f /opt/etc/inface_equals
 }
 
 print_line

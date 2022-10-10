@@ -137,8 +137,7 @@ ipv6_status() {
 		done
 #		если вернем 1 - то IPv6 отключен
 #		если вернем 0 - то IPv6 включен
-#		если вернем 2 - то IPv6 не соместим с указанным интерфейсом
-
+#		если вернем 2 - то IPv6 несовместим с указанным интерфейсом
 		[ "${res}" -eq 3 ] && echo 0
 		[ "${res}" -eq -1 ] && echo 2
 		[[ "${res}" -ge 0 ]] && [[ "${res}" -lt 3 ]] && echo 1
@@ -371,8 +370,6 @@ cmd_adguardhome_off(){
 
 	if [ $? = 0 ]; then
 		when_ok "УСПЕШНО"
-#		answer=''; read_ynq "Шифровать трафик посредством dnscrypt_proxy2 [Y/N]?" answer
-#		[ "${answer}" = y ] &&
 		dns_crypt_install
 	else
 		when_bad "С ОШИБКОЙ";
@@ -600,23 +597,23 @@ ipset_dns_change() {
 #
 #	Устанавливаем dnsmasq в систему
 #
+#	$1 - наличие значения данной переменной говорит о том,
+#	что вызов данной функции был произведен при инсталляции пакета
+#
 # ------------------------------------------------------------------------------------------
-dnsmasq_install() {
+dnsmasq_install(){
+	is_install_stage="${1}"
 
 	if [ -f "${KVAS_BACKUP_PATH}/S56dnsmasq" ]; then
 		cp "${KVAS_BACKUP_PATH}/S56dnsmasq" /opt/etc/init.d/S56dnsmasq
 	else
 		if ! [ -f "/opt/etc/init.d/S56dnsmasq" ]; then
 			ready "Устанавливаем пакет dnsmasq..."
-			if [ -z "$1" ]; then
+			# Если запуск функции был не при установке пакета Квас
+			if [ -z "${is_install_stage}" ]; then
+#				то в этом случае можем попытаться удалять или устанавливать пакеты
 				opkg remove dnsmasq &> /dev/null && opkg install dnsmasq &> /dev/null
-				[ $? = 0 ] && when_ok "ГОТОВО" || {
-					when_bad "ОШИБКА"
-					mess="Ошибка при установке пакета dnsmasq"
-					log_in_file "ОШИБКА: ${mess}"
-					error "${mess}"
-					exit 1
-				}
+				show_result_status "${?}" "ГОТОВО" "Ошибка при установке пакета dnsmasq"
 			else
 				if ! [ -f /opt/etc/init.d/S56dnsmasq ]; then
 	#				Если вызвана функция из postinst
@@ -631,25 +628,13 @@ dnsmasq_install() {
 	if /opt/etc/init.d/S56dnsmasq status | grep -q alive ; then
 		ready "Останавливаем сервис dnsmasq..."
 		/opt/etc/init.d/S56dnsmasq stop &>/dev/null
-		[ $? = 0 ] && when_ok "ГОТОВО" || {
-			when_bad "ОШИБКА"
-			mess="Невозможно остановить сервис dnsmasq"
-			log_in_file "ОШИБКА: ${mess}"
-			error "${mess}"
-			exit 1
-		}
+		show_result_status "${?}" "ГОТОВО" "Невозможно остановить сервис dnsmasq"
 	fi
 	ready "Заменяем файл конфигурации dnsmasq...   "
 	[ -f /opt/etc/dnsmasq.conf ] && mv -f /opt/etc/dnsmasq.conf "${KVAS_BACKUP_PATH}/dnsmasq.conf" &>/dev/null
 	[ -f /opt/sbin/dnsmasq ] && mv -f /opt/sbin/dnsmasq "${KVAS_BACKUP_PATH}/dnsmasq" &>/dev/null
 	cp /opt/apps/kvas/etc/conf/dnsmasq.conf /opt/etc/dnsmasq.conf &>/dev/null
-	[ $? = 0 ] && when_ok "ГОТОВО" || {
-		when_bad "ОШИБКА"
-		mess="Проблемы при замене в файле конфигурации dnsmasq"
-		log_in_file "ОШИБКА: ${mess}"
-		error "${mess}"
-		exit 1
-	}
+	show_result_status "${?}" "ГОТОВО" "Проблемы при замене в файле конфигурации dnsmasq"
 
 	ready "Меняем dnsmasq на версию с поддержкой wildcard"
 	bin_path="/opt/apps/kvas/sbin/dnsmasq"
@@ -666,27 +651,17 @@ dnsmasq_install() {
 			exit 1
 		;;
 	esac
-	[ $? = 0 ] && when_ok "ГОТОВО" || {
-		when_bad "НЕ УДАЧНО"
-		mess="Проблема при замене dnsmasq на версию с поддержкой wildcard"
-		warning "${mess}"
-		log_in_file "ОШИБКА: ${mess}"
-		exit 1
-	}
+	show_result_status "${?}" "ГОТОВО" "Проблема при замене dnsmasq на версию с поддержкой wildcard"
+
 	uplevel_dns=$(get_config_value DNS_DEFAULT)
 	local_ip=$(get_router_ip)
 	inface=$(get_inface_by_ip "${local_ip}")
 
 	ready "Настройка файлов конфигурации dnsmasq"
 	sed -i "s/@LOCAL_IP/${local_ip}/g; s/@INFACE/${inface}/g; s/@UPLEVEL_DNS/${uplevel_dns}/g;" /opt/etc/dnsmasq.conf
-	if [ $? = 0 ]; then
-		when_ok "ГОТОВО";/opt/apps/kvas/bin/main/update
-	else
-		when_bad "ОШИБКА"
-		mess="Проблема при настройке файлов конфигурации dnsmasq"
-		log_in_file "ОШИБКА: ${mess}"
-		exit 1
-	fi
+	show_result_status "${?}" "ГОТОВО" "Проблема при настройке файлов конфигурации dnsmasq"
+	# Если запуск функции был не при установке пакета Квас
+	[ -z "${is_install_stage}" ] && /opt/apps/kvas/bin/main/update
 
 }
 # ------------------------------------------------------------------------------------------
@@ -836,7 +811,6 @@ vpn_off() {
 	rm -f "/opt/etc/ndm/ifstatechanged.d/100-unblock-vpn"
 	rm -f "/opt/etc/ndm/fs.d/100-vpn"
 	cmd_vpn_iptable_flush  &> /dev/null
-#	iptables -t mangle -D "$(iptables-save 2>/dev/null | grep unblock | grep CONNMARK | cut -d' ' -f2-)"
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -849,6 +823,19 @@ cmd_vpn_status() {
         [ "${vpn_cli}" = 'shadowsocks' ] && inface="SHADOWSOCKS" || inface="${vpn_cli_desc} (${vpn_cli})"
         ready "Текущее VPN соединение: ${BLUE}${inface}${NOCL}"
         [ "$(is_vpn_interface_connected "${vpn_cli}")" = 'on' ] && when_ok "ПОДКЛЮЧЕНО" || when_bad "ОТКЛЮЧЕНО"
+}
+# ------------------------------------------------------------------------------------------
+#
+#	Производим замену в библиотеке ndm основных значения интерфейсов
+#	$1 - id интерфейса в entware
+#
+# ------------------------------------------------------------------------------------------
+ndm_interface_change() {
+	inface_entware="${1}"; inface_cli="${2}"
+	cp /opt/apps/${APP_NAME}/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
+	chmod +x /opt/apps/kvas/bin/libs/ndm
+	sed -i "s/@ENTWARE_INFACE_NAME/${inface_entware}/g" "/opt/apps/kvas/bin/libs/ndm"
+	sed -i "s/@CLI_INFACE_NAME/${inface_cli}/g" "/opt/apps/kvas/bin/libs/ndm"
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -865,10 +852,9 @@ vpn_on() {
 	ready "Интерфейс ${inface_cli_desc} подключен "
 
 	cp "/opt/apps/${APP_NAME}/etc/ndm/fs.d/100-vpn" "/opt/etc/ndm/fs.d/100-vpn"
-	cp /opt/apps/${APP_NAME}/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
-	chmod +x "/opt/etc/ndm/fs.d/100-vpn" /opt/apps/kvas/bin/libs/ndm
-	sed -i "s/@ENTWARE_INFACE_NAME/${inface_entware}/g" "/opt/apps/kvas/bin/libs/ndm"
-	sed -i "s/@CLI_INFACE_NAME/${inface_cli}/g" "/opt/apps/kvas/bin/libs/ndm"
+	chmod +x "/opt/etc/ndm/fs.d/100-vpn"
+#	Производим замену в библиотеке ndm основных значения интерфейсов
+	ndm_interface_change "${inface_entware}" "${inface_cli}"
 
 	cp "/opt/apps/${APP_NAME}/etc/ndm/netfilter.d/100-vpn-mark" "/opt/etc/ndm/netfilter.d/100-vpn-mark"
 	chmod +x "/opt/etc/ndm/netfilter.d/100-vpn-mark"
@@ -890,7 +876,8 @@ vpn_on() {
 		error "Проверьте доступность сервера и настройки клиента!"
 		exit 1
 	else
-		ipset create unblock hash:net family inet -exist &> /dev/null
+		. /opt/apps/kvas/bin/libs/ndm
+		ip4set_create_table
 		cmd_vpn_iptable_flush  &> /dev/null
 		/opt/etc/ndm/fs.d/100-vpn start &> /dev/null
 	fi
@@ -1007,10 +994,9 @@ shadowsocks_read_data() {
 		s/@PROXY_PORT/${proxy_port}/g;" \
 		"${SHADOWSOCKS_CONF}"
 
-	cp /opt/apps/${APP_NAME}/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
-	chmod +x /opt/apps/kvas/bin/libs/ndm
-	sed -i "s/@ENTWARE_INFACE_NAME/shadowsocks/g" "/opt/apps/kvas/bin/libs/ndm"
-	sed -i "s/@CLI_INFACE_NAME/shadowsocks/g" "/opt/apps/kvas/bin/libs/ndm"
+	#	Производим замену в библиотеке ndm основных значения интерфейсов
+	ndm_interface_change "shadowsocks" "shadowsocks"
+
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -1018,10 +1004,13 @@ shadowsocks_read_data() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_shadowsocks_iptable_flush() {
-	ready "Удаление правил iptables для shadowsocks завершено"
-	. /opt/apps/kvas/bin/libs/ndm
-	ip4_firewall_flush_ssr_rules
-	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
+	if [ -f /opt/apps/kvas/bin/libs/ndm ]; then
+		ready "Удаление правил iptables для shadowsocks завершено"
+		. /opt/apps/kvas/bin/libs/ndm
+		ip4_firewall_flush_ssr_rules
+		[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
+	fi
+
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -1111,13 +1100,8 @@ shadowsocks_on() {
 			s/@INFACE/${inface}/g;" \
 			"/opt/etc/ndm/netfilter.d/100-proxy-redirect"
 
-	cp /opt/apps/${APP_NAME}/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
-	chmod +x /opt/apps/kvas/bin/libs/ndm
-
-	sed -i "s/@CLI_INFACE_NAME/shadowsocks/g" "/opt/apps/kvas/bin/libs/ndm"
 	inface_ent=$(ip a | grep ezcfg | head -1 | cut -d': ' -f2 | tr -d ' ')
-	sed -i "s/@ENTWARE_INFACE_NAME/${inface_ent}/g" "/opt/apps/kvas/bin/libs/ndm"
-
+	ndm_interface_change "${inface_ent}" "shadowsocks"
 
 	cmd_shadowsocks_iptable_reset  &> /dev/null
 	#   настройка S22shadowsocks конфигурации
@@ -1175,8 +1159,10 @@ EOF
 	fi
 	# очищаем файл с именами интерфейсов
 	echo "shadowsocks|shadowsocks|shadowsocks" > "${INFACE_NAMES_FILE}"
-	# обозначаем список типов обрабатываемых интерфейсов
-	types_inface='"OpenVPN","Wireguard","IKE","SSTP","PPPOE","L2TP","CdcEthernet","UsbLte"'
+	# обозначаем список типов обрабатываемых VPN интерфейсов
+	types_inface='"OpenVPN","Wireguard","IKE","SSTP","PPPOE","L2TP"'
+#	архивный вариант с выключенными интерфейсами сотовых операторов
+#	types_inface='"OpenVPN","Wireguard","IKE","SSTP","PPPOE","L2TP","CdcEthernet","UsbLte"'
 	# получаем список ID интерфейсов в наличии на роутере через пробел
 	inface_list=$(
 		curl -s "${INFACE_REQUEST}" \
@@ -1283,6 +1269,7 @@ is_vpn_interface_connected() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_interface_change() {
+
 	answer="${1}"
 
 	warning "Выберите VPN интерфейс для работы пакета"
@@ -1326,6 +1313,8 @@ cmd_interface_change() {
 		else
 			inface_entware=$(get_vpn_interface_by_num "${num_vpn_inface}")
 			if [ "${inface_entware}" = 'shadowsocks' ]; then
+				cli_inface=$(echo "${INFACE_NAMES_FILE}" | grep "${inface_entware}" | cut -d"|" -f1)
+				ndm_interface_change "${inface_entware}" "${cli_inface}"
 				vpn_off &> /dev/null
 				shadowsocks_backup
 				shadowsocks_on
@@ -1336,7 +1325,6 @@ cmd_interface_change() {
 			cmd_update_list
 			break
 		fi
-#		fi
 	done
 
 }
@@ -1438,36 +1426,28 @@ dns_crypt_install() {
 
 #	В случае наличия архива файла запуска сервиса dnscrypt_proxy2
 	if [ -f "${KVAS_BACKUP_PATH}/S09dnscrypt-proxy2" ]; then
+		warning "Обнаружен архив файла S09dnscrypt-proxy2."
+		ready "Восстанавливаем S09dnscrypt-proxy2 из архива..."
 #		реанимируем его из аррхива
 		cp "${KVAS_BACKUP_PATH}/S09dnscrypt-proxy2" /opt/etc/init.d/S09dnscrypt-proxy2
+		show_result_status "${?}" "ГОТОВО" "Ошибка при восстановлении S09dnscrypt-proxy2 из архива"
 	else
 #		при его отсутвии - устанавливаем пакет
 		if ! [ -f /opt/etc/init.d/S09dnscrypt-proxy2 ]; then
 			ready "Устанавливаем пакет dnscrypt-proxy2..."
 			opkg remove dnscrypt-proxy2 &>/dev/null && opkg install dnscrypt-proxy2 &>/dev/null
-			[ $? = 0 ] && when_ok "ГОТОВО" || {
-				when_bad "ОШИБКА"
-				mess="Ошибка при установке пакета dnsmasq"
-				log_in_file "ОШИБКА: ${mess}"
-				error "${mess}"
-				exit 1
-			}
+			show_result_status "${?}" "Ошибка при установке пакета dnsmasq"
 		fi
 	fi
-#	Если dnscrypt_proxy2 запущен, то останавиваем его,
+#	Если dnscrypt_proxy2 запущен, то останавливаем его,
 #	так как необходимо его предварительно настроить
 	if /opt/etc/init.d/S09dnscrypt-proxy2 status | grep -q alive ; then
 		ready "Останавливаем службу dnscrypt-proxy2..."
 		/opt/etc/init.d/S09dnscrypt-proxy2 stop &>/dev/null
-		[ $? = 0 ] && when_ok "ГОТОВО" || {
-			when_bad "ОШИБКА"
-			mess="Проблема при остановке службы dnscrypt-proxy2"
-			log_in_file "ОШИБКА: ${mess}"
-			exit 1
-		}
+		show_result_status "${?}" "ГОТОВО" "Проблема при остановке службы dnscrypt-proxy2"
 	fi
 
-#	архивируем предыдушие настройки
+#	архивируем предыдущие настройки
 	if [ -f '/opt/etc/dnscrypt-proxy.toml' ]; then
 		warning "Файл конфигурации dnscrypt-proxy2 сохраняем"
 		cp /opt/etc/dnscrypt-proxy.toml ${KVAS_BACKUP_PATH}/dnscrypt-proxy.toml
@@ -1478,19 +1458,15 @@ dns_crypt_install() {
 		warning "Восстанавливаем предыдущие настройки."
 	fi
 
-#	Настраиваеи сервис
+#	Настраиваем сервис
 	ready "Настраиваем dnscrypt-proxy2..."
 	cmd_dns_crypt_on &>/dev/null
-	[ $? = 0 ] && when_ok "ГОТОВО" || {
-			when_bad "ОШИБКА"
-			mess="Проблема при активации шифрования DNS трафика"
-			log_in_file "ОШИБКА: ${mess}"
-			exit 1
-		}
+	show_result_status "${?}" "ГОТОВО" "Проблема при активации шифрования DNS трафика"
+
 }
 # ------------------------------------------------------------------------------------------
 #
-#	 Включаем работу блока шифроваия dns при помощи dnscrypt_proxy2
+#	 Включаем работу блока шифрования dns при помощи dnscrypt_proxy2
 #
 # ------------------------------------------------------------------------------------------
 cmd_dns_crypt_on() {
@@ -1508,14 +1484,13 @@ cmd_dns_crypt_on() {
 		echo "proxy-dnssec" >> /opt/etc/dnsmasq.conf
 
 		dns_crypt_port_change "${dns_crypt_port}" restart &> /dev/null
+		show_result_status "${?}" "ПОДКЛЮЧЕНО" "Произошла непредвиденная ошибка."
 
-		OFF="ОТКЛЮЧЕНО.\nПроизошла непредвиденная ошибка."
-		[ $? = 0 ] && when_ok "ПОДКЛЮЧЕНО" || when_bad "${OFF}"
 	fi
 }
 # ------------------------------------------------------------------------------------------
 #
-#	 ВЫключаем работу блока шифроваия dns при помощи dnscrypt_proxy2
+#	 ВЫключаем работу блока шифрования dns при помощи dnscrypt_proxy2
 #
 # ------------------------------------------------------------------------------------------
 cmd_dns_crypt_off() {
@@ -1533,12 +1508,11 @@ cmd_dns_crypt_off() {
 
 	/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
 	cmd_update_list &> /dev/null
-	OFF="ВСЕ ЕЩЕ ПОДКЛЮЧЕНО.\nПроизошла непредвиденная ошибка."
-	[ $? = 0 ] && when_ok "ОТКЛЮЧЕНО" || when_bad "${OFF}"
+	show_result_status "${?}" "ОТКЛЮЧЕНО" "Произошла непредвиденная ошибка."
 }
 # ------------------------------------------------------------------------------------------
 #
-#	 Выводим статус блока шифроваия dns при помощи dnscrypt_proxy2
+#	 Выводим статус блока шифрования dns при помощи dnscrypt_proxy2
 #
 # ------------------------------------------------------------------------------------------
 cmd_dns_crypt_status_show() {
@@ -1554,7 +1528,7 @@ cmd_dns_crypt_status_show() {
 
 # ------------------------------------------------------------------------------------------
 #
-#	Тестируем хост на доступноость
+#	Тестируем хост на доступность
 #	$1 - доменное имя
 #	$2 - команда для возврата:
 #		ip - возвращает ip вместо 1

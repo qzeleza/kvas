@@ -4,6 +4,7 @@ source ../libs/main
 # 	Данный файл предназначен для проверки функций AdGuardHome
 #================================================================
 
+
 @test "Проверка отключения сервиса AdGuardHome [cmd_adguardhome_off]" {
 	cmd="cmd_adguardhome_off "
 	run on_server "${vpn_lib_load} && ${cmd} " <<< y

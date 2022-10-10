@@ -1,15 +1,19 @@
 #!/bin/bash
 set -e
 
-get_kvas_path()(echo $(pwd) | sed 's/\(.*\/kvas\).*/\1/')
-get_version_part()(cat < "$(get_kvas_path)"/build/version | grep ${1} | cut -d'=' -f2)
+KVAS_PATH=$(pwd)
+
+get_version_part(){
+	value=${1}
+	cat < "${KVAS_PATH}/build/version" | grep "${value}" | cut -d'=' -f2
+}
 line()(printf '=%.s' {1..100} && printf '\n')
 
 version=$(get_version_part VERSION)
 stage=$(get_version_part STAGE)
 release=$(get_version_part RELEASE)
 
-remote_dir="$(get_kvas_path)/debug"
+remote_dir="${KVAS_PATH}/debug"
 remote_file=${remote_dir}/remote.conf
 
 # в случае первого запуска продукта
@@ -40,19 +44,21 @@ copy_ssh_keys_to_router(){
 	_port=$(get_remove_value 'PORT')
 	_router=$(get_remove_value 'ROUTER')
 	echo "Копируем ключи на роутер ${_router} порт ${_port}..."
-	scp -P "${_port}" /root/.ssh/id_rsa.pub "${_router}:/root/.ssh/authorized_keys"
+	scp -P "${_port}" /root/.ssh/id_rsa.pub "${_router}:/opt/root/.ssh/authorized_keys"
 	[ $? -ne 0 ] && echo "Ошибка копирования ключей на роутер."; exit 1
 }
 
 copy_kvas_to_router(){
+	APP_PKG_FILE=${1}
+	APP_PKG_TAR_NAME=${2}
 
 	MY_PORT=$(get_remove_value "PORT")
 	MY_ROUTER=$(get_remove_value "ROUTER")
 
 	echo "Загрузка пакета на роутер и удаление предыдущей версии пакета..."
-	ssh -p "${MY_PORT}" "${MY_ROUTER}" "mkdir -p /opt/packages"
-	ssh -p "${MY_PORT}" "${MY_ROUTER}" 'rm -f '"/opt/packages/${APP_PKG_TAR_NAME}" #&> /dev/null
-	scp -P "${MY_PORT}" "${APP_PKG_FILE}" "${MY_ROUTER}:/opt/packages/${APP_PKG_TAR_NAME}"
-	ssh -p "${MY_PORT}" "${MY_ROUTER}" 'opkg remove kvas'
-	line; echo "Сборка завершена $(zdump EST-3)"; line
+	line
+	ssh -p ${MY_PORT} ${MY_ROUTER} 'mkdir -p /opt/packages'
+	ssh -p ${MY_PORT} ${MY_ROUTER} 'rm -f '"/opt/packages/${APP_PKG_TAR_NAME}" #&> /dev/null
+	scp -P ${MY_PORT} ${APP_PKG_FILE} ${MY_ROUTER}':/opt/packages/${APP_PKG_TAR_NAME}'
+	ssh -p ${MY_PORT} ${MY_ROUTER} 'opkg remove kvas'
 }
