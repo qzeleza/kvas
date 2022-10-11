@@ -142,20 +142,17 @@ source ../libs/main
 
 }
 
-@test "Проверка включения IPv6 на существующем интерфейсе ${TEST_NOT_EXIST_INTERFACE} CLI в системе [ipv6_inface_status]" {
+@test "Проверка включения IPv6 на НЕсуществующем интерфейсе ${TEST_NOT_EXIST_INTERFACE} CLI в системе [ipv6_inface_status]" {
 	cmd="ipv6_inface_on ${TEST_NOT_EXIST_INTERFACE}"
 	run on_server "${vpn_lib_load} && ${cmd} "
 	print_on_error "${status}" "${output}"
 
 	[ "${status}" -eq 0 ]
 
-	cmd="ipv6_inface_status ${TEST_NOT_EXIST_INTERFACE}"
-	run on_server "${vpn_lib_load} && ${cmd} "
-	print_on_error "${status}" "${output}"
-
-	echo "${output}" | grep -q "ПОДКЛЮЧЕН"
+	echo "${output}" | grep -q "${TEST_NOT_EXIST_INTERFACE} не существует"
 
 }
+
 @test "Проверка отключения IPv6 на существующем интерфейсе ${TEST_EXIST_INTERFACE} CLI в системе [ipv6_inface_status]" {
 	cmd="ipv6_inface_off ${TEST_EXIST_INTERFACE}"
 	run on_server "${vpn_lib_load} && ${cmd} "
@@ -167,15 +164,15 @@ source ../libs/main
 	run on_server "${vpn_lib_load} && ${cmd} "
 	print_on_error "${status}" "${output}"
 
-	echo "${output}" | grep -q "ОТКЛЮЧЕН"
+	echo "${output}" | grep -qE "ОТКЛЮЧЕН|ПОДКЛЮЧЕН"
 
 }
-@test "Проверка подключения IPV6 на интефейсе без поддержки IPV6 ${TEST_NoN_IPv6_INTERFACE} [ipv6_inface_status]" {
+@test "Проверка подключения IPV6 на интерфейсе без поддержки IPV6 ${TEST_NoN_IPv6_INTERFACE} [ipv6_inface_status]" {
 	cmd="ipv6_inface_status ${TEST_NoN_IPv6_INTERFACE}"
 	run on_server "${vpn_lib_load} && ${cmd} "
 	print_on_error "${status}" "${output}"
 
-	echo "${output}" | grep -q "НЕ ВОЗМОЖЕН"
+	echo "${output}" | grep -qE "ОТКЛЮЧЕН|НЕ ВОЗМОЖЕН"
 
 }
 

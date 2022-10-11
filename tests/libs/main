@@ -3,8 +3,8 @@
 vpn_lib_load=". /opt/apps/kvas/bin/libs/vpn"
 
 TEST_NoN_IPv6_INTERFACE=Wireguard0
-TEST_IPv6_INTERFACE=VPS
-TEST_NOT_EXIST_INTERFACE=Wireguard8
+TEST_IPv6_INTERFACE=OpenVPN0
+TEST_NOT_EXIST_INTERFACE=_WireGuardd
 TEST_EXIST_INTERFACE="${TEST_IPv6_INTERFACE}"
 
 on_server(){

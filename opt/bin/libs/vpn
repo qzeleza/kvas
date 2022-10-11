@@ -102,16 +102,21 @@ ipv6_inface_off() {
 # ------------------------------------------------------------------------------------------
 ipv6_inface_on() {
 	inface="${1}"
-	if [ -n "${inface}" ]; then
-		ready "Поддержка IPv6 на интерфейсе ${inface} подключена"
-			for cmd in ${CMD_LIST}; do
-	#		для отключения инфейса необходимо отправить команду auto
-	#		по всем командам ipv6: address prefix name-servers
-				curl -s -d '{"auto":true}' "${INFACE_PART_REQUEST}/${inface}/ipv6/${cmd}" &> /dev/null
-			done
-		if [ $? = 0 ]; then when_ok "УСПЕШНО"; else when_bad "СБОЙ"; fi
+#	Проверка на наличие заданного интерфейса в роутере
+	if is_cli_inface_present "${inface}"; then
+		if [ -n "${inface}" ]; then
+			ready "Поддержка IPv6 на интерфейсе ${inface} подключена"
+				for cmd in ${CMD_LIST}; do
+		#		для отключения инфейса необходимо отправить команду auto
+		#		по всем командам ipv6: address prefix name-servers
+					curl -s -d '{"auto":true}' "${INFACE_PART_REQUEST}/${inface}/ipv6/${cmd}" &> /dev/null
+				done
+			if [ $? = 0 ]; then when_ok "УСПЕШНО"; else when_bad "СБОЙ"; fi
+		else
+			when_bad "СБОЙ" && error "Не задан интерфейс"
+		fi
 	else
-		when_bad "СБОЙ" && error "Не задан интерфейс"
+		when_bad "СБОЙ" && error "Заданный интерфейс ${inface} не существует"
 	fi
 }
 # ------------------------------------------------------------------------------------------
