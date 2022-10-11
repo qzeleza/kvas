@@ -28,6 +28,8 @@ INFACE_ENT=@ENTWARE_INFACE_NAME
 #как пример гостевая сеть br3, которой необходимо обеспечить доступ к VPN
 INFACE_GUEST_ENT=
 
+# Локальные сети
+#LOCAL_NETS=('0.0.0.0/8' '127.0.0.0/8' '10.0.0.0/8' '169.254.0.0/16' '172.16.0.0/12' '192.168.0.0/16' '224.0.0.0/4' '240.0.0.0/4')
 # Файл временного хранения результатов исполнения команды
 res_file=/opt/tmp/kvas.result
 # ------------------------------------------------------------------------------------------
@@ -88,6 +90,16 @@ ip4_firewall_dns_rules_set(){
 	fi
 }
 # ------------------------------------------------------------------------------------------
+# Исключение из работы локальных запросов
+# ------------------------------------------------------------------------------------------
+ip4_firewall_except_locals(){
+	chain_name=${1}; type=${2};
+#	for _net in "${LOCAL_NETS[@]}"; do
+	for _net in '0.0.0.0/8' '127.0.0.0/8' '10.0.0.0/8' '169.254.0.0/16' '172.16.0.0/12' '192.168.0.0/16' '224.0.0.0/4' '240.0.0.0/4'; do
+	  ip4tables ${chain_name} -t ${type} -d ${_net} -j RETURN
+	done
+}
+# ------------------------------------------------------------------------------------------
 # Маркировка VPN подключений когда программное и аппаратное ускорение ПОДКЛЮЧЕНО
 # ------------------------------------------------------------------------------------------
 ip4_firewall_mark_vpn(){
@@ -96,12 +108,9 @@ ip4_firewall_mark_vpn(){
 		{
 			iptables -N VPNREDIR -t mangle
 			ip4tables VPNREDIR -t mangle -m set ! --match-set "${table_name}" dst -j RETURN
-			ip4tables VPNREDIR -t mangle -d 0.0.0.0/8 -j RETURN
-			ip4tables VPNREDIR -t mangle -d 127.0.0.0/8 -j RETURN
-			ip4tables VPNREDIR -t mangle -d 10.0.0.0/8 -j RETURN
-			ip4tables VPNREDIR -t mangle -d 169.254.0.0/16 -j RETURN
-			ip4tables VPNREDIR -t mangle -d 172.16.0.0/12 -j RETURN
-			ip4tables VPNREDIR -t mangle -d 192.168.0.0/16 -j RETURN
+
+			ip4_firewall_except_locals VPNREDIR mangle
+
 			ip4tables VPNREDIR -t mangle -j CONNMARK --restore-mark
 			ip4tables VPNREDIR -t mangle -m mark --mark ${MARK_NUM} -j RETURN
 			ip4tables VPNREDIR -t mangle -p tcp --syn -j MARK --set-mark ${MARK_NUM}

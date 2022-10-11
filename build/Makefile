@@ -133,15 +133,13 @@ local_ip=$$(get_router_ip)
 inface=$$(get_inface_by_ip "$${local_ip}")
 set_config_value DNSMASQ_LISTEN_IP "$${local_ip}"
 
-
-print_line
 #------------------------------------------------------
 # Сейчас необходимо выбрать VPN интерфейс для работы пакета
 #------------------------------------------------------
 cmd_interface_change no
 log_in_file "$$(cmd_vpn_status)"
 test_status
-
+print_line
 #------------------------------------------------------
 # AdGuard Home
 #------------------------------------------------------
@@ -185,14 +183,14 @@ ready "Настройка файлов конфигурации пакета"
 		warning "Проблема повторной установки. Удалите и установите пакет заново.";
 		exit 1;
 	}
-[ -f /opt/etc/ndm/netfilter.d/100-proxy-redirect ] \
-	&& sed -i "s/@PROXY_PORT/$${proxy_port}/g; s/@INFACE/$${inface}/g;" 	/opt/etc/ndm/netfilter.d/100-proxy-redirect \
-	|| {
-		log_in_file "ОШИБКА: отсутствует файл /opt/etc/ndm/netfilter.d/100-proxy-redirect"
-		error "Отсутствует файл /opt/etc/ndm/netfilter.d/100-proxy-redirect";
-		warning "Проблема повторной установки. Удалите и установите пакет заново.";
-		exit 1;
-	}
+#[ -f /opt/etc/ndm/netfilter.d/100-proxy-redirect ] \
+#	&& sed -i "s/@PROXY_PORT/$${proxy_port}/g; s/@INFACE/$${inface}/g;" 	/opt/etc/ndm/netfilter.d/100-proxy-redirect \
+#	|| {
+#		log_in_file "ОШИБКА: отсутствует файл /opt/etc/ndm/netfilter.d/100-proxy-redirect"
+#		error "Отсутствует файл /opt/etc/ndm/netfilter.d/100-proxy-redirect";
+#		warning "Проблема повторной установки. Удалите и установите пакет заново.";
+#		exit 1;
+#	}
 
 [ $$? = 0 ] && when_ok "ГОТОВО" || {
 	when_bad "ОШИБКА"
