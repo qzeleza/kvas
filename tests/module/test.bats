@@ -7,15 +7,35 @@ source ../libs/main
 #	файлы етосв с расширением bats
 #================================================================
 
-@test "Проверка исполнения команды по подключению IPv6 интерфейса [ipv6_inface_on]" {
-	cmd="ipv6_inface_on ${TEST_IPv6_INTERFACE}"
-	run on_server "${vpn_lib_load} && ${cmd} "
+@test "Проверка установки периода обновления списка разблокировки без аргументов [cmd_set_period_update]" {
+
+	cmd="cmd_set_period_update"
+	run on_server "${vpn_lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
-
 	[ "${status}" -eq 0 ]
-
 	#	Блок проверок то, что точно должно быть при нормальной работе скрипта
-	echo "${output}" | grep -q "УСПЕШНО"
+	echo "${output}" | grep -q 'Периодичность обновления'
+}
+
+@test "Проверка установки периода обновления списка разблокировки с неверным аргументом [cmd_set_period_update]" {
+
+	cmd="cmd_set_period_update 2aa"
+	run on_server "${vpn_lib_load} && ${cmd}"
+	print_on_error "${status}" "${output}"
+	[ "${status}" -eq 0 ]
+	#	Блок проверок то, что точно должно быть при нормальной работе скрипта
+	echo "${output}" | grep -q 'Указан не верный формат периода'
+
+}
+
+@test "Проверка установки периода обновления списка разблокировки с двойным аргументом [cmd_set_period_update]" {
+
+	cmd="cmd_set_period_update 12h"
+	run on_server "${vpn_lib_load} && ${cmd}"
+	print_on_error "${status}" "${output}"
+	[ "${status}" -eq 0 ]
+	#	Блок проверок то, что точно должно быть при нормальной работе скрипта
+	echo "${output}" | grep -q 'Период обновления установлен на каждые'
 
 }
 

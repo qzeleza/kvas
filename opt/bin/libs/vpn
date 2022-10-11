@@ -1685,12 +1685,12 @@ cmd_clear_list() {
 				[Yy]*)
 					print_line
 					ready "Очищаем список разблокировки ..."
-					mv -f "${UNBLOCK_LIST_FILE}" "${UNBLOCK_LIST_FILE}.kvas"
+					mv -f "${UNBLOCK_LIST_FILE}" "${KVAS_BACKUP_LIST_FILE}"
 					touch "${UNBLOCK_LIST_FILE}"
 					cmd_update_list &> /dev/null
 					[ $? = 0 ] && when_ok "ОЧИЩЕН" || when_bad "ОШИБКА"
 					print_line
-					warning "Предыдущий список разблокировки был сохранен в файл ${UNBLOCK_LIST_FILE}.kvas"
+					warning "Предыдущий список разблокировки был сохранен в файл ${KVAS_BACKUP_LIST_FILE}"
 					break
 					;;
 				[Nn]*)
@@ -1860,8 +1860,10 @@ cmd_show_list() {
 			print_host_list
 		fi
 	else
-#		Если список хостов не существует, то провряем есть ли архивная копия
+#		Если список хостов не существует, то проверяем, есть ли архивная копия
 		if [ -f "${KVAS_BACKUP_LIST_FILE}" ] ; then
+			warning "Список разблокировки восстановлен из архивной копии."
+			print_line
 			cp "${KVAS_BACKUP_LIST_FILE}" "${UNBLOCK_LIST_FILE}"
 			print_host_list
 		else
@@ -1919,7 +1921,7 @@ get_period() {
 }
 cmd_set_period_update() {
 	if [ -z "${1}" ]; then
-		#		если аргуимент не задан, то просто
+		#		если аргумент не задан, то просто
 		#		отображаем заданный период обновления
 		get_period_update
 	elif ! echo "${1}" | grep -q '[m,h,d,w,M]' ; then
@@ -1941,7 +1943,7 @@ cmd_set_period_update() {
 		# shellcheck disable=SC2039
 		if [[ "${_mins}" && "${_hours}" ]]; then
 			error "Период задать возможно только в одном из форматов:"
-			error "в минутах(m), часах(h), днях(d), неделях(w), мсяцах(M)."
+			error "в минутах(m), часах(h), днях(d), неделях(w), месяцах(M)."
 		else
 			sed -i "/update/d" ${CRONTAB_FILE}
 			echo -n "Период обновления "
