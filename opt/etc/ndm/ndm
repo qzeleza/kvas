@@ -56,8 +56,12 @@ ip4save() (/opt/sbin/iptables-save)
 get_gw4()(ip4 addr show "${1}" | grep -Po "(?<=inet ).*(?=/)")
 
 INFACE_GW4=$(get_gw4 "${INFACE_ENT}")
-INFACE_GUEST_GW4=$([ -n "${INFACE_GUEST_ENT}" ] && get_gw4 "${INFACE_GUEST_ENT}")
-GUEST_NET="$([ -n "${INFACE_GUEST_ENT}" ] && echo "${INFACE_GUEST_GW4}" | cut -d'.' -f1-3).0/24"
+
+# в случае если задан гостевой интерфейс
+[ -n "${INFACE_GUEST_ENT}" ] && {
+	INFACE_GUEST_GW4=$(get_gw4 "${INFACE_GUEST_ENT}")
+	GUEST_NET="$(echo "${INFACE_GUEST_GW4}" | cut -d'.' -f1-3).0/24"
+}
 
 # ------------------------------------------------------------------------------------------
 # проверка на доступность программного и аппаратного ускорения

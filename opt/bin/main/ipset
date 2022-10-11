@@ -71,4 +71,3 @@ while read -r line || [ -n "${line}" ]; do
   	| awk '{system("ipset -exist add '"${table_name}"' "$1)}' &> /dev/null
 
 done < "${host_list}"
-

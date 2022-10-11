@@ -269,7 +269,7 @@ iptable_check() {
 #
 # ------------------------------------------------------------------------------------------
 ipset_check() {
-
+set -x
 	ready "Заполнение ipset таблицы скриптами КВАСа"
 	if ! [ -f "${UNBLOCK_LIST_FILE}" ] || \
 	[ "$(grep -vcE '^$|#' "${UNBLOCK_LIST_FILE}" )" -eq 0 ] ; then
@@ -277,7 +277,7 @@ ipset_check() {
 	fi
 	. /opt/apps/kvas/bin/libs/ndm
 	ip4set_create_table
-	/opt/apps/kvas/bin/main/ipset &> /dev/null
+	/opt/apps/kvas/bin/main/ipset #&> /dev/null
 	if ipset list "${table_name}" | grep -vEi '^[a-z]' &> /dev/null; then
 		when_ok "ЗАПОЛНЕНА"
 	else
@@ -293,6 +293,7 @@ ipset_check() {
 			exit 1
 		fi
 	fi
+set +x
 }
 
 # ------------------------------------------------------------------------------------------
@@ -453,15 +454,16 @@ ipset_site_visit_check() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_state_checker() {
+	set -x
 #	проверяем интернет
 	internet_check
 #	Проверяем включен ли dns-override (отключены ли DNS провайдера)
 	dns_override_check
 #	Проверяем наличие самого списочного файла и число записей в нем
 	hosts_list_check
-# Проверяем подлючен ли AdGuard Home
+# Проверяем подключен ли AdGuard Home
 	adguardhome_status=$(cmd_adguardhome_status)
-	if cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then
+	if echo "${adguardhome_status}" | grep -q ВКЛЮЧЕН ; then
 #		AdGuard Home включен
 		echo "${adguardhome_status}"
 		cmd_adguard_check
@@ -474,7 +476,7 @@ cmd_state_checker() {
 # 		Проверяем работу блокировки рекламы
 		adblock_dnsmasq_check
 	fi
-
+set +x
 	print_line
 #	По наличию файла ниже определяем наличие использования shadowsocks
 	if [ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ]; then

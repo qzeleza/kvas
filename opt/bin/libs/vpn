@@ -59,9 +59,10 @@ cmd_help() {
 #
 # ------------------------------------------------------------------------------------------
 get_value_interface_field() {
-	id_cli_inface="${1}"
-	field_name="${2}"
-  	curl -s "${INFACE_REQUEST}" | jq -r '.[] | select(.id=="'"${id_cli_inface}"'") | .'"${field_name}"
+	id_cli_inface=${1}
+	field_name=${2}
+	sleep 1
+	curl -s "${INFACE_REQUEST}" | jq -r '.[] | select(.id=="'"${id_cli_inface}"'") | .'"${field_name}"
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -198,10 +199,9 @@ ipv6_inface_status() {
 # ------------------------------------------------------------------------------------------
 adguardhome_setup() {
 
-#	в случае наличия аргумента функции получаем из него номер порта и IP
-	[ -n "${1}" ] && ip=$(echo "${1}" | cut -d'#' -f1) && port=$(echo "${1}" | cut -d'#' -f2)
-#	в случае отсуствия аргумента получаем ip и порт из глобальных переменных
-	[ -z "${1}" ] && ip="${LOCALHOST_IP}" && port=${MAIN_DNS_PORT}
+	ip=$(cat < "${ADGUARDHOME_CONFIG}" | grep '^bind_host: ' | cut -d':' -f2 | tr -d ' \n')
+	#port=$(cat < "${ADGUARDHOME_CONFIG}" | grep '^bind_port: ' | cut -d':' -f2 | tr -d ' \n')
+	port=${MAIN_DNS_PORT}
 
 	ready "AdGuard Home установлен в качестве основного DNS сервера"
 
@@ -232,7 +232,8 @@ adguardhome_setup() {
 #	меняем dns в настройках ipset
 	ipset_dns_change "${ip}#${port}"
 #	теперь просто перезагружаем сервис adguard
-	"${ADGUARDHOME_DEMON}" restart &> /dev/null
+	ndm_interface_change
+	"${ADGUARDHOME_DEMON}" start &> /dev/null
 #	отслеживаем результат запуска сервиса adguard
 	if [ $? = 0 ]; then
 		when_ok "УСПЕШНО"
@@ -241,6 +242,15 @@ adguardhome_setup() {
 		error "Возникла ошибка при установке AdGuard Home в качестве основного DNS сервера."
 		exit 1
 	fi
+}
+# ------------------------------------------------------------------------------------------
+#
+#	 Возвращаем IP#port на котором слушает AdGuard Home в качестве основного DNS сервера
+#	 в виде XXX.XXX.XXX.XXX#53
+#
+# ------------------------------------------------------------------------------------------
+get_adguardhome_ip_port() {
+	echo "$(cat < "${ADGUARDHOME_CONFIG}" | grep '^bind_host: ' | cut -d':' -f2 | tr -d ' \n')#${MAIN_DNS_PORT}"
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -255,7 +265,7 @@ cmd_adguardhome_status() {
 		if [ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ]; then
 #			Проверяем наличие сервиса AdGuardHome
 			if [ -f "${ADGUARDHOME_DEMON}" ] ; then
-
+				DNS_IP_PORT=$(get_adguardhome_ip_port)
 				adguard_is_dns_default=$(get_config_value 'DNS_DEFAULT' | grep "${DNS_IP_PORT}")
 				adguard_is_alive=$("${ADGUARDHOME_DEMON}" status | grep alive)
 
@@ -326,6 +336,8 @@ adguardhome_install_locally() {
 		opkg install adguardhome-go &> /dev/null
 
 		adguardhome_check_config
+		ip=$(get_router_ip)
+		port=$(cat < "${ADGUARDHOME_CONFIG}" | grep '^bind_port: ' | cut -d':' -f2 | tr -d ' \n')
 		adguardhome_setup
 	fi
 }
@@ -587,9 +599,8 @@ bridge_inface_select() {
 ipset_dns_change() {
 	dns_new=${1};
 	if echo "${dns_new}" | grep -qE ':|#'; then
-	_dns_clear=$(echo "${dns_new}" | tr '#' ':' )
-	sed -i "s/\(@\).*)/@${_dns_clear} )/" "/opt/apps/kvas/bin/main/ipset"
-	sed -i "s/\(@\).*|/@${_dns_clear} |/" "/opt/apps/kvas/bin/main/ipset"
+		_dns_clear=$(echo "${dns_new}" | tr '#' ':' )
+		sed -i "s/@[a-zA-Z0-9:.]*/@${_dns_clear}/" "/opt/apps/kvas/bin/main/ipset"
 	fi
 }
 
@@ -765,6 +776,9 @@ cmd_dns_test() {
 # ------------------------------------------------------------------------------------------
 dns_show() {
 	mess="Текущий DNS сервер по умолчанию"
+	if cmd_adguardhome_status | grep -qE "ВКЛЮЧЕН|ОТКЛЮЧЕН" ; then
+		DNS_IP_PORT=$(get_adguardhome_ip_port)
+	fi
 	dns=$(get_config_value DNS_DEFAULT)
 	dns_crypt=$(get_config_value DNS_CRYPT_PORT)
 	if  echo "${dns}" | grep -q "${dns_crypt}" ; then
@@ -1181,8 +1195,7 @@ EOF
 		else
 			curl -s -d '{"up":"true"}' "${INFACE_PART_REQUEST}/${inface_cli}" &> /dev/null
 		fi
-#		[ -n "$(echo "${inface_cli}" | grep -i 'openvpn')" ] &&
-		sleep 2
+		sleep 3
 		curl -s -d "{\"${state}\":\"true\"}" "${INFACE_PART_REQUEST}/${inface_cli}" &> /dev/null
 		# получаем описание интерфейса
 		description=$(get_value_interface_field "${inface_cli}" description | sed 's|\/|\\/|g')
@@ -1199,8 +1212,9 @@ EOF
 # ------------------------------------------------------------------------------------------
 cmd_scan_interface_list() {
 	update_interface_name_list
-	print_line; warning "Сканирование интерфейсов завершено.";
+	warning "Сканирование интерфейсов завершено:";
 	print_line
+	show_vpn_list
 }
 
 # ------------------------------------------------------------------------------------------
@@ -1260,7 +1274,34 @@ is_vpn_interface_connected() {
 	fi
 	echo "${connected}"
 }
+# ------------------------------------------------------------------------------------------
+#
+#	Выводим список текущих интерфейсов с номерами по порядку и данными об их доступности
+#
+# ------------------------------------------------------------------------------------------
+show_vpn_list() {
 
+	inface_entware=$(get_current_vpn_interface 'entware')
+	num=0;
+
+	while read -r line || [ -n "${line}" ]; do
+
+		num=$((num + 1))
+		is_current_vpn=$(echo "${line}" | grep -i "${inface_entware}")
+		cli_inface_desc=$(echo "${line}" | cut -d"|" -f3)
+		cli_inface=$(echo "${line}" | cut -d"|" -f1)
+		mess="${num}. Интерфейс ${cli_inface_desc}"
+		sleep 1
+		connected=$(is_vpn_interface_connected "${cli_inface}")
+
+		if [ -n "${is_current_vpn}" ]; then
+			mess="${BLUE}${mess} [текущий]${NOCL}"
+		fi
+
+		ready "${mess}"
+		if [ "${connected}" = "on" ]; then when_ok "В СЕТИ"; else when_bad "ОТКЛЮЧЕН"; fi
+	done <${INFACE_NAMES_FILE}
+}
 # ------------------------------------------------------------------------------------------
 #
 #	Переключаем интерфейс клиента
@@ -1282,28 +1323,11 @@ cmd_interface_change() {
 	else
 		update_interface_name_list
 	fi
-	inface_entware=$(get_current_vpn_interface 'entware')
-	num=0; sel=0;connected_cur=1
 
-	while read -r line || [ -n "${line}" ]; do
-		num=$((num + 1))
-		is_current_vpn=$(echo "${line}" | grep -i "${inface_entware}")
-		cli_inface_desc=$(echo "${line}" | cut -d"|" -f3)
-		cli_inface=$(echo "${line}" | cut -d"|" -f1)
-		mess="${num}. Интерфейс ${cli_inface_desc}"
-		connected=$(is_vpn_interface_connected "${cli_inface}")
-
-		if [ -n "${is_current_vpn}" ]; then
-			mess="${BLUE}${mess} [текущий]${NOCL}"
-		fi
-
-		ready "${mess}"
-		if [ "${connected}" = "on" ]; then when_ok "В СЕТИ"; else when_bad "ОТКЛЮЧЕН"; fi
-
-	done <${INFACE_NAMES_FILE}
+#	Отображаем список текущих интерфейсов с номерами по порядку и данными об их доступности
+	show_vpn_list
 
 	total=$(cat < "${INFACE_NAMES_FILE}" | wc -l)
-
 	while true; do
 		print_line
 		ready "${BLUE}Выберите номер варианта VPN соединения [1-${total}]:${NOCL}"
