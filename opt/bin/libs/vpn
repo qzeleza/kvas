@@ -236,8 +236,8 @@ adguardhome_setup() {
 	rm -f "${KVAS_START_FILE}"
 #	меняем dns в настройках ipset
 	ipset_dns_change "${ip}#${port}"
-#	теперь просто перезагружаем сервис adguard
-	ndm_interface_change
+#	теперь просто запускаем сервис adguard
+#	ndm_interface_change
 	"${ADGUARDHOME_DEMON}" start &> /dev/null
 #	отслеживаем результат запуска сервиса adguard
 	if [ $? = 0 ]; then
@@ -1340,10 +1340,12 @@ cmd_interface_change() {
 		if ! echo "${num_vpn_inface}" | grep -qE "[1-${total}]"; then
 			error "Введите цифру от 1 до ${total}."
 		else
+#			Меняем интерфейс в файле ndm
 			inface_entware=$(get_vpn_interface_by_num "${num_vpn_inface}")
+			cli_inface=$(echo "${INFACE_NAMES_FILE}" | grep "${inface_entware}" | cut -d"|" -f1)
+			ndm_interface_change "${inface_entware}" "${cli_inface}"
+
 			if [ "${inface_entware}" = 'shadowsocks' ]; then
-				cli_inface=$(echo "${INFACE_NAMES_FILE}" | grep "${inface_entware}" | cut -d"|" -f1)
-				ndm_interface_change "${inface_entware}" "${cli_inface}"
 				vpn_off &> /dev/null
 				shadowsocks_backup
 				shadowsocks_on

@@ -78,6 +78,13 @@ inface=$(get_inface_by_ip "${local_ip}")
 set_config_value DNSMASQ_LISTEN_IP "${local_ip}"
 
 #------------------------------------------------------
+# Сейчас необходимо выбрать VPN интерфейс для работы пакета
+#------------------------------------------------------
+cmd_interface_change no
+log_in_file "$(cmd_vpn_status)"
+test_status
+print_line
+#------------------------------------------------------
 # AdGuard Home
 #------------------------------------------------------
 answer_agh=n
@@ -209,11 +216,6 @@ cmd_set_period_update "12h" &> /dev/null
 #cmd_update_list
 test_status
 
-print_line
-#warning "Сейчас необходимо выбрать VPN интерфейс для работы пакета"
-cmd_interface_change no
-log_in_file "$(cmd_vpn_status)"
-test_status
 #  проверяем был ли сделал выбор AdGuard Home в качестве DNS сервера
 
 if [ "${answer_agh}" = n ]; then
