@@ -1977,10 +1977,10 @@ cmd_ads_edit() {
 	nano '/opt/etc/adblock.sources' &&
 		{
 			cmd_ads_protect_on ask
-			print_line
-			ready "Перезапуск службы dnsmasq"
-			/opt/etc/init.d/S56dnsmasq restart &> /dev/null
-			[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+#			print_line
+#			ready "Перезапуск службы dnsmasq"
+#			/opt/etc/init.d/S56dnsmasq restart &> /dev/null
+#			[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 		}
 }
 
@@ -2015,24 +2015,23 @@ cmd_ads_protect_on() {
 		cp -f '/opt/apps/kvas/bin/main/adblock' '/opt/apps/kvas/bin/main/adblock'
 		chmod +x '/opt/apps/kvas/bin/main/adblock'
 	fi
-	adblock_file=/opt/tmp/adblock
-	if cat < '/opt/etc/dnsmasq.conf' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep -q "${adblock_file}" ; then
+
+	if cat < '/opt/etc/dnsmasq.conf' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep -q "${ADS_HOSTS_FILE}" ; then
 		ready "Блокировка рекламы уже "
 		when_ok "ВКЛЮЧЕНА"
 	else
 		ready "Блокировка рекламы"
 		sed -i '/addn-hosts=\/opt\/tmp\/adblock/d' '/opt/etc/dnsmasq.conf'
 		sed -i 's/\(^ADS_BLOCKER_ON=.*\)/\11/' '/opt/apps/kvas/bin/main/update'
-		echo "addn-hosts=${adblock_file}" >> '/opt/etc/dnsmasq.conf'
+		echo "addn-hosts=${ADS_HOSTS_FILE}" >> '/opt/etc/dnsmasq.conf'
 		OFF="ОТКЛЮЧЕНА.\nПроизошла не предвиденная ошибка."
 		[ $? = 0 ] && when_ok "ВКЛЮЧЕНА" || when_bad "${OFF}"
-#			print_line
 		ads_request_to_upload "${perform_to_aks}"
-		print_line
-		ready "Перезапуск службы dnsmasq"
-		/opt/etc/init.d/S56dnsmasq restart &> /dev/null
-		[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 	fi
+	print_line
+	ready "Перезапуск службы dnsmasq"
+	/opt/etc/init.d/S56dnsmasq restart &> /dev/null
+	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -2077,7 +2076,7 @@ ads_request_to_upload() {
 			[ $? = 0 ] && when_ok "УДАЧНО" || when_bad "С ОШИБКОЙ"
 		fi
 	fi
-	if [ -f /opt/tmp/adblock/hosts ]; then
+	if [ -f "${ADS_HOSTS_FILE}" ]; then
 		[ "${answer}" = ask ] && read_ynq "Обновить списки блокировки рекламы" answer
 		[ "${answer}" = y ] && /opt/apps/kvas/bin/main/adblock
 	else

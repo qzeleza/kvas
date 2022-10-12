@@ -22,7 +22,6 @@
 
 tmp_path="/opt/tmp/adblock"
 tmp_file="/opt/tmp/hosts.tmp"
-adhosts_file="${tmp_path}/hosts"
 main_hosts_file="/opt/etc/hosts"
 dnsmasq_demon="/opt/etc/init.d/S56dnsmasq"
 error_source="/opt/tmp/kvas.err.log"
@@ -30,7 +29,7 @@ ads_sources_file="/opt/etc/adblock.sources"
 grepv="#|^$|localhost| local|broadcasthost|loopback|localnet|mcastprefix|allnodes|allrouters|allhosts| 0.0.0.0"
 # блокируем различные популярные в РФ счетчики и определители IP
 mkdir -p "${tmp_path}"
-cat <<EOF >> "${adhosts_file}"
+cat <<EOF >> "${ADS_HOSTS_FILE}"
 0.0.0.0 ezstat.ru
 0.0.0.0 iplogger.org
 0.0.0.0 2no.co
@@ -72,7 +71,7 @@ while read -r source || [ -n "${source}" ]; do
 		continue
 	fi
 
-	cat < "${tmp_file}" | grep -vE "${grepv}" >> "${adhosts_file}"
+	cat < "${tmp_file}" | grep -vE "${grepv}" >> "${ADS_HOSTS_FILE}"
 	progress_bar "${score}" "${total}" ""
 
 done < "${ads_sources_file}"
@@ -88,24 +87,24 @@ if [ -f ${error_source} ]; then
 fi
 
 ready "Сортировка и удаление дубликатов"
-nlines_all=$(cat < "${adhosts_file}" | wc -l)
-cat < "${adhosts_file}" | sort -u > ${tmp_file}
+nlines_all=$(cat < "${ADS_HOSTS_FILE}" | wc -l)
+cat < "${ADS_HOSTS_FILE}" | sort -u > ${tmp_file}
 nlines_sorted=$(cat < "${tmp_file}" | wc -l)
 when_ok "ГОТОВО"
 
-if [ -f "${main_hosts_file}" ]; then
+if [ -f "${main_hosts_file}" ] && [ "$(cat < "${main_hosts_file}" | wc -l )" -ge 1 ]; then
 	exclude_com="$(cat < "${main_hosts_file}" | tr -d '*' | sed ':a;N;$!ba;s/\n/$| /g')$"
 	exclude_www="www.$(cat < "${main_hosts_file}" | tr -d '*' | sed ':a;N;$!ba;s/\n/$| www./g')$"
 	exclude_all="${exclude_com}|${exclude_www}"
 
 	ready "Исключаем из списка блокировки хосты из белого списка"
-	cat < "${tmp_file}" | grep -vE "${exclude_all}" > "${adhosts_file}"
+	cat < "${tmp_file}" | grep -vE "${exclude_all}" > "${ADS_HOSTS_FILE}"
 	when_ok "ГОТОВО"
 	rm "${tmp_file}"
-	nlines_excluded=$(cat < "${adhosts_file}" | wc -l)
+	nlines_excluded=$(cat < "${ADS_HOSTS_FILE}" | wc -l)
 
 else
-	mv "${tmp_file}" "${adhosts_file}"
+	mv "${tmp_file}" "${ADS_HOSTS_FILE}"
 	nlines_excluded="${nlines_all}"
 fi
 
@@ -120,7 +119,7 @@ fi
 			logger "Рекламных хостов для блокировки добавлено $(dig_frm ${hosts}) шт."
 		else
 			when_bad "ОШИБКИ"
-			mess="Проверьте файл ${adhosts_file} на ошибки"
+			mess="Проверьте файл ${ADS_HOSTS_FILE} на ошибки"
 			error "${mess}"; logger "${mess}"
 		fi
 	fi
