@@ -1974,7 +1974,7 @@ cmd_set_period_update() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_ads_edit() {
-	nano '/opt/etc/conf/adblock.sources' &&
+	nano '/opt/etc/adblock.sources' &&
 		{
 			cmd_ads_protect_on ask
 			print_line

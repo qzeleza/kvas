@@ -66,6 +66,7 @@ chmod -R +x /opt/apps/kvas/etc/ndm/*
 ln -sf /opt/apps/kvas/bin/kvas /opt/bin/kvas
 
 cp -f /opt/apps/kvas/etc/conf/kvas.conf /opt/etc/kvas.conf
+cp -f /opt/apps/kvas/etc/conf/adblock.sources /opt/etc/adblock.sources
 # Делаем копии файлов для того чтобы была возможность
 # использовать функции в них в скрипте при удалении пакета
 cp -f /opt/apps/kvas/bin/libs/vpn /opt/apps/kvas/bin/libs/.vpn
@@ -183,14 +184,6 @@ ready "Настройка файлов конфигурации пакета"
 		warning "Проблема повторной установки. Удалите и установите пакет заново.";
 		exit 1;
 	}
-#[ -f /opt/etc/ndm/netfilter.d/100-proxy-redirect ] \
-#	&& sed -i "s/@PROXY_PORT/$${proxy_port}/g; s/@INFACE/$${inface}/g;" 	/opt/etc/ndm/netfilter.d/100-proxy-redirect \
-#	|| {
-#		log_in_file "ОШИБКА: отсутствует файл /opt/etc/ndm/netfilter.d/100-proxy-redirect"
-#		error "Отсутствует файл /opt/etc/ndm/netfilter.d/100-proxy-redirect";
-#		warning "Проблема повторной установки. Удалите и установите пакет заново.";
-#		exit 1;
-#	}
 
 [ $$? = 0 ] && when_ok "ГОТОВО" || {
 	when_bad "ОШИБКА"

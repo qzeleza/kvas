@@ -10,6 +10,7 @@ chmod -R +x /opt/apps/kvas/etc/ndm/*
 ln -sf /opt/apps/kvas/bin/kvas /opt/bin/kvas
 
 cp -f /opt/apps/kvas/etc/conf/kvas.conf /opt/etc/kvas.conf
+cp -f /opt/apps/kvas/etc/conf/adblock.sources /opt/etc/adblock.sources
 # Делаем копии файлов для того чтобы была возможность
 # использовать функции в них в скрипте при удалении пакета
 cp -f /opt/apps/kvas/bin/libs/vpn /opt/apps/kvas/bin/libs/.vpn

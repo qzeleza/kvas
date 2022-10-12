@@ -191,7 +191,7 @@ ip4_firewall_flush_ssr_rules(){
 ip4_firewall_flush_all_rules(){
 	ip4_firewall_flush_vpn_rules
 	ip4_firewall_flush_ssr_rules
-	ip4_del_guest_to_vpn_network
+	[ "${INFACE_GUEST_ENT}" ] && ip4_del_guest_to_vpn_network
 }
 # ------------------------------------------------------------------------------------------
 

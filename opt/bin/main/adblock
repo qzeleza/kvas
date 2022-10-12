@@ -29,7 +29,7 @@ error_source="/opt/tmp/kvas.err.log"
 ads_sources_file="/opt/etc/adblock.sources"
 grepv="#|^$|localhost| local|broadcasthost|loopback|localnet|mcastprefix|allnodes|allrouters|allhosts| 0.0.0.0"
 # блокируем различные популярные в РФ счетчики и определители IP
-mkdir -pf "${tmp_path}"
+mkdir -p "${tmp_path}"
 cat <<EOF >> "${adhosts_file}"
 0.0.0.0 ezstat.ru
 0.0.0.0 iplogger.org
