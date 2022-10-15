@@ -13,6 +13,8 @@ version=$(get_version_part VERSION)
 stage=$(get_version_part STAGE)
 release=$(get_version_part RELEASE)
 
+[ -n "${stage}" ] && full_version="${version} ${stage} ${release}" || full_version="${version} ${release}"
+
 remote_dir="${KVAS_PATH}/debug"
 remote_file=${remote_dir}/remote.conf
 

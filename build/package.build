@@ -2,16 +2,16 @@
 set -e
 . /apps/kvas/build/library.run "/apps/kvas"
 
-copy_changed_file_to_build(){
-	rm -rf /apps/entware/package/utils/kvas/*
-	rm -rf /apps/entware/staging_dir/target-mipsel_mips32r2_glibc-2.27/root-mipsel-3.4/./opt/apps/kvas
-	mkdir -p /apps/entware/package/utils/kvas/
-	cp -rf /apps/kvas/opt/ /apps/entware/package/utils/kvas/files/
-
-	user=$(get_remove_value "USER_NAME")
-	group=$(get_remove_value "USER_GROUP")
-	chown -R ${user}:${group} /apps/entware/package/utils/kvas
+#========================================================================================================
+#
+# 	Функции которая меняет крайнюю версию пакета в файле README.md
+# 	на основе данных из файла ./version
+#
+#========================================================================================================
+change_ver_in_readme(){
+	sed -i -e 's/\(^.*Крайняя версия Кваса.\)\[.*\]\(.*\)/\1 ['"${full_version}"']\2/' ../README.md
 }
+
 
 #------------------------------------------------------------------------------
 #
@@ -55,9 +55,8 @@ APP_PKG_TAR_NAME=kvas_${version}-${stage}_${release}_all.ipk
 APP_PKG_FILE="/apps/entware/bin/targets/mipsel-3.4/generic-glibc/packages/${APP_PKG_TAR_NAME}"
 rm -f "${APP_PKG_FILE}"
 
+change_ver_in_readme
 /apps/kvas/build/Makefile.build
-
-#copy_changed_file_to_build
 
 #    make menuconfig
 if ! grep -q kvas /apps/entware/.config ; then
