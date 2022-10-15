@@ -198,14 +198,30 @@ ipv6_inface_status() {
 
 # ------------------------------------------------------------------------------------------
 #
+#	 Меняем в файле конфигурации AdGuard Home DNS его адрес, в случае если он равен 0.0.0.0
+# 	 Предотвращаем зависание работы пакета при выборе пользователем,
+# 	 при первоначальной настройке AdGuard Home, опцию "все адреса"
+#
+# ------------------------------------------------------------------------------------------
+adguardhome_change_and_get_config_ip() {
+	ip_filter="[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}"
+	ip_dns_adguard=$(cat < "${ADGUARDHOME_CONFIG}" | sed -n '/^dns/,/port:/p' | grep -o "${ip_filter}")
+	if [ "${ip_dns_adguard}" = '0.0.0.0' ] ; then
+		ip_dns_adguard=$(get_router_ip)
+		sed -i '/^dns/,/port:/s/'"${ip_filter}/${ip_dns_adguard}"'/' "${ADGUARDHOME_CONFIG}"
+	fi
+	echo "${ip_dns_adguard}"
+}
+
+# ------------------------------------------------------------------------------------------
+#
 #	 Производим настройку работы AdGuard Home
 # 	 $1 - содержит 'ip:port' для работы adguardhome
 #
 # ------------------------------------------------------------------------------------------
 adguardhome_setup() {
 
-	ip=$(cat < "${ADGUARDHOME_CONFIG}" | grep '^bind_host: ' | cut -d':' -f2 | tr -d ' \n')
-	#port=$(cat < "${ADGUARDHOME_CONFIG}" | grep '^bind_port: ' | cut -d':' -f2 | tr -d ' \n')
+	ip=$(adguardhome_change_and_get_config_ip)
 	port=${MAIN_DNS_PORT}
 
 	ready "AdGuard Home установлен в качестве основного DNS сервера"
