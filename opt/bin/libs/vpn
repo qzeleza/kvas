@@ -1,5 +1,6 @@
 #!/bin/sh
 . /opt/apps/kvas/bin/libs/.debug
+. /opt/apps/kvas/bin/libs/logging
 # ------------------------------------------------------------------------------------------
 #
 # 	Добавляет хосты в белый список, доступ к сайтам которого
@@ -206,6 +207,7 @@ ipv6_inface_status() {
 adguardhome_change_and_get_config_ip() {
 	ip_filter="[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}"
 	ip_dns_adguard=$(cat < "${ADGUARDHOME_CONFIG}" | sed -n '/^dns/,/port:/p' | grep -o "${ip_filter}")
+#	Если DNS порт установлен в значение 0.0.0.0 (все адреса), то меняем его на ip роутера
 	if [ "${ip_dns_adguard}" = '0.0.0.0' ] ; then
 		ip_dns_adguard=$(get_router_ip)
 		sed -i '/^dns/,/port:/s/'"${ip_filter}/${ip_dns_adguard}"'/' "${ADGUARDHOME_CONFIG}"
