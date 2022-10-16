@@ -822,7 +822,7 @@ dns_show() {
 cmd_vpn_iptable_flush() {
 	ready "Очистка iptables для vpn завершена"
 	. /opt/apps/kvas/bin/libs/ndm
-	ip4_firewall_flush_vpn_rules
+	ip4_firewall_nofastnet_vpn_prune
 	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
 }
 # ------------------------------------------------------------------------------------------
@@ -1044,7 +1044,7 @@ cmd_shadowsocks_iptable_flush() {
 	if [ -f /opt/apps/kvas/bin/libs/ndm ]; then
 		ready "Удаление правил iptables для shadowsocks завершено"
 		. /opt/apps/kvas/bin/libs/ndm
-		ip4_firewall_flush_ssr_rules
+		ip4_firewall_ssr_prune &> /dev/null
 		[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
 	fi
 

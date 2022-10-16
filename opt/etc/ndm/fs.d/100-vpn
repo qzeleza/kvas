@@ -26,7 +26,7 @@
 
 [ "$1" = "start" ] && {
 #	Создаем правила iptables
-	ip4_firewall_mark_vpn
+	ip4_firewall_vpn_mark
 #	Создаем талицу IP адресов для  VPN подключения отличного от shadowsocks
 	ip4_add_route_table
 #	Устанавливаем приоритет таблицы

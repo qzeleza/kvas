@@ -20,9 +20,8 @@
 
 # Shadowsocks+
 if ! ip4save | grep "${table_name}" | grep -q @PROXY_PORT ; then
-#	 создаем таблицу ipset и првила для shadowsocks подключения
-	ip4set_create_table
-	ip4_firewall_flush_vpn_rules
+#	 создаем правила для shadowsocks подключения
+	ip4_firewall_flush_all_rules
 	ip4_firewall_set_ssr_rules @INFACE @PROXY_PORT
 	exit 0
 fi

@@ -236,7 +236,7 @@ dnscrypt_proxy_check() {
 # ------------------------------------------------------------------------------------------
 iptable_check() {
 	ready "Наличие правил разблокировки в iptable"
-	if /opt/sbin/iptables-save | grep -qE "${table_name}|VPNREDIR" ; then
+	if /opt/sbin/iptables-save | grep -qE "${table_name}|${VPN_IPTABLES_CHAIN}|${SSR_IPTABLES_CHAIN}" ; then
 		when_ok "ЕСТЬ"
 	else
 		when_bad "ПРАВИЛ НЕТ"
@@ -249,7 +249,7 @@ iptable_check() {
 			ip4_mark_vpn_network
 		fi
 		ready "Повторная проверка правил разблокировки в iptable"
-		if /opt/sbin/iptables-save | grep -qE "${table_name}|VPNREDIR";  then
+		if /opt/sbin/iptables-save | grep -qE "${table_name}|${VPN_IPTABLES_CHAIN}|${SSR_IPTABLES_CHAIN}";  then
 			when_ok "ПРОЙДЕНА"
 		else
 			when_bad "ОШИБКА"

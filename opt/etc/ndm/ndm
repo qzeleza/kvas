@@ -27,6 +27,13 @@ INFACE_ENT=@ENTWARE_INFACE_NAME
 
 #как пример гостевая сеть br3, которой необходимо обеспечить доступ к VPN
 INFACE_GUEST_ENT=
+# Файл в котором содержатся сети, запросы из которых необходимо исключить
+# из обращений к VPN или SHADOWSOCKS подключениям
+EXCLUDED_NET_FILE=/opt/apps/kvas/etc/conf/excluded.net
+# Метка VPN цепочки для правил iptables
+VPN_IPTABLES_CHAIN=VPNREDIR
+# Метка SHADOWSOCKS цепочки для правил iptables
+SSR_IPTABLES_CHAIN=SHADOWSOCKS
 
 
 # ------------------------------------------------------------------------------------------
@@ -36,6 +43,7 @@ INFACE_GUEST_ENT=
 
 ip4() (/opt/sbin/ip -4 "$@")
 ip4tables() (if ! /opt/sbin/iptables -C "$@" &>/dev/null; then /opt/sbin/iptables -A "$@"; fi)
+ipXtables() (/opt/sbin/iptables "$@")
 ip4save() (/opt/sbin/iptables-save)
 get_gw4()(ip4 addr show "${1}" | grep -Po "(?<=inet ).*(?=/)")
 
@@ -72,48 +80,94 @@ ip4_firewall_dns_rules_set(){
 	fi
 }
 # ------------------------------------------------------------------------------------------
-# Исключение из работы локальных запросов
+# Исключаем из работы локальные запросы
 # ------------------------------------------------------------------------------------------
-ip4_firewall_except_locals(){
+ip4_firewall_exclude_locals(){
 	chain_name=${1}; type=${2};
-#	for _net in "${LOCAL_NETS[@]}"; do
-	for _net in '0.0.0.0/8' '127.0.0.0/8' '10.0.0.0/8' '169.254.0.0/16' '172.16.0.0/12' '192.168.0.0/16' '224.0.0.0/4' '240.0.0.0/4'; do
+	while read -r _net || [ -n "${_net}" ]; do
+		#  пропускаем строки с комментариями
+		[ "${_net:0:1}" = "#" ] && continue
+		# удаляем из строк комментарии - все что встречается после символа # и сам символ
+		_net=$(echo "${_net}" | sed 's/#.*$//g' | tr -s ' ' )
 	  ip4tables ${chain_name} -t ${type} -d ${_net} -j RETURN
-	done
+
+	done < "$EXCLUDED_NET_FILE}"
 }
 # ------------------------------------------------------------------------------------------
 # Маркировка VPN подключений когда программное и аппаратное ускорение ПОДКЛЮЧЕНО
 # ------------------------------------------------------------------------------------------
-ip4_firewall_mark_vpn(){
-	if ! ip4save | grep -q "VPNREDIR" ; then
+ip4_firewall_vpn_mark(){
+	if ! ip4save | grep -q "${VPN_IPTABLES_CHAIN}" ; then
 		# Маркируем трафик для домашней(основной) сети и прохождение пакетов через VPN подключение
 		{
-			iptables -N VPNREDIR -t mangle
-			ip4tables VPNREDIR -t mangle -m set ! --match-set "${table_name}" dst -j RETURN
+			ipХtables -N ${VPN_IPTABLES_CHAIN} -t mangle
+			ip4tables ${VPN_IPTABLES_CHAIN} -t mangle -m set ! --match-set "${table_name}" dst -j RETURN
 
-			ip4_firewall_except_locals VPNREDIR mangle
+			# Игнорируем локальные сети и любые другие адреса, которые вы хотели бы обойти прокси
+			ip4_firewall_exclude_locals ${VPN_IPTABLES_CHAIN} mangle
 
-			ip4tables VPNREDIR -t mangle -j CONNMARK --restore-mark
-			ip4tables VPNREDIR -t mangle -m mark --mark ${MARK_NUM} -j RETURN
-			ip4tables VPNREDIR -t mangle -p tcp --syn -j MARK --set-mark ${MARK_NUM}
-			ip4tables VPNREDIR -t mangle -p udp -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM}
-			ip4tables VPNREDIR -t mangle -j CONNMARK --save-mark
+			ip4tables ${VPN_IPTABLES_CHAIN} -t mangle -j CONNMARK --restore-mark
+			ip4tables ${VPN_IPTABLES_CHAIN} -t mangle -m mark --mark ${MARK_NUM} -j RETURN
+			ip4tables ${VPN_IPTABLES_CHAIN} -t mangle -p tcp --syn -j MARK --set-mark ${MARK_NUM}
+			ip4tables ${VPN_IPTABLES_CHAIN} -t mangle -p udp -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM}
+			ip4tables ${VPN_IPTABLES_CHAIN} -t mangle -j CONNMARK --save-mark
 
-			ip4tables PREROUTING -t mangle -p tcp -m set --match-set "${table_name}" dst -j VPNREDIR
-			ip4tables PREROUTING -t mangle -p udp -m set --match-set "${table_name}" dst -j VPNREDIR
-			ip4tables OUTPUT     -t mangle -p tcp -m set --match-set "${table_name}" dst -j VPNREDIR
-			ip4tables OUTPUT     -t mangle -p udp -m set --match-set "${table_name}" dst -j VPNREDIR
+			ip4tables PREROUTING -t mangle -p tcp -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN}
+			ip4tables PREROUTING -t mangle -p udp -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN}
+			ip4tables OUTPUT     -t mangle -p tcp -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN}
+			ip4tables OUTPUT     -t mangle -p udp -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN}
 
 		} 2> "${res_file}"
-#
+		log_when_error "${?}" "${app}::Маркировка трафика для VPN соединений"
+
 #		ip4tables PREROUTING -t mangle -m conntrack --ctstate NEW -m set --match-set "${table_name}" dst -j CONNMARK --set-mark ${MARK_NUM} 2>"${res_file}"
 #		ip4tables PREROUTING -t mangle -j CONNMARK --restore-mark >> "${res_file}"
-		[ -f "${res_file}" ] && [ "$(cat < "${res_file}" | wc -l )" -ge 1 ] && {
-			log_when_error "${?}" "${app}::Маркировка трафика для VPN соединений"
-		}
+		#[ -f "${res_file}" ] && [ "$(cat < "${res_file}" | wc -l )" -ge 1 ] && {
+		#}
 
 	fi
 }
+# ------------------------------------------------------------------------------------------
+# Удаляем VPN правила для случая когда программное и аппаратное ускорение ПОДКЛЮЧЕНО
+# ------------------------------------------------------------------------------------------
+ip4_firewall_fastnet_vpn_prune(){
+	num_lines=$(ipXtables -t mangle -L ${VPN_IPTABLES_CHAIN} --line-numbers 2>/dev/null | wc -l)
+	if [ "${num_lines}" -gt 0 ]; then
+		for b in $(seq 1 ${num_lines}); do
+			nline=$(ipXtables -t mangle -L ${VPN_IPTABLES_CHAIN} --line-numbers \
+					| cut -d" " -f1 \
+					| head -1 \
+					)
+			/opt/sbin/iptables -t mangle -D ${VPN_IPTABLES_CHAIN} "${nline}" 2>"${res_file}"
+		done
+		log_when_error "${?}" "${app}::Очистка правил iptable для VPN подключения"
+
+	else
+		logger_dev "${app}::Правила iptable для VPN подключения отсутствуют."
+	fi
+}
+# ------------------------------------------------------------------------------------------
+# Удаляем VPN правила для случая когда программное и аппаратное ускорение ОТКЛЮЧЕНО
+# ------------------------------------------------------------------------------------------
+ip4_firewall_nofastnet_vpn_prune(){
+	num_lines=$(ipXtables -t mangle -L PREROUTING --line-numbers  2>/dev/null  | grep CONNMARK | grep -cE "(${table_name}|restore-mark)")
+	if [ "${num_lines}" -gt 0 ]; then
+		for b in $(seq 1 ${num_lines}); do
+			nline=$(ipXtables -t mangle -L PREROUTING --line-numbers \
+					| grep CONNMARK \
+					| grep -E "(${table_name}|restore-mark)" \
+					| cut -d" " -f1 \
+					| head -1 \
+					)
+			ipXtables -t mangle -D PREROUTING "${nline}" 2>"${res_file}"
+		done
+		log_when_error "${?}" "${app}::Очистка правил iptable для VPN подключения"
+
+	else
+		logger_dev "${app}::Правила iptable для VPN подключения отсутствуют."
+	fi
+}
+
 # ------------------------------------------------------------------------------------------
 # Маркировка VPN подключений когда программное и аппаратное ускорение ОТКЛЮЧЕНО
 # ------------------------------------------------------------------------------------------
@@ -130,41 +184,76 @@ ip4_firewall_mark_rules_tcp_udp_on(){
 ip4_firewall_set_ssr_rules(){
 	inface="${1}"
 	proxy_port="${2}"
-	ip4tables PREROUTING -w -t nat -i ${inface} -p tcp -m set --match-set "${table_name}" dst -j REDIRECT --to-port ${proxy_port} 2>"${res_file}"
+
+	# Источник:
+	# https://github.com/shadowsocks/shadowsocks-libev/blob/master/doc/ss-redir.asciidoc?ysclid=l949tgrsfn795375643
+	# Создаем новую цепочку SHADOWSOCKS
+	{
+		ipXtables -N ${SSR_IPTABLES_CHAIN} -t nat
+		ipXtables -N ${SSR_IPTABLES_CHAIN} -t mangle
+
+		ssr_ip=$(cat < /opt/etc/shadowsocks.json | grep 'server":' | tr -d '" ,' | cut -d':' -f2 )
+		# Исключаем любые обращения к собственному адресу SHADOWSOCKS
+		ip4tables ${SSR_IPTABLES_CHAIN} -t nat -d ${ssr_ip} -j RETURN
+
+		# Игнорируем локальные сети и любые другие адреса, которые вы хотели бы обойти прокси
+		ip4_firewall_exclude_locals ${SSR_IPTABLES_CHAIN} nat
+
+		# Anything else should be redirected to shadowsocks's local port
+		ip4tables ${SSR_IPTABLES_CHAIN} -t nat -p tcp -j REDIRECT --to-ports "${proxy_port}"
+
+		# Add any UDP rules
+		ip4 route add local default dev ${inface} table ${table_name}
+		ip4 rule add fwmark ${MARK_NUM} lookup ${table_name}
+		ip4tables ${SSR_IPTABLES_CHAIN} -t mangle -p udp --dport ${DNS_PORT} -j TPROXY --on-port "${proxy_port}" --tproxy-mark ${MARK_NUM}/${MARK_NUM}
+
+		# Apply the rules
+		ip4tables PREROUTING -t nat -p tcp -j ${SSR_IPTABLES_CHAIN}
+		ip4tables PREROUTING -t mangle -j ${SSR_IPTABLES_CHAIN}
+echo 5
+	} 2>"${res_file}"
+
 	log_when_error "${?}" "${app}::Установка правил iptable для Shadowsocks подключения"
+
+#	ip4tables PREROUTING -w -t nat -i ${inface} -p tcp -m set --match-set "${table_name}" dst -j REDIRECT --to-port ${proxy_port} 2>"${res_file}"
+
 }
 # ------------------------------------------------------------------------------------------
+# Удаляем все правила iptables для SHADOWSOCKS подключений,
+# которые были добавлены при работе пакета в старой редакции
+# ------------------------------------------------------------------------------------------
+ip4_firewall_ssr_prune(){
 
-ip4_firewall_flush_vpn_rules(){
-	num_lines=$(/opt/sbin/iptables -t mangle -L PREROUTING --line-numbers | grep CONNMARK | grep -cE "(${table_name}|restore-mark)")
+	num_lines=$(ipXtables -t nat -L ${SSR_IPTABLES_CHAIN} --line-numbers  2>/dev/null | wc -l )
 	if [ "${num_lines}" -gt 0 ]; then
 		for b in $(seq 1 ${num_lines}); do
-			nline=$(/opt/sbin/iptables -t mangle -L PREROUTING --line-numbers \
-					| grep CONNMARK \
-					| grep -E "(${table_name}|restore-mark)" \
+			nline=$(ipXtables -t nat -L ${SSR_IPTABLES_CHAIN} --line-numbers \
 					| cut -d" " -f1 \
-					| head -1 \
+					| head -1\
 					)
-			/opt/sbin/iptables -t mangle -D PREROUTING "${nline}" 2>"${res_file}"
+			ipXtables -t nat -D ${SSR_IPTABLES_CHAIN} "${nline}" 2>"${res_file}"
 		done
-		log_when_error "${?}" "${app}::Очистка правил iptable для VPN подключения"
+		log_when_error "${?}" "${app}::Очистка правил iptable для Shadowsocks подключения"
 	else
-		logger_dev "${app}::Правила iptable для VPN подключения отсутствуют."
+		logger_dev "${app}::Правила iptable для Shadowsocks подключения отсутствуют."
 	fi
 }
+
 # ------------------------------------------------------------------------------------------
+# Удаляем все правила iptables для SHADOWSOCKS подключений,
+# которые были добавлены при работе пакета в старой редакции
+# ------------------------------------------------------------------------------------------
+ip4_firewall_ssr_prune_old(){
 
-ip4_firewall_flush_ssr_rules(){
-
-	num_lines=$(/opt/sbin/iptables -t nat -L PREROUTING --line-numbers | grep -c "${table_name}")
+	num_lines=$(ipXtables -t nat -L PREROUTING --line-numbers  2>/dev/null | grep -c "${table_name}")
 	if [ "${num_lines}" -gt 0 ]; then
 		for b in $(seq 1 ${num_lines}); do
-			nline=$(/opt/sbin/iptables -t nat -L PREROUTING --line-numbers \
+			nline=$(ipXtables -t nat -L PREROUTING --line-numbers \
 					| grep "${table_name}" \
 					| cut -d" " -f1 \
 					| head -1\
 					)
-			/opt/sbin/iptables -t nat -D PREROUTING "${nline}" 2>"${res_file}"
+			ipXtables -t nat -D PREROUTING "${nline}" 2>"${res_file}"
 		done
 		log_when_error "${?}" "${app}::Очистка правил iptable для Shadowsocks подключения"
 	else
@@ -172,10 +261,13 @@ ip4_firewall_flush_ssr_rules(){
 	fi
 }
 # ------------------------------------------------------------------------------------------
-
+# Удаляем все правила iptables которые были добавлены при работе пакета
+# ------------------------------------------------------------------------------------------
 ip4_firewall_flush_all_rules(){
-	ip4_firewall_flush_vpn_rules
-	ip4_firewall_flush_ssr_rules
+	ip4_firewall_fastnet_vpn_prune
+	ip4_firewall_nofastnet_vpn_prune
+	ip4_firewall_ssr_prune
+#	ip4_firewall_ssr_prune_old
 	[ "${INFACE_GUEST_ENT}" ] && ip4_del_guest_to_vpn_network
 }
 # ------------------------------------------------------------------------------------------
@@ -239,7 +331,7 @@ ip4_mark_vpn_network(){
 	if fastnet_enabled ; then
 		#logger_dev "${app}::Проверка пройдена -> программное и аппаратное ускорение ПОДКЛЮЧЕНО."
 		# Без отключения ускорителей fastnat и hwnat
-		ip4_firewall_mark_vpn
+		ip4_firewall_vpn_mark
 	else
 		#logger_dev "${app}::Проверка пройдена -> программное и аппаратное ускорение ОТКЛЮЧЕНО!"
 		# С отключением fastnat и ускорителей hwnat

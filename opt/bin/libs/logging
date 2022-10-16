@@ -39,9 +39,11 @@ log_when_error(){
 		if [ "${operation_result}" = 1 ]; then
 			error_mess="${procedure_desc} произведена с ошибками."
 			error_desc=$(cat "${res_file}")
-			error "${error_mess}\n${dline}\n${error_desc}"
+			echo -e "${error_mess}\n${dline}\n${error_desc}\n${dline}"
 			logger "${error_mess}"
 			logger "${error_desc}"
+			rm -f "$(cat "${res_file}")"
+			exit 1
 		fi
 		rm -f "$(cat "${res_file}")"
 	}
