@@ -1,15 +1,20 @@
 #!/bin/bash
 set -e
-. /apps/kvas/build/library.run "/apps/kvas"
+. /apps/kvas/build/library.run
 
 #========================================================================================================
 #
-# 	Функции которая меняет крайнюю версию пакета в файле README.md
+# 	Функции которая меняет крайнюю версию пакета в файлах собираемого пакета
 # 	на основе данных из файла ./version
 #
 #========================================================================================================
-change_ver_in_readme(){
-	sed -i -e 's/\(^.*Крайняя версия Кваса.\)\[.*\]\(.*\)/\1 ['"${full_version}"']\2/' /apps/kvas/README.md
+change_version_in_package(){
+	sed -i "s/^\(APP_VERSION=\).*/\1${version}/g" \
+		/apps/entware/package/utils/"${APP_NAME}"/files/bin/"${APP_NAME}"
+	sed -i "s/^\(APP_RELEASE=\).*/\1${stage}-${release}/g" \
+		/apps/entware/package/utils/"${APP_NAME}"/files/bin/"${APP_NAME}"
+	sed -i -e 's/\(^.*Крайняя версия Кваса.\)\[.*\]\(.*\)/\1 ['"${full_version}"']\2/' \
+		/apps/"${APP_NAME}"/README.md
 }
 
 
@@ -43,52 +48,42 @@ case "${DEBUG}" in
 	;;
 esac
 
-line
+
 echo "Задействовано ${num_proc} яд. процессора"
-echo "Собираем пакет КВАС вер. ${version} ${stage} ${release}"
-line
+echo "Собираем пакет ${APP_NAME} вер. ${full_version}"
+show_line
 
 
-echo "Сборка запущена: $(zdump EST-3)"; line
+echo "Сборка запущена: $(zdump EST-3)"; show_line
 
-APP_PKG_TAR_NAME=kvas_${version}-${stage}_${release}_all.ipk
+APP_PKG_TAR_NAME=${APP_NAME}_${version}-${stage}_${release}_all.ipk
 APP_PKG_FILE="/apps/entware/bin/targets/mipsel-3.4/generic-glibc/packages/${APP_PKG_TAR_NAME}"
 rm -f "${APP_PKG_FILE}"
 
-change_ver_in_readme
-/apps/kvas/build/Makefile.build
+change_version_in_package
+/apps/"${APP_NAME}"/build/Makefile.build
 
 #    make menuconfig
-if ! grep -q kvas /apps/entware/.config ; then
+if ! grep -q "${APP_NAME}" /apps/entware/.config ; then
 	cd /apps/entware/
 	make oldconfig <<< y
 	make tools/install -j$(nproc)
 	make toolchain/install -j$(nproc)
-#	make target/compile -j${num_proc}
+#	копируем ключи на роутер
 	copy_ssh_keys_to_router;
-
 fi
 
-#makefile=/apps/entware/package/utils/kvas/Makefile
-#[ -f "${makefile}" ] || {
-
-#}
-
 cd /apps/entware/
-make package/kvas/compile ${deb}
+make package/"${APP_NAME}"/compile "${deb}"
 
+# Меняем версию пакета в файлах сборки
+# настраивается под конкретный собираемый пакет
+change_version_in_package
 
+# копируем собранный пакет в папку где хранятся все сборки
+cp "${APP_PKG_FILE}" "/apps/${APP_NAME}/ipk"
 
-sed -i "s/^\(APP_VERSION=\).*/\1${version}/g" \
-	/apps/entware/package/utils/kvas/files/bin/kvas
-sed -i "s/^\(APP_RELEASE=\).*/\1${stage}-${release}/g" \
-	/apps/entware/package/utils/kvas/files/bin/kvas
-
-
-cp "${APP_PKG_FILE}" "/apps/kvas/ipk"
-
-line
-copy_kvas_to_router "${APP_PKG_FILE}" "${APP_PKG_TAR_NAME}"
-line;
+show_line
+# копируем собранный пакет на роутер
+copy_app_to_router "${APP_PKG_FILE}" "${APP_PKG_TAR_NAME}"
 echo "Сборка завершена: $(zdump EST-3)";
-line

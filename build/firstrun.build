@@ -1,8 +1,9 @@
 #! /usr/bin/env bash
 set -e
-DEBUG=NO
+. ./build/library.run
 
-line()(printf '=%.s' {1..100} && printf '\n')
+# Данный флаг служит для отладки при первой сборке toolchain
+DEBUG=NO
 
 if [ ${DEBUG} = 'YES' ]; then
 	num_proc=1
@@ -12,7 +13,7 @@ else
 	deb="-j${num_proc}";
 fi
 
-line; echo "Сборка запущена: $(zdump EST-3)"; line
+show_line; echo "Сборка запущена: $(zdump EST-3)"; show_line
 
 cd /apps/entware/
 
@@ -21,4 +22,4 @@ make tools/install ${deb}
 make toolchain/install ${deb}
 make package/kvas/compile ${deb} #-j1 V=s
 
-line; echo "Сборка завершена: $(zdump EST-3)"; line
+show_line; echo "Сборка завершена: $(zdump EST-3)"; show_line

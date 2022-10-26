@@ -81,7 +81,7 @@ set_config_value DNSMASQ_LISTEN_IP "${local_ip}"
 #------------------------------------------------------
 # Сейчас необходимо выбрать VPN интерфейс для работы пакета
 #------------------------------------------------------
-cmd_interface_change no
+cmd_interface_change ask
 log_in_file "$(cmd_vpn_status)"
 test_status
 print_line
@@ -222,7 +222,6 @@ if [ "${answer_agh}" = n ]; then
 	}
 fi
 
-clear
 test_status
 print_line
 log_in_file "Был произведен запуск диагностики после установки."

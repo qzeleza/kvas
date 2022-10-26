@@ -2,13 +2,14 @@
 . /apps/kvas/build/library.run
 
 APP_VER_FULL_TEXT="${version}-${stage}-${release}"
+APP_FULL_PATH="${APPS_ROOT}/${APP_NAME}"
 
-makefile="${KVAS_PATH}/build/Makefile"
-POST_INST=$(cat < /apps/kvas/build/postinst \
+makefile="${APP_FULL_PATH}/build/Makefile"
+POST_INST=$(cat < "${APP_FULL_PATH}"/build/postinst \
 			| sed 's/\$/\$\$/g' \
 			| sed "s/@app_ver/${APP_VER_FULL_TEXT}/g" \
 			)
-POST_TERM=$(cat < /apps/kvas/build/postrm \
+POST_TERM=$(cat < "${APP_FULL_PATH}"/build/postrm \
 			| sed 's/\$/\$\$/g' \
 			| sed "s/@app_ver/${APP_VER_FULL_TEXT}/g" \
 			)
@@ -16,14 +17,14 @@ POST_TERM=$(cat < /apps/kvas/build/postrm \
 cat <<EOF > "${makefile}"
 include \$(TOPDIR)/rules.mk
 
-PKG_NAME:=kvas
+PKG_NAME:=${APP_NAME}
 PKG_VERSION:=${version}
 PKG_RELEASE:=${stage}_${release}
 PKG_BUILD_DIR:=\$(BUILD_DIR)/\$(PKG_NAME)
 
 include \$(INCLUDE_DIR)/package.mk
 
-define Package/kvas
+define Package/${APP_NAME}
 	SECTION:=utils
 	CATEGORY:=Keendev
 	DEPENDS:=+jq +curl +knot-dig +nano-full +cron +bind-dig +dnsmasq-full +ipset +iptables +shadowsocks-libev-ss-redir +shadowsocks-libev-config +libpcre +dnscrypt-proxy2
@@ -32,7 +33,7 @@ define Package/kvas
 	PKGARCH:=all
 endef
 
-define Package/kvas/description
+define Package/${APP_NAME}/description
 	Данный пакет позволяет осуществлять контроль и поддерживать в актуальном состоянии
 	список разблокировки хостов или "Белый список". При обращении к любому хосту из
 	этого списка, весь трафик будет идти через любое VPN или через Shadowsocks соединение,
@@ -48,19 +49,19 @@ endef
 
 # Во время инсталляции задаем папку в которую будем
 # копировать наш скрипт и затем копируем его в эту папку
-define Package/kvas/install
+define Package/${APP_NAME}/install
 
 	\$(INSTALL_DIR) \$(1)/opt/etc/init.d
 	\$(INSTALL_DIR) \$(1)/opt/etc/ndm/fs.d
 	\$(INSTALL_DIR) \$(1)/opt/etc/ndm/netfilter.d
-	\$(INSTALL_DIR) \$(1)/opt/apps/kvas/
+	\$(INSTALL_DIR) \$(1)/opt/"${APP_FULL_PATH}"
 
 	\$(INSTALL_BIN) ./files/etc/ndm/fs.d/100-ipset \$(1)/opt/etc/ndm/fs.d
 	\$(INSTALL_BIN) ./files/etc/ndm/netfilter.d/100-proxy-redirect \$(1)/opt/etc/ndm/netfilter.d
 	\$(INSTALL_BIN) ./files/etc/ndm/netfilter.d/100-dns-local \$(1)/opt/etc/ndm/netfilter.d
 
-	\$(INSTALL_BIN) ./files/etc/init.d/S96kvas \$(1)/opt/etc/init.d
-	\$(CP) ./files/. \$(1)/opt/apps/kvas/
+	\$(INSTALL_BIN) ./files/etc/init.d/S96${APP_NAME} \$(1)/opt/etc/init.d
+	\$(CP) ./files/. \$(1)/opt/"${APP_FULL_PATH}"
 
 endef
 
@@ -68,7 +69,7 @@ endef
 # Скрипт создаем, который выполняется после инсталляции пакета
 # Задаем в кроне время обновления ip адресов хостов
 #---------------------------------------------------------------------
-define Package/kvas/postinst
+define Package/${APP_NAME}/postinst
 
 ${POST_INST}
 
@@ -78,18 +79,18 @@ endef
 # Создаем скрипт, который выполняется при удалении пакета
 # Удаляем из крона запись об обновлении ip адресов
 #---------------------------------------------------------------------
-define Package/kvas/postrm
+define Package/${APP_NAME}/postrm
 
 ${POST_TERM}
 
 endef
 
-\$(eval \$(call BuildPackage,kvas))
+\$(eval \$(call BuildPackage,${APP_NAME}))
 EOF
 
-cd /apps/entware || exit
+cd "${APPS_ROOT}"/entware || exit
 
-make_link=/apps/entware/package/utils/kvas/Makefile
+make_link="${APPS_ROOT}"/entware/package/utils/${APP_NAME}/Makefile
 
 [ -f "${make_link}" ] || {
 	ln -s "${makefile}" "${make_link}";

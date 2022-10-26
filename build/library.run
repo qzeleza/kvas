@@ -1,13 +1,70 @@
 #!/bin/bash
 set -e
+real_path(){
+	path=$(pwd | sed 's/\/build$//')
+	echo "${path}/${1}"
+}
 
-KVAS_PATH=$(pwd)
+REMOTE_FILE=$(real_path "debug/remote.conf")
+VERSION_FILE=$(real_path "build/version")
 
+# Получаем значение из скрытого файла конфигурации
+get_remove_value()(cat < "${REMOTE_FILE}" | grep -E "^${1}=" | cut -d'=' -f2)
+
+APP_NAME=$(get_remove_value "APP_NAME")
+APPS_ROOT=$(get_remove_value "APPS_ROOT")
+
+
+# Получаем необходимую информацию о версии пакета
 get_version_part(){
 	value=${1}
-	cat < "${KVAS_PATH}/build/version" | grep "${value}" | cut -d'=' -f2
+	cat < "${VERSION_FILE}" | grep "${value}" | cut -d'=' -f2
 }
-line()(printf '=%.s' {1..100} && printf '\n')
+# Печатаем строку из 100  знаков равно
+show_line()(printf '=%.s' {1..100} && printf '\n')
+
+# Сохраняем данные в файл .env
+write_to_env()(echo "${1}" >> .env)
+
+# Получаем путь до ключа
+get_key_file(){
+	key_path=$([ "$(whoami)" = root ] && echo '/root/.' || echo "${HOME}/.")
+	echo "${key_path}ssh/id_rsa.pub"
+}
+
+
+# ИСПОЛНЯЕМ ВУТРИ КОНТЕЙНЕРА !!!
+# Копируем публичный ключ на роутер
+copy_ssh_keys_to_router(){
+	# если ключи отсутствуют на NAS
+	_port=$(get_remove_value 'PORT')
+	_router=$(get_remove_value 'ROUTER')
+	echo "Копируем ключи на роутер ${_router} порт ${_port}..."
+	ssh -p "${_port}" "${_router}" "echo \"$(cat "$(get_key_file)")\" >> /opt/root/.ssh/authorized_keys"
+	show_line
+}
+
+# ИСПОЛНЯЕМ ВУТРИ КОНТЕЙНЕРА !!!
+# Производим копирование собранного пакета на роутер и затем производим его удаление
+copy_app_to_router(){
+	app_pkg_file=${1}
+	app_pkg_tar_name=${2}
+
+	my_port=$(get_remove_value "PORT")
+	my_router=$(get_remove_value "ROUTER")
+
+# 	Проверяем есть ли ключ на роутере
+	ssh -p "${my_port}" "${my_router}" "cat /opt/root/.ssh/authorized_keys" \
+		| grep -q "$(cat "$(get_key_file)")" && copy_ssh_keys_to_router
+
+	echo "Загрузка пакета на роутер и удаление предыдущей версии пакета..."
+	show_line
+	ssh -p "${my_port}" "${my_router}" 'mkdir -p /opt/packages'
+	ssh -p "${my_port}" "${my_router}" 'rm -f '"/opt/packages/${app_pkg_tar_name}" #&> /dev/null
+	scp -P "${my_port}" "${app_pkg_file}" "${my_router}:/opt/packages/${app_pkg_tar_name}"
+	ssh -p "${my_port}" "${my_router}" 'opkg remove '"${APP_NAME}"
+	show_line
+}
 
 version=$(get_version_part VERSION)
 stage=$(get_version_part STAGE)
@@ -15,52 +72,40 @@ release=$(get_version_part RELEASE)
 
 [ -n "${stage}" ] && full_version="${version} ${stage} ${release}" || full_version="${version} ${release}"
 
-remote_dir="${KVAS_PATH}/debug"
-remote_file=${remote_dir}/remote.conf
 
-# в случае первого запуска продукта
-if ! [ -f "${remote_file}" ]; then
-#	read -p "Введите ИМЯ пользователя на устройстве, с которого Вы будете вести разработку: " user
-#	read -p "Введите имя ГРУППЫ, к которой принадлежит пользователь: " group
-	read -p "Введите IP роутера, на котором планируется тестирование Кваса: " router_ip
-	read -p "Введите НОМЕР SSH порта роутера: " router_port
-	read -p "Введите ПАРОЛЬ доступа к роутеру для пользователя root: " router_passwd
+check_first_run(){
 
-mkdir -p "${remote_dir}"
-cat <<EOF > "${remote_file}"
+	# в случае первого запуска продукта и отсутствия скрытого файла конфигурации
+	# запрашиваем данные у разработчика и записываем их в скрытый файл конфигурации
+	if ! [ -f "${REMOTE_FILE}" ]; then
+		read -r "Введите ИМЯ собираемого ПРИЛОЖЕНИЯ [app]: " app_name
+		read -r "Введите ИМЯ регистрации в DOCKER HUB на латинице: " docker_hub_account
+		read -r "Введите НАЗВАНИЕ ПАПКИ проекта, в которой хранятся все файлы для его сборки [opt]" path_name_to_make
+		read -r "Введите IP роутера, на котором планируется тестирование пакета: " router_ip
+		read -r "Введите НОМЕР SSH порта роутера [6191]: " router_port
+		read -rs "Введите ПАРОЛЬ доступа к роутеру для пользователя root: " router_passwd
+
+	remote_dir="$(dirname "${REMOTE_FILE}")"
+	mkdir -p "${remote_dir}"
+	cat <<EOF > "${REMOTE_FILE}"
+APP_NAME=${app_name:-app}
+APPS_ROOT=/apps
+APP_PATH_NAME_TO_MAKE=${path_name_to_make:-opt}
+IMAGE_NAME="${docker_hub_account}/${app_name}-dev-image"
+CONTAINER_NAME="${app_name}_container"
 PASSWD=${router_passwd}
-PORT=${router_port}
+PORT=${router_port:-6191}
 ROUTER=root@${router_ip}
 USER_NAME=$(whoami)
-USER_GROUP=$(groups master | cut -d' ' -f1)
+USER_GROUP=$(groups "$(whoami)" | cut -d' ' -f1)
 U_ID=5001
 G_ID=5001
 EOF
 
-fi
+	fi
 
-get_remove_value()(cat < "${remote_file}" | grep -E "^${1}=" | cut -d'=' -f2)
-
-copy_ssh_keys_to_router(){
-	# если ключи отсутствуют на NAS
-	_port=$(get_remove_value 'PORT')
-	_router=$(get_remove_value 'ROUTER')
-	echo "Копируем ключи на роутер ${_router} порт ${_port}..."
-	scp -P "${_port}" /root/.ssh/id_rsa.pub "${_router}:/opt/root/.ssh/authorized_keys"
-	[ $? -ne 0 ] && echo "Ошибка копирования ключей на роутер."; exit 1
 }
 
-copy_kvas_to_router(){
-	APP_PKG_FILE=${1}
-	APP_PKG_TAR_NAME=${2}
 
-	MY_PORT=$(get_remove_value "PORT")
-	MY_ROUTER=$(get_remove_value "ROUTER")
-
-	echo "Загрузка пакета на роутер и удаление предыдущей версии пакета..."
-	line
-	ssh -p ${MY_PORT} ${MY_ROUTER} 'mkdir -p /opt/packages'
-	ssh -p ${MY_PORT} ${MY_ROUTER} 'rm -f '"/opt/packages/${APP_PKG_TAR_NAME}" #&> /dev/null
-	scp -P ${MY_PORT} ${APP_PKG_FILE} ${MY_ROUTER}':/opt/packages/${APP_PKG_TAR_NAME}'
-	ssh -p ${MY_PORT} ${MY_ROUTER} 'opkg remove kvas'
-}
+# Проверка на наличие файла конфигурации
+check_first_run
