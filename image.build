@@ -1,59 +1,47 @@
 #! /usr/bin/env bash
+. ./build/library.run
 
-RUN_INSIDE_CONTAINER=NO
-
-. ./build/library.run "$(pwd)"
-rm .env
-put()(echo "${1}" >> .env)
-
+DEBUG=YES										# флаг отладки процесса сборки образа
+env_file=.env
 #------------------------------------------------------------
-DEBUG=YES
-container_name="kvas_develop"
-image_name="zeleza/kvas-dev"
 user=$(get_remove_value "USER_NAME")
 group=$(get_remove_value "USER_GROUP")
-user_uid=$(get_remove_value "U_ID")
-user_gid=$(get_remove_value "G_ID")
+image_name=$(get_remove_value "IMAGE_NAME")
 # ------------------------------------------------------------
+#	Записываем данные в файл .env для docker-compose
+# ------------------------------------------------------------
+cat <<EOF > "${env_file}"
+APP_NAME=${APP_NAME}
+APPS_ROOT=$(get_remove_value "APPS_ROOT")
+APP_PATH_NAME_TO_MAKE=$(get_remove_value "APP_PATH_NAME_TO_MAKE")
+IMAGE_NAME=${image_name}
+CONTAINER_NAME=$(get_remove_value "CONTAINER_NAME")
+USER=${user}
+GROUP=${group}
+UID=$(get_remove_value "U_ID")
+GID=$(get_remove_value "G_ID")
+DEBUG=${DEBUG}
+EOF
 
-
-put "IMAGE_NAME=${image_name}"
-put "CONTAINER_NAME=${container_name}"
-put "NAME=${user}"
-put "GROUP=${group}"
-put "UID=${user_uid}"
-put "GID=${user_gid}"
-put "TZ=Europe/Moscow"
-put "VERSION=${version}.${stage}.${release}"
-put "DEBUG=${DEBUG}"
-
-# Если уже создан образ kvas_develop
-
+# удаляем старые контейнеры
 docker container prune -f
 
-if [ "${1}" = build ] || [ -z "$(docker ps -a -f 'status=running' | grep kvas)" ]; then
-#	то заходим внутрь контейнера kvas_develop и сразу запускаем сборку пакета
+if [ "${1}" = build ] || [ -z "$(docker ps -a -f 'status=running' | grep "${APP_NAME}")" ]; then
+#	то заходим внутрь контейнера и сразу запускаем сборку пакета
 #	если не создан образ, то запускаем сборку образа
-	line
-	echo "Запускаем сборку образа ${IMAGE_NAME}"
-	line
+	show_line; echo "Запускаем сборку образа ${image_name}"
+	show_line
 	docker-compose up --build -d
 fi
 
 if [ "${?}" = 0 ]; then
-	line
-	echo "Образ собран без ошибок."
-
+	show_line; echo "Docker-образ собран без ошибок."
 	echo "Запускаем сборку пакета в самом контейнере..."
-	docker exec --user "${user}:${group}" -it ${image_name} \
-			/apps/kvas/build/package.build \
+	docker exec --user "${user}:${group}" -it "${image_name}" \
+			"/${APPS_ROOT}/${APP_NAME}/build/package.build" \
 			/bin/bash
 else
-	line
-	echo "Образ собран с ошибками!"
+	show_line; echo "Docker-образ собран с ошибками!"
 	exit 1
 fi
-line
-# docker  run --user 5001:5001 -it --mount type=bind,src=$(pwd),dst=/apps/kvas zeleza/kvas-dev /bin/bash
-
-#docker  run --user 5001:5001 -it --mount type=bind,src=$(pwd),dst=/apps/kvas zeleza/kvas-dev /apps/kvas/build/package.build /bin/bash
+show_line

@@ -27,7 +27,12 @@ ADGUARDHOME_LOG=/opt/var/log/AdGuardHome.log
 ADGUARDHOME_DEMON=/opt/etc/init.d/S99adguardhome
 DNSMASQ_DEMON=/opt/etc/init.d/S56dnsmasq
 HOME_PATH=/opt/apps/kvas
-ERROR_LOG_FILE=/opt/etc/.kvas/logs/errors.log
+# Файл в котором содержатся сети, запросы из которых необходимо исключить
+# из обращений к VPN или SHADOWSOCKS подключениям
+EXCLUDED_NET_FILE=/opt/apps/kvas/etc/conf/excluded.net
+
+ERROR_LOG_FILE=/opt/tmp/kvas.err.log
+APP_NAME_DESC=КВАС
 
 pause()(read -r pause &> /dev/null)
 
@@ -405,38 +410,66 @@ date_update() {
 	fi
 }
 
-# ------------------------------------------------------------------------------------------
-#
-#	Печатаем сообщение в зависимости от результата
-#	содержания переданного статуса 0 - все Ок, 1 - Ошибка
-#
-#	$1 - статус результата выполнения функции
-# 	$2 - сообщение в случае когда все прошло удачно
-# 	$3 - сообщение для случая обнаружения ошибки
-# 	$4 - имя файла в который пишем лог, в случае отсутствия пишем в ERROR_LOG_FILE
-#
-# ------------------------------------------------------------------------------------------
-show_result_status() {
+print_error(){
+	error_desc="${1}"
+	err_signal="ОШИБКА::"
+	error_mess="$(cat < "${ERROR_LOG_FILE}")"
+#           Вывод сообщения в консоль
+	[ -n "${error_mess}" ] && {
+		error "\n${err_signal} ${error_desc}"; print_line
+		warning "${error_mess}"; print_line
 
-	status_result="${1}"; ok_mess="${2}";
-	error_mess="${3}"; log_file="${4:-${ERROR_LOG_FILE}}"
-
-#	В случае, если отсутствует лог файл, то создаем его
-	[ -f "${log_file}" ] || {
-		mkdir -p "$(echo "${log_file}" | sed 's/\(.*\)\/.*$/\1/')"
-		touch "${log_file}"
+#           Вывод сообщения в лог роутера
+		logger -p err -t "${APP_NAME_DESC}" "${error_mess} "
+		while read -r line || [ -n "${line}" ]; do
+			logger -p err -t "${APP_NAME_DESC}" "${err_signal}${line}"
+		done < "${ERROR_LOG_FILE}"
 	}
-	if [ "${status_result}" = 0 ]; then
-		when_ok "${ok_mess}"
-	else
-		when_bad "ОШИБКА"
-		{
-			print_line
-			echo "[$(date "${DATE_FORMAT}")]: ${error_mess}"
-		} >> "${log_file}"
-		print_line
-		error "${error_mess}"
-		exit 1
-	fi
 
+
+}
+# ------------------------------------------------------------------------------------------
+#
+# 	Применяем только с функцией ready !!!
+#	Печатаем сообщение об ошибке, если она случается и печатаем результат команды ready,
+#	если все хорошо. Для той команды после которой вызывается
+#	эта функция необходимо произвести вывод данных по раздельным каналам
+#	в stdin и stderr: <команда> 1> /dev/null 2> "${ERROR_LOG_FILE}"
+#
+#	$1 - результат выполнения функции -> передаем сюда "${?}"
+# 	$2 - сообщение которое отображает суть ошибки (описание ошибки)
+#	$3 - сообщение статуса исполнения при положительном результате
+#
+# ------------------------------------------------------------------------------------------
+ready_status(){
+
+        operation_result="${1}"
+        error_desc="${2}"
+        ok_mess="${3:-ГОТОВО}"
+        errors_only="${4:-1}"
+
+		[ -f "${ERROR_LOG_FILE}" ] || touch "${ERROR_LOG_FILE}"
+#		Печатаем ошибку, только, если ошибка была и файл с ошибками не пустой
+        if [ "${operation_result}" = 1 ] || [ "$(cat < "${ERROR_LOG_FILE}" | wc -l)" -gt 0 ] ; then
+			print_error "${error_desc}"
+        else
+        	[ "${errors_only}" = 1 ] && when_ok "${ok_mess}"
+            rm -f "${ERROR_LOG_FILE}"
+        fi
+}
+
+# ------------------------------------------------------------------------------------------
+#
+#	Печатаем сообщение об ошибке. Для той команды после которой вызывается
+#	эта функция необходимо произвести вывод данных по раздельным каналам
+#	в stdin и stderr: <команда> 1> /dev/null 2> "${ERROR_LOG_FILE}"
+#
+#	$1 - результат выполнения функции -> передаем сюда "${?}"
+# 	$2 - сообщение которое отображает суть ошибки (описание ошибки)
+#
+# ------------------------------------------------------------------------------------------
+when_error()(ready_status "${1}" "${2}" ERROR 0)
+
+log_warning(){
+	logger -t "${APP_NAME_DESC}" "${1}"
 }

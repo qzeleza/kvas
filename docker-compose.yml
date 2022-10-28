@@ -1,7 +1,7 @@
 version: "3.9"
 services:
 
-  kvas:
+  develop_app:
     image: "${IMAGE_NAME}"
     container_name: "${CONTAINER_NAME}"
     build:
@@ -10,18 +10,14 @@ services:
       args:
         UID: "${UID}"
         GID: "${GID}"
-        NAME: "${NAME}"
+        USER: "${USER}"
+        GROUP: "${GROUP}"
+        APPS_ROOT: "${APPS_ROOT}"
+        APP_NAME: "${APP_NAME}"
+        APP_PATH_NAME_TO_MAKE: "${APP_PATH_NAME_TO_MAKE}"
 
     volumes:
-      - .:/apps/kvas
-
-    environment:
-      VERSION: "${VERSION}"
-      UID: "${UID}"
-      GID: "${GID}"
-      TZ: "${TZ}"
-      DEBUG: "${DEBUG}"
-      USER: "${USER}"
+      - ~/develop/${APPS_ROOT}/${APP_NAME}:/${APPS_ROOT}/${APP_NAME}
 
     restart: "unless-stopped"
     stdin_open: true # docker run -i

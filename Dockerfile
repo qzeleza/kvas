@@ -1,16 +1,20 @@
 FROM ubuntu:22.04
  
-ARG NAME="${NAME}"
+ARG USER="${USER}"
 ARG UID="${UID}"
 ARG GID="${GID}"
 ARG GROUP="${GROUP}"
+ARG APP_NAME="${APP_NAME}"
+ARG APPS_ROOT="${APPS_ROOT}"
+ARG APP_PATH_NAME_TO_MAKE="${APP_PATH_NAME_TO_MAKE}"
+
 
 ENV LANG en_US.utf8
 
 RUN chmod 1777 /tmp \
     && dpkg --add-architecture i386  \
-    && groupadd --gid ${GID} ${NAME}  \
-    && useradd --create-home --uid ${UID} --gid ${GID} --shell /bin/bash ${NAME}  \
+    && groupadd --gid ${GID} ${USER}  \
+    && useradd --create-home --uid ${UID} --gid ${GID} --shell /bin/bash ${USER}  \
     && apt-get update \
     && apt-get install -y locales && rm -rf /var/lib/apt/lists/* \
     && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
@@ -22,26 +26,31 @@ RUN chmod 1777 /tmp \
     rsync unzip wget file nano \
     python2 python3 python3-dev python3-distutils-extra
 
-COPY . /apps/kvas/
+COPY . ${APPS_ROOT}/${APP_NAME}/
 
-WORKDIR /apps
+WORKDIR ${APPS_ROOT}
 RUN rm -rf /var/lib/apt/lists/* \
     && git clone https://github.com/Entware/Entware.git  \
-    && mv Entware/ entware/ && cd /apps/entware  \
+    && mv Entware/ entware/ && cd ${APPS_ROOT}/entware  \
     && make package/symlinks  \
-    && cp `ls /apps/entware/configs/mipsel-*` .config \
-    && mkdir -p /apps/entware/package/utils/kvas/ \
-    && ln -s /apps/kvas/opt /apps/entware/package/utils/kvas/ \
-    && mv /apps/entware/package/utils/kvas/opt /apps/entware/package/utils/kvas/files \
-    && chown -R ${NAME}:${GROUP} /apps/entware /apps/kvas \
-    && chmod -R +x /apps/kvas/build/*.run
+    && cp `ls /${APPS_ROOT}/entware/configs/mipsel-*` .config \
+    && mkdir -p /${APPS_ROOT}/entware/package/utils/${APP_NAME}/ \
+    && if [ -n ${APP_PATH_NAME_TO_MAKE} ]; then \
+        ln -s ${APPS_ROOT}/${APP_NAME}/${APP_PATH_NAME_TO_MAKE} /${APPS_ROOT}/entware/package/utils/${APP_NAME}/;\
+        mv /${APPS_ROOT}/entware/package/utils/${APP_NAME}/opt /${APPS_ROOT}/entware/package/utils/${APP_NAME}/files;\
+    else\
+            ln -s ${APPS_ROOT}/${APP_NAME} ${APPS_ROOT}/entware/package/utils/${APP_NAME}/;\
+            mv ${APPS_ROOT}/entware/package/utils/${APP_NAME} ${APPS_ROOT}/entware/package/utils/${APP_NAME}/files;\
+    fi
+RUN chown -R ${USER}:${GROUP} ${APPS_ROOT}/entware ${APPS_ROOT}/${APP_NAME} \
+    && chmod -R +x ${APPS_ROOT}/${APP_NAME}/build/*.run
 
-WORKDIR /apps/kvas/
-RUN /apps/kvas/build/Makefile.build
+WORKDIR ${APPS_ROOT}/${APP_NAME}/
+RUN ${APPS_ROOT}/${APP_NAME}/build/Makefile.build
 
-USER ${NAME}
+USER ${USER}
 RUN ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa \
-    && /apps/kvas/build/firstrun.build
+    && ${APPS_ROOT}/${APP_NAME}/build/firstrun.build
 
 
 

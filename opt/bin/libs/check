@@ -12,6 +12,7 @@
 # ------------------------------------------------------------------------------------------
 
 . /opt/apps/kvas/bin/libs/main
+. /opt/apps/kvas/bin/libs/ndm
 
 NOT_IN_TABLE=false
 IPSET=$(which ipset)
@@ -125,7 +126,7 @@ vpn_check(){
 
 					ready "Правила маркировки трафика в iptable"
 					/opt/etc/ndm/netfilter.d/100-vpn-mark
-					if [ "$(/opt/sbin/iptables-save | grep -c CONNMARK)" -ge 2 ]; then
+					if [ "$(/opt/sbin/iptables-save | grep -c "${VPN_IPTABLES_CHAIN}")" -ge 2 ]; then
 						when_ok "ДОБАВЛЕНЫ"
 					else
 						when_bad "ОТСУСТВУЮТ"
@@ -236,13 +237,17 @@ dnscrypt_proxy_check() {
 # ------------------------------------------------------------------------------------------
 iptable_check() {
 	ready "Наличие правил разблокировки в iptable"
-	if /opt/sbin/iptables-save | grep -qE "${table_name}|${VPN_IPTABLES_CHAIN}|${SSR_IPTABLES_CHAIN}" ; then
+	count_local_nets=$(cat < "${EXCLUDED_NET_FILE}" | wc -l)
+	count_ip4tables_rules=$(/opt/sbin/iptables-save \
+		| grep -E "${table_name}|${VPN_IPTABLES_CHAIN}|${SSR_IPTABLES_CHAIN}" \
+		| grep -c '\-A')
+
+	if [ "${count_ip4tables_rules}" -gt "${count_local_nets}" ] ; then
 		when_ok "ЕСТЬ"
 	else
 		when_bad "ПРАВИЛ НЕТ"
 		if [ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ]; then
-			cmd_shadowsocks_iptable_flush
-			/opt/etc/ndm/netfilter.d/100-proxy-redirect
+			/opt/etc/ndm/netfilter.d/100-proxy-redirect &> /dev/null
 		else
 			cmd_vpn_iptable_flush
 			ip4set_create_table
@@ -274,7 +279,6 @@ ipset_check() {
 	[ "$(grep -vcE '^$|#' "${UNBLOCK_LIST_FILE}" )" -eq 0 ] ; then
 		cp /opt/apps/kvas/etc/conf/hosts.list "${UNBLOCK_LIST_FILE}"
 	fi
-	. /opt/apps/kvas/bin/libs/ndm
 	ip4set_create_table
 	/opt/apps/kvas/bin/main/ipset &> /dev/null
 	if ipset list "${table_name}" | grep -vEi '^[a-z]' &> /dev/null; then
@@ -392,8 +396,9 @@ internet_check() {
 	status=$(curl -s "${LOCALHOST_IP}:79/rci/show/internet/status" | grep internet )
 	is_connected=$(echo "${status}" | grep false)
 	if [ -n "${is_connected}" ]; then
-		when_bad "ОШИБКА"
-		echo_debug "Выявлены проблемы с интернет подключением" "${status}"
+		when_bad "Выявлены проблемы с интернет подключением" "${status}"
+		answer=''; read_ynq "Рекомендуется сделать перезагрузку роутера. Перегрузить?" answer
+		[ "${answer}" = y ] && reboot
 	fi
 }
 # ------------------------------------------------------------------------------------------
@@ -424,7 +429,6 @@ ipset_site_visit_check() {
 	echo "Для продолжения нажмите на любую клавишу."
 	print_line
 	pause
-	clear
 	warning "Проверка заполнения ipset таблицы при посещении сайта."
 	print_line
 	echo "Далее, для проверки заполнения, откройте на компьютере браузер"
@@ -478,9 +482,11 @@ cmd_state_checker() {
 	if [ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ]; then
 #		Проверяем работу shadowsocks
 		shadowsocks_check
+		/opt/etc/ndm/netfilter.d/100-proxy-redirect
 	else
 #		Проверяем работу vpn подключения
 		vpn_check
+		ip4_mark_vpn_network
 	fi
 	print_line
 #	Проверяем правила в таблице iptable

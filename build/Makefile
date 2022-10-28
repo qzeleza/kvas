@@ -55,6 +55,7 @@ endef
 define Package/kvas/postinst
 
 #!/bin/sh
+
 # В случае проблем с инсталляцией пакета ставим в значение true
 DEBUG=false
 
@@ -67,13 +68,14 @@ ln -sf /opt/apps/kvas/bin/kvas /opt/bin/kvas
 
 cp -f /opt/apps/kvas/etc/conf/kvas.conf /opt/etc/kvas.conf
 cp -f /opt/apps/kvas/etc/conf/adblock.sources /opt/etc/adblock.sources
+
 # Делаем копии файлов для того чтобы была возможность
 # использовать функции в них в скрипте при удалении пакета
 cp -f /opt/apps/kvas/bin/libs/vpn /opt/apps/kvas/bin/libs/.vpn
 cp -f /opt/apps/kvas/bin/libs/main /opt/apps/kvas/bin/libs/.main
 cp -f /opt/apps/kvas/bin/libs/debug /opt/apps/kvas/bin/libs/.debug
+cp -f /opt/apps/kvas/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
 
-. /opt/apps/kvas/bin/libs/check
 . /opt/apps/kvas/bin/libs/vpn
 
 mkdir -p "$${KVAS_BACKUP_PATH}"
@@ -283,7 +285,7 @@ print_line
 log_in_file "Был произведен запуск диагностики после установки."
 warning "ПРОИЗВОДИМ ТЕСТИРОВАНИЕ УСТАНОВЛЕННОГО VPN СОЕДИНЕНИЯ"
 print_line
-
+. /opt/apps/kvas/bin/libs/check
 cmd_state_checker
 print_line
 
@@ -358,10 +360,8 @@ sed -i '/ipset/d' /opt/etc/crontab &>/dev/null && when_ok "УСПЕШНО" || wh
 # 	ОЧИЩЕНИЕ ВСЕХ ПРАВИЛ И ТАБЛИЦ
 #------------------------------------------------------
 ready "Очищаем все правила и таблицы..."
-
-ip4_flush_all_tables &>/dev/null
 ip4_firewall_flush_all_rules &>/dev/null
-
+ip4_flush_all_tables &>/dev/null
 if [ $$? = 0 ]; then when_ok "УСПЕШНО"; else when_bad "ОШИБКА"; fi
 
 print_line
