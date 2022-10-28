@@ -247,6 +247,29 @@ ip4_firewall_set_ssr_rules(){
 
 }
 
+# ------------------------------------------------------------------------------------------
+#
+# 	Установка правил для любых типов подключений (SHADOWSOCKS или VPN)
+#
+# ------------------------------------------------------------------------------------------
+ip4_firewall_set_all_rules(){
+
+#   Если активно VPN соединение
+	if [ -f "/opt/etc/ndm/netfilter.d/100-vpn-mark" ]; then
+		ip4_mark_vpn_network
+	else
+#		Если активно SHADOWSOCKS соединение
+		local_ip=$(get_router_ip)
+		inface=$(get_inface_by_ip "${local_ip}")
+		proxy_port=$(get_config_value SSR_DNS_PORT)
+		ip4_firewall_set_ssr_rules "${inface}" "${proxy_port}"
+
+	fi
+
+}
+
+
+
 
 # ------------------------------------------------------------------------------------------
 # 	Производим удаление правил и удаляем саму цепочку
@@ -431,7 +454,10 @@ ip4_add_route_table(){
 		ip4 route add table ${TABLE_ID} default via "${INFACE_GW4}" dev ${INFACE_ENT} 2> "${ERROR_LOG_FILE}"
 		when_error "${?}" " ${IPv4} Возникла ошибка при создании таблицы маршрутизации ID#${TABLE_ID} для '${INFACE_CLI}' интерфейса"
 
-		ip4 route show table main |grep -Ev ^default | while read -r ROUTE; do ip4 route add table ${TABLE_ID} ${ROUTE}; done
+		ip4 route show table main | grep -Ev ^default | \
+		while read -r ROUTE; do
+			ip4 route add table ${TABLE_ID} ${ROUTE}; &>/dev/null
+		done
 		test "$(ip4 route show table ${TABLE_ID} | grep -c dev)" -gt 1
 		when_error "${?}" " ${IPv4} В таблица ID#${TABLE_ID} не были скопированы записи из таблицы main"
 	fi

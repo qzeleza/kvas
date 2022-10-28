@@ -101,7 +101,7 @@ log_in_file(){
 
 print_line
 welcome="Установка пакета КВАС™ версия 1.0-beta-19"
-echo "$${welcome}"]
+echo "$${welcome}"
 print_line
 
 log_in_file "$${welcome}"

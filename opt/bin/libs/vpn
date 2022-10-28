@@ -255,6 +255,11 @@ adguardhome_setup() {
 	ipset_dns_change "${ip}#${port}"
 #	теперь просто запускаем сервис adguard
 #	ndm_interface_change
+
+#	Обновляем правила ip4tables для доступного соединения
+	ip4_firewall_flush_all_rules
+	ip4_firewall_set_all_rules
+
 	"${ADGUARDHOME_DEMON}" start &> /dev/null
 #	отслеживаем результат запуска сервиса adguard
 	if [ $? = 0 ]; then
@@ -401,6 +406,9 @@ cmd_adguardhome_off(){
 	[ -f /opt/etc/init.d/S09dnscrypt-proxy2 ] && /opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
 	cp /opt/apps/kvas/etc/init.d/S96kvas "${KVAS_START_FILE}"
 	dnsmasq_install '' &> /dev/null
+	#	Обновляем правила ip4tables для доступного соединения
+	ip4_firewall_flush_all_rules
+	ip4_firewall_set_all_rules
 
 	if [ $? = 0 ]; then
 		when_ok "УСПЕШНО"

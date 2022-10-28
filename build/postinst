@@ -45,7 +45,7 @@ log_in_file(){
 
 print_line
 welcome="Установка пакета КВАС™ версия @app_ver"
-echo "${welcome}"]
+echo "${welcome}"
 print_line
 
 log_in_file "${welcome}"
