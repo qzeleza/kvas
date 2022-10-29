@@ -21,6 +21,7 @@
 # Shadowsocks+
 if ! ip4save | grep "${table_name}" | grep -q @PROXY_PORT ; then
 	log_warning "Запущен файл /opt/etc/ndm/netfilter.d/100-proxy-redirect"
+	log_warning "С флагами type=${type} и table=${table}"
 #	 создаем правила для shadowsocks подключения
 	ip4_firewall_ssr_prune &> /dev/null
 	ip4_firewall_set_ssr_rules @INFACE @PROXY_PORT &> /dev/null

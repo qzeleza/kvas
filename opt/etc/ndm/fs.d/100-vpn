@@ -27,6 +27,8 @@
 [ "$1" = "start" ] && {
 
 	log_warning "Запущен файл /opt/etc/ndm/fs.d/100-vpn"
+	log_warning "С флагами type=${type} и table=${table}"
+
 #	Создаем талицу IP адресов для  VPN подключения отличного от shadowsocks
 	ip4_add_route_table &> /dev/null
 #	Устанавливаем приоритет таблицы
