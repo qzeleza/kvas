@@ -5,14 +5,23 @@
 [ "${change}" = "link" ] && \
 [ "${id}" = "${INFACE_CLI}" ] && {
 
+	log_warning "Запущен файл /opt/etc/ndm/ifstatechanged.d/100-unblock-vpn"
+	log_warning "Состояние ${id}-${change}-${connected}-${link}-${up}"
+
 	case "${id}-${change}-${connected}-${link}-${up}" in
-    "${id}-link-no-down-down" )
-		ip4_rule_del_priority
-    ;;
-    "${id}-link-yes-up-up" )
-		ip4_add_route_table
-		ip4_rule_set_priority
-    ;;
+		"${id}-link-no-down-down" )
+			ip4_rule_del_priority
+		;;
+		"${id}-link-yes-up-up" )
+		#	Создаем талицу IP адресов для  VPN подключения отличного от shadowsocks
+			ip4_add_route_table &> /dev/null
+		#	Устанавливаем приоритет таблицы
+			ip4_rule_set_priority &> /dev/null
+		#	Создаем правила iptables
+			ip4_mark_vpn_network &> /dev/null
+
+
+		;;
 	esac
 
 	exit 0

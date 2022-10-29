@@ -20,6 +20,8 @@
 #	Лицензия: GPL 2.0
 # -----------------------------------------------------------------------------
 
+logger -t "kvas" "Запущен файл /opt/apps/kvas/bin/main/adblock"
+
 tmp_path="/opt/tmp/adblock"
 tmp_file="/opt/tmp/hosts.tmp"
 main_hosts_file="/opt/etc/hosts"

@@ -21,6 +21,9 @@
 #	Лицензия: GPL 2.0
 # ------------------------------------------------------------------------------
 
+
+log_warning "Запущен файл /opt/apps/kvas/bin/main/update"
+
 # Обновляем таблицу ipset
 ready "Обновление таблицы ipset"
 ip4_flush_all_tables &> /dev/null

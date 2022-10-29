@@ -293,9 +293,9 @@ iptables_debug() {
 	else
 		print_line
 		cmd_vpn_iptable_reset
-		result=$(/opt/sbin/iptables-save 2>/dev/null | grep -E 'CONNMARK|VPNREDIR' | grep -E "restore-mark|unblock")
+		result=$(/opt/sbin/iptables-save | grep -E 'SHADOWSOCKS|VPNREDIR' )
 	fi
-	echo_debug "Правила перенаправления трафика unblock в iptables\nкоманда: iptables-save 2>/dev/null | grep CONNMARK | grep -E \"restore-mark|unblock\"" "${result}"
+	echo_debug "Правила перенаправления трафика unblock в iptables\nкоманда: iptables-save | grep -E 'SHADOWSOCKS|VPNREDIR'" "${result}"
 }
 
 # ------------------------------------------------------------------------------------------

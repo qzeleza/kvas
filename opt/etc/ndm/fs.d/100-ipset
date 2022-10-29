@@ -13,6 +13,7 @@
 # ------------------------------------------------------------------------------
 
 [ "${1}" = "start" ] && {
+	log_warning "Запущен файл /opt/etc/ndm/fs.d/100-ipset"
 	ip4set_create_table
 	# ip6set_create_table
 	exit 0
