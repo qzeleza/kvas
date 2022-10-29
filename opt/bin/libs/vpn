@@ -412,7 +412,7 @@ cmd_adguardhome_off(){
 
 	if [ $? = 0 ]; then
 		when_ok "УСПЕШНО"
-		dns_crypt_install
+		dns_crypt_install ''
 	else
 		when_bad "С ОШИБКОЙ";
 		error "Возникла ошибка при удалении AdGuard Home из системы."
@@ -652,10 +652,12 @@ dnsmasq_install(){
 			ready "Устанавливаем пакет dnsmasq..."
 			# Если запуск функции был не при установке пакета Квас
 			if [ -z "${is_install_stage}" ]; then
-#				то в этом случае можем попытаться удалять или устанавливать пакеты
-				opkg remove dnsmasq 1> /dev/null 2> "${ERROR_LOG_FILE}"
-				opkg install dnsmasq 1> /dev/null 2> "${ERROR_LOG_FILE}"
-				when_error "${?}" "Ошибка при установке пакета dnsmasq"
+				if ! [ -f /opt/etc/init.d/S56dnsmasq ]; then
+	#				то в этом случае можем попытаться удалять или устанавливать пакеты
+					opkg remove dnsmasq 1> /dev/null 2> "${ERROR_LOG_FILE}"
+					opkg install dnsmasq 1> /dev/null 2> "${ERROR_LOG_FILE}"
+					when_error "${?}" "Ошибка при установке пакета dnsmasq"
+				fi
 			else
 				if ! [ -f /opt/etc/init.d/S56dnsmasq ]; then
 	#				Если вызвана функция из postinst
@@ -912,7 +914,7 @@ vpn_on() {
 		if [ "${state}" = 'down' ]; then
 			curl -s -d '{"up":"true"}' "${INFACE_PART_REQUEST}/${inface_cli}" &> /dev/null
 		fi
-		sleep 2
+		sleep 1
 		connected=$(get_value_interface_field "${inface_cli}" connected)
 
 		if [ "${connected}" = 'no' ]; then
@@ -923,15 +925,8 @@ vpn_on() {
 			exit 1
 		else
 			. /opt/apps/kvas/bin/libs/ndm
-			cmd_vpn_iptable_flush  &> /dev/null
-#			Создаем таблицу ipset
-			ip4set_create_table
-			#	Создаем талицу IP адресов для  VPN подключения отличного от shadowsocks
-			ip4_add_route_table &> /dev/null
-		#	Устанавливаем приоритет таблицы
-			ip4_rule_set_priority &> /dev/null
-		#	Создаем правила iptables
-			ip4_mark_vpn_network &> /dev/null
+			recreate_ip4tables
+			recreate_vpn_rules
 		fi
 	} 1> /dev/null 2> "${ERROR_LOG_FILE}"
 	ready_status "${?}" "Возникла ошибка при подключении VPN соединения [${inface_cli_desc}]" "УСПЕШНО"
@@ -1078,9 +1073,9 @@ cmd_shadowsocks_iptable_reset() {
 		inface=$(get_inface_by_ip "${local_ip}")
 		proxy_port=$(get_config_value SSR_DNS_PORT)
 		. /opt/apps/kvas/bin/libs/ndm
-		ip4_firewall_flush_all_rules
-		ip4set_create_table
-		ip4_firewall_set_ssr_rules "${inface}" "${proxy_port}"
+		recreate_ip4tables
+		recreate_ssr_rules
+
 	else
 		exit 1
 	fi
@@ -1496,7 +1491,7 @@ get_dns_crypt_status() {
 #
 # ------------------------------------------------------------------------------------------
 dns_crypt_install() {
-
+	is_install_stage="${1}"
 #	В случае наличия архива файла запуска сервиса dnscrypt_proxy2
 	if [ -f "${KVAS_BACKUP_PATH}/S09dnscrypt-proxy2" ]; then
 		warning "Обнаружен архив файла S09dnscrypt-proxy2."
@@ -1505,13 +1500,26 @@ dns_crypt_install() {
 		cp "${KVAS_BACKUP_PATH}/S09dnscrypt-proxy2" /opt/etc/init.d/S09dnscrypt-proxy2 1> /dev/null 2> "${ERROR_LOG_FILE}"
 		ready_status "${?}" "Ошибка при восстановлении S09dnscrypt-proxy2 из архива"
 	else
-#		при его отсутвии - устанавливаем пакет
-		if ! [ -f /opt/etc/init.d/S09dnscrypt-proxy2 ]; then
-			ready "Устанавливаем пакет dnscrypt-proxy2..."
-			opkg remove dnscrypt-proxy2 1> /dev/null 2> "${ERROR_LOG_FILE}"
-			opkg install dnscrypt-proxy2 1> /dev/null 2> "${ERROR_LOG_FILE}"
-			ready_status "${?}" "Ошибка при установке пакета dnsmasq"
-		fi
+		# Если запуск функции был не при установке пакета Квас
+			if [ -z "${is_install_stage}" ]; then
+		#		при его отсутвии - устанавливаем пакет
+				if ! [ -f /opt/etc/init.d/S09dnscrypt-proxy2 ]; then
+					ready "Устанавливаем пакет dnscrypt-proxy2..."
+					opkg remove dnscrypt-proxy2 1> /dev/null 2> "${ERROR_LOG_FILE}"
+					opkg install dnscrypt-proxy2 1> /dev/null 2> "${ERROR_LOG_FILE}"
+					when_error "${?}" "Ошибка при установке пакета dnsmasq"
+				fi
+			else
+				if ! [ -f /opt/etc/init.d/S09dnscrypt-proxy2 ]; then
+	#				Если вызвана функция из postinst
+					error "Пакет dnscrypt-proxy2 был усановлен с ошибками или поврежден!"
+					error "Файл запуска пакета /opt/etc/init.d/S09dnscrypt-proxy2 отсуствует!"
+					warring "Удалите Квас и затем переустановите пакет dnscrypt-proxy2"
+					exit 1
+				fi
+			fi
+
+
 	fi
 #	Если dnscrypt_proxy2 запущен, то останавливаем его,
 #	так как необходимо его предварительно настроить

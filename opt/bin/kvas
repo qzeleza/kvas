@@ -120,6 +120,8 @@ case "${1}" in
 		;;
 	update)					cmd_update_list
 		;;
+	reset|init)				cmd_kvas_init
+		;;
 	version | ver)			warning "Версия скрипта ${APP_VERSION}-${APP_RELEASE}"
 		;;
 	help ) 					cmd_help
