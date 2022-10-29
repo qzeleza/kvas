@@ -1335,7 +1335,7 @@ show_vpn_list() {
 		cli_inface_desc=$(echo "${line}" | cut -d"|" -f3)
 		cli_inface=$(echo "${line}" | cut -d"|" -f1)
 		mess="${num}. Интерфейс ${cli_inface_desc}"
-		sleep 1
+#		sleep 1
 		connected=$(is_vpn_interface_connected "${cli_inface}")
 
 		if [ -n "${is_current_vpn}" ]; then

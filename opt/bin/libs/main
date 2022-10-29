@@ -420,8 +420,8 @@ print_error(){
 		warning "${error_mess}"; print_line
 
 #           Вывод сообщения в лог роутера
-		logger -p err -t "${APP_NAME_DESC}" "${error_mess} "
 		while read -r line || [ -n "${line}" ]; do
+			[ -z "${line}" ] && continue
 			logger -p err -t "${APP_NAME_DESC}" "${err_signal}${line}"
 		done < "${ERROR_LOG_FILE}"
 	}
@@ -472,4 +472,7 @@ when_error()(ready_status "${1}" "${2}" ERROR 0)
 
 log_warning(){
 	logger -t "${APP_NAME_DESC}" "${1}"
+}
+log_error(){
+	logger -p err -t "${APP_NAME_DESC}" "ОШИБКА::${1}"
 }

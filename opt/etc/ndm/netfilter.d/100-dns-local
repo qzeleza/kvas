@@ -20,6 +20,8 @@
 
 [ "${type}" = "iptables" ] && {
 	log_warning "Запущен файл /opt/etc/ndm/netfilter.d/100-dns-local"
+	log_warning "С флагами type=${type} и table=${table}"
+
 	ip4_firewall_dns_rules_set @INFACE @LOCAL_IP tcp
 	ip4_firewall_dns_rules_set @INFACE @LOCAL_IP udp
 	exit 0

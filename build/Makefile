@@ -282,14 +282,14 @@ fi
 
 test_status
 print_line
-log_in_file "Был произведен запуск диагностики после установки."
-warning "ПРОИЗВОДИМ ТЕСТИРОВАНИЕ УСТАНОВЛЕННОГО VPN СОЕДИНЕНИЯ"
-print_line
-. /opt/apps/kvas/bin/libs/check
-cmd_state_checker
-print_line
+#log_in_file "Был произведен запуск диагностики после установки."
+#warning "ПРОИЗВОДИМ ТЕСТИРОВАНИЕ УСТАНОВЛЕННОГО VPN СОЕДИНЕНИЯ"
+#print_line
+#. /opt/apps/kvas/bin/libs/check
+#cmd_state_checker
+#print_line
 
-test_status
+#test_status
 
 log_in_file line
 log_in_file "Установка завершена: $$(date "$${DATE_FORMAT}")"
