@@ -428,9 +428,9 @@ ip4_firewall_ssr_prune(){
 # которые были добавлены при работе пакета в старой редакции
 #
 # ------------------------------------------------------------------------------------------
-ip4_del_guest_to_vpn_network(){
-	ip4tbl_flush_rm_pre_out nat "${SSR_IPTABLES_CHAIN}" PREROUTING
-	ip4_flush_guest_postroute_rules
+ip4_firewall_flush_vpn_guest_rules(){
+	iptab -D PREROUTING -t nat -p udp -d "${INFACE_GUEST_GW4}" --dport ${DNS_PORT} -j DNAT --to "${INFACE_GW4}:53"
+	iptab -D POSTROUTING -t nat -s "${GUEST_NET}" -o "${INFACE_GUEST_ENT}" -j MASQUERADE
 }
 
 
@@ -447,7 +447,7 @@ ip4_firewall_flush_vpn_rules(){
 #		Если программное и аппаратное ускорение ОТКЛЮЧЕНО
 		ip4_firewall_nofastnet_vpn_prune
 	fi
-	[ "${INFACE_GUEST_ENT}" ] && ip4_del_guest_to_vpn_network
+	[ "${INFACE_GUEST_ENT}" ] && ip4_firewall_flush_vpn_guest_rules
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -501,10 +501,14 @@ ip4_add_route_table(){
 		log_warning "IPv4::Копируем записи таблицы main в таблицу ID#${TABLE_ID}."
 		ip4 route show table main | grep -Ev ^default | \
 		while read -r ROUTE; do
-			ip4 route add table ${TABLE_ID} "${ROUTE}"; &>/dev/null
+#			Выделяем из строки ROUTE только первых три разряда сети, как пример: 10.0.124
+			_net=$(echo "${ROUTE}" | sed 's/^\([0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\).*/\1/')
+#			Если сеть доступна в роутере на текущий момент, то добавляем ее
+			ip a | grep -q "${_net}" && ip4 route add table ${TABLE_ID} ${ROUTE}
 		done
+#		Проверяем на число записей в таблице ${TABLE_ID} - их должно быть больше чем одна запись
 		test "$(ip4 route show table ${TABLE_ID} | grep -c dev)" -gt 1
-		when_error "${?}" " ${IPv4} В таблица ID#${TABLE_ID} не были скопированы записи из таблицы main"
+		when_error "${?}" "${IPv4} В таблицу с ID#${TABLE_ID} НЕ БЫЛИ скопированы записи из таблицы main!"
 	fi
 }
 
@@ -569,6 +573,11 @@ recreate_ip4tables(){
 	ready "${prefix}Создаем все необходимые таблицы для утилит ipset и ip"
 	ip4set_create_table &>/dev/null
 	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+
+	ready "${prefix}Создаем таблицу маршрутизации ID#${TABLE_ID} для '${INFACE_CLI}'."
+#	Создаем таблицу IP адресов для  VPN подключения отличного от shadowsocks
+	ip4_add_route_table #&> /dev/null
+	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 }
 
 
@@ -579,16 +588,11 @@ recreate_ip4tables(){
 # ------------------------------------------------------------------------------------------
 recreate_vpn_rules(){
 	ready "${prefix}Очищаем все ранее созданные iptables правила для VPN."
-	ip4_firewall_flush_vpn_rules &>/dev/null
+	ip4_firewall_flush_vpn_rules # &>/dev/null
 	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 
 	ready "${prefix}Обнуляем приоритет таблицы ID#${TABLE_ID}"
 	ip4_rule_del_priority &>/dev/null
-	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
-
-	ready "${prefix}Создаем таблицу маршрутизации ID#${TABLE_ID} для '${INFACE_CLI}'."
-#	Создаем таблицу IP адресов для  VPN подключения отличного от shadowsocks
-	ip4_add_route_table &> /dev/null
 	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 
 	ready "${prefix}Устанавливаем приоритет таблицы ID#${TABLE_ID} в значение ${PRIORITY}"
