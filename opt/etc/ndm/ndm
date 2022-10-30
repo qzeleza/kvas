@@ -665,7 +665,7 @@ refresh_dnsmasq_ipset_table(){
 # ------------------------------------------------------------------------------------------
 cmd_kvas_init(){
 
-	prefix='DEBUG::'
+	prefix='UPDATE::'
 	mess="${prefix}Производим иницилизацию пакета КВАС"
 	warning "${mess}"; log_error "${mess}"
 	print_line

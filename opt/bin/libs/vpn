@@ -500,7 +500,7 @@ cmd_bridge_vpn_access_del() {
 			cmd_bridge_vpn_access_del "${bridge_id}"
 		fi
 	fi
-	if [ -n "${guest_bridge_id}" ] && [ "${cmd}" = update ]; then cmd_update_list; fi
+	if [ -n "${guest_bridge_id}" ] && [ "${cmd}" = update ]; then cmd_kvas_init ; fi
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -557,13 +557,13 @@ cmd_bridge_vpn_access_add() {
 		for bridge_id in ${entware_bridge_list}; do
 			bridge_access_add "${bridge_id}" "${ip}" "${crypt_port}"
 		done
-		cmd_update_list
+		cmd_kvas_init
 	else
 		guest_bridge_id=''; bridge_inface_select guest_bridge_id
 		if [ -n "${guest_bridge_id}" ]; then
 			cmd_bridge_vpn_access_del "${guest_bridge_id}" 'not_update' &> /dev/null
 			bridge_access_add "${guest_bridge_id}" "${ip}" "${crypt_port}"
-			cmd_update_list
+			cmd_kvas_init
 		fi
 	fi
 }
@@ -776,7 +776,7 @@ cmd_dnsmasq_port_change() {
 		ready "Замена порта на ${port} в dnsmasq завершена"
 		sed -i "s/\(port=\).*/\1${port}/"  "${DNSMASQ_CONFIG}"
 		set_config_value DNSMASQ_PORT "${port}"
-		[ "${cmd}" = restart ] && cmd_update_list &> /dev/null
+		[ "${cmd}" = restart ] && cmd_kvas_init  &> /dev/null
 		[ $? = 0 ] && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 	fi
 }
@@ -1193,8 +1193,9 @@ shadowsocks_on() {
 # ------------------------------------------------------------------------------------------
 update_interface_name_list() {
 
-	warning "Производится сканирование интерфейсов!"
-	warning "Это займет время. Сохраняйте терпение и спокойствие!"
+	warning "Производим сканирование интерфейсов!"
+	warning "Это займет время."
+	warning "Сохраняйте терпение и спокойствие!"
 	print_line
 	# если нет файла по отлавливанию хука
 	if ! [ -f "${HOOK_INFACE_FILE}" ]; then
@@ -1390,7 +1391,7 @@ cmd_interface_change() {
 				shadowsocks_off &> /dev/null
 				vpn_on "${inface_entware}"
 			fi
-			cmd_update_list
+			cmd_kvas_init
 			break
 		fi
 	done
@@ -1590,7 +1591,7 @@ cmd_dns_crypt_off() {
 		set_config_value DNS_CRYPT_PORT "${crypt_port}"
 
 		/opt/etc/init.d/S09dnscrypt-proxy2 stop
-		cmd_update_list
+		cmd_kvas_init
 
 	} 1> /dev/null 2> "${ERROR_LOG_FILE}"
 	ready_status "${?}" "Произошла непредвиденная ошибка." "ОТКЛЮЧЕНО"
@@ -1658,7 +1659,7 @@ host_add() {
 			ads_hosts_remove "${_host}" &> /dev/null
 		fi
 	fi
-	cmd_update_list &> /dev/null
+	cmd_kvas_init  &> /dev/null
 	[ $? = 0 ] && when_ok "ДОБАВЛЕН" || when_bad "НЕ ДОБАВЛЕН"
 }
 # ------------------------------------------------------------------------------------------
@@ -1723,7 +1724,7 @@ cmd_del_one_host() {
 	if cat < "${UNBLOCK_LIST_FILE}" | grep -qe "${host_}$" ; then
 		ready "Удаляем ${YELLOW}${host_}${NOCL} из списка разблокировки..."
 		sed -i "/${host_}/d" "${UNBLOCK_LIST_FILE}"
-		cmd_update_list &> /dev/null
+		cmd_kvas_init  &> /dev/null
 		[ $? = 0 ] && when_ok "УДАЛЕН" || when_bad "НЕ УДАЛЕН"
 	else
 		error "Такая запись отсутствует в списке разблокировки!"
@@ -1748,7 +1749,7 @@ cmd_clear_list() {
 					ready "Очищаем список разблокировки ..."
 					mv -f "${UNBLOCK_LIST_FILE}" "${KVAS_BACKUP_LIST_FILE}"
 					touch "${UNBLOCK_LIST_FILE}"
-					cmd_update_list &> /dev/null
+					cmd_kvas_init  &> /dev/null
 					[ $? = 0 ] && when_ok "ОЧИЩЕН" || when_bad "ОШИБКА"
 					print_line
 					warning "Предыдущий список разблокировки был сохранен в файл ${KVAS_BACKUP_LIST_FILE}"
@@ -1836,7 +1837,7 @@ cmd_import_hosts() {
 			#     обновляем таблицу ipset
 
 			ads_hosts_remove "$(get_separated_host_list)" &> /dev/null
-			cmd_update_list  &> /dev/null
+			cmd_kvas_init   &> /dev/null
 			[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 
 			num_not_added=$(rec_in_var "${hosts_not_added}")

@@ -1,5 +1,5 @@
 #!/bin/sh
-. /opt/apps/kvas/bin/libs/vpn
+#. /opt/apps/kvas/bin/libs/vpn
 . /opt/apps/kvas/bin/libs/ndm
 #------------------------------------------------------------------------------
 #
@@ -23,47 +23,44 @@
 
 
 log_warning "Запущен файл /opt/apps/kvas/bin/main/update"
+cmd_kvas_init
 
-# Обновляем таблицу ipset
-ready "Обновление таблицы ipset"
-ip4_flush_all_tables &> /dev/null
-ip4_add_route_table &> /dev/null
-/opt/apps/kvas/bin/main/ipset &> /dev/null &
-[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
-
-# ------------------------------------------------------------------------------------------
-#	 Вспомогательные переменные для работы скрипта
-# ------------------------------------------------------------------------------------------
-# Флаг пропуска блокировки рекламы
-# 0-вЫключаем блокиратор рекламы,
-# 1 - включаем блокиратор рекламы
-ADS_BLOCKER_ON=0
-
-# Обновляем список рекламы..."
-if [ -z "$1" ] && [ "${ADS_BLOCKER_ON}" = 1 ]; then
-	/opt/apps/kvas/bin/main/adblock
-	print_line
-fi
-
-# Проверяем установлен ли AdGuard Home
-if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
-	ready "Обновление списка ipset для AdGuard Home"
-	/opt/apps/kvas/bin/main/adguard
-	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
-
-	ready "Перезапуск службы AdGuard Home"
-	/opt/etc/init.d/S99adguardhome restart &>/dev/null
-	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
-else
-#	Если установлен dnsmasq
-	ready "Обновление списка dnsmasq"
-	/opt/apps/kvas/bin/main/dnsmasq
-	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
-
-	ready "Перезапуск службы dnsmasq"
-	/opt/etc/init.d/S56dnsmasq restart &>/dev/null
-	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
-fi
-
-print_line
-date_update
+## Обновляем таблицу ipset
+#ready "Обновление таблицы ipset"
+#ip4_flush_all_tables &> /dev/null
+#ip4_add_route_table &> /dev/null
+#/opt/apps/kvas/bin/main/ipset &> /dev/null &
+#[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+#
+## ------------------------------------------------------------------------------------------
+##	 Вспомогательные переменные для работы скрипта
+## ------------------------------------------------------------------------------------------
+## Флаг пропуска блокировки рекламы
+## 0-вЫключаем блокиратор рекламы,
+## 1 - включаем блокиратор рекламы
+#ADS_BLOCKER_ON=0
+#
+## Обновляем список рекламы..."
+#if [ -z "$1" ] && [ "${ADS_BLOCKER_ON}" = 1 ]; then
+#	/opt/apps/kvas/bin/main/adblock
+#	print_line
+#fi
+#
+## Проверяем установлен ли AdGuard Home
+#if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
+#	ready "Обновление списка ipset для AdGuard Home"
+#	/opt/apps/kvas/bin/main/adguard
+#	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+#
+#	ready "Перезапуск службы AdGuard Home"
+#	/opt/etc/init.d/S99adguardhome restart &>/dev/null
+#	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+#else
+#
+#	ready "Перезапуск службы dnsmasq"
+#	/opt/etc/init.d/S56dnsmasq restart &>/dev/null
+#	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+#fi
+#
+#print_line
+#date_update

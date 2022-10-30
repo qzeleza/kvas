@@ -90,9 +90,9 @@ source ../libs/main
 
 }
 
-@test "Проверка работы обновления правил ipset [cmd_update_list]" {
+@test "Проверка работы обновления правил ipset [cmd_kvas_init ]" {
 
-	cmd="cmd_update_list"
+	cmd="cmd_kvas_init "
 	run on_server "${vpn_lib_load} && ${cmd}"
 	print_on_error "${status}" "${output}"
 	[ "${status}" -eq 0 ]

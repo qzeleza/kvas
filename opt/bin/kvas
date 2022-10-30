@@ -118,9 +118,7 @@ case "${1}" in
 		;;
 	period)					cmd_set_period_update "${2}"
 		;;
-	update)					cmd_update_list
-		;;
-	reset|init)				cmd_kvas_init
+	update|reset|init)		cmd_kvas_init
 		;;
 	version | ver)			warning "Версия скрипта ${APP_VERSION}-${APP_RELEASE}"
 		;;
