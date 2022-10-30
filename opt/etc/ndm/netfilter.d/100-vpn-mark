@@ -28,8 +28,7 @@
 [ "$type" != "iptables" ] && exit 0
 [ "$table" != "mangle" ] && exit 0
 
-log_warning "Запущен файл /opt/etc/ndm/netfilter.d/100-vpn-mark"
-log_warning "С флагами type=${type} и table=${table}"
+log_warning "Запущен файл /opt/etc/ndm/netfilter.d/100-vpn-mark [type=${type} и table=${table}]"
 
 # Создаем таблицу unblock для ipset ip4
 ip4set_create_table &> /dev/null
