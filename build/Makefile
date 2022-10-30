@@ -56,6 +56,9 @@ define Package/kvas/postinst
 
 #!/bin/sh
 
+# Пишем сообщение в лог роутера о начале устаноки пакета
+logger -p err -t "PACKAGE INSTALLATION " "!!!!!! УСТАНОВКА ПАКЕТА КВАС !!!!!!"
+
 # В случае проблем с инсталляцией пакета ставим в значение true
 DEBUG=false
 

@@ -914,7 +914,7 @@ vpn_on() {
 		if [ "${state}" = 'down' ]; then
 			curl -s -d '{"up":"true"}' "${INFACE_PART_REQUEST}/${inface_cli}" &> /dev/null
 		fi
-		sleep 1
+		sleep 2
 		connected=$(get_value_interface_field "${inface_cli}" connected)
 
 		if [ "${connected}" = 'no' ]; then
@@ -1193,8 +1193,8 @@ shadowsocks_on() {
 # ------------------------------------------------------------------------------------------
 update_interface_name_list() {
 
-	warning "Сканирование интерфейсов займет время."
-	warning "Сохраняйте терпение и спокойствие!"
+	warning "Производится сканирование интерфейсов!"
+	warning "Это займет время. Сохраняйте терпение и спокойствие!"
 	print_line
 	# если нет файла по отлавливанию хука
 	if ! [ -f "${HOOK_INFACE_FILE}" ]; then
@@ -1352,8 +1352,6 @@ cmd_interface_change() {
 
 	answer="${1}"
 
-	warning "Выберите VPN интерфейс для работы пакета"
-	print_line
 	if [ -f "${INFACE_NAMES_FILE}" ]; then
 		if [ "${answer}" = ask ] ; then
 			read_ynq "Обновить список интерфейсов" answer
@@ -1366,6 +1364,8 @@ cmd_interface_change() {
 		update_interface_name_list
 	fi
 
+	warning "Выберите VPN интерфейс для работы пакета"
+	print_line
 #	Отображаем список текущих интерфейсов с номерами по порядку и данными об их доступности
 	show_vpn_list
 

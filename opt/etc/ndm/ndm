@@ -329,13 +329,13 @@ ip4tbl_flush_rm_chain(){
 # ------------------------------------------------------------------------------------------
 ip4tbl_flush_rm_pre_out(){
 
-	table="${1}"; chain="${2}"; route="${3}";
+	table="${1}"; chain="${2}"; route="${3}"; icmp_arg=${4:-'no'}
 	if [ -n "${table}" ] && [ -n "${chain}" ] && [ -n "${route}" ] ; then
 		log_warning "Производим удаление стандартных правил в таблице ${table}, цепочке ${route} для ${chain}"
 
 		for prot in tcp udp icmp; do
 			ip4save | grep "${route}" | grep "${chain}" | grep -q "${prot}" && {
-				if [ "${prot}" = icmp ]; then
+				if [ "${icmp_arg}" = 'icmp' ] && [ "${prot}" = icmp ]; then
 					iptab -t "${table}" -D "${route}" ! -p "${prot}" -j "${chain}"
 				else
 					iptab -t "${table}" -D "${route}" -p "${prot}" -j "${chain}"
@@ -357,13 +357,9 @@ ip4tbl_flush_rm_match_set(){
 	if [ -n "${table}" ] && [ -n "${chain}" ] && [ -n "${route}" ] ; then
 		log_warning "Производим удаление правил match-set в таблице ${table}, цепочке ${route} для ${chain}"
 
-		for prot in tcp udp icmp; do
+		for prot in tcp udp; do
 			ip4save | grep "${route}" | grep "${chain}" | grep -q "${prot}" && {
-				if [ "${prot}" = icmp ]; then
-					iptab -t "${table}" -D "${route}"  ! -p "${prot}" -m set --match-set ${table_name} dst -j "${chain}"
-				else
-					iptab -t "${table}" -D "${route}" -p "${prot}" -m set --match-set ${table_name} dst -j "${chain}"
-				fi
+				iptab -t "${table}" -D "${route}" -p "${prot}" -m set --match-set ${table_name} dst -j "${chain}"
 			}
 		done
 	else
@@ -381,8 +377,6 @@ ip4_firewall_fastnet_vpn_prune(){
 	{
 		ip4tbl_flush_rm_match_set "${table}" "${chain}" PREROUTING
 		ip4tbl_flush_rm_match_set "${table}" "${chain}" OUTPUT
-		ip4tbl_flush_rm_pre_out "${table}" "${chain}" PREROUTING
-		ip4tbl_flush_rm_pre_out "${table}" "${chain}" OUTPUT
 		ip4tbl_flush_rm_chain "${table}" "${chain}"
 
 	} 2> "${ERROR_LOG_FILE}"
@@ -414,10 +408,10 @@ ip4_firewall_nofastnet_vpn_prune(){
 # ------------------------------------------------------------------------------------------
 ip4_firewall_ssr_prune(){
 
-	ip4tbl_flush_rm_pre_out nat "${SSR_IPTABLES_CHAIN}" PREROUTING
+	ip4tbl_flush_rm_pre_out nat "${SSR_IPTABLES_CHAIN}" PREROUTING icmp
 	ip4tbl_flush_rm_chain nat "${SSR_IPTABLES_CHAIN}"
 
-	ip4tbl_flush_rm_pre_out mangle "${SSR_IPTABLES_CHAIN_MARK}"  OUTPUT
+	ip4tbl_flush_rm_pre_out mangle "${SSR_IPTABLES_CHAIN_MARK}" OUTPUT icmp
 	ip4tbl_flush_rm_chain mangle "${SSR_IPTABLES_CHAIN_MARK}"
 }
 
@@ -447,7 +441,7 @@ ip4_firewall_flush_vpn_rules(){
 #		Если программное и аппаратное ускорение ОТКЛЮЧЕНО
 		ip4_firewall_nofastnet_vpn_prune
 	fi
-	[ "${INFACE_GUEST_ENT}" ] && ip4_firewall_flush_vpn_guest_rules
+	if [ -n "${INFACE_GUEST_ENT}" ]; then ip4_firewall_flush_vpn_guest_rules; fi
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -631,7 +625,7 @@ recreate_ssr_rules(){
 #
 # ------------------------------------------------------------------------------------------
 refresh_adguard_ipset_table(){
-	ready "${prefix}Заполняем AdGuard Home таблицу данными из списка разблокировки."
+	ready "${prefix}Заполняем AdGuard таблицу данными из списка разблокировки."
 	/opt/apps/kvas/bin/main/adguard &>/dev/null
 	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 
@@ -671,8 +665,9 @@ refresh_dnsmasq_ipset_table(){
 # ------------------------------------------------------------------------------------------
 cmd_kvas_init(){
 
-	prefix='INIT::'
-	warning "${prefix}Производим иницилизацию пакета КВАС"
+	prefix='DEBUG::'
+	mess="${prefix}Производим иницилизацию пакета КВАС"
+	warning "${mess}"; log_error "${mess}"
 	print_line
 
 	recreate_ip4tables
@@ -702,6 +697,8 @@ cmd_kvas_init(){
 	ready "${prefix}Синхронизируем дату роутера с сервером времени."
 	date_update &>/dev/null
 	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+
+	log_error "${prefix}Иницилизация пакета КВАС ЗАВЕРШЕНА!"
 
 }
 
