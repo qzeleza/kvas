@@ -797,8 +797,9 @@ cmd_dnsmasq_port_show() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_dns_test() {
-	ready "Тестируем получение адреса домена facebook.com"
-	result=$(test_host "facebook.com" ip)
+	domain=${1:-facebook.com}
+	ready "Тестируем получение адреса домена ${domain}"
+	result=$(test_host "${domain}" ip)
 	[ -n "${result}" ] && when_alert "${result}" || when_bad "ПУСТО"
 }
 # ------------------------------------------------------------------------------------------
