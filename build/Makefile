@@ -142,7 +142,7 @@ set_config_value DNSMASQ_LISTEN_IP "$${local_ip}"
 #------------------------------------------------------
 # Сейчас необходимо выбрать VPN интерфейс для работы пакета
 #------------------------------------------------------
-cmd_interface_change ask
+cmd_interface_change ask install
 log_in_file "$$(cmd_vpn_status)"
 test_status
 print_line
@@ -273,14 +273,14 @@ test_status
 #  проверяем был ли сделал выбор AdGuard Home в качестве DNS сервера
 
 #if [ "$${answer_agh}" = n ]; then
-#	ready "Запускаем КВАС в работу"
-#	"$${KVAS_START_FILE}" start &> /dev/null
-#	[ $$? = 0 ] && when_ok "УСПЕШНО" || {
-#		when_bad "ОШИБКА"
-#		mess="Проблема при запуске КВАСа"
-#		log_in_file "ОШИБКА: $${mess}"
-#		exit 1
-#	}
+ready "Запускаем КВАС в работу"
+"$${KVAS_START_FILE}" start &> /dev/null
+[ $$? = 0 ] && when_ok "УСПЕШНО" || {
+	when_bad "ОШИБКА"
+	mess="Проблема при запуске КВАСа"
+	log_in_file "ОШИБКА: $${mess}"
+	exit 1
+}
 #fi
 
 #test_status

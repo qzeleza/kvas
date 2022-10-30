@@ -44,3 +44,9 @@ while read -r line || [ -n "${line}" ]; do
   fi
 
 done < "${host_list}"
+
+num_recs_hosts_list=$(cat < "${host_list}" | wc -l)
+num_recs_hosts_list=$((num_recs_hosts_list * 2))
+num_recs_dnsmasq_list=$(cat < "/opt/etc/kvas.dnsmasq" | wc -l)
+
+[ $num_recs_hosts_list -gt 1 ] && [ "${num_recs_hosts_list}" = "${num_recs_dnsmasq_list}" ]

@@ -705,7 +705,7 @@ dnsmasq_install(){
 	sed -i "s/@LOCAL_IP/${local_ip}/g; s/@INFACE/${inface}/g; s/@UPLEVEL_DNS/${uplevel_dns}/g;" /opt/etc/dnsmasq.conf 1> /dev/null 2> "${ERROR_LOG_FILE}"
 	ready_status "${?}" "Проблема при настройке файлов конфигурации dnsmasq"
 	# Если запуск функции был не при установке пакета Квас
-	[ -z "${is_install_stage}" ] && /opt/apps/kvas/bin/main/update
+	[ -z "${is_install_stage}" ] && cmd_kvas_init
 
 }
 # ------------------------------------------------------------------------------------------
@@ -1195,7 +1195,7 @@ shadowsocks_on() {
 update_interface_name_list() {
 
 	warning "Производим сканирование интерфейсов!"
-	warning "Это займет время."
+	#warning "Это займет время."
 	warning "Сохраняйте терпение и спокойствие!"
 	print_line
 	# если нет файла по отлавливанию хука
@@ -1353,6 +1353,7 @@ show_vpn_list() {
 cmd_interface_change() {
 
 	answer="${1}"
+	is_install_stage="${2:-no}"
 
 	if [ -f "${INFACE_NAMES_FILE}" ]; then
 		if [ "${answer}" = ask ] ; then
@@ -1392,7 +1393,7 @@ cmd_interface_change() {
 				shadowsocks_off &> /dev/null
 				vpn_on "${inface_entware}"
 			fi
-			cmd_kvas_init
+			[ "${is_install_stage}" = no ] && cmd_kvas_init
 			break
 		fi
 	done

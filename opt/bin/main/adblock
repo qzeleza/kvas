@@ -20,18 +20,28 @@
 #	Лицензия: GPL 2.0
 # -----------------------------------------------------------------------------
 
+[ -z "${1}" ] && echo "Загрузка хостов для блокировки из источников..."
 logger -t "kvas" "Запущен файл /opt/apps/kvas/bin/main/adblock"
 
 tmp_path="/opt/tmp/adblock"
-tmp_file="/opt/tmp/hosts.tmp"
-main_hosts_file="/opt/etc/hosts"
-dnsmasq_demon="/opt/etc/init.d/S56dnsmasq"
-error_source="/opt/tmp/kvas.err.log"
-ads_sources_file="/opt/etc/adblock.sources"
+TMP_FILE="/opt/tmp/hosts.tmp"
+TMP_ADS_FILE="/opt/tmp/hosts.ads"
+DNSMASQ_DEMON="/opt/etc/init.d/S56dnsmasq"
+ERROR_SOURCE="/opt/tmp/kvas.err.log"
+ADS_SOURCES_FILE="/opt/etc/adblock.sources"
 grepv="#|^$|localhost| local|broadcasthost|loopback|localnet|mcastprefix|allnodes|allrouters|allhosts| 0.0.0.0"
 # блокируем различные популярные в РФ счетчики и определители IP
 mkdir -p "${tmp_path}"
-cat <<EOF >> "${ADS_HOSTS_FILE}"
+
+#--------------------------------------------------------------
+#
+# 	Включаем в список блокировки уже
+# 	зарекомендовавшие себя 100% рекламные домены
+#
+#--------------------------------------------------------------
+add_regular_ads(){
+
+cat <<EOF > "${TMP_ADS_FILE}"
 0.0.0.0 ezstat.ru
 0.0.0.0 iplogger.org
 0.0.0.0 2no.co
@@ -45,114 +55,195 @@ cat <<EOF >> "${ADS_HOSTS_FILE}"
 0.0.0.0 iplis.ru
 0.0.0.0 02ip.ru
 EOF
+}
 
-! [ -f "${ads_sources_file}" ] && {
+
+#--------------------------------------------------------------
+#
+# 	Проверяем на наличие необходимые файлы
+#
+#--------------------------------------------------------------
+check_files_present(){
+	! [ -f "${ADS_SOURCES_FILE}" ] && {
 	error "Файл с ссылками на списки блокировки рекламы отсутствует.";
 	exit 1
 	}
-[ -d "${tmp_path}" ] && rm -rf "${tmp_path}"; mkdir -p "${tmp_path}"
-[ -f "${error_source}" ] && rm -f "${error_source}"
+	[ -d "${tmp_path}" ] && rm -rf "${tmp_path}"; mkdir -p "${tmp_path}"
+	[ -f "${ERROR_SOURCE}" ] && rm -f "${ERROR_SOURCE}"
+}
 
-[ -z "${1}" ] && echo "Загрузка хостов для блокировки из источников..."
-print_line
-score=0; hosts=0
 
-total=$(cat < "${ads_sources_file}" | sed '/^$/d; /^#/d' | wc -l )
-while read -r source || [ -n "${source}" ]; do
+#--------------------------------------------------------------
+#
+# 	Загружаем из источников рекламные доменные имена
+#
+#--------------------------------------------------------------
+load_adblock_hosts(){
 
-	[  -z "${source}" ] && continue
-	[ "${source::1}" = "#" ] && continue
+	score=0; hosts=0
+	total=$(cat < "${ADS_SOURCES_FILE}" | sed '/^$/d; /^#/d' | wc -l )
+	while read -r source || [ -n "${source}" ]; do
 
-	score=$((score+1))
-	curl "${source}" -o "${tmp_file}" &>/dev/null
+		[  -z "${source}" ] && continue
+		[ "${source::1}" = "#" ] && continue
 
-#	пропускаем все файлы с html кодом
-	if [ -n "$(grep -E '<html>|<head>|<body>' "${tmp_file}")" ]; then
-		echo "${source}" >> ${error_source}
-		rm -f "${tmp_file}";
-		continue
+		score=$((score+1))
+		curl "${source}" -o "${TMP_FILE}" &>/dev/null
+
+	#	пропускаем все файлы с html кодом
+		if [ -n "$(grep -E '<html>|<head>|<body>' "${TMP_FILE}")" ]; then
+			echo "${source}" >> ${ERROR_SOURCE}
+			rm -f "${TMP_FILE}";
+			continue
+		fi
+
+		cat < "${TMP_FILE}" | grep -vE "${grepv}" >> "${ADS_HOSTS_FILE}"
+		progress_bar "${score}" "${total}" ""
+
+	done < "${ADS_SOURCES_FILE}"
+	printf "\n"
+	print_line
+
+	cat "${TMP_ADS_FILE}" "${ADS_HOSTS_FILE}" > "${TMP_FILE}"
+	mv "${TMP_FILE}"  "${ADS_HOSTS_FILE}"
+
+
+	if [ -f ${ERROR_SOURCE} ]; then
+		mess_1="Следующие ссылки не корректны и содержат HTML код"
+		mess_2="Отредактируйте их должным образом ${ADS_SOURCES_FILE}"
+		error "${mess_1}"; error "${mess_2}"
+		logger "${mess_1}"; logger "${mess_2}"
+		print_line
 	fi
 
-	cat < "${tmp_file}" | grep -vE "${grepv}" >> "${ADS_HOSTS_FILE}"
-	progress_bar "${score}" "${total}" ""
+}
 
-done < "${ads_sources_file}"
-printf "\n"
-print_line
-
-if [ -f ${error_source} ]; then
-	mess_1="Следующие ссылки не корректны и содержат HTML код"
-	mess_2="Отредактируйте их должным образом ${ads_sources_file}"
-	error "${mess_1}"; error "${mess_2}"
-	logger "${mess_1}"; logger "${mess_2}"
-	print_line
-fi
-
-ready "Сортировка и удаление дубликатов"
-nlines_all=$(cat < "${ADS_HOSTS_FILE}" | wc -l)
-cat < "${ADS_HOSTS_FILE}" | sort -u > ${tmp_file}
-nlines_sorted=$(cat < "${tmp_file}" | wc -l)
-when_ok "ГОТОВО"
-
-if [ -f "${main_hosts_file}" ] && [ "$(cat < "${main_hosts_file}" | wc -l )" -ge 1 ]; then
-	exclude_com="$(cat < "${main_hosts_file}" | tr -d '*' | sed ':a;N;$!ba;s/\n/$| /g')$"
-	exclude_www="www.$(cat < "${main_hosts_file}" | tr -d '*' | sed ':a;N;$!ba;s/\n/$| www./g')$"
-	exclude_all="${exclude_com}|${exclude_www}"
-
-	ready "Исключаем из списка блокировки хосты из белого списка"
-	cat < "${tmp_file}" | grep -vE "${exclude_all}" > "${ADS_HOSTS_FILE}"
+#--------------------------------------------------------------
+#
+# 	Удаляем дубликаты
+#
+#--------------------------------------------------------------
+remove_duplicates(){
+	ready "Сортировка и удаление дубликатов"
+	nlines_all=$(cat < "${ADS_HOSTS_FILE}" | wc -l)
+	cat < "${ADS_HOSTS_FILE}" | sort -u > ${TMP_FILE}
+	nlines_sorted=$(cat < "${TMP_FILE}" | wc -l)
 	when_ok "ГОТОВО"
-	rm "${tmp_file}"
-	nlines_excluded=$(cat < "${ADS_HOSTS_FILE}" | wc -l)
-
-else
-	mv "${tmp_file}" "${ADS_HOSTS_FILE}"
-	nlines_excluded="${nlines_all}"
-fi
+}
 
 
+#--------------------------------------------------------------
+#
+# 	Удаляем все доменные имена, которые у нас имеются
+# 	в списке разблокировки (белый список)
+#
+#--------------------------------------------------------------
+remove_white_hosts(){
+	if [ -f "${UNBLOCK_LIST_FILE}" ] && [ "$(cat < "${UNBLOCK_LIST_FILE}" | wc -l )" -ge 1 ]; then
+		exclude_com="$(cat < "${UNBLOCK_LIST_FILE}" | sed ':a;N;$!ba;s/\n/$| /g')$"
+		ready "Исключаем из списка блокировки хосты из белого списка"
+		cat < "${TMP_FILE}" | grep -vE "${exclude_com}" > "${ADS_HOSTS_FILE}"
+		when_ok "ГОТОВО"
+		rm "${TMP_FILE}"
+		nlines_excluded=$(cat < "${ADS_HOSTS_FILE}" | wc -l)
 
-[ -f "${dnsmasq_demon}" ] && {
-	if grep -q alive "${dnsmasq_demon}"; then
-		ready "Проверяем на ошибки скаченные файлы"
-		/opt/sbin/dnsmasq_demon --test --hostsdir="${tmp_path}"  &> /dev/null
-		if [ "$?" == "0" ]; then
-			when_ok "ГОТОВО"
-			logger "Рекламных хостов для блокировки добавлено $(dig_frm ${hosts}) шт."
-		else
-			when_bad "ОШИБКИ"
-			mess="Проверьте файл ${ADS_HOSTS_FILE} на ошибки"
-			error "${mess}"; logger "${mess}"
-		fi
+	else
+		mv "${TMP_FILE}" "${ADS_HOSTS_FILE}"
+		nlines_excluded="${nlines_all}"
 	fi
 }
 
-print_line
-nlines_srt=$((nlines_all - nlines_sorted))
-nlines_exc=$((nlines_sorted - nlines_excluded))
 
-mess="Скачено хостов для блокировки рекламы"
-nlines_all_txt=$(dig_frm "${nlines_all}")
-ready "${mess}"; when_alert "${nlines_all_txt}"
-logger "${mess} ${nlines_all_txt}"
+#--------------------------------------------------------------
+#
+# 	Тестируем полученный список доменных имен
+# 	блокировки рекламы на dnsmasq
+#
+#--------------------------------------------------------------
+dnsmasq_test(){
+	[ -f "${DNSMASQ_DEMON}" ] && {
+		if grep -q alive "${DNSMASQ_DEMON}"; then
+			ready "Проверяем на ошибки скаченные файлы"
+			/opt/sbin/dnsmasq_demon --test --hostsdir="${tmp_path}"  &> /dev/null
+			if [ "$?" = 0 ]; then
+				when_ok "ГОТОВО"
+				logger "Рекламных хостов для блокировки добавлено $(dig_frm ${hosts}) шт."
+			else
+				when_bad "ОШИБКИ"
+				mess="Проверьте файл ${ADS_HOSTS_FILE} на ошибки"
+				error "${mess}"; logger "${mess}"
+			fi
+		fi
+	}
+}
 
-mess="Количество удаленных дубликатов"
-nlines_srt_txt=$(dig_frm "${nlines_srt}")
-ready "${mess}"; when_alert "${nlines_srt_txt}"
-logger "${mess} ${nlines_srt_txt}"
+#--------------------------------------------------------------
+#
+# 	Отображаем результаты произведенных
+# 	манипуляций со списком блокировки
+#
+#--------------------------------------------------------------
+result_show(){
 
-mess="Исключено записей из списка блокировки"
-nlines_exc_txt=$(dig_frm "${nlines_exc}")
-ready "${mess}"; when_alert "${nlines_exc_txt}"
-logger "${mess} ${nlines_exc_txt}"
+	nlines_srt=$((nlines_all - nlines_sorted))
+	nlines_exc=$((nlines_sorted - nlines_excluded))
 
-mess="Добавлено всего хостов для блокировки рекламы"
-nlines_add_txt=$(dig_frm "${nlines_excluded}")
-ready "${mess}"; when_alert "${nlines_add_txt}"
-logger "${mess} ${nlines_add_txt}"
+	mess="Скачено хостов для блокировки рекламы"
+	nlines_all_txt=$(dig_frm "${nlines_all}")
+	ready "${mess}"; when_alert "${nlines_all_txt}"
+	logger "${mess} ${nlines_all_txt}"
 
-[ -f "${dnsmasq_demon}" ] && {
-        if grep -q alive "${dnsmasq_demon}"; then
-                "${dnsmasq_demon}" restart &> /dev/null
+	mess="Количество удаленных дубликатов"
+	nlines_srt_txt=$(dig_frm "${nlines_srt}")
+	ready "${mess}"; when_alert "${nlines_srt_txt}"
+	logger "${mess} ${nlines_srt_txt}"
+
+	mess="Исключено записей из списка блокировки"
+	nlines_exc_txt=$(dig_frm "${nlines_exc}")
+	ready "${mess}"; when_alert "${nlines_exc_txt}"
+	logger "${mess} ${nlines_exc_txt}"
+
+	mess="Добавлено всего хостов для блокировки рекламы"
+	nlines_add_txt=$(dig_frm "${nlines_excluded}")
+	ready "${mess}"; when_alert "${nlines_add_txt}"
+	logger "${mess} ${nlines_add_txt}"
+}
+
+
+#--------------------------------------------------------------
+#
+# 	Перезапускаем сервис dnsmasq
+#
+#--------------------------------------------------------------
+restart_dnsmasq(){
+	[ -f "${DNSMASQ_DEMON}" ] && {
+        if grep -q alive "${DNSMASQ_DEMON}"; then
+                "${DNSMASQ_DEMON}" restart &> /dev/null
         fi
-} || exit 0
+	} || exit 0
+}
+
+
+#--------------------------------------------------------------
+#
+# 	Основной блок запуска
+#
+#--------------------------------------------------------------
+# Включаем в список блокировки уже зарекомендовавшие себя 100% рекламные домены
+add_regular_ads
+# Проверяем на наличие необходимые файлы
+check_files_present
+print_line
+# Загружаем из источников рекламные доменные имена
+load_adblock_hosts
+# Удаляем возможные дубликаты
+remove_duplicates
+# Удаляем все доменные имена, которые у нас имеются в списке разблокировки (белый список)
+remove_white_hosts
+# Отображаем результаты произведенных манипуляций со списком блокировки
+result_show
+# Тестируем полученный список доменных имен блокировки рекламы на dnsmasq
+dnsmasq_test
+print_line
+# Перезапускаем сервис dnsmasq
+restart_dnsmasq
