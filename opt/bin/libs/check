@@ -498,8 +498,8 @@ cmd_state_checker() {
 #	Проверка наличия ip адресов хостов в таблице ipset - попытка номер раз
 	unblock_list_ipset_check
 	if [ "${NOT_IN_TABLE}" = true ]; then
-#		если хотябы один из адресов не находится в таблице, то делаем проверку повторно
-		/opt/apps/kvas/bin/main/ipset
+#		если хотя бы один из адресов не находится в таблице, то делаем проверку повторно
+		cmd_kvas_init
 		print_line
 		warning "Пробуем запустить повторно."
 		print_line
