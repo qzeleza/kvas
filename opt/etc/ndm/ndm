@@ -256,9 +256,11 @@ ip4_firewall_set_ssr_rules(){
 				ip4tables ${SSR_IPTABLES_CHAIN} -t nat -d "${ssr_ip}" -j RETURN
 
 				# Anything else should be redirected to shadowsocks's local port
-				ip4tables ${SSR_IPTABLES_CHAIN} -t nat  ! -p icmp -j REDIRECT --to-ports "${proxy_port}"
+				ip4tables ${SSR_IPTABLES_CHAIN} -t nat  -p tcp -j REDIRECT --to-ports "${proxy_port}"
+				ip4tables ${SSR_IPTABLES_CHAIN} -t nat  -p udp -j REDIRECT --to-ports "${proxy_port}"
 		#		Apply the rules
-				ip4tables PREROUTING -t nat ! -p icmp -j ${SSR_IPTABLES_CHAIN}
+				ip4tables PREROUTING -t nat -p tcp -j ${SSR_IPTABLES_CHAIN}
+				ip4tables PREROUTING -t nat -p udp -j ${SSR_IPTABLES_CHAIN}
 
 				# Создаем таблицы для IP адресов
 				ip4 route show table ${TABLE_ID} | grep -q "${inface}" || \
@@ -326,6 +328,8 @@ ip4tbl_flush_rm_chain(){
 
 # ------------------------------------------------------------------------------------------
 # Производим удаление правил в указанной таблице в одной из стандартных цепочек
+# Для того, чтобы происходило удаление правил по правилу с '! -p icmp',
+# необходимо четвертым аргументом передать icmp_arg равным icmp
 # ------------------------------------------------------------------------------------------
 ip4tbl_flush_rm_pre_out(){
 
@@ -408,10 +412,10 @@ ip4_firewall_nofastnet_vpn_prune(){
 # ------------------------------------------------------------------------------------------
 ip4_firewall_ssr_prune(){
 
-	ip4tbl_flush_rm_pre_out nat "${SSR_IPTABLES_CHAIN}" PREROUTING icmp
+	ip4tbl_flush_rm_pre_out nat "${SSR_IPTABLES_CHAIN}" PREROUTING
 	ip4tbl_flush_rm_chain nat "${SSR_IPTABLES_CHAIN}"
 
-	ip4tbl_flush_rm_pre_out mangle "${SSR_IPTABLES_CHAIN_MARK}" OUTPUT icmp
+	ip4tbl_flush_rm_pre_out mangle "${SSR_IPTABLES_CHAIN_MARK}" OUTPUT
 	ip4tbl_flush_rm_chain mangle "${SSR_IPTABLES_CHAIN_MARK}"
 }
 
