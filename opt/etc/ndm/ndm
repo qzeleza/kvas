@@ -632,10 +632,6 @@ refresh_adguard_ipset_table(){
 	ready "${prefix}Заполняем AdGuard таблицу данными из списка разблокировки."
 	/opt/apps/kvas/bin/main/adguard &>/dev/null
 	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
-
-	ready "${prefix}Перезапускаем сервис AdGuard Home"
-	/opt/etc/init.d/S99adguardhome restart &>/dev/null
-	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 }
 
 # ------------------------------------------------------------------------------------------
@@ -668,7 +664,7 @@ refresh_dnsmasq_ipset_table(){
 #
 # ------------------------------------------------------------------------------------------
 cmd_kvas_init(){
-
+	stage="${1:-no}"
 	prefix=''
 	mess="${prefix}Производим иницилизацию пакета КВАС"
 	warning "${mess}"; log_error "${mess}"
@@ -689,6 +685,13 @@ cmd_kvas_init(){
 
 	if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
 		refresh_adguard_ipset_table
+
+		[ "${stage}" = initd ] || {
+			ready "${prefix}Перезапускаем сервис AdGuard Home"
+			/opt/etc/init.d/S99adguardhome restart &>/dev/null
+			[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+		}
+
 	else
 		refresh_dnsmasq_ipset_table
 	fi
