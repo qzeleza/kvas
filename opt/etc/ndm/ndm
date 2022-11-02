@@ -722,3 +722,4 @@ ip6set_create_table(){
 	ipset create "${table_name}6" hash:net family inet6 -exist 2> "${ERROR_LOG_FILE}"
 	when_error "${?}" "${IPv6}Возникла ошибка при создании таблицы с именем '${table_name}' для ipset"
 }
+

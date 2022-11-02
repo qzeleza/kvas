@@ -23,6 +23,9 @@ cp -f /opt/apps/kvas/bin/libs/main /opt/apps/kvas/bin/libs/.main
 cp -f /opt/apps/kvas/bin/libs/debug /opt/apps/kvas/bin/libs/.debug
 cp -f /opt/apps/kvas/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
 
+. /opt/apps/kvas/bin/libs/route
+ip4_write_route_default_to_config
+
 . /opt/apps/kvas/bin/libs/vpn
 
 mkdir -p "${KVAS_BACKUP_PATH}"

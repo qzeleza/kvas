@@ -1,26 +1,26 @@
 #!/bin/sh
-. /opt/apps/kvas/bin/libs/ndm
+. /opt/apps/kvas/bin/libs/route
+ip4_route_get_route_default
 
-[ "${1}" = "hook" ] && \
-[ "${change}" = "link" ] && \
-[ "${id}" = "${INFACE_CLI}" ] && {
+[ "${1}" = "hook" ] && [ "${change}" = "link" ] && {
 
-	log_warning "Запущен файл /opt/etc/ndm/ifstatechanged.d/100-unblock-vpn [${id}-${change}-${connected}-${link}-${up}]"
+	. /opt/apps/kvas/bin/libs/ndm
+	if [ "${id}" = "${INFACE_CLI}" ]; then
+		log_warning "Запущен файл /opt/etc/ndm/ifstatechanged.d/100-unblock-vpn [${id}-${change}-${connected}-${link}-${up}]"
+		case "${id}-${change}-${connected}-${link}-${up}" in
+			"${id}-link-no-down-down" )
+				ip4_firewall_flush_vpn_rules &>/dev/null
+				ip4_rule_del_priority &>/dev/null
+				ip4_flush_all_tables &>/dev/null
+			;;
+			"${id}-link-yes-up-up" )
+				ip4set_create_table &>/dev/null
+				ip4_add_route_table &> /dev/null
+				ip4_rule_set_priority &> /dev/null
+				ip4_mark_vpn_network &> /dev/null
+			;;
+		esac
+		exit 0
+	fi
 
-	case "${id}-${change}-${connected}-${link}-${up}" in
-		"${id}-link-no-down-down" )
-			ip4_firewall_flush_vpn_rules &>/dev/null
-			ip4_rule_del_priority &>/dev/null
-			ip4_flush_all_tables &>/dev/null
-		;;
-		"${id}-link-yes-up-up" )
-			ip4set_create_table &>/dev/null
-			ip4_add_route_table &> /dev/null
-			ip4_rule_set_priority &> /dev/null
-			ip4_mark_vpn_network &> /dev/null
-		;;
-	esac
-
-	exit 0
 }
-

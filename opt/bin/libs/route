@@ -1,0 +1,56 @@
+#!/bin/sh
+
+. /opt/apps/kvas/bin/libs/main
+# ------------------------------------------------------------------------------------------
+#
+# 	 Записываем данные маршрута по умолчанию в файл конфигурации
+#
+# ------------------------------------------------------------------------------------------
+ip4_write_route_default_to_config(){
+	route_default=$(ip route list main)
+	gw=$(echo "${route_default}" | cut -d' ' -f3)
+	eth=$(echo "${route_default}" | cut -d' ' -f5)
+	ip=$(get_external_ip)
+	mask=$(route | grep "^$(echo "${ip}" | cut -d'.' -f1-3)" | grep UG | tr -s ' ' | cut -d' ' -f3)
+	set_config_value GW_DEFAULT "${gw}"
+	set_config_value ETH_DEFAULT "${eth}"
+	set_config_value MASK_DEFAULT "${mask}"
+	set_config_value EXTERNAL_IP "${ip}"
+}
+
+# ------------------------------------------------------------------------------------------
+#
+# 	Устанавливаем маршрут по умолчанию из данных файла конфигурации
+#
+# ------------------------------------------------------------------------------------------
+ip4_up_net_default_from_config(){
+
+	gw=$(get_config_value GW_DEFAULT)
+	mask=$(get_config_value MASK_DEFAULT)
+	eth=$(get_config_value ETH_DEFAULT)
+	ip=$(get_config_value EXTERNAL_IP)
+
+	if [ -z "${gw}" ] || [ -z "${eth}" ] ||[ -z "${ip}" ] || [ -z "${mask}" ]; then
+		log_error "ip4_set_route_default_from_config::Отсуствуют данные из файла конфигурации: GW_DEFAULT или ETH_DEFAULT"
+		exit 1
+	else
+		{
+			ifconfig ${eth} down
+			ifconfig ${eth} ${ip} netmask ${mask} up
+			route add default gw ${gw} ${eth}
+
+		} 2> "${ERROR_LOG_FILE}"
+		when_error "${?}" "${IPv4} Ошибка при установке маршрута по умолчанию: gw=${gw}, eth=${eth}"
+	fi
+}
+
+# ------------------------------------------------------------------------------------------
+#
+# 	Проверяем маршрут по умолчанию и если он отсуствует устанавливаем его
+#
+# ------------------------------------------------------------------------------------------
+ip4_route_get_route_default(){
+	ip route list | grep -q default || {
+		ip4_up_net_default_from_config
+	}
+}
