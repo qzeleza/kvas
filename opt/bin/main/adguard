@@ -19,42 +19,47 @@
 #	Дата создания: 21/05/2022
 #	Лицензия: GPL 2.0
 # -----------------------------------------------------------------------------
+app_name="КВАС"
+logger -t "${app_name}" "Запущен файл /opt/apps/kvas/bin/main/adguard"
 
-logger -t "kvas" "Запущен файл /opt/apps/kvas/bin/main/adguard"
+adguard_ipset_list_update(){
+	ipset=''; domain='';
+	regex='([0-9]{1,3}\.){3}[0-9]{1,3}|([0-9a-fA-F]{0,4}:){1,7}[0-9a-fA-F]{1,4}'
+	adguard_config=/opt/etc/AdGuardHome/AdGuardHome.yaml
+	host_list=/opt/etc/hosts.list
 
-ipset=''; domain='';
-regex='([0-9]{1,3}\.){3}[0-9]{1,3}|([0-9a-fA-F]{0,4}:){1,7}[0-9a-fA-F]{1,4}'
-adguard_config=/opt/etc/AdGuardHome/AdGuardHome.yaml
-host_list=/opt/etc/hosts.list
+	# В случае отсутствия списочного файла создаем его
+	! [ -f "${host_list}" ] && touch "${host_list}"
+	# если списочный файл пуст, то создаем пустой ipset блок
+	[ "$(cat < "${host_list}" | wc -l )" = 0 ] && ipset="[]"
+	sed -i '/ipset/,/tls/{//!d};' "${adguard_config}"
 
-# В случае отсутствия списочного файла создаем его
-! [ -f "${host_list}" ] && touch "${host_list}"
-# если списочный файл пуст, то создаем пустой ipset блок
-[ "$(cat < "${host_list}" | wc -l )" = 0 ] && ipset="[]"
-sed -i '/ipset/,/tls/{//!d};' "${adguard_config}"
+	# В случае наличия списочного файла читаем из него строки
+	while read -r line || [ -n "${line}" ]; do
 
-# В случае наличия списочного файла читаем из него строки
-while read -r line || [ -n "${line}" ]; do
+	# В случае наличия пустой строки - пропускаем ее
+		[ -z "${line}" ] && continue
+	# В случае наличия строки, которая начинается с # - пропускаем ее
+		[ "${line:0:1}" = "#" ] && continue
+	#	в случае если это не IP -пропускаем строку
+		echo "${line}" | grep -Eq "${regex}" && continue
+	#   формируем строку для блока ipset
+		host="  - $(echo "${line}" | sed 's/\*//;')/unblock"
+	#	Проверяем наличие сформированной строки на наличие ее файле конфигурации AdGuardHome
+		grep -q  "${host}" "${adguard_config}" && continue
+	#   формируем буфер из строк для ipset
+		[ -n "${domain}" ] && domain="${domain}\n${host}" || domain="${host}"
 
-# В случае наличия пустой строки - пропускаем ее
-	[ -z "${line}" ] && continue
-# В случае наличия строки, которая начинается с # - пропускаем ее
-	[ "${line:0:1}" = "#" ] && continue
-#	в случае если это не IP -пропускаем строку
-	echo "${line}" | grep -Eq "${regex}" && continue
-#   формируем строку для блока ipset
-	host="  - $(echo "${line}" | sed 's/\*//;')/unblock"
-#	Проверяем наличие сформированной строки на наличие ее файле конфигурации AdGuardHome
-	grep -q  "${host}" "${adguard_config}" && continue
-#   формируем буфер из строк для ipset
-	[ -n "${domain}" ] && domain="${domain}\n${host}" || domain="${host}"
+	done < "${host_list}"
 
-done < "${host_list}"
+	# Если переменная ipset пустая (не содержит пустой блок []), то
+	if [ -z "${ipset}" ]; then
+	#	проверяем на наличие данных в переменной domain и если они есть, то меняем слеш на два слеша
+		[ -n "${domain}" ] && ipset="\n$(echo "${domain}" | sed 's|\/|\\\/|g')"
+	fi
+	#	записываем подготовленный блок ipset в файл конфигурации AdGuardHome
+	sed -i "s/\(.*\)\(^tls:.*\)/\1  ipset: ${ipset}\n\2/" "${adguard_config}"
 
-# Если переменная ipset пустая (не содержит пустой блок []), то
-if [ -z "${ipset}" ]; then
-#	проверяем на наличие данных в переменной domain и если они есть, то меняем слеш на два слеша
-	[ -n "${domain}" ] && ipset="\n$(echo "${domain}" | sed 's|\/|\\\/|g')"
-fi
-#	записываем подготовленный блок ipset в файл конфигурации AdGuardHome
-sed -i "s/\(.*\)\(^tls:.*\)/\1  ipset: ${ipset}\n\2/" "${adguard_config}"
+}
+
+adguard_ipset_list_update

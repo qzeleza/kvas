@@ -1,0 +1,39 @@
+#!/bin/sh
+
+. /opt/apps/kvas/bin/libs/main
+
+#
+#	Производим проверку обновления пакета AdGuardHome и скачиваем в случае появления новой версии
+#
+cmd_adguard_update(){
+
+	bin_path=/opt/bin
+	full_adguard_name=AdGuardHome
+
+	url_update=$(get_github_latest_update_url AdguardTeam "${full_adguard_name}")
+
+	latest_version=$(echo "${url_update}" | sed 's/.*download\/\(v.*\)\/.*/\1/')
+	current_version=$(AdGuardHome --version | cut -d' ' -f4)
+
+	if [ "${latest_version}" != "${current_version}" ]; then
+		copy_name=${bin_path}/${full_adguard_name}.${current_version}
+		mess_1="${full_adguard_name}::Обновляем ${full_adguard_name} с ${current_version} до ${latest_version}"
+		mess_2="${full_adguard_name}::Копия сохранена под именем ${copy_name}"
+
+		ready "${mess_1}"; log_warning "${mess_1}"
+		{
+			curl -k -f -s -S -L "${url_update}" -o "/tmp/${full_adguard_name}.tar.gz"
+#			Делаем копию предыдущей версии пакета
+
+			cp -f "${bin_path}/${full_adguard_name}" "${copy_name}"
+			tar x -zf /tmp/${full_adguard_name}.tar.gz -C /tmp
+			mv -f /tmp/${full_adguard_name}/${full_adguard_name} ${bin_path}/${full_adguard_name}
+			chmod +x ${bin_path}/${full_adguard_name}
+		} 2> "${ERROR_LOG_FILE}"
+
+		ready_status "${?}" "Ошибка обновления ${full_adguard_name}"
+		warning "${mess_2}"; log_warning "${mess_2}"
+
+	fi
+
+}

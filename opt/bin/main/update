@@ -25,6 +25,7 @@
 log_warning "Запущен файл /opt/apps/kvas/bin/main/update"
 cmd_kvas_init
 
+
 ## Обновляем таблицу ipset
 #ready "Обновление таблицы ipset"
 #ip4_flush_all_tables &> /dev/null

@@ -51,6 +51,7 @@ if [ "${type}" = "iptables" ] ; then
 			fi
 			;;
 		*)
+			log_warning "Обработка таблицы ${table} пропущена, нет данных для обработки."
 			;;
 	esac
 	exit 0

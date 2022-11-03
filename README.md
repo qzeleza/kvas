@@ -252,21 +252,23 @@ period - установка/просмотр периода обновления
 ```
 
 ## AdGuard Home
-| Команда | Аргументы |
-|----------------|:----------------:|
-| kvas adguard | - |
-| kvas adguard on | - |
-| kvas adguard off | - |
-| kvas adguard test | - |
+| Команда             | Аргументы |
+|---------------------|:----------------:|
+| kvas adguard        | - |
+| kvas adguard on     | - |
+| kvas adguard off    | - |
+| kvas adguard test   | - |
+| kvas adguard update | - |
 
 ```
-adguard      - выводит состояние режима AdGuard.
-adguard test - тестирует правила создания ipset для AdGuard Home
-adguard on   - устанавливаем AdGuard Home в качестве DNS сервера, вместо
-               dnscrypt-proxy2 или вместо текущего DNS. AdGuard Home,
-               при этом, должен быть установлен и настроен на роутере или
-               на любом другом устройстве в локальной сети.
-adguard off  - отключает использование AdGuard Home в КВАСе
+adguard        - выводит состояние режима AdGuard.
+adguard test   - тестирует правила создания ipset для AdGuard Home
+adguard on     - устанавливаем AdGuard Home в качестве DNS сервера, вместо
+                 dnscrypt-proxy2 или вместо текущего DNS. AdGuard Home,
+                 при этом, должен быть установлен и настроен на роутере или
+                 на любом другом устройстве в локальной сети.
+adguard off    - отключает использование AdGuard Home в КВАСе
+adguard update - производит обновление на новую версию пакета, если она доступна
 ```
 
 ## Блокировка рекламы

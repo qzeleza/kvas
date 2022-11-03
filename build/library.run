@@ -107,7 +107,7 @@ run_reinstalation_on_router(){
 	choice=$(printf "2\n" )
 
 	ssh -p "${PORT}" "${ROUTER}" 'opkg remove '"${APP_NAME}"
-	ssh -p "${PORT}" "${ROUTER}" 'opkg install /opt/packages/'"${app_pkg_tar_name}" # <<< 2
+	ssh -p "${PORT}" "${ROUTER}" 'opkg install /opt/packages/'"${app_pkg_tar_name}"  <<< 2
 	show_line
 
 }

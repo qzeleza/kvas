@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=kvas
 PKG_VERSION:=1.0
-PKG_RELEASE:=beta_19
+PKG_RELEASE:=beta_20
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)
 
 include $(INCLUDE_DIR)/package.mk
@@ -106,7 +106,7 @@ log_in_file(){
 }
 
 print_line
-welcome="Установка пакета КВАС™ версия 1.0-beta-19"
+welcome="Установка пакета КВАС™ версия 1.0-beta-20"
 echo "$${welcome}"
 print_line
 
@@ -349,7 +349,7 @@ rm_package_files(){
 }
 
 print_line
-echo -e "Удаление пакета $${GREEN}КВАС™$${NOCL} версия $${GREEN}1.0-beta-19$${NOCL}..."
+echo -e "Удаление пакета $${GREEN}КВАС™$${NOCL} версия $${GREEN}1.0-beta-20$${NOCL}..."
 print_line
 
 answer='y';
