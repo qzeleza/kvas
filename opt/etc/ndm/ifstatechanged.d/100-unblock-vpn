@@ -5,6 +5,7 @@
 [ "${1}" = "hook" ] && [ "${change}" = "link" ] && {
 
 	. /opt/apps/kvas/bin/libs/ndm
+
 	if [ "${id}" = "${INFACE_CLI}" ]; then
 		log_warning "Запущен файл /opt/etc/ndm/ifstatechanged.d/100-unblock-vpn [${id}-${change}-${connected}-${link}-${up}]"
 		case "${id}-${change}-${connected}-${link}-${up}" in

@@ -476,8 +476,9 @@ ip4_flush_all_tables(){
 	ipset flush "${table_name}" 2> "${ERROR_LOG_FILE}"
 	when_error "${?}" " ${IPv4} Возникла ошибка при очистке записей ipset таблицы ${table_name}"
 
-	log_warning "IPv4::Производим очистку записей таблицы маршрутизации ID#${TABLE_ID}."
+	log_warning "IPv4::Производим очистку записей таблицы маршрутизации ID#${TABLE_ID} и удалим ее."
 	ip4 route flush table "${TABLE_ID}" 2> "${ERROR_LOG_FILE}"
+	ip4 rule del table "${TABLE_ID}" 2>> "${ERROR_LOG_FILE}"
 	when_error "${?}" " ${IPv4} Возникла ошибка при очистке таблицы маршрутизации ID#${TABLE_ID}"
 
 	ip4_flush_cache
@@ -520,6 +521,7 @@ ip4_rule_set_priority(){
 	if ! ip4 rule show | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID}"  ; then
 		log_warning "IPv4::Устанавливаем приоритет таблицы ID#${TABLE_ID} в значение ${PRIORITY}"
 		ip4 rule add fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID} priority ${PRIORITY} 2> "${ERROR_LOG_FILE}"
+		ip4 route add default dev ${INFACE_ENT} table ${TABLE_ID}
 		when_error "${?}" " ${IPv4} Возникла ошибка при установке приоритета таблицы с ID#${TABLE_ID} в значение ${PRIORITY}"
 	fi
 
@@ -574,7 +576,7 @@ recreate_ip4tables(){
 
 	ready "${prefix}Создаем таблицу маршрутизации ID#${TABLE_ID} для '${INFACE_CLI}'."
 #	Создаем таблицу IP адресов для  VPN подключения отличного от shadowsocks
-	ip4_add_route_table #&> /dev/null
+	ip4_add_route_table &> /dev/null
 	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 }
 

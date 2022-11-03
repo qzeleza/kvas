@@ -25,13 +25,35 @@
 
 # Пропускаем обработку, если тип подключения отличен от iptables
 # а сама талица отлична от mangle
-[ "$type" != "iptables" ] && exit 0
-[ "$table" != "mangle" ] && exit 0
+[ "${type}" = "iptables" ] && {
 
-log_warning "Запущен файл /opt/etc/ndm/netfilter.d/100-vpn-mark [type=${type} и table=${table}]"
+	log_warning "Запущен файл /opt/etc/ndm/netfilter.d/100-vpn-mark [type=${type} и table=${table}]"
 
-# Создаем таблицу unblock для ipset ip4
-ip4set_create_table &> /dev/null
-ip4_mark_vpn_network &> /dev/null
+	# Создаем таблицу unblock для ipset ip4
+	ip4set_create_table &> /dev/null
 
-exit 0
+	case "${table}" in
+		mangle)
+			if fastnet_enabled ; then
+				#log_warning "${app}::Проверка пройдена -> программное и аппаратное ускорение ПОДКЛЮЧЕНО."
+				# Без отключения ускорителей fastnat и hwnat
+				ip4_firewall_vpn_mark &> /dev/null
+			else
+				#log_warning "${app}::Проверка пройдена -> программное и аппаратное ускорение ОТКЛЮЧЕНО!"
+				# С отключением fastnat и ускорителей hwnat
+				ip4_firewall_mark_rules_tcp_udp_on &> /dev/null
+			fi
+			;;
+		nat)
+			#	в случае наличия гостевой сети
+			if [ -n "${INFACE_GUEST_ENT}" ]; then
+				ip4_add_guest_to_vpn_network &> /dev/null
+			fi
+			;;
+		*)
+			;;
+	esac
+	exit 0
+}
+
+
