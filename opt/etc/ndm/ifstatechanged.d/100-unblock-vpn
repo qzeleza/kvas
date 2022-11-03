@@ -1,6 +1,6 @@
 #!/bin/sh
-. /opt/apps/kvas/bin/libs/route
-ip4_route_get_route_default
+#. /opt/apps/kvas/bin/libs/route
+#ip4_route_get_route_default
 
 [ "${1}" = "hook" ] && [ "${change}" = "link" ] && {
 

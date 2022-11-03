@@ -1,0 +1,9 @@
+#!/bin/sh
+
+[ "${1}" = "stop" ] && {
+	. /opt/apps/kvas/bin/libs/route
+	log_error "Интернет соединение ${interface} прервано. Восстанавливаем доступ к сети: ip=${address}, mask=${mask}, gw=${gateway}."
+	ip4_up_net_default "${interface}" "${address}" "${mask}" "${gateway}"
+}
+
+

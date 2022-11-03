@@ -5,17 +5,41 @@
 #
 # 	 Записываем данные маршрута по умолчанию в файл конфигурации
 #
+## ------------------------------------------------------------------------------------------
+#ip4_write_route_default_to_config(){
+#	route_default=$(ip route list main)
+#	gateway=$(echo "${route_default}" | cut -d' ' -f3)
+#	interface=$(echo "${route_default}" | cut -d' ' -f5)
+#	address=$(get_external_ip)
+#	mask=$(route | grep "^$(echo "${address}" | cut -d'.' -f1-3)" | grep UG | tr -s ' ' | cut -d' ' -f3)
+#	set_config_value GW_DEFAULT "${gateway}"
+#	set_config_value ETH_DEFAULT "${interface}"
+#	set_config_value MASK_DEFAULT "${mask}"
+#	set_config_value EXTERNAL_IP "${address}"
+#}
+
+
 # ------------------------------------------------------------------------------------------
-ip4_write_route_default_to_config(){
-	route_default=$(ip route list main)
-	gw=$(echo "${route_default}" | cut -d' ' -f3)
-	eth=$(echo "${route_default}" | cut -d' ' -f5)
-	ip=$(get_external_ip)
-	mask=$(route | grep "^$(echo "${ip}" | cut -d'.' -f1-3)" | grep UG | tr -s ' ' | cut -d' ' -f3)
-	set_config_value GW_DEFAULT "${gw}"
-	set_config_value ETH_DEFAULT "${eth}"
-	set_config_value MASK_DEFAULT "${mask}"
-	set_config_value EXTERNAL_IP "${ip}"
+#
+# 	Устанавливаем маршрут по умолчанию из переданных аргументов
+#
+# ------------------------------------------------------------------------------------------
+ip4_up_net_default(){
+
+	interface=${1}; address=${2}; mask=${3}; gateway=${4};
+
+	if [ -z "${gateway}" ] || [ -z "${interface}" ] ||[ -z "${address}" ] || [ -z "${mask}" ]; then
+		log_error "ip4_up_net_default::Отсутствуют аргументы для запуска."
+		exit 1
+	else
+		{
+			ifconfig ${interface} down
+			ifconfig ${interface} ${address} netmask ${mask} up
+			route add default gw ${gateway} ${interface}
+
+		} 2> "${ERROR_LOG_FILE}"
+		when_error "${?}" "ip4_up_net_default::Ошибка при установке подключения к интернету: ip=${address}, mask=${mask}, gw=${gateway}, interface=${interface}"
+	fi
 }
 
 # ------------------------------------------------------------------------------------------
@@ -23,34 +47,24 @@ ip4_write_route_default_to_config(){
 # 	Устанавливаем маршрут по умолчанию из данных файла конфигурации
 #
 # ------------------------------------------------------------------------------------------
-ip4_up_net_default_from_config(){
-
-	gw=$(get_config_value GW_DEFAULT)
-	mask=$(get_config_value MASK_DEFAULT)
-	eth=$(get_config_value ETH_DEFAULT)
-	ip=$(get_config_value EXTERNAL_IP)
-
-	if [ -z "${gw}" ] || [ -z "${eth}" ] ||[ -z "${ip}" ] || [ -z "${mask}" ]; then
-		log_error "ip4_set_route_default_from_config::Отсуствуют данные из файла конфигурации: GW_DEFAULT или ETH_DEFAULT"
-		exit 1
-	else
-		{
-			ifconfig ${eth} down
-			ifconfig ${eth} ${ip} netmask ${mask} up
-			route add default gw ${gw} ${eth}
-
-		} 2> "${ERROR_LOG_FILE}"
-		when_error "${?}" "${IPv4} Ошибка при установке маршрута по умолчанию: gw=${gw}, eth=${eth}"
-	fi
-}
+#ip4_up_net_default_from_config(){
+#
+#	gateway=$(get_config_value GW_DEFAULT)
+#	mask=$(get_config_value MASK_DEFAULT)
+#	interface=$(get_config_value ETH_DEFAULT)
+#	address=$(get_config_value EXTERNAL_IP)
+#
+#	ip4_up_net_default "${interface}" "${address}" "${mask}" "${gateway}"
+#
+#}
 
 # ------------------------------------------------------------------------------------------
 #
-# 	Проверяем маршрут по умолчанию и если он отсуствует устанавливаем его
+# 	Проверяем маршрут по умолчанию и если он отсутствует устанавливаем его
 #
 # ------------------------------------------------------------------------------------------
-ip4_route_get_route_default(){
-	ip route list | grep -q default || {
-		ip4_up_net_default_from_config
-	}
-}
+#ip4_route_get_route_default(){
+#	ip route list | grep -q default || {
+#		ip4_up_net_default
+#	}
+#}
