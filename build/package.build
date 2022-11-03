@@ -49,7 +49,7 @@ case "${DEBUG}" in
 esac
 
 
-echo "Задействовано ${num_proc} яд. процессора"
+echo "Задействовано ${num_proc} яд. процессора."
 echo "Собираем пакет ${APP_NAME} вер. ${full_version}"
 show_line
 

@@ -63,6 +63,7 @@ copy_app_to_router(){
 	ssh -p "${my_port}" "${my_router}" 'rm -f '"/opt/packages/${app_pkg_tar_name}" #&> /dev/null
 	scp -P "${my_port}" "${app_pkg_file}" "${my_router}:/opt/packages/${app_pkg_tar_name}"
 	ssh -p "${my_port}" "${my_router}" 'opkg remove '"${APP_NAME}"
+	ssh -p "${my_port}" "${my_router}" 'opkg install /opt/packages/'"${app_pkg_tar_name}"
 	show_line
 }
 

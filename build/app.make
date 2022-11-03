@@ -40,6 +40,8 @@ purge_running_container(){
 #--------------------------------------------------------------------------------------------------------------------------------
 mount_container_to_make(){
 	script_to_run="${1}"
+	run_with_root="${2:-no}"
+
 	docker_running_id=$(docker ps | grep "${CONTAINER_NAME}" | head -1 | cut -d' ' -f1 )
 	if [ -n "${docker_running_id}" ]; then
 		echo "${APP_NAME}::Контейнер разработки ${CONTAINER_NAME}[${docker_running_id}] запущен."
@@ -48,7 +50,11 @@ mount_container_to_make(){
 		if [ -n "${script_to_run}" ] ; then
 			docker exec "${docker_running_id}" "${script_to_run}"
 		else
-			docker exec -it "${docker_running_id}" /bin/bash
+			if [ "${run_with_root}" = yes ]; then
+				docker exec -it --user root:root "${docker_running_id}" /bin/bash
+			else
+				docker exec -it "${docker_running_id}" /bin/bash
+			fi
 		fi
 	else
 		docker_stopped_id=$(docker ps -a | grep "${CONTAINER_NAME}" | head -1 | cut -d' ' -f1 )
@@ -57,11 +63,15 @@ mount_container_to_make(){
 			echo "${APP_NAME}::Запускаем контейнер и производим подключение к нему..."
 			show_line
 			docker start "${docker_stopped_id}"
-		if [ -n "${script_to_run}" ] ; then
-			docker exec "${docker_stopped_id}" "${script_to_run}"
-		else
-			docker exec -it "${docker_stopped_id}" /bin/bash
-		fi
+			if [ -n "${script_to_run}" ] ; then
+				docker exec "${docker_stopped_id}" "${script_to_run}"
+			else
+				if [ "${run_with_root}" = yes ]; then
+					docker exec -it --user root:root "${docker_stopped_id}" /bin/bash
+				else
+					docker exec -it "${docker_stopped_id}" /bin/bash
+				fi
+			fi
 
 		else
 			echo "${APP_NAME}::Контейнер ${CONTAINER_NAME} не смонтирован!"
@@ -76,7 +86,9 @@ mount_container_to_make(){
 				   --mount type=bind,src="$(dirname "$(pwd)")",dst="${APPS_ROOT}"/"${APP_NAME}" \
 				   "${IMAGE_NAME}" "${script_to_run}" /bin/bash
 			else
-				docker run -it --user "${_UID}:${_GID}" --name "${CONTAINER_NAME}" \
+				_uid="${_UID}"; _gid="${_GID}"
+				[ "${run_with_root}" = yes ] && _uid=root && _gid=root
+				docker run -it --user "${_uid}:${_gid}" --name "${CONTAINER_NAME}" \
 				   --mount type=bind,src="$(dirname "$(pwd)")",dst="${APPS_ROOT}"/"${APP_NAME}" \
 				   "${IMAGE_NAME}" /bin/bash
 			fi
@@ -89,6 +101,7 @@ mount_container_to_make(){
 
 case "${1}" in
 	term|run ) 	mount_container_to_make "" ;;
+	root) 		mount_container_to_make "" "yes" ;;
 	build ) 	mount_container_to_make "${SCRIPT_TO_MAKE}" ;;
 	copy )  	mount_container_to_make "${SCRIPT_TO_COPY}" ;;
 	*)	echo '-----------------------------------------------------'

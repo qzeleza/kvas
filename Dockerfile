@@ -43,7 +43,11 @@ RUN rm -rf /var/lib/apt/lists/* \
             mv ${APPS_ROOT}/entware/package/utils/${APP_NAME} ${APPS_ROOT}/entware/package/utils/${APP_NAME}/files;\
     fi
 RUN chown -R ${USER}:${GROUP} ${APPS_ROOT}/entware ${APPS_ROOT}/${APP_NAME} \
-    && chmod -R +x ${APPS_ROOT}/${APP_NAME}/build/*.run
+    && chmod -R +x ${APPS_ROOT}/${APP_NAME}/build/*.run \
+    && git clone https://github.com/bats-core/bats-core.git \
+    && cd bats-core \
+    && ./install.sh /usr/local \
+    && cd .. && rm -rf ./bats-core
 
 WORKDIR ${APPS_ROOT}/${APP_NAME}/
 RUN ${APPS_ROOT}/${APP_NAME}/build/Makefile.build
