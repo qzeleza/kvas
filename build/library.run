@@ -26,6 +26,36 @@ show_line()(printf '=%.s' {1..100} && printf '\n')
 # Сохраняем данные в файл .env
 write_to_env()(echo "${1}" >> .env)
 
+# ------------------------------------------------------------------------------------------
+#
+#	 Читаем Y/N/Q из ввода данных в цикле
+# 	 $1 - заголовок для запроса
+# 	 $2 - переменная в которой возвращается результат
+#
+# ------------------------------------------------------------------------------------------
+read_ynq() {
+	header="$(echo "${1}" | tr -d '?')"; quest="[Y/N,Q]?"
+#	в случае, если встретиться слово с корнем "удал", то цвет заголовка - красный
+	if echo "${header}" | grep -qiE "удал"; then
+		header="${RED}${header} ${quest}${NOCL}";
+	else
+		if echo "${header}" | grep -qiE "[Y]"; then
+			header="${BLUE}${header}${NOCL}";
+		else
+			header="${BLUE}${header} ${quest}${NOCL}";
+		fi
+	fi
+	while true; do
+		ready "${header}"
+		read -r ynq
+		case "${ynq}" in
+			[Yy]* ) eval "${2}=y"; break; ;;
+			[NnQq]* ) eval "${2}=n"; break; ;;
+			     *) please_repeat ;;
+		esac
+	done
+}
+
 # Получаем путь до ключа
 get_key_file(){
 	key_path=$([ "$(whoami)" = root ] && echo '/root/.' || echo "${HOME}/.")
@@ -65,6 +95,8 @@ copy_app_to_router(){
 	ssh -p "${my_port}" "${my_router}" 'opkg remove '"${APP_NAME}"
 	ssh -p "${my_port}" "${my_router}" 'opkg install /opt/packages/'"${app_pkg_tar_name}"
 	show_line
+	answer=''; read_ynq "Запустить тесты?" answer
+	[ "${answer}" = y ] && ssh -p "${my_port}" "${my_router}" 'cd '"${APPS_ROOT}/${APP_NAME}/tests && ./tests.run"
 }
 
 version=$(get_version_part VERSION)
