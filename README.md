@@ -6,6 +6,7 @@
 
 Автор: **[Zeleza](https://forum.keenetic.com/profile/20603-zeleza/)**  
 Разработка проекта ведется на IDE от компании [JetBrains](https://www.jetbrains.com/ru-ru/)
+Для проведения тестов, в проекте используется пакет [BATS](https://github.com/bats-core/bats-core/blob/master/LICENSE.md) от нескольких [АВТОРОВ](https://github.com/bats-core/bats-core/blob/master/AUTHORS). 
 
 ---
 

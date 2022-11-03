@@ -100,16 +100,17 @@ mount_container_to_make(){
 }
 
 case "${1}" in
-	term|run ) 	mount_container_to_make "" ;;
-	root) 		mount_container_to_make "" "yes" ;;
-	build ) 	mount_container_to_make "${SCRIPT_TO_MAKE}" ;;
-	copy )  	mount_container_to_make "${SCRIPT_TO_COPY}" ;;
+	term|run|-t ) 	mount_container_to_make "" ;;
+	root|-r) 		mount_container_to_make "" "yes" ;;
+	build|-b) 		mount_container_to_make "${SCRIPT_TO_MAKE}" ;;
+	copy|-c )  		mount_container_to_make "${SCRIPT_TO_COPY}" ;;
 	*)	echo '-----------------------------------------------------'
 		echo "Аргументы запуска:  "
 		echo '-----------------------------------------------------'
-		echo "build - сборка пакета и копирование его на роутер"
-		echo "copy  - копирование уже собранного пакета на роутер"
-		echo "term  - подключение к контейнеру без исполнения скриптов"
+		echo "build[-b] - сборка пакета и копирование его на роутер"
+		echo "copy[-c]  - копирование уже собранного пакета на роутер"
+		echo "term[-t]  - подключение к контейнеру без исполнения скриптов с правами по умолчанию."
+		echo "root[-r]  - подключение к контейнеру без исполнения скриптов с правами root"
 		echo '-----------------------------------------------------'
 		;;
 esac

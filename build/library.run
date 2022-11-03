@@ -13,7 +13,8 @@ get_remove_value()(cat < "${REMOTE_FILE}" | grep -E "^${1}=" | cut -d'=' -f2)
 
 APP_NAME=$(get_remove_value "APP_NAME")
 APPS_ROOT=$(get_remove_value "APPS_ROOT")
-
+PORT=$(get_remove_value 'PORT')
+ROUTER=$(get_remove_value 'ROUTER')
 
 # Получаем необходимую информацию о версии пакета
 get_version_part(){
@@ -25,6 +26,11 @@ show_line()(printf '=%.s' {1..100} && printf '\n')
 
 # Сохраняем данные в файл .env
 write_to_env()(echo "${1}" >> .env)
+
+ready() {
+	size=$(diff_len "${1}")
+	printf "%b%-${size}s%b" "${1}"
+}
 
 # ------------------------------------------------------------------------------------------
 #
@@ -51,15 +57,20 @@ read_ynq() {
 		case "${ynq}" in
 			[Yy]* ) eval "${2}=y"; break; ;;
 			[NnQq]* ) eval "${2}=n"; break; ;;
-			     *) please_repeat ;;
+			     *) echo -e "Пожалуйста ответьте на вопрос 'Y' - да или 'N' - нет, Q - выход"
+			;;
 		esac
 	done
 }
 
 # Получаем путь до ключа
 get_key_file(){
+	key_name=id_rsa
 	key_path=$([ "$(whoami)" = root ] && echo '/root/.' || echo "${HOME}/.")
-	echo "${key_path}ssh/id_rsa.pub"
+	key_file_pub="${key_path}ssh/${key_name}.pub"
+	key_file_prv="${key_path}ssh/${key_name}"
+	[ -f "${key_file_pub}" ] || ssh-keygen -t rsa -N "" -f "${key_file_prv}" &>/dev/null
+	echo "${key_file_pub}"
 }
 
 
@@ -67,36 +78,49 @@ get_key_file(){
 # Копируем публичный ключ на роутер
 copy_ssh_keys_to_router(){
 	# если ключи отсутствуют на NAS
-	_port=$(get_remove_value 'PORT')
-	_router=$(get_remove_value 'ROUTER')
-	echo "Копируем ключи на роутер ${_router} порт ${_port}..."
-	ssh -p "${_port}" "${_router}" "echo \"$(cat "$(get_key_file)")\" >> /opt/root/.ssh/authorized_keys"
+	echo "Копируем ключи на роутер ${ROUTER} порт ${PORT}..."
+	ssh -p "${PORT}" "${ROUTER}" "echo \"$(cat "$(get_key_file)")\" >> /opt/root/.ssh/authorized_keys"
 	show_line
 }
 
 # ИСПОЛНЯЕМ ВУТРИ КОНТЕЙНЕРА !!!
-# Производим копирование собранного пакета на роутер и затем производим его удаление
+# Производим копирование собранного пакета на роутер
 copy_app_to_router(){
+
 	app_pkg_file=${1}
 	app_pkg_tar_name=${2}
 
-	my_port=$(get_remove_value "PORT")
-	my_router=$(get_remove_value "ROUTER")
-
 # 	Проверяем есть ли ключ на роутере
-	ssh -p "${my_port}" "${my_router}" "cat /opt/root/.ssh/authorized_keys" \
-		| grep -q "$(cat "$(get_key_file)")" && copy_ssh_keys_to_router
+	docker_key=$(cat < "$(get_key_file)")
+	ssh -p "${PORT}" "${ROUTER}" 'cat /opt/root/.ssh/authorized_keys' | grep -q "'""${docker_key}""'" \
+	|| copy_ssh_keys_to_router
+	echo "Загрузка пакета на роутер..."
+	ssh -p "${PORT}" "${ROUTER}" '[ -d /opt/packages ] || mkdir -p /opt/packages'
+	ssh -p "${PORT}" "${ROUTER}" 'rm -f '"/opt/packages/${app_pkg_tar_name}" #&> /dev/null
+	scp -P "${PORT}" "${app_pkg_file}" "${ROUTER}:/opt/packages/${app_pkg_tar_name}"
+}
 
-	echo "Загрузка пакета на роутер и удаление предыдущей версии пакета..."
+# ИСПОЛНЯЕМ ВУТРИ КОНТЕЙНЕРА !!!
+# Производим удаление и установку пакета
+run_reinstalation_on_router(){
+	app_pkg_tar_name=${1}
+	choice=$(printf "2\n" )
+
+	ssh -p "${PORT}" "${ROUTER}" 'opkg remove '"${APP_NAME}"
+	ssh -p "${PORT}" "${ROUTER}" 'opkg install /opt/packages/'"${app_pkg_tar_name}" # <<< 2
 	show_line
-	ssh -p "${my_port}" "${my_router}" 'mkdir -p /opt/packages'
-	ssh -p "${my_port}" "${my_router}" 'rm -f '"/opt/packages/${app_pkg_tar_name}" #&> /dev/null
-	scp -P "${my_port}" "${app_pkg_file}" "${my_router}:/opt/packages/${app_pkg_tar_name}"
-	ssh -p "${my_port}" "${my_router}" 'opkg remove '"${APP_NAME}"
-	ssh -p "${my_port}" "${my_router}" 'opkg install /opt/packages/'"${app_pkg_tar_name}"
-	show_line
-	answer=''; read_ynq "Запустить тесты?" answer
-	[ "${answer}" = y ] && ssh -p "${my_port}" "${my_router}" 'cd '"${APPS_ROOT}/${APP_NAME}/tests && ./tests.run"
+
+}
+
+# ИСПОЛНЯЕМ ВУТРИ КОНТЕЙНЕРА !!!
+# Производим тестирование пакета
+run_tests(){
+	echo -n "Запустить тесты? [Y/N]: "; ynq=''
+	read -r ynq
+	if [ "${ynq}" = y ] || [ "${ynq}" = Y ]; then
+		cd "${APPS_ROOT}/${APP_NAME}/tests"
+		./tests.run
+	fi
 }
 
 version=$(get_version_part VERSION)
@@ -118,9 +142,9 @@ check_first_run(){
 		read -r "Введите НОМЕР SSH порта роутера [6191]: " router_port
 		read -rs "Введите ПАРОЛЬ доступа к роутеру для пользователя root: " router_passwd
 
-	remote_dir="$(dirname "${REMOTE_FILE}")"
-	mkdir -p "${remote_dir}"
-	cat <<EOF > "${REMOTE_FILE}"
+		remote_dir="$(dirname "${REMOTE_FILE}")"
+		mkdir -p "${remote_dir}"
+		cat <<EOF > "${REMOTE_FILE}"
 APP_NAME=${app_name:-app}
 APPS_ROOT=/apps
 APP_PATH_NAME_TO_MAKE=${path_name_to_make:-opt}
