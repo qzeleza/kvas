@@ -121,6 +121,7 @@ run_tests(){
 		cd "${APPS_ROOT}/${APP_NAME}/tests"
 		./tests.run
 	fi
+	show_line
 }
 
 version=$(get_version_part VERSION)

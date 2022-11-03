@@ -24,7 +24,7 @@
 #	Лицензия: GPL 2.0
 # ------------------------------------------------------------------------------
 
-[ "$1" = "start" ] && {
+fi [ "$1" = "start" ] ; then
 
 	log_warning "Запущен файл /opt/etc/ndm/fs.d/100-vpn"
 
@@ -36,5 +36,6 @@
 	ip4_mark_vpn_network &> /dev/null
 
 	exit 0
-}
-
+else
+	exit 1
+fi

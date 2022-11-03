@@ -19,7 +19,7 @@
 # ------------------------------------------------------------------------------
 
 # Shadowsocks+
-[ "${type}" = "iptables" ] && {
+if [ "${type}" = "iptables" ] ; then
 
 	case "${table}" in
 		nat|mangle)
@@ -34,7 +34,10 @@
 		*)
 			;;
 	esac
-}
+	exit 0
+else
+	exit 1
+fi
 
 
 

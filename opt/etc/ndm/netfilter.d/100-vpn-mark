@@ -25,7 +25,7 @@
 
 # Пропускаем обработку, если тип подключения отличен от iptables
 # а сама талица отлична от mangle
-[ "${type}" = "iptables" ] && {
+if [ "${type}" = "iptables" ] ; then
 
 	log_warning "Запущен файл /opt/etc/ndm/netfilter.d/100-vpn-mark [type=${type} и table=${table}]"
 
@@ -54,6 +54,8 @@
 			;;
 	esac
 	exit 0
-}
+else
+	exit 1
+fi
 
 

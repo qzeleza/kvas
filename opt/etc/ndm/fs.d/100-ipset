@@ -11,10 +11,11 @@
 #	с командой start
 #
 # ------------------------------------------------------------------------------
-
-[ "${1}" = "start" ] && {
+if [ "${1}" = "start" ] ; then
 	log_warning "Запущен файл /opt/etc/ndm/fs.d/100-ipset"
 	ip4set_create_table
 	# ip6set_create_table
 	exit 0
-}
+else
+	exit 1
+fi

@@ -2,7 +2,7 @@
 #. /opt/apps/kvas/bin/libs/route
 #ip4_route_get_route_default
 
-[ "${1}" = "hook" ] && [ "${change}" = "link" ] && {
+if [ "${1}" = "hook" ] && [ "${change}" = "link" ] ; then
 
 	. /opt/apps/kvas/bin/libs/ndm
 
@@ -23,5 +23,7 @@
 		esac
 		exit 0
 	fi
-
-}
+	exit 0
+else
+	exit 1
+fi
