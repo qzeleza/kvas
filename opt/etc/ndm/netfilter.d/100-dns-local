@@ -1,31 +1,24 @@
 #!/bin/sh
-. /opt/apps/kvas/bin/libs/ndm
-#. /opt/apps/kvas/bin/libs/route
-#ip4_route_get_route_default
-
 #------------------------------------------------------------------------------
 #
-#	ПАКЕТ КВАС
+#       ПАКЕТ КВАС
 #
 #------------------------------------------------------------------------------
 #
-#	Данный файл служит для создания правил для пропуска DNS трафика по 53 порту (tcp и udp)
-#	при использовании любого VPN подключения (в том числе и shadowsocks).
-#	Они срабатывают при пепезаписи правил в таблице netfilter
-#	https://github.com/ndmsystems/packages/wiki/Opkg-Component
+#       Данный файл служит для создания правил для пропуска DNS трафика по 53 порту (tcp и udp)
+#       при использовании любого VPN подключения (в том числе и shadowsocks).
+#       Они срабатывают при пепезаписи правил в таблице netfilter
+#       https://github.com/ndmsystems/packages/wiki/Opkg-Component
 #
 # ------------------------------------------------------------------------------
-#	Разработчик: mail@zeleza.ru
-#	Дата создания: 21/05/2022
-#	Лицензия: GPL 2.0
+#       Разработчик: mail@zeleza.ru
+#       Дата создания: 21/05/2022
+#       Лицензия: GPL 2.0
 # ------------------------------------------------------------------------------
 if [ "${type}" = "iptables" ] && [ "${table}" = "nat" ] ; then
-	log_warning "Запущен файл /opt/etc/ndm/netfilter.d/100-dns-local [type=${type} и table=${table}]"
-
-	ip4_firewall_dns_rules_set @INFACE @LOCAL_IP tcp
-	ip4_firewall_dns_rules_set @INFACE @LOCAL_IP udp
-	exit 0
-else
-	exit 1
+        . /opt/apps/kvas/bin/libs/ndm
+        logger -t "КВАС"  "Запущен файл /opt/etc/ndm/netfilter.d/100-dns-local [type=${type} и table=${table}]"
+        ip4_firewall_dns_rules_set br0 10.0.71.1 tcp
+        ip4_firewall_dns_rules_set br0 10.0.71.1 udp
 fi
 

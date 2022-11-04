@@ -1,5 +1,5 @@
 #!/bin/sh
-. /opt/apps/kvas/bin/libs/ndm
+
 #------------------------------------------------------------------------------
 #
 #	ПАКЕТ КВАС
@@ -27,7 +27,8 @@
 # а сама талица отлична от mangle
 if [ "${type}" = "iptables" ] ; then
 
-	log_warning "Запущен файл /opt/etc/ndm/netfilter.d/100-vpn-mark [type=${type} и table=${table}]"
+	. /opt/apps/kvas/bin/libs/ndm
+	logger -t "КВАС" "Запущен файл /opt/etc/ndm/netfilter.d/100-vpn-mark [type=${type} и table=${table}]"
 
 	# Создаем таблицу unblock для ipset ip4
 	ip4set_create_table &> /dev/null
@@ -51,12 +52,9 @@ if [ "${type}" = "iptables" ] ; then
 			fi
 			;;
 		*)
-			log_warning "Обработка таблицы ${table} пропущена, нет данных для обработки."
+			logger -t "КВАС" "Обработка таблицы ${table} пропущена, нет данных для обработки."
 			;;
 	esac
-	exit 0
-else
-	exit 1
 fi
 
 

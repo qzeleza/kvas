@@ -1,5 +1,5 @@
 #!/bin/sh
-. /opt/apps/kvas/bin/libs/ndm
+
 
 #------------------------------------------------------------------------------
 #
@@ -20,23 +20,19 @@
 
 # Shadowsocks+
 if [ "${type}" = "iptables" ] ; then
-
+	. /opt/apps/kvas/bin/libs/ndm
 	case "${table}" in
 		nat|mangle)
 			if ! ip4save | grep "${table_name}" | grep -q @PROXY_PORT ; then
-				log_warning "Запущен файл /opt/etc/ndm/netfilter.d/100-proxy-redirect"
+				logger -t "КВАС"  "Запущен файл /opt/etc/ndm/netfilter.d/100-proxy-redirect"
 			#	 создаем правила для shadowsocks подключения
 				ip4_firewall_ssr_prune &> /dev/null
 				ip4_firewall_set_ssr_rules @INFACE @PROXY_PORT &> /dev/null
-				exit 0
 			fi
 			;;
 		*)
 			;;
 	esac
-	exit 0
-else
-	exit 1
 fi
 
 
