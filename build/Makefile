@@ -277,12 +277,15 @@ test_status
 
 #if [ "$${answer_agh}" = n ]; then
 ready "Запускаем КВАС в работу"
-"$${KVAS_START_FILE}" start &> /dev/null
-[ $$? = 0 ] && when_ok "УСПЕШНО" || {
+cmd_kvas_init &> /dev/null && when_ok "УСПЕШНО" || {
 	when_bad "ОШИБКА"
-	mess="Проблема при запуске КВАСа"
-	log_in_file "ОШИБКА: $${mess}"
-	exit 1
+	ready "Пробуем перезапустить КВАС снова"
+	cmd_kvas_init &> /dev/null && when_ok "УСПЕШНО" || {
+		when_bad "ОШИБКА"
+		mess="Проблема при запуске КВАСа"
+		log_in_file "ОШИБКА: $${mess}"
+		exit 1
+	}
 }
 #fi
 
