@@ -27,6 +27,27 @@ ADGUARDHOME_LOG=/opt/var/log/AdGuardHome.log
 ADGUARDHOME_DEMON=/opt/etc/init.d/S99adguardhome
 DNSMASQ_DEMON=/opt/etc/init.d/S56dnsmasq
 HOME_PATH=/opt/apps/kvas
+KVAS_BACKUP_PATH=/opt/etc/.kvas/backup
+
+ADBLOCK_LIST_EXCEPTION=/opt/etc/ads_exception.list
+ADS_HOSTS_FILE=/opt/tmp/adblock/hosts
+
+APP_NAME=kvas
+INSTALL_LOG=/opt/tmp/kvas.install.log
+UNBLOCK_LIST_FILE=/opt/etc/hosts.list
+CRONTAB_FILE=/opt/etc/crontab
+UPDATE_BIN_FILE=/opt/apps/kvas/bin/main/update
+DNS_LOCAL_DEMON_FILE=/opt/etc/ndm/netfilter.d/100-dns-local
+IPSET_REDIRECT_DEMON_FILE=/opt/etc/ndm/netfilter.d/100-proxy-redirect
+HOOK_INFACE_FILE=/opt/etc/ndm/ifstatechanged.d/100-save-inface_entware
+INFACE_NAMES_FILE=/opt/etc/inface_equals
+SHADOWSOCKS_CONF=/opt/etc/shadowsocks.json
+DNSMASQ_CONFIG=/opt/etc/dnsmasq.conf
+DNSCRYPT_CONFIG=/opt/etc/dnscrypt-proxy.toml
+KVAS_BACKUP_LIST_FILE=/opt/etc/.kvas/backup/hosts.list
+KVAS_START_FILE=/opt/etc/init.d/S96kvas
+
+
 # Файл в котором содержатся сети, запросы из которых необходимо исключить
 # из обращений к VPN или SHADOWSOCKS подключениям
 EXCLUDED_NET_FILE=/opt/apps/kvas/etc/conf/excluded.net

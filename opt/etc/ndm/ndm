@@ -21,8 +21,8 @@ PRIORITY=1778
 MARK_NUM=0xd1000
 DNS_PORT=53
 
-INFACE_CLI=@CLI_INFACE_NAME
-INFACE_ENT=@ENTWARE_INFACE_NAME
+INFACE_CLI=
+INFACE_ENT=
 
 #как пример гостевая сеть br3, которой необходимо обеспечить доступ к VPN
 INFACE_GUEST_ENT=
@@ -80,22 +80,19 @@ ip4_flush_cache(){
 # Подключаем правила для корректной работы DNS трафика через 53 порт
 # ------------------------------------------------------------------------------------------
 ip4_firewall_dns_rules_set(){
-	inface="${1}"
+	interface="${1}"
 	local_ip=${2}
 	protocol=${3}
 	#	Если не заданы аргументы, то ничего не выполняем
-	if [ -n "${inface}" ] && [ -n "${local_ip}" ] && [ -n "${protocol}" ] ; then
+	if [ -n "${interface}" ] && [ -n "${local_ip}" ] && [ -n "${protocol}" ] ; then
+		# если правила для tcp есть, то пропускаем их добавление
+		if ! ip4save | grep -q "${protocol} \-\-dport ${DNS_PORT} \-j DNAT"; then
+			log_warning "Подключаем правила для корректной работы DNS трафика через 53 порт:"
+			log_warning "Интерфейс: ${interface}, IP: ${local_ip}, протокол: ${protocol}."
 
-		[ "${inface}" = '@ENTWARE_INFACE_NAME' ] && {
-			# если правила для tcp есть, то пропускаем их добавление
-			if ! ip4save | grep -q "${protocol} \-\-dport ${DNS_PORT} \-j DNAT"; then
-				log_warning "Подключаем правила для корректной работы DNS трафика через 53 порт:"
-				log_warning "Интерфейс: ${inface}, IP: ${local_ip}, протокол: ${protocol}."
-
-				ip4tables PREROUTING -w -t nat -i "${inface}" -p "${protocol}" --dport ${DNS_PORT} -j DNAT --to "${local_ip}" 1> /dev/null 2> "${ERROR_LOG_FILE}"
-				when_error "${?}" " ${IPv4} Ошибка при установке правил для DNS."
-			fi
-		}
+			ip4tables PREROUTING -w -t nat -i "${interface}" -p "${protocol}" --dport ${DNS_PORT} -j DNAT --to "${local_ip}" 1> /dev/null 2> "${ERROR_LOG_FILE}"
+			when_error "${?}" " ${IPv4} Ошибка при установке правил для DNS."
+		fi
 	else
 		log_error "При вызове ip4_firewall_dns_rules_set не были заданы обязательные аргументы."
 	fi
@@ -227,7 +224,7 @@ ip4_mark_vpn_network(){
 #
 # ------------------------------------------------------------------------------------------
 ip4_firewall_set_ssr_rules(){
-	inface="${1:-lo}"
+	interface="${1:-lo}"
 	proxy_port="${2}"
 
 	# Источник:
@@ -235,14 +232,14 @@ ip4_firewall_set_ssr_rules(){
 	# Создаем новую цепочку SHADOWSOCKS
 
 	#	Если не заданы аргументы, то ничего не выполняем
-	if [ -n "${inface}" ] && [ -n "${proxy_port}" ] ; then
+	if [ -n "${interface}" ] && [ -n "${proxy_port}" ] ; then
 
-		[ "${inface}" = '@INFACE' ] || {
+		[ "${interface}" = '@INFACE' ] || {
 
 			ip4save | grep "${SSR_IPTABLES_CHAIN}" | grep -qv '\[0:0\]' || \
 			ip4save | grep "${SSR_IPTABLES_CHAIN_MARK}" | grep -qv '\[0:0\]' ||  {
 
-				log_warning "Подключаем правила для SHADOWSOCKS интерфейса ${inface} порт ${proxy_port}."
+				log_warning "Подключаем правила для SHADOWSOCKS интерфейса ${interface} порт ${proxy_port}."
 
 
 				iptab -S ${SSR_IPTABLES_CHAIN} -t nat 2>/dev/null | grep -q '\-N' || iptab -N ${SSR_IPTABLES_CHAIN} -t nat
@@ -263,8 +260,8 @@ ip4_firewall_set_ssr_rules(){
 				ip4tables PREROUTING -t nat -p udp -j ${SSR_IPTABLES_CHAIN}
 
 				# Создаем таблицы для IP адресов
-				ip4 route show table ${TABLE_ID} | grep -q "${inface}" || \
-					ip4 route add local default dev "${inface}" table ${TABLE_ID}
+				ip4 route show table ${TABLE_ID} | grep -q "${interface}" || \
+					ip4 route add local default dev "${interface}" table ${TABLE_ID}
 				ip4 rule list | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID}" || \
 					ip4 rule add fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID}
 
@@ -297,9 +294,9 @@ ip4_firewall_set_all_rules(){
 	else
 #		Если активно SHADOWSOCKS соединение
 		local_ip=$(get_router_ip)
-		inface=$(get_inface_by_ip "${local_ip}")
+		interface=$(get_interface_by_ip "${local_ip}")
 		proxy_port=$(get_config_value SSR_DNS_PORT)
-		ip4_firewall_set_ssr_rules "${inface}" "${proxy_port}"
+		ip4_firewall_set_ssr_rules "${interface}" "${proxy_port}"
 
 	fi
 
@@ -619,9 +616,9 @@ recreate_ssr_rules(){
 
 	ready "${prefix}Создаем iptables правила для SHADOWSOCKS соединения."
 	local_ip=$(get_router_ip)
-	inface=$(get_inface_by_ip "${local_ip}")
+	interface=$(get_interface_by_ip "${local_ip}")
 	proxy_port=$(get_config_value SSR_DNS_PORT)
-	ip4_firewall_set_ssr_rules "${inface}" "${proxy_port}" &> /dev/null
+	ip4_firewall_set_ssr_rules "${interface}" "${proxy_port}" &> /dev/null
 	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 }
 
@@ -697,6 +694,7 @@ cmd_kvas_init(){
 	else
 		refresh_dnsmasq_ipset_table
 	fi
+	. /opt/apps/kvas/bin/libs/adblock
 	if cmd_ads_status | grep -q 'ВКЛЮЧЕНА' ; then
 		ready "${prefix}Обновляем данные списка блокировки рекламы."
 		/opt/apps/kvas/bin/main/adblock &>/dev/null

@@ -29,6 +29,8 @@ TMP_ADS_FILE="/opt/tmp/hosts.ads"
 DNSMASQ_DEMON="/opt/etc/init.d/S56dnsmasq"
 ERROR_SOURCE="/opt/tmp/kvas.err.log"
 ADS_SOURCES_FILE="/opt/etc/adblock.sources"
+ADBLOCK_LIST_EXCEPTION="/opt/etc/ads_exception.list"
+
 grepv="#|^$|localhost| local|broadcasthost|loopback|localnet|mcastprefix|allnodes|allrouters|allhosts| 0.0.0.0"
 # блокируем различные популярные в РФ счетчики и определители IP
 mkdir -p "${tmp_path}"
@@ -131,7 +133,6 @@ remove_duplicates(){
 	when_ok "ГОТОВО"
 }
 
-
 #--------------------------------------------------------------
 #
 # 	Удаляем все доменные имена, которые у нас имеются
@@ -139,19 +140,42 @@ remove_duplicates(){
 #
 #--------------------------------------------------------------
 remove_white_hosts(){
+
+	nlines_amount=$(cat < "${ADS_HOSTS_FILE}" | wc -l)
 	if [ -f "${UNBLOCK_LIST_FILE}" ] && [ "$(cat < "${UNBLOCK_LIST_FILE}" | wc -l )" -ge 1 ]; then
-		exclude_com="$(cat < "${UNBLOCK_LIST_FILE}" | sed ':a;N;$!ba;s/\n/$| /g')$"
-		ready "Исключаем из списка блокировки хосты из белого списка"
+		exclude_com=".$(cat < "${UNBLOCK_LIST_FILE}" | sed ':a;N;$!ba;s/\n/$| /g')$"
+		ready "Удаляем хосты, находящиеся в списке разблокировки"
 		cat < "${TMP_FILE}" | grep -vE "${exclude_com}" > "${ADS_HOSTS_FILE}"
 		when_ok "ГОТОВО"
 		rm "${TMP_FILE}"
-		nlines_excluded=$(cat < "${ADS_HOSTS_FILE}" | wc -l)
+		nlines_excluded_wl=$(cat < "${ADS_HOSTS_FILE}" | wc -l)
 
 	else
 		mv "${TMP_FILE}" "${ADS_HOSTS_FILE}"
-		nlines_excluded="${nlines_all}"
+		nlines_excluded_wl="${nlines_amount}"
 	fi
 }
+
+#--------------------------------------------------------------
+#
+# 	Удаляем все доменные имена, которые у нас имеются
+# 	в списке исключений (белый список)
+#
+#--------------------------------------------------------------
+remove_exception_hosts(){
+
+	nlines_amount=$(cat < "${ADS_HOSTS_FILE}" | wc -l)
+	if [ -f "${ADBLOCK_LIST_EXCEPTION}" ] && [ "$(cat < "${ADBLOCK_LIST_EXCEPTION}" | wc -l )" -ge 1 ]; then
+		ready "Удаляем хосты, находящиеся в списке исключений"
+		exclude_all="$(get_separated_host_list "${ADBLOCK_LIST_EXCEPTION}")"
+		sed -i "/${exclude_all}/d" "${ADS_HOSTS_FILE}"
+		when_ok "ГОТОВО"
+		nlines_excluded_ex=$(cat < "${ADS_HOSTS_FILE}" | wc -l)
+	else
+		nlines_excluded_ex="${nlines_amount}"
+	fi
+}
+
 
 
 #--------------------------------------------------------------
@@ -186,7 +210,8 @@ dnsmasq_test(){
 result_show(){
 
 	nlines_srt=$((nlines_all - nlines_sorted))
-	nlines_exc=$((nlines_sorted - nlines_excluded))
+	nlines_exc_wl=$((nlines_sorted - nlines_excluded_wl))
+	nlines_exc_ex=$((nlines_excluded_wl - nlines_excluded_ex))
 
 	mess="Скачено хостов для блокировки рекламы"
 	nlines_all_txt=$(dig_frm "${nlines_all}")
@@ -199,12 +224,17 @@ result_show(){
 	logger "${mess} ${nlines_srt_txt}"
 
 	mess="Исключено записей из списка блокировки"
-	nlines_exc_txt=$(dig_frm "${nlines_exc}")
-	ready "${mess}"; when_alert "${nlines_exc_txt}"
-	logger "${mess} ${nlines_exc_txt}"
+	nlines_exc_txt_wl=$(dig_frm "${nlines_exc_wl}")
+	ready "${mess}"; when_alert "${nlines_exc_txt_wl}"
+	logger "${mess} ${nlines_exc_txt_wl}"
+
+	mess="Исключено записей из списка исключений"
+	nlines_exc_txt_ex=$(dig_frm "${nlines_exc_ex}")
+	ready "${mess}"; when_alert "${nlines_exc_txt_ex}"
+	logger "${mess} ${nlines_exc_txt_ex}"
 
 	mess="Добавлено всего хостов для блокировки рекламы"
-	nlines_add_txt=$(dig_frm "${nlines_excluded}")
+	nlines_add_txt=$(dig_frm "${nlines_excluded_ex}")
 	ready "${mess}"; when_alert "${nlines_add_txt}"
 	logger "${mess} ${nlines_add_txt}"
 }
@@ -239,11 +269,14 @@ load_adblock_hosts
 # Удаляем возможные дубликаты
 remove_duplicates
 # Удаляем все доменные имена, которые у нас имеются в списке разблокировки (белый список)
+# и в списке исключений
 remove_white_hosts
+remove_exception_hosts
 # Отображаем результаты произведенных манипуляций со списком блокировки
 result_show
 # Тестируем полученный список доменных имен блокировки рекламы на dnsmasq
 dnsmasq_test
-print_line
+#print_line
 # Перезапускаем сервис dnsmasq
 restart_dnsmasq
+

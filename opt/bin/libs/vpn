@@ -1,5 +1,7 @@
 #!/bin/sh
 . /opt/apps/kvas/bin/libs/.debug
+. /opt/apps/kvas/bin/libs/.ndm
+. /opt/apps/kvas/bin/libs/.adblock
 # ------------------------------------------------------------------------------------------
 #
 # 	Добавляет хосты в белый список, доступ к сайтам которого
@@ -13,22 +15,6 @@
 # ------------------------------------------------------------------------------------------
 #	Основные переменные для работы скрипта
 # ------------------------------------------------------------------------------------------
-APP_NAME=kvas
-INSTALL_LOG=/opt/tmp/kvas.install.log
-UNBLOCK_LIST_FILE=/opt/etc/hosts.list
-CRONTAB_FILE=/opt/etc/crontab
-UPDATE_BIN_FILE=/opt/apps/kvas/bin/main/update
-DNS_LOCAL_DEMON_FILE=/opt/etc/ndm/netfilter.d/100-dns-local
-IPSET_REDIRECT_DEMON_FILE=/opt/etc/ndm/netfilter.d/100-proxy-redirect
-HOOK_INFACE_FILE=/opt/etc/ndm/ifstatechanged.d/100-save-inface_entware
-INFACE_NAMES_FILE=/opt/etc/inface_equals
-SHADOWSOCKS_CONF=/opt/etc/shadowsocks.json
-ADS_HOSTS_FILE=/opt/tmp/adblock/hosts
-DNSMASQ_CONFIG=/opt/etc/dnsmasq.conf
-DNSCRYPT_CONFIG=/opt/etc/dnscrypt-proxy.toml
-KVAS_BACKUP_PATH=/opt/etc/.kvas/backup
-KVAS_BACKUP_LIST_FILE=/opt/etc/.kvas/backup/hosts.list
-KVAS_START_FILE=/opt/etc/init.d/S96kvas
 
 MAIN_DNS_PORT=53
 LOCALHOST_IP=127.0.0.1
@@ -831,7 +817,6 @@ dns_show() {
 # ------------------------------------------------------------------------------------------
 cmd_vpn_iptable_flush() {
 	ready "Очистка iptables для vpn завершена"
-	. /opt/apps/kvas/bin/libs/ndm
 	ip4_firewall_flush_vpn_rules
 	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
 }
@@ -881,8 +866,9 @@ ndm_interface_change() {
 	inface_entware="${1}"; inface_cli="${2}"
 	cp /opt/apps/${APP_NAME}/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
 	chmod +x /opt/apps/kvas/bin/libs/ndm
-	sed -i "s/@ENTWARE_INFACE_NAME/${inface_entware}/g" "/opt/apps/kvas/bin/libs/ndm"
-	sed -i "s/@CLI_INFACE_NAME/${inface_cli}/g" "/opt/apps/kvas/bin/libs/ndm"
+	sed -i "s/INFACE_ENT=/INFACE_ENT=${inface_entware}/g" "/opt/apps/kvas/bin/libs/ndm"
+	sed -i "s/INFACE_CLI=/INFACE_CLI=${inface_cli}/g" "/opt/apps/kvas/bin/libs/ndm"
+	cp "/opt/apps/kvas/bin/libs/ndm" "/opt/apps/kvas/bin/libs/.ndm"
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -925,7 +911,6 @@ vpn_on() {
 			error "Проверьте доступность сервера и настройки клиента!"
 			exit 1
 		else
-			. /opt/apps/kvas/bin/libs/ndm
 			recreate_ip4tables
 			recreate_vpn_rules
 		fi
@@ -1055,7 +1040,6 @@ shadowsocks_read_data() {
 cmd_shadowsocks_iptable_flush() {
 	if [ -f /opt/apps/kvas/bin/libs/ndm ]; then
 		ready "Удаление правил iptables для shadowsocks завершено"
-		. /opt/apps/kvas/bin/libs/ndm
 		ip4_firewall_ssr_prune &> /dev/null
 		[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
 	fi
@@ -1073,7 +1057,6 @@ cmd_shadowsocks_iptable_reset() {
 		local_ip=$(get_router_ip)
 		inface=$(get_inface_by_ip "${local_ip}")
 		proxy_port=$(get_config_value SSR_DNS_PORT)
-		. /opt/apps/kvas/bin/libs/ndm
 		recreate_ip4tables
 		recreate_ssr_rules
 
@@ -1400,20 +1383,7 @@ cmd_interface_change() {
 
 }
 
-# ------------------------------------------------------------------------------------------
-#
-#	Удаляем из /opt/tmp/adsblock/hosts переданное доменное имя
-#	$1 - список доменных имен разделенных '|'
-#
-# ------------------------------------------------------------------------------------------
-ads_hosts_remove() {
-	exclude_all=${1//\*/}
-	tmp_file="/opt/tmp/hosts.tmp"
-	ready "Исключаем из списка блокировки хосты из белого списка"
-	mv -f "${ADS_HOSTS_FILE}" "${tmp_file}"
-	cat < "${tmp_file}" | grep -vE "${exclude_all}" > "${ADS_HOSTS_FILE}"
-	when_ok "ГОТОВО"
-}
+
 
 # ------------------------------------------------------------------------------------------
 #
@@ -1652,14 +1622,12 @@ test_host() {
 host_add() {
 	_host="${1}"
 	clear_host=$(echo "${host}" | sed 's/\*//')
+
 	ready "Добавляем ${YELLOW}${_host}${NOCL} в список разблокировки..."
 	echo "${_host}" >> "${UNBLOCK_LIST_FILE}"
 #	если включен блокирощик рекламы
-	if cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then
-
-		if cat < '/opt/etc/dnsmasq.conf' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep -q "adblock.dnsmasq"; then
-			ads_hosts_remove "${_host}" &> /dev/null
-		fi
+	if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
+		ads_del_white_list_hosts &> /dev/null
 	fi
 	cmd_kvas_init  &> /dev/null
 	[ $? = 0 ] && when_ok "ДОБАВЛЕН" || when_bad "НЕ ДОБАВЛЕН"
@@ -1779,20 +1747,11 @@ cmd_clear_list() {
 rec_in_var() {
 	echo -e "${1}" | sed '/^$/d' | wc -l
 }
+
+
 # ------------------------------------------------------------------------------------------
 #
-#	Получаем белый список с разделенный |
-#
-# ------------------------------------------------------------------------------------------
-get_separated_host_list() {
-	clear_file_content "${UNBLOCK_LIST_FILE}"
-	exclude_com="$(cat < "${UNBLOCK_LIST_FILE}" | tr -d '*' | sed ':a;N;$!ba;s/\n/$| /g')$"
-	exclude_www="www.$(cat < "${UNBLOCK_LIST_FILE}" | tr -d '*' | sed ':a;N;$!ba;s/\n/$| www./g')$"
-	echo "${exclude_com}|${exclude_www}"
-}
-# ------------------------------------------------------------------------------------------
-#
-#	Импортируем (вносим) список доменнов в "белый список"
+#	Импортируем (вносим) список доменов в "белый список"
 #
 #	$1 - имя файла со списком доменных имен, допускается использование # для комментариев
 #		 одно имя - одна строка в списочном файле
@@ -1836,9 +1795,11 @@ cmd_import_hosts() {
 			#     добавляем хосты в файл списочный
 			_hosts_to_add_ubl=$(echo -e "${hosts_to_add_ubl}" | sed '/^$/d; /^[-+.]/!s/\(.*\)/\1/')
 			echo -e "${_hosts_to_add_ubl}" >> "${UNBLOCK_LIST_FILE}"
-			#     обновляем таблицу ipset
 
-			ads_hosts_remove "$(get_separated_host_list)" &> /dev/null
+			#	если включен блокировщик рекламы
+			if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
+				ads_del_white_list_hosts &> /dev/null
+			fi
 			cmd_kvas_init   &> /dev/null
 			[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 
@@ -2009,7 +1970,7 @@ cmd_set_period_update() {
 			error "Период задать возможно только в одном из форматов:"
 			error "в минутах(m), часах(h), днях(d), неделях(w), месяцах(M)."
 		else
-			sed -i "/update/d" ${CRONTAB_FILE}
+			sed -i "/root ${UPDATE_BIN_FILE} update/d" ${CRONTAB_FILE}
 			echo -n "Период обновления "
 			if [ -n "${_mins}" ]; then
 				echo "0/${_mins} * * * * root ${UPDATE_BIN_FILE} update" >> ${CRONTAB_FILE}
@@ -2030,120 +1991,9 @@ cmd_set_period_update() {
 		fi
 	fi
 }
-# ------------------------------------------------------------------------------------------
-#
-#	 Редактируем файл источников блокировки рекламы и нежелательных сайтов
-#
-# ------------------------------------------------------------------------------------------
-cmd_ads_edit() {
-	nano '/opt/etc/adblock.sources' &&
-		{
-			cmd_ads_protect_on ask
-#			print_line
-#			ready "Перезапуск службы dnsmasq"
-#			/opt/etc/init.d/S56dnsmasq restart &> /dev/null
-#			[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
-		}
-}
 
-# ------------------------------------------------------------------------------------------
-#
-#	 Отключаем работу блока борьбы с рекламой
-#
-# ------------------------------------------------------------------------------------------
-cmd_ads_protect_off() {
-	if ! [ -f '/opt/apps/kvas/bin/main/adblock' ]; then
-		cp -f '/opt/apps/kvas/bin/main/adblock' '/opt/apps/kvas/bin/main/adblock'
-		chmod +x '/opt/apps/kvas/bin/main/adblock'
-	fi
-	ready "Блокировка рекламы"
-	sed -i 's/\(^ADS_BLOCKER_ON=.*\)/\10/' '/opt/apps/kvas/bin/main/update'
-	sed -i '/addn-hosts=\/opt\/tmp\/adblock/d' '/opt/etc/dnsmasq.conf'
-	OFF="ПОДКЛЮЧЕНА.\nПроизошла не предвиденная ошибка."
-	[ $? = 0 ] && when_ok "ОТКЛЮЧЕНА" || when_bad "${OFF}"
-	ready "Перезапуск службы dnsmasq"
-	/opt/etc/init.d/S56dnsmasq restart &> /dev/null
-	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
-}
-# ------------------------------------------------------------------------------------------
-#
-#	 Включаем работу блока борьбы с рекламой
-#	$1 - задаем вопросы (ask)  или отвечаем на все да (yes)
-#
-# ------------------------------------------------------------------------------------------
-cmd_ads_protect_on() {
-	perform_to_aks="${1}"
-	if ! [ -f '/opt/apps/kvas/bin/main/adblock' ]; then
-		cp -f '/opt/apps/kvas/bin/main/adblock' '/opt/apps/kvas/bin/main/adblock'
-		chmod +x '/opt/apps/kvas/bin/main/adblock'
-	fi
-
-	if cat < '/opt/etc/dnsmasq.conf' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep -q "${ADS_HOSTS_FILE}" ; then
-		ready "Блокировка рекламы уже "
-		when_ok "ВКЛЮЧЕНА"
-	else
-		ready "Блокировка рекламы"
-		sed -i '/addn-hosts=\/opt\/tmp\/adblock/d' '/opt/etc/dnsmasq.conf'
-		sed -i 's/\(^ADS_BLOCKER_ON=.*\)/\11/' '/opt/apps/kvas/bin/main/update'
-		echo "addn-hosts=${ADS_HOSTS_FILE}" >> '/opt/etc/dnsmasq.conf'
-		OFF="ОТКЛЮЧЕНА.\nПроизошла не предвиденная ошибка."
-		[ $? = 0 ] && when_ok "ВКЛЮЧЕНА" || when_bad "${OFF}"
-		ads_request_to_upload "${perform_to_aks}"
-	fi
-	print_line
-	ready "Перезапуск службы dnsmasq"
-	/opt/etc/init.d/S56dnsmasq restart &> /dev/null
-	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
-}
-# ------------------------------------------------------------------------------------------
-#
-#	 Выводим статус блока борьбы с рекламой
-#
-# ------------------------------------------------------------------------------------------
-cmd_ads_status() {
-	if [ -f '/opt/apps/kvas/bin/main/adblock' ]; then
-		ready "Блокировка рекламы "
-		if [ -f '/opt/etc/dnsmasq.conf' ]; then
-			cat < '/opt/etc/dnsmasq.conf' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep -q "/opt/tmp/adblock" &> /dev/null
-			[ $? = 0 ] && when_ok "ВКЛЮЧЕНА" || when_bad "ОТКЛЮЧЕНА"
-		else
-			when_bad "ОТКЛЮЧЕНА"
-			warning "Отсутствует файл конфигурации /opt/etc/dnsmasq.conf"
-		fi
-	else
-		error 'Скрипт обработки рекламы отсутствует'
-		error 'Переустановите пакет КВАС заново!'
-	fi
-}
-# ------------------------------------------------------------------------------------------
-#
-#	 Выводим статус блока борьбы с рекламой
-#	 $1 - значение ask - спрашивать о восстановлении
-#	 архивный файл с источниками обновления рекламы в случае его обнаружения
-#
-# ------------------------------------------------------------------------------------------
-ads_request_to_upload() {
-	answer="${1}"
-	sources_name_file=adblock.sources
-	if [ -f "/opt/etc/${sources_name_file}.kvas" ]; then
-		warning "Обнаружен архивный файл с источниками обновления рекламы."
-		[ "${answer}" = ask ] && read_ynq "Восстановить данный файл" answer
-		if [ "${answer}" = y ]; then
-			ready "Восстановление архива с источниками рекламы завершено"
-			mv -f "/opt/etc/${sources_name_file}.kvas" "/opt/etc/${sources_name_file}"
-			[ $? = 0 ] && when_ok "УДАЧНО" || when_bad "С ОШИБКОЙ"
-		else
-			ready "Загрузка источников рекламы по умолчанию"
-			cp -f "/opt/apps/kvas/etc/conf/${sources_name_file}" "/opt/etc/${sources_name_file}"
-			[ $? = 0 ] && when_ok "УДАЧНО" || when_bad "С ОШИБКОЙ"
-		fi
-	fi
-	if [ -f "${ADS_HOSTS_FILE}" ]; then
-		[ "${answer}" = ask ] && read_ynq "Обновить списки блокировки рекламы" answer
-		[ "${answer}" = y ] && /opt/apps/kvas/bin/main/adblock
-	else
-		/opt/apps/kvas/bin/main/adblock
-	fi
+del_period_update(){
+	sed -i "/root ${UPDATE_BIN_FILE} update/d" ${CRONTAB_FILE}
 }
 
 # ------------------------------------------------------------------------------------------
@@ -2162,7 +2012,6 @@ vpn_add_guest_network() {
 			ip_net=$(ip addr show "${guest_network_ent}" | grep -Po "(?<=inet ).*(?=brd)")
 			ready "Правила для маркировки гостевой сети ${guest_network_ent} -> ${ip_net} добавлены"
 			sed -i "s/\(INFACE_GUEST_ENT=\).*/\1${guest_network_ent}/g" /opt/apps/kvas/bin/libs/ndm
-			. /opt/apps/kvas/bin/libs/ndm
 			ip4_add_guest_to_vpn_network
 			[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 		else
@@ -2189,7 +2038,6 @@ vpn_del_guest_network() {
 		if [ -n "${guest_network_ent}" ]; then
 			ip_net=$(ip addr show "${guest_network_ent}" | grep -Po "(?<=inet ).*(?=brd)")
 			ready "Правила для маркировки гостевой сети ${guest_network_ent} -> ${ip_net} удалены"
-			. /opt/apps/kvas/bin/libs/ndm
 			ip4_del_guest_to_vpn_network
 			[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 		else

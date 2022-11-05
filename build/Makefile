@@ -77,12 +77,14 @@ cp -f /opt/apps/kvas/etc/conf/adblock.sources /opt/etc/adblock.sources
 cp -f /opt/apps/kvas/bin/libs/vpn /opt/apps/kvas/bin/libs/.vpn
 cp -f /opt/apps/kvas/bin/libs/main /opt/apps/kvas/bin/libs/.main
 cp -f /opt/apps/kvas/bin/libs/debug /opt/apps/kvas/bin/libs/.debug
+cp -f /opt/apps/kvas/bin/libs/adblock /opt/apps/kvas/bin/libs/.adblock
 cp -f /opt/apps/kvas/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
+cp -f /opt/apps/kvas/bin/libs/ndm /opt/apps/kvas/bin/libs/.ndm
 
 #. /opt/apps/kvas/bin/libs/route
 #ip4_write_route_default_to_config
 
-. /opt/apps/kvas/bin/libs/vpn
+. /opt/apps/kvas/bin/libs/main
 
 mkdir -p "$${KVAS_BACKUP_PATH}"
 cat /dev/null > "$${INSTALL_LOG}"
@@ -114,6 +116,8 @@ log_in_file "$${welcome}"
 log_in_file line
 log_in_file "Начало установки: $$(date "$${DATE_FORMAT}")"
 log_in_file line
+
+. /opt/apps/kvas/bin/libs/vpn
 
 # Проверяем отключено ли использование DNS провайдера
 if ! curl -s "$${LOCALHOST_IP}"':79/rci/opkg/dns-override' | grep -q true ; then
@@ -299,7 +303,7 @@ cmd_kvas_init &> /dev/null && when_ok "УСПЕШНО" || {
 #print_line
 
 #test_status
-
+print_line
 log_in_file line
 log_in_file "Установка завершена: $$(date "$${DATE_FORMAT}")"
 echo "Установка КВАСа завершена."
@@ -317,7 +321,7 @@ define Package/kvas/postrm
 #!/bin/sh
 
 . /opt/apps/kvas/bin/libs/.vpn
-. /opt/apps/kvas/bin/libs/ndm
+. /opt/apps/kvas/bin/libs/.ndm
 #------------------------------------------------------------------------------
 #
 #	ПАКЕТ КВАС
@@ -347,6 +351,10 @@ rm_package_files(){
 
 	rm -rf /opt/bin/kvas
 	rm -fr /opt/etc/kvas*
+
+	rm -fr /opt/etc/hosts.list
+#	rm -fr /opt/etc/.kvas
+
 	rm -f /opt/lib/opkg/info/kvas*
 	rm -f /opt/etc/inface_equals
 }

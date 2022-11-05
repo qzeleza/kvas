@@ -2,6 +2,7 @@
 . /opt/apps/kvas/bin/libs/vpn
 . /opt/apps/kvas/bin/libs/check
 . /opt/apps/kvas/bin/libs/update
+. /opt/apps/kvas/bin/libs/adblock
 
 #------------------------------------------------------------------------------
 #
@@ -94,6 +95,8 @@ case "${1}" in
 			on) 			cmd_ads_protect_on ask;;
 			off) 			cmd_ads_protect_off ;;
 			edit) 			cmd_ads_edit ;;
+			add)			cmd_ads_add_host "${3}" ;;
+			del)			cmd_ads_del_from_skip_list "${3}" ;;
 			status | *) 	cmd_ads_status ;;
 		esac
 		;;
@@ -118,7 +121,11 @@ case "${1}" in
 		;;
 	show | list)			cmd_show_list
 		;;
-	period)					cmd_set_period_update "${2}"
+	period)
+		case "${2}" in
+			del|clear) 		del_period_update ;;
+			*) 				cmd_set_period_update "${2}" ;;
+		esac
 		;;
 	update|reset|init)		cmd_kvas_init
 		;;
