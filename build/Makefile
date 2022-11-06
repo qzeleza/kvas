@@ -117,7 +117,7 @@ log_in_file line
 log_in_file "Начало установки: $$(date "$${DATE_FORMAT}")"
 log_in_file line
 
-. /opt/apps/kvas/bin/libs/vpn
+. /opt/apps/kvas/bin/libs/vpn &>/dev/null
 
 # Проверяем отключено ли использование DNS провайдера
 if ! curl -s "$${LOCALHOST_IP}"':79/rci/opkg/dns-override' | grep -q true ; then
@@ -354,9 +354,13 @@ rm_package_files(){
 
 	rm -fr /opt/etc/hosts.list
 #	rm -fr /opt/etc/.kvas
+	rm -fr /opt/tmp/*kvas*
+	rm -fr /opt/etc/ads_exception.list
 
 	rm -f /opt/lib/opkg/info/kvas*
 	rm -f /opt/etc/inface_equals
+
+	del_period_update
 }
 
 print_line

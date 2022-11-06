@@ -1560,6 +1560,8 @@ cmd_dns_crypt_off() {
 		sed -i '/server/d' '/opt/apps/kvas/bin/main/dnsmasq'
 
 		rm '/opt/etc/kvas.dnsmasq'
+		_dns=$(cat < "${DNSMASQ_CONFIG}" | sed -n 's/^server=\(.*\)$/\1/p')
+		set_config_value DNS_DEFAULT "${_dns}#${MAIN_DNS_PORT}"
 		set_config_value DNS_CRYPT_PORT "${crypt_port}"
 
 		/opt/etc/init.d/S09dnscrypt-proxy2 stop
@@ -1970,7 +1972,7 @@ cmd_set_period_update() {
 			error "Период задать возможно только в одном из форматов:"
 			error "в минутах(m), часах(h), днях(d), неделях(w), месяцах(M)."
 		else
-			sed -i "/root ${UPDATE_BIN_FILE} update/d" ${CRONTAB_FILE}
+			del_period_update
 			echo -n "Период обновления "
 			if [ -n "${_mins}" ]; then
 				echo "0/${_mins} * * * * root ${UPDATE_BIN_FILE} update" >> ${CRONTAB_FILE}
@@ -1993,7 +1995,8 @@ cmd_set_period_update() {
 }
 
 del_period_update(){
-	sed -i "/root ${UPDATE_BIN_FILE} update/d" ${CRONTAB_FILE}
+	file_name_sed=$(echo "${UPDATE_BIN_FILE}" | sed 's|/|\\/|g')
+	sed -i "/root ${file_name_sed} update/d" "${CRONTAB_FILE}"
 }
 
 # ------------------------------------------------------------------------------------------
