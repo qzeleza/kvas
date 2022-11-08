@@ -1946,7 +1946,7 @@ cmd_show_list() {
 #
 # ------------------------------------------------------------------------------------------
 get_time() {
-	cat < "${CRONTAB_FILE}" | grep "kvas_update" | cut -d' ' -f"${1}" | cut -d'/' -f2 | sed 's/[a-zA-Z\*]//g'
+	cat < "${CRONTAB_FILE}" | grep "update" | cut -d' ' -f"${1}" | cut -d'/' -f2 | sed 's/[a-zA-Z\*]//g'
 }
 get_period_update() {
 	mm=$(get_time 1)
