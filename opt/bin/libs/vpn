@@ -1971,7 +1971,7 @@ cmd_set_period_update() {
 			error "Период задать возможно только в одном из форматов:"
 			error "в минутах(m), часах(h), днях(d), неделях(w), месяцах(M)."
 		else
-			del_period_update
+			del_period_update &>/dev/null
 			echo -n "Период обновления "
 			if [ -n "${_mins}" ]; then
 				echo "0/${_mins} * * * * root ${UPDATE_BIN_FILE} update" >> ${CRONTAB_FILE}
@@ -1996,6 +1996,8 @@ cmd_set_period_update() {
 del_period_update(){
 	file_name_sed=$(echo "${UPDATE_BIN_FILE}" | sed 's|/|\\/|g')
 	sed -i "/root ${file_name_sed} update/d" "${CRONTAB_FILE}"
+	warning "Обновление данных пакета КВАС остановлено."
+	warning "Для установки периода обновления запустите 'kvas period'."
 }
 
 # ------------------------------------------------------------------------------------------
