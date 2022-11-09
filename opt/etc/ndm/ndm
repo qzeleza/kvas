@@ -224,63 +224,36 @@ ip4_mark_vpn_network(){
 #
 # ------------------------------------------------------------------------------------------
 ip4_firewall_set_ssr_rules(){
-	interface="${1:-lo}"
-	proxy_port="${2}"
+
+    interface=$(get_local_inface)
+    proxy_port=$(get_config_value SSR_DNS_PORT)
+
 
 	# Источник:
 	# https://github.com/shadowsocks/shadowsocks-libev/blob/master/doc/ss-redir.asciidoc?ysclid=l949tgrsfn795375643
 	# Создаем новую цепочку SHADOWSOCKS
 
-	#	Если не заданы аргументы, то ничего не выполняем
-	if [ -n "${interface}" ] && [ -n "${proxy_port}" ] ; then
+	if ! ip4save | grep "${SSR_IPTABLES_CHAIN}" | grep -qv '\[0:0\]' && \
+	   ! ip4save | grep PREROUTING | grep "${table_name}" | grep -q "${proxy_port}" ; then
+		{
+			log_warning "Подключаем правила для SHADOWSOCKS интерфейса ${interface} порт ${proxy_port}."
 
-		[ "${interface}" = '@INFACE' ] || {
+			iptab -S ${SSR_IPTABLES_CHAIN} -t nat 2>/dev/null | grep -q '\-N' || iptab -N ${SSR_IPTABLES_CHAIN} -t nat
 
-			ip4save | grep "${SSR_IPTABLES_CHAIN}" | grep -qv '\[0:0\]' || \
-			ip4save | grep "${SSR_IPTABLES_CHAIN_MARK}" | grep -qv '\[0:0\]' ||  {
+			# Игнорируем локальные сети и любые другие адреса, которые вы хотели бы обойти прокси
+			ip4_firewall_exclude_locals ${SSR_IPTABLES_CHAIN} nat
 
-				log_warning "Подключаем правила для SHADOWSOCKS интерфейса ${interface} порт ${proxy_port}."
+			ssr_ip=$(cat < /opt/etc/shadowsocks.json | grep 'server":' | tr -d '" ,' | cut -d':' -f2 )
+			# Исключаем любые обращения к собственному адресу SHADOWSOCKS
+			ip4tables ${SSR_IPTABLES_CHAIN} -t nat -d "${ssr_ip}" -j RETURN
 
+			ip4tables PREROUTING -w -t nat -i "${interface}" -p tcp -m set --match-set "${table_name}" dst -j REDIRECT --to-port "${proxy_port}"
+			ip4tables PREROUTING -w -t nat -i "${interface}" -p udp -m set --match-set "${table_name}" dst -j REDIRECT --to-port "${proxy_port}"
 
-				iptab -S ${SSR_IPTABLES_CHAIN} -t nat 2>/dev/null | grep -q '\-N' || iptab -N ${SSR_IPTABLES_CHAIN} -t nat
-				iptab -S ${SSR_IPTABLES_CHAIN_MARK} -t mangle 2>/dev/null | grep -q '\-N' || iptab -N ${SSR_IPTABLES_CHAIN_MARK} -t mangle
-
-				# Игнорируем локальные сети и любые другие адреса, которые вы хотели бы обойти прокси
-				ip4_firewall_exclude_locals ${SSR_IPTABLES_CHAIN} nat
-
-				ssr_ip=$(cat < /opt/etc/shadowsocks.json | grep 'server":' | tr -d '" ,' | cut -d':' -f2 )
-				# Исключаем любые обращения к собственному адресу SHADOWSOCKS
-				ip4tables ${SSR_IPTABLES_CHAIN} -t nat -d "${ssr_ip}" -j RETURN
-
-				# Anything else should be redirected to shadowsocks's local port
-				ip4tables ${SSR_IPTABLES_CHAIN} -t nat  -p tcp -j REDIRECT --to-ports "${proxy_port}"
-				ip4tables ${SSR_IPTABLES_CHAIN} -t nat  -p udp -j REDIRECT --to-ports "${proxy_port}"
-		#		Apply the rules
-				ip4tables PREROUTING -t nat -p tcp -j ${SSR_IPTABLES_CHAIN}
-				ip4tables PREROUTING -t nat -p udp -j ${SSR_IPTABLES_CHAIN}
-
-				# Создаем таблицы для IP адресов
-				ip4 route show table ${TABLE_ID} | grep -q "${interface}" || \
-					ip4 route add local default dev "${interface}" table ${TABLE_ID}
-				ip4 rule list | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID}" || \
-					ip4 rule add fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID}
-
-		#		Правила для маркировки UPD трафика
-				ip4tables ${SSR_IPTABLES_CHAIN_MARK} -t mangle -p udp -m set --match-set ${table_name} dst -j RETURN
-				ip4tables ${SSR_IPTABLES_CHAIN_MARK} -t mangle -p udp -j MARK --set-mark ${MARK_NUM}
-
-				# Apply the rules
-				ip4tables OUTPUT -t mangle -p udp -j ${SSR_IPTABLES_CHAIN_MARK}
-
-			} 2> "${ERROR_LOG_FILE}"
-			when_error "${?}" " ${IPv4} Возникла ошибка при установке правил iptable для Shadowsocks подключения"
-		}
-
-	else
-		log_error "При вызове ip4_firewall_set_ssr_rules не были заданы обязательные аргументы."
+		} 2> "${ERROR_LOG_FILE}"
+		when_error "${?}" " ${IPv4} Возникла ошибка при установке правил iptable для Shadowsocks подключения"
 	fi
 }
-
 # ------------------------------------------------------------------------------------------
 #
 # 	Установка правил для любых типов подключений (SHADOWSOCKS или VPN)
@@ -412,8 +385,8 @@ ip4_firewall_ssr_prune(){
 	ip4tbl_flush_rm_pre_out nat "${SSR_IPTABLES_CHAIN}" PREROUTING
 	ip4tbl_flush_rm_chain nat "${SSR_IPTABLES_CHAIN}"
 
-	ip4tbl_flush_rm_pre_out mangle "${SSR_IPTABLES_CHAIN_MARK}" OUTPUT
-	ip4tbl_flush_rm_chain mangle "${SSR_IPTABLES_CHAIN_MARK}"
+#	ip4tbl_flush_rm_pre_out mangle "${SSR_IPTABLES_CHAIN_MARK}" OUTPUT
+#	ip4tbl_flush_rm_chain mangle "${SSR_IPTABLES_CHAIN_MARK}"
 }
 
 
@@ -500,7 +473,7 @@ ip4_add_route_table(){
 #			Выделяем из строки ROUTE только первых три разряда сети, как пример: 10.0.124
 			_net=$(echo "${ROUTE}" | sed 's/^\([0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\).*/\1/')
 #			Если сеть доступна в роутере на текущий момент, то добавляем ее
-			ip a | grep -q "${_net}" && ip4 route add table ${TABLE_ID} ${ROUTE}
+			ip4 a | grep -q "${_net}" && ip4 route add table ${TABLE_ID} ${ROUTE}
 		done
 #		Проверяем на число записей в таблице ${TABLE_ID} - их должно быть больше чем одна запись
 		test "$(ip4 route show table ${TABLE_ID} | grep -c dev)" -gt 1

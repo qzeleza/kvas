@@ -92,7 +92,7 @@ copy_app_to_router(){
 
 # 	Проверяем есть ли ключ на роутере
 	docker_key=$(cat < "$(get_key_file)")
-	ssh -p "${PORT}" "${ROUTER}" 'cat /opt/root/.ssh/authorized_keys' | grep -q "'""${docker_key}""'" \
+	ssh -p "${PORT}" "${ROUTER}" 'cat /opt/root/.ssh/authorized_keys' | grep -q "${docker_key}" \
 	|| copy_ssh_keys_to_router
 	echo "Загрузка пакета на роутер..."
 	ssh -p "${PORT}" "${ROUTER}" '[ -d /opt/packages ] || mkdir -p /opt/packages'

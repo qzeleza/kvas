@@ -1137,7 +1137,7 @@ shadowsocks_on() {
 			s/@INFACE/${inface}/g;" \
 			"/opt/etc/ndm/netfilter.d/100-proxy-redirect"
 
-	inface_ent=$(ip a | grep ezcfg | head -1 | cut -d': ' -f2 | tr -d ' ')
+	inface_ent=$(ip4 a | grep ezcfg | head -1 | cut -d': ' -f2 | tr -d ' ')
 	ndm_interface_change "${inface_ent}" "shadowsocks"
 
 	cmd_shadowsocks_iptable_reset  &> /dev/null
@@ -2010,7 +2010,7 @@ vpn_add_guest_network() {
 	if cmd_vpn_status | grep -qi shadowsocks ; then
 		error "Добавление гостевой сети возможно только для VPN подключений, отличных от shadowsocks"
 	else
-		if ip a | grep -qe " ${1}:" ; then
+		if ip4 a | grep -qe " ${1}:" ; then
 			guest_network_ent="${1}"
 			ip_net=$(ip addr show "${guest_network_ent}" | grep -Po "(?<=inet ).*(?=brd)")
 			ready "Правила для маркировки гостевой сети ${guest_network_ent} -> ${ip_net} добавлены"
