@@ -1,6 +1,9 @@
 #!/bin/sh
-
 . /opt/apps/kvas/bin/libs/main
+
+#
+# Извлекаем ссылку на скачивание пакета с github
+#
 
 #
 #	Производим проверку обновления пакета AdGuardHome и скачиваем в случае появления новой версии
@@ -29,6 +32,7 @@ cmd_adguard_update(){
 			tar x -zf /tmp/${full_adguard_name}.tar.gz -C /tmp
 			mv -f /tmp/${full_adguard_name}/${full_adguard_name} ${bin_path}/${full_adguard_name}
 			chmod +x ${bin_path}/${full_adguard_name}
+			/opt/etc/init.d/S99adguardhome restart
 		} 2> "${ERROR_LOG_FILE}"
 
 		ready_status "${?}" "Ошибка обновления ${full_adguard_name}"

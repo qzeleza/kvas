@@ -504,7 +504,7 @@ log_error(){
 
 get_github_latest_update_url() {
 	arch=$(grep "arch" /opt/etc/entware_release | cut -f2 -d"=")
-	[ "${arch}" = mipsle ] && arch=mipsel
+	[ "${arch}" = mipsel ] && arch=mipsle
 	curl -k -f -s -S "https://api.github.com/repos/${1}/${2}/releases/latest" 2>/dev/null \
 			| jq -r '.assets[] | select(.browser_download_url | contains("linux_'"${arch}"'_softfloat")) | .browser_download_url'
 }
