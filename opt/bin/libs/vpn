@@ -1909,7 +1909,7 @@ cmd_show_list() {
 #
 # ------------------------------------------------------------------------------------------
 get_time() {
-	cat < "${CRONTAB_FILE}" | grep "kvas_update" | cut -d' ' -f"${1}" | cut -d'/' -f2 | sed 's/[a-zA-Z\*]//g'
+	cat < "${CRONTAB_FILE}" | grep -E "root ${UPDATE_BIN_FILE} update" | cut -d' ' -f"${1}" | cut -d'/' -f2 | sed 's/[a-zA-Z\*]//g'
 }
 get_period_update() {
 	mm=$(get_time 1)
@@ -1952,7 +1952,6 @@ cmd_set_period_update() {
 		#		отображаем заданный период обновления
 		get_period_update
 	elif ! echo "${1}" | grep -q '[m,h,d,w,M]' ; then
-		print_line
 		error "Указан не верный формат периода."
 		print_line
 		warning "Период должно указать в форматах: m,h,d,w,M"
