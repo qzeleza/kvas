@@ -80,22 +80,25 @@ ip4_flush_cache(){
 # Подключаем правила для корректной работы DNS трафика через 53 порт
 # ------------------------------------------------------------------------------------------
 ip4_firewall_dns_rules_set(){
-	interface="${1}"
-	local_ip=${2}
-	protocol=${3}
-	#	Если не заданы аргументы, то ничего не выполняем
-	if [ -n "${interface}" ] && [ -n "${local_ip}" ] && [ -n "${protocol}" ] ; then
-		# если правила для tcp есть, то пропускаем их добавление
-		if ! ip4save | grep -q "${protocol} \-\-dport ${DNS_PORT} \-j DNAT"; then
-			log_warning "Подключаем правила для корректной работы DNS трафика через 53 порт:"
-			log_warning "Интерфейс: ${interface}, IP: ${local_ip}, протокол: ${protocol}."
 
-			ip4tables PREROUTING -w -t nat -i "${interface}" -p "${protocol}" --dport ${DNS_PORT} -j DNAT --to "${local_ip}" 1> /dev/null 2> "${ERROR_LOG_FILE}"
-			when_error "${?}" " ${IPv4} Ошибка при установке правил для DNS."
+	interface=$(get_local_inface)
+	local_ip=$(get_router_ip)
+
+	for protocol in tcp udp ; do
+		#	Если не заданы аргументы, то ничего не выполняем
+		if [ -n "${interface}" ] && [ -n "${local_ip}" ]; then
+			# если правила для tcp есть, то пропускаем их добавление
+			if ! ip4save | grep -q "${protocol} \-\-dport ${DNS_PORT} \-j DNAT"; then
+				log_warning "Подключаем правила для корректной работы DNS трафика через 53 порт:"
+				log_warning "Интерфейс: ${interface}, IP: ${local_ip}, протокол: ${protocol}."
+
+				ip4tables PREROUTING -w -t nat -i "${interface}" -p "${protocol}" --dport ${DNS_PORT} -j DNAT --to "${local_ip}" 1> /dev/null 2> "${ERROR_LOG_FILE}"
+				when_error "${?}" " ${IPv4} Ошибка при установке правил для DNS."
+			fi
+		else
+			log_error "При вызове ip4_firewall_dns_rules_set не были заданы обязательные аргументы."
 		fi
-	else
-		log_error "При вызове ip4_firewall_dns_rules_set не были заданы обязательные аргументы."
-	fi
+	done
 }
 
 
@@ -327,13 +330,19 @@ ip4tbl_flush_rm_pre_out(){
 # ------------------------------------------------------------------------------------------
 ip4tbl_flush_rm_match_set(){
 
-	table="${1}"; chain="${2}"; route="${3}";
+	table="${1}"; chain="${2}"; route="${3}"; interface=${4}; proxy_port=${5}
 	if [ -n "${table}" ] && [ -n "${chain}" ] && [ -n "${route}" ] ; then
 		log_warning "Производим удаление правил match-set в таблице ${table}, цепочке ${route} для ${chain}"
 
 		for prot in tcp udp; do
 			ip4save | grep "${route}" | grep "${chain}" | grep -q "${prot}" && {
-				iptab -t "${table}" -D "${route}" -p "${prot}" -m set --match-set ${table_name} dst -j "${chain}"
+				if [ -n "${interface}" ] && [ -n "${proxy_port}" ] ; then
+#					Для shadowsocks
+					iptab -t "${table}" -i "${interface}" -D "${route}" -p "${prot}" -m set --match-set ${table_name} dst -j "${chain}" --to-ports "${proxy_port}"
+				else
+#					Для VPN
+					iptab -t "${table}" -D "${route}" -p "${prot}" -m set --match-set ${table_name} dst -j "${chain}"
+				fi
 			}
 		done
 	else
@@ -385,8 +394,11 @@ ip4_firewall_ssr_prune(){
 	ip4tbl_flush_rm_pre_out nat "${SSR_IPTABLES_CHAIN}" PREROUTING
 	ip4tbl_flush_rm_chain nat "${SSR_IPTABLES_CHAIN}"
 
-#	ip4tbl_flush_rm_pre_out mangle "${SSR_IPTABLES_CHAIN_MARK}" OUTPUT
-#	ip4tbl_flush_rm_chain mangle "${SSR_IPTABLES_CHAIN_MARK}"
+	interface=$(get_local_inface)
+    proxy_port=$(get_config_value SSR_DNS_PORT)
+
+	ip4tbl_flush_rm_match_set nat REDIRECT PREROUTING "${interface}" "${proxy_port}"
+
 }
 
 

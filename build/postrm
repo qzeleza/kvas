@@ -39,8 +39,9 @@ rm_package_files(){
 
 	rm -f /opt/lib/opkg/info/kvas*
 	rm -f /opt/etc/inface_equals
+	rm -f /opt/etc/cron.5mins/ipset.kvas
 
-	del_period_update
+	del_period_update &>/dev/null
 }
 
 print_line

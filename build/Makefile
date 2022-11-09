@@ -81,6 +81,8 @@ cp -f /opt/apps/kvas/bin/libs/adblock /opt/apps/kvas/bin/libs/.adblock
 cp -f /opt/apps/kvas/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
 cp -f /opt/apps/kvas/bin/libs/ndm /opt/apps/kvas/bin/libs/.ndm
 
+ln -sf /opt/apps/kvas/bin/main/ipset /opt/etc/cron.5mins/ipset.kvas
+
 #. /opt/apps/kvas/bin/libs/route
 #ip4_write_route_default_to_config
 
@@ -91,12 +93,7 @@ cat /dev/null > "$${INSTALL_LOG}"
 
 test_status(){
 	[ "$${DEBUG}" = true ] && {
-		[ -f /opt/etc/init.d/S99adguardhome ] && /opt/etc/init.d/S99adguardhome  status #&> /dev/null
-		[ -f /opt/etc/init.d/S56dnsmasq ] && /opt/etc/init.d/S56dnsmasq  status #&> /dev/null
-		[ -f /opt/etc/init.d/S09dnscrypt-proxy2 ] && /opt/etc/init.d/S09dnscrypt-proxy2  status
-		get_config_value DNS_DEFAULT
-		echo "Число строк в AdGuardHome.yaml $$(cat < /opt/etc/AdGuardHome/AdGuardHome.yaml | wc -l)"
-			echo "Число записей $$(cat < "$${UNBLOCK_LIST_FILE}" | wc -l)"
+			echo "Стадия  $${1}"
 	}
 }
 log_in_file(){
@@ -151,7 +148,7 @@ set_config_value DNSMASQ_LISTEN_IP "$${local_ip}"
 #------------------------------------------------------
 cmd_interface_change ask install
 log_in_file "$$(cmd_vpn_status)"
-test_status
+test_status 1
 print_line
 #------------------------------------------------------
 # AdGuard Home
@@ -183,7 +180,7 @@ if cmd_adguardhome_status | grep -qE "(ВКЛЮЧЕН|ОТКЛЮЧЕН)" ; then
 	print_line
 fi
 
-test_status
+test_status 2
 #------------------------------------------------------
 # 	ГОТОВИМ ФАЙЛЫ НЕ ЗАВИСЯЩИЕ ОТ КОНФИГУРАЦИИ ПАКЕТА
 #------------------------------------------------------
@@ -202,7 +199,7 @@ ready "Настройка файлов конфигурации пакета"
 	log_in_file "ОШИБКА: при настройке файлов конфигурации пакета"
 	exit 1
 }
-test_status
+test_status 3
 #------------------------------------------------------
 # ВОССТАНАВЛИВАЕМ ФАЙЛ СО СПИСКОМ РАЗБЛОКИРОВКИ
 #------------------------------------------------------
@@ -226,7 +223,7 @@ else
 		exit 1
 	}
 fi
-test_status
+test_status 4
 #----------------------------------------------------------
 #
 # 	В случае, если установить AdGuard Home отказались
@@ -246,20 +243,20 @@ if [ "$${answer_agh}" = n ]; then
 	# DNSMASQ
 	#------------------------------------------------------
 	dnsmasq_install "install"
-	test_status
+	test_status 5
 	#------------------------------------------------------
 	# DNSCRYPT-PROXY2
 	#------------------------------------------------------
 	dns_crypt_install "install"
 	log_in_file "Шифрование DNS трафика (dnscrypt-proxy2) ВКЛЮЧЕНО."
-	test_status
+	test_status 6
 	#------------------------------------------------------
 	# Блокировка рекламы
 	#------------------------------------------------------
 	log_in_file "Блокировка рекламы НЕ УСТАНОВЛЕНА.."
 	print_line
 #	fi
-	test_status
+	test_status 7
 fi
  
 
@@ -275,7 +272,7 @@ cmd_set_period_update "12h" &> /dev/null
 	exit 1
 }
 #cmd_update_list
-test_status
+test_status 8
 
 #  проверяем был ли сделал выбор AdGuard Home в качестве DNS сервера
 
@@ -302,7 +299,7 @@ cmd_kvas_init &> /dev/null && when_ok "УСПЕШНО" || {
 #cmd_state_checker
 #print_line
 
-#test_status
+test_status 9
 print_line
 log_in_file line
 log_in_file "Установка завершена: $$(date "$${DATE_FORMAT}")"
@@ -359,8 +356,9 @@ rm_package_files(){
 
 	rm -f /opt/lib/opkg/info/kvas*
 	rm -f /opt/etc/inface_equals
+	rm -f /opt/etc/cron.5mins/ipset.kvas
 
-	del_period_update
+	del_period_update &>/dev/null
 }
 
 print_line

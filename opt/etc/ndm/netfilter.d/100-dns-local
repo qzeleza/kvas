@@ -18,7 +18,6 @@
 if [ "${type}" = "iptables" ] && [ "${table}" = "nat" ] ; then
         . /opt/apps/kvas/bin/libs/ndm
         logger -t "КВАС"  "Запущен файл /opt/etc/ndm/netfilter.d/100-dns-local [type=${type} и table=${table}]"
-        ip4_firewall_dns_rules_set br0 10.0.71.1 tcp
-        ip4_firewall_dns_rules_set br0 10.0.71.1 udp
+        ip4_firewall_dns_rules_set
 fi
 
