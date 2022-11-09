@@ -1,5 +1,5 @@
 #!/bin/sh
-#. /opt/apps/kvas/bin/libs/vpn
+. /opt/apps/kvas/bin/libs/vpn
 . /opt/apps/kvas/bin/libs/ndm
 #------------------------------------------------------------------------------
 #

@@ -39,15 +39,14 @@ ip_list_add_to_ipset(){
 # 	если список не пуст
 	[ -n "${ip_list}" ] && {
 		for ip in ${ip_list}; do
-			ipset list "${TABLE_NAME}" | grep -q "$ip" || {
+			ipset list "${TABLE_NAME}" | grep -q "${ip}" || {
 				ipset -exist add "${TABLE_NAME}" "${ip}"
-				if [ "${?}" = 0 ]; then
-					logger -t "КВАС" "Обнаружен новый IP=${ip} для домена ${line} и успешно добавлен в таблицу ipset."
-				else
-					logger  -p err -t "КВАС" "Возникла ошибка при добавлении ${ip} домена ${line} в таблицу ipset."
-				fi
+				mess="Обнаружен новый IP=${ip} для домена ${line} и успешно добавлен в таблицу ipset."
+				echo "${mess}"
+				logger -t "КВАС" "${mess}"
 			}
 		done
+
 	}
 }
 
@@ -75,3 +74,6 @@ while read -r line || [ -n "${line}" ]; do
 	fi
 
 done < "${HOST_LIST}"
+
+count=$(ipset list "${TABLE_NAME}" | grep -cE "^${IP_FILTER}")
+echo "Общее число IP адресов в ipset составляет ${count} шт."
