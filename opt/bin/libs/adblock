@@ -141,27 +141,46 @@ get_separated_host_list() {
 
 #--------------------------------------------------------------
 #
+# 	Перегружаем необходимые сервисы для работы блокировки рекламы.
+#
+#--------------------------------------------------------------
+restart_dns_service(){
+
+	ready "${prefix}Перезапускаем сервис dnsmasq"
+	/opt/etc/init.d/S56dnsmasq restart &>/dev/null
+	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+}
+
+#--------------------------------------------------------------
+#
 # 	Удаляем доменное имя из списка блокировки рекламы.
 #
 #--------------------------------------------------------------
 cmd_ads_add_host(){
-	host=${1//\*/}
-#	Проверяем есть ли сам файл для исключений и есть ли в нем записи.
-	[ -f "${ADBLOCK_LIST_EXCEPTION}" ] || touch "${ADBLOCK_LIST_EXCEPTION}"
-#	Проверяем есть ли уже в списке переданный домен
-	if cat < "${ADBLOCK_LIST_EXCEPTION}" | grep -q "${host}" ; then
-		warning "Данный домен уже был ранее удален из списка блокировки рекламы."
+
+	if [ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ]; then
+		host=${1//\*/}
+	#	Проверяем есть ли сам файл для исключений и есть ли в нем записи.
+		[ -f "${ADBLOCK_LIST_EXCEPTION}" ] || touch "${ADBLOCK_LIST_EXCEPTION}"
+	#	Проверяем есть ли уже в списке переданный домен
+		if cat < "${ADBLOCK_LIST_EXCEPTION}" | grep -q "${host}" ; then
+			warning "Данный домен уже был ранее удален из списка блокировки рекламы."
+		else
+			echo "${host}" >> "${ADBLOCK_LIST_EXCEPTION}"
+			nlines_amount=$(cat < "${ADS_HOSTS_FILE}" | wc -l)
+			ready "Доменное имя ${host} удалено из списка блокировки рекламы"
+			exclude_all="$(get_separated_host_list "${ADBLOCK_LIST_EXCEPTION}")"
+			sed -i "/.*.${host}$/d" "${ADS_HOSTS_FILE}" && \
+			when_ok "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+			nlines_excluded=$(cat < "${ADS_HOSTS_FILE}" | wc -l)
+			diff_count=$((nlines_amount-nlines_excluded))
+			ready "Всего из списка блокировки рекламы удалено хостов"
+			when_ok "${diff_count}"
+			restart_dns_service
+		fi
 	else
-		echo "${host}" >> "${ADBLOCK_LIST_EXCEPTION}"
-		nlines_amount=$(cat < "${ADS_HOSTS_FILE}" | wc -l)
-		ready "Доменное имя ${host} удалено из списка блокировки рекламы"
-		exclude_all="$(get_separated_host_list "${ADBLOCK_LIST_EXCEPTION}")"
-		sed -i "/.*.${host}$/d" "${ADS_HOSTS_FILE}" && \
-		when_ok "УСПЕШНО" || when_bad "С ОШИБКОЙ"
-		nlines_excluded=$(cat < "${ADS_HOSTS_FILE}" | wc -l)
-		diff_count=$((nlines_amount-nlines_excluded))
-		ready "Всего из списка блокировки рекламы удалено хостов"
-		when_ok "${diff_count}"
+		warning "Обнаружен пакет AdGuard Home у которого имеется свой 'Черный список'"
+		warning "Чтобы воспользоваться встроенным списком блокировки рекламы отключите AdGuard Home"
 	fi
 }
 
@@ -172,13 +191,19 @@ cmd_ads_add_host(){
 #--------------------------------------------------------------
 cmd_ads_del_from_skip_list(){
 	host=${1//\*/}
+	if [ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ]; then
 
-	if [ -f "${ADBLOCK_LIST_EXCEPTION}" ] ; then
-		ready "Доменное имя ${host} удалено из списка исключений"
-		sed -i "/.*${host}$/d" "${ADS_HOSTS_FILE}" && when_ok "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+		if [ -f "${ADBLOCK_LIST_EXCEPTION}" ] ; then
+			ready "Доменное имя ${host} удалено из списка исключений"
+			sed -i "/.*${host}$/d" "${ADS_HOSTS_FILE}" && when_ok "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+			restart_dns_service
+		else
+			warning "Списка исключений еще не существует. "
+			warning "Добавьте в него домен командой 'kvas adblock add <host>'"
+		fi
 	else
-		warning "Списка исключений еще не существует. "
-		warning "Добавьте в него домен командой 'kvas adblock add <host>'"
+		warning "Обнаружен пакет AdGuard Home у которого имеется свой 'Черный список'"
+		warning "Чтобы воспользоваться встроенным списком блокировки рекламы отключите AdGuard Home"
 	fi
 }
 
