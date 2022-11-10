@@ -133,7 +133,8 @@ ip4_firewall_exclude_locals(){
 # Маркируем VPN подключения, когда программное и аппаратное ускорение ПОДКЛЮЧЕНО
 # ------------------------------------------------------------------------------------------
 ip4_firewall_vpn_mark(){
-	ip4save | grep "${VPN_IPTABLES_CHAIN}" | grep -qv '\[0:0\]' || {
+
+	if ! ip4save | grep "${VPN_IPTABLES_CHAIN}" | grep -vq '\[0:0\]' ; then
 		# Маркируем трафик для домашней(основной) сети и прохождение пакетов через VPN подключение
 		{
 			table=mangle
@@ -158,7 +159,7 @@ ip4_firewall_vpn_mark(){
 
 		} 2> "${ERROR_LOG_FILE}"
 		when_error "${?}" " ${IPv4} Во время маркировки трафика для VPN соединений возникли ошибки."
-	}
+	fi
 }
 
 
@@ -187,7 +188,7 @@ ip4_firewall_mark_rules_tcp_udp_on(){
 #
 # ------------------------------------------------------------------------------------------
 ip4_add_guest_to_vpn_network(){
-	ip4save | grep "\-j MASQUERADE" | grep -q "${INFACE_GUEST_ENT}" && {
+	if ! ip4save | grep "\-j MASQUERADE" | grep -q "${INFACE_GUEST_ENT}" ; then
 		# Маркируем трафик гостевой сети
 		{
 			log_warning "Подключаем правила маркировки гостевого трафика."
@@ -195,7 +196,7 @@ ip4_add_guest_to_vpn_network(){
 			ip4tables POSTROUTING -t nat -s "${GUEST_NET}" -o "${INFACE_GUEST_ENT}" -j MASQUERADE
 		} 2> "${ERROR_LOG_FILE}"
 		when_error "${?}" " ${IPv4} Возникла ошибка при маркировке гостевого трафика ${INFACE_GUEST_ENT} [${INFACE_GUEST_GW4}]"
-	}
+	fi
 }
 
 
