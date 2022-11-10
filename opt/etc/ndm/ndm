@@ -269,10 +269,7 @@ ip4_firewall_set_all_rules(){
 		ip4_mark_vpn_network
 	else
 #		Если активно SHADOWSOCKS соединение
-		local_ip=$(get_router_ip)
-		interface=$(get_inface_by_ip "${local_ip}")
-		proxy_port=$(get_config_value SSR_DNS_PORT)
-		ip4_firewall_set_ssr_rules "${interface}" "${proxy_port}"
+		ip4_firewall_set_ssr_rules
 
 	fi
 
@@ -600,10 +597,7 @@ recreate_ssr_rules(){
 	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 
 	ready "${prefix}Создаем iptables правила для SHADOWSOCKS соединения."
-	local_ip=$(get_router_ip)
-	interface=$(get_inface_by_ip "${local_ip}")
-	proxy_port=$(get_config_value SSR_DNS_PORT)
-	ip4_firewall_set_ssr_rules "${interface}" "${proxy_port}" &> /dev/null
+	ip4_firewall_set_ssr_rules &> /dev/null
 	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 }
 
