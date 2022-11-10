@@ -20,9 +20,9 @@ cmd_adguard_update(){
 
 	if [ "${latest_version}" != "${current_version}" ]; then
 		copy_name=${bin_path}/${full_adguard_name}.${current_version}
-		mess_1="${full_adguard_name}::Обновляем ${full_adguard_name} с ${current_version} до ${latest_version}"
-		mess_2="${full_adguard_name}::Копия сохранена под именем ${copy_name}"
-
+		mess_1="Обновляем ${full_adguard_name} с ${current_version} до ${latest_version}"
+		mess_2="Копия сохранена под именем ${copy_name}"
+		warning "Найдена новая версия пакета ${full_adguard_name} - ${latest_version}"
 		ready "${mess_1}"; log_warning "${mess_1}"
 		{
 			curl -k -f -s -S -L "${url_update}" -o "/tmp/${full_adguard_name}.tar.gz"
@@ -37,7 +37,8 @@ cmd_adguard_update(){
 
 		ready_status "${?}" "Ошибка обновления ${full_adguard_name}"
 		warning "${mess_2}"; log_warning "${mess_2}"
-
+	else
+		warning "Обновлений для ${full_adguard_name} не найдено."
 	fi
 
 }
