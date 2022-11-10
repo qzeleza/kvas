@@ -24,7 +24,7 @@
 # ------------------------------------------------------------------------------
 
 APP_VERSION=1.0
-APP_RELEASE=beta-20
+APP_RELEASE=beta-21
 
 clear_file_content "${UNBLOCK_LIST_FILE}"
 

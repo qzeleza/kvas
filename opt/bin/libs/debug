@@ -226,9 +226,9 @@ unblock_list_ipset_check(){
 # ------------------------------------------------------------------------------------------
 unblock_ipset_debug() {
 
-	result=$(cat < "/opt/apps/kvas/bin/main/ipset" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
-	echo_debug "Скрипт заполнения таблицы ipset /opt/apps/kvas/bin/main/ipset" "${result}"
-	/opt/apps/kvas/bin/main/ipset &>/dev/null
+	result=$(cat < "/opt/apps/kvas/bin/main/ipset" | sed -n 's/.*\(@[0-9\.:]\{1,20\}\).*/\1/p' | sort -u)
+	echo_debug "DNS сервер, используемый в /opt/apps/kvas/bin/main/ipset" "${result}"
+#	/opt/apps/kvas/bin/main/ipset &>/dev/null
 	result_ipset=$(ipset list unblock | grep -vEi '^[a-z]' | sort)
 	result=$(echo "${result_ipset}" | tail -20)
 	echo_debug "Таблица ipset (20 записей)\nкоманда: 'ipset list unblock'" "${result}"
@@ -244,8 +244,8 @@ unblock_ipset_debug() {
 # ------------------------------------------------------------------------------------------
 unblock_dnsmasq_debug() {
 
-	result=$(cat < "/opt/apps/kvas/bin/main/dnsmasq" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
-	echo_debug "Скрипт заполнения списка разблокировки/opt/apps/kvas/bin/main/dnsmasq" "${result}"
+#	result=$(cat < "/opt/apps/kvas/bin/main/dnsmasq" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
+#	echo_debug "Скрипт заполнения списка разблокировки /opt/apps/kvas/bin/main/dnsmasq" "${result}"
 	result=$(cat < '/opt/etc/kvas.dnsmasq' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | tail -20)
 	echo_debug "Список разблокировки в /opt/etc/kvas.dnsmasq (20 записей)" "${result}"
 }
@@ -256,8 +256,8 @@ unblock_dnsmasq_debug() {
 # ------------------------------------------------------------------------------------------
 unblock_adguard_debug() {
 
-	result=$(cat < "/opt/apps/kvas/bin/main/adguard" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
-	echo_debug "Скрипт заполнения списка разблокировки/opt/apps/kvas/bin/main/dnsmasq" "${result}"
+#	result=$(cat < "/opt/apps/kvas/bin/main/adguard" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
+#	echo_debug "Скрипт заполнения списка разблокировки /opt/apps/kvas/bin/main/dnsmasq" "${result}"
 	result=$(cat < "${ADGUARDHOME_CONFIG}" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | sed -n '/ipset/,/filtering_enabled/p' | sed -e '$d' )
 	echo_debug "Блок записей по ipset в ${ADGUARDHOME_CONFIG}" "${result}"
 	result=$(cat < "${ADGUARDHOME_LOG}" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | tail -20)
@@ -273,8 +273,8 @@ unblock_adguard_debug() {
 adblock_dnsmasq_debug() {
 
 	if [ -n "$(cat < '/opt/etc/dnsmasq.conf' | sed '/^$/d' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep "adblock.dnsmasq")" ]; then
-		result=$(cat < "/opt/apps/kvas/bin/main/adblock")
-		echo_debug "Скрипт заполнения списка блокировки рекламы/opt/apps/kvas/bin/main/adblock" "${result}"
+#		result=$(cat < "/opt/apps/kvas/bin/main/adblock")
+#		echo_debug "Скрипт заполнения списка блокировки рекламы/opt/apps/kvas/bin/main/adblock" "${result}"
 		result=$(cat < '/opt/etc/adblock.dnsmasq' | sed -e '/^#/d; /^$/d' | tail -20)
 		echo_debug "Список блокировки рекламы /opt/etc/adblock.dnsmasq (20 записей)" "${result}"
 	fi
@@ -289,13 +289,13 @@ iptables_debug() {
 	if [ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ]; then
 		print_line
 		cmd_shadowsocks_iptable_reset
-		result=$(/opt/sbin/iptables-save 2>/dev/null | grep unblock)
+		result=$(/opt/sbin/iptables-save 2>/dev/null | grep -E 'unblock|SHADOWSOCKS')
 	else
 		print_line
 		cmd_vpn_iptable_reset
-		result=$(/opt/sbin/iptables-save | grep -E 'SHADOWSOCKS|VPNREDIR' )
+		result=$(/opt/sbin/iptables-save | grep -E 'VPNREDIR|unblock' )
 	fi
-	echo_debug "Правила перенаправления трафика unblock в iptables\nкоманда: iptables-save | grep -E 'SHADOWSOCKS|VPNREDIR'" "${result}"
+	echo_debug "Правила перенаправления трафика unblock в iptables\nкоманда: iptables-save | grep -E 'SHADOWSOCKS|VPNREDIR|unblock'" "${result}"
 }
 
 # ------------------------------------------------------------------------------------------
@@ -309,7 +309,10 @@ syslog_debug() {
 			| grep -A3 -B1 \"E\" | grep -E "message|timestamp" \
 			| cut -d":" -f2- | tr -d '"' | sed 's/\,$/\n/g' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' \
 			)
-	echo_debug "Список ошибок из системного журнала" "${result}"
+	echo "Список ошибок из системного журнала"
+	print_line
+	echo "${result}"
+	echo ''
 }
 
 # ------------------------------------------------------------------------------------------
@@ -349,7 +352,7 @@ router_info() {
 #
 # ------------------------------------------------------------------------------------------
 date_info() {
-	echo_debug "Версия пакета КВАС" "${APP_VERSION}-${APP_RELEASE}"
+	echo "Версия пакета КВАС ${APP_VERSION}-${APP_RELEASE}"
 	echo_debug "Текущая дата и время" "$(date)"
 }
 
@@ -365,6 +368,12 @@ cmd_print_debug() {
 
 	internet_check
 	dns_override_check
+	date_info
+	router_info
+#	ping_debug
+	show_install_log
+	print_line
+	syslog_debug
 
 	if cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then
 		unblock_adguard_debug
@@ -383,13 +392,7 @@ cmd_print_debug() {
 	fi
 #	print_line
 	iptables_debug
-	print_line
 	kvas_list_debug
 	unblock_ipset_debug
-	syslog_debug
-#	ping_debug
-	date_info
-	router_info
-	print_line
-	show_install_log
+
 }

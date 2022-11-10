@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=kvas
 PKG_VERSION:=1.0
-PKG_RELEASE:=beta_20
+PKG_RELEASE:=beta_21
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)
 
 include $(INCLUDE_DIR)/package.mk
@@ -83,9 +83,6 @@ cp -f /opt/apps/kvas/bin/libs/ndm /opt/apps/kvas/bin/libs/.ndm
 
 ln -sf /opt/apps/kvas/bin/main/ipset /opt/etc/cron.5mins/ipset.kvas
 
-#. /opt/apps/kvas/bin/libs/route
-#ip4_write_route_default_to_config
-
 . /opt/apps/kvas/bin/libs/main
 
 mkdir -p "$${KVAS_BACKUP_PATH}"
@@ -105,8 +102,8 @@ log_in_file(){
 }
 
 print_line
-welcome="Установка пакета КВАС™ версия 1.0-beta-20"
-echo "$${welcome}"
+welcome="Установка пакета $${GREEN}КВАС™$${NOCL} версия $${GREEN}1.0-beta-21$${NOCL}"
+echo -e "$${welcome}"
 print_line
 
 log_in_file "$${welcome}"
@@ -184,22 +181,22 @@ test_status 2
 #------------------------------------------------------
 # 	ГОТОВИМ ФАЙЛЫ НЕ ЗАВИСЯЩИЕ ОТ КОНФИГУРАЦИИ ПАКЕТА
 #------------------------------------------------------
-ready "Настройка файлов конфигурации пакета"
-[ -f /opt/etc/ndm/netfilter.d/100-dns-local ] \
-	&& sed -i "s/@LOCAL_IP/$${local_ip}/g; s/@INFACE/$${inface}/g;" /opt/etc/ndm/netfilter.d/100-dns-local \
-	|| {
-		log_in_file "ОШИБКА: отсутствует файл /opt/etc/ndm/netfilter.d/100-dns-local"
-		error "Отсутствует файл /opt/etc/ndm/netfilter.d/100-dns-local";
-		warning "Проблема повторной установки. Удалите и установите пакет заново.";
-		exit 1;
-	}
-
-[ $$? = 0 ] && when_ok "ГОТОВО" || {
-	when_bad "ОШИБКА"
-	log_in_file "ОШИБКА: при настройке файлов конфигурации пакета"
-	exit 1
-}
-test_status 3
+#ready "Настройка файлов конфигурации пакета"
+#[ -f /opt/etc/ndm/netfilter.d/100-dns-local ] \
+#	&& sed -i "s/@LOCAL_IP/$${local_ip}/g; s/@INFACE/$${inface}/g;" /opt/etc/ndm/netfilter.d/100-dns-local \
+#	|| {
+#		log_in_file "ОШИБКА: отсутствует файл /opt/etc/ndm/netfilter.d/100-dns-local"
+#		error "Отсутствует файл /opt/etc/ndm/netfilter.d/100-dns-local";
+#		warning "Проблема повторной установки. Удалите и установите пакет заново.";
+#		exit 1;
+#	}
+#
+#[ $$? = 0 ] && when_ok "ГОТОВО" || {
+#	when_bad "ОШИБКА"
+#	log_in_file "ОШИБКА: при настройке файлов конфигурации пакета"
+#	exit 1
+#}
+#test_status 3
 #------------------------------------------------------
 # ВОССТАНАВЛИВАЕМ ФАЙЛ СО СПИСКОМ РАЗБЛОКИРОВКИ
 #------------------------------------------------------
@@ -362,7 +359,7 @@ rm_package_files(){
 }
 
 print_line
-echo -e "Удаление пакета $${GREEN}КВАС™$${NOCL} версия $${GREEN}1.0-beta-20$${NOCL}..."
+echo -e "Удаление пакета $${GREEN}КВАС™$${NOCL} версия $${GREEN}1.0-beta-21$${NOCL}..."
 print_line
 
 answer='y';
