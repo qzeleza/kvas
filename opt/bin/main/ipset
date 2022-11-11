@@ -29,25 +29,25 @@ logger -t "КВАС" "Запущен файл /opt/apps/kvas/bin/main/ipset"
 # Добавляем переданные в функцию IP адреса в ipset таблицу unblock
 # ------------------------------------------------------------------------------
 ip_list_add_to_ipset(){
-
+	host=${1//\*/}
 #	получаем список шз адресов от текущего dns сервера
 # 	и исключаем из списка адреса типа 0.0.0.0
-	ip_list=$(kdig +short "${1}" @localhost \
+	ip_list=$(kdig +short "${host}" @localhost \
 	| grep -Eo "${IP_FILTER}" \
 	| grep -v '0.0.0.0' )
 
 # 	если список не пуст
-	[ -n "${ip_list}" ] && {
+	if [ -n "${ip_list}" ]; then
 		for ip in ${ip_list}; do
 			ipset list "${TABLE_NAME}" | grep -q "${ip}" || {
 				ipset -exist add "${TABLE_NAME}" "${ip}"
-				mess="Обнаружен новый IP=${ip} для домена ${line} и успешно добавлен в таблицу ipset."
+				mess="Обнаружен новый IP=${ip} для домена ${host} и успешно добавлен в таблицу ipset."
 				echo "${mess}"
 				logger -t "КВАС" "${mess}"
 			}
 		done
 
-	}
+	fi
 }
 
 
