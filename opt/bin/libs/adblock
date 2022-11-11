@@ -82,7 +82,7 @@ cmd_ads_protect_on() {
 cmd_ads_status() {
 	if [ -f '/opt/apps/kvas/bin/main/adblock' ]; then
 		ready "Блокировка рекламы "
-		if [ -f '/opt/etc/dnsmasq.conf' ]; then
+		if [ -f '/opt/etc/init.d/S56dnsmasq' ]; then
 			cat < '/opt/etc/dnsmasq.conf' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep -q "/opt/tmp/adblock/hosts" &> /dev/null
 			[ $? = 0 ] && when_ok "ВКЛЮЧЕНА" || when_bad "ОТКЛЮЧЕНА"
 		else
