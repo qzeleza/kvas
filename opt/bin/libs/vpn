@@ -234,6 +234,11 @@ adguardhome_setup() {
 		cp /opt/etc/AdGuardHome/AdGuardHome.yaml "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml
 	fi
 #	и копируем подготовленный файл сервиса adguard в папку запуска сервисов
+#	проверяем файл на оригинальность (без переделок ли он под квас)
+	if ! cat < "${ADGUARDHOME_DEMON}" | grep -q kvas ; then
+#		если оригинальный, то архивируем его
+		mv "${ADGUARDHOME_DEMON}" "${KVAS_BACKUP_PATH}/S99adguardhome.orign"
+	fi
 	cp /opt/apps/kvas/etc/init.d/S99adguard "${ADGUARDHOME_DEMON}"
 #	удаляем сервис запуса квас так как его теперь будет заменять файл сервиса adguard
 	rm -f "${KVAS_START_FILE}"
@@ -317,6 +322,12 @@ adguardhome_check_config() {
 			rm -f /opt/var/log/AdGuardHome.log
 #			Проверяем наличие файла конфигурации AdGuardHome в папке исполняемых файлов
 			if [ -f /opt/bin/AdGuardHome.yaml ]; then
+#				проверяем файл на оригинальность (без переделок ли он под квас)
+				if ! cat < "${ADGUARDHOME_DEMON}" | grep -q kvas ; then
+#					если оригинальный, то архивируем его
+					mv "${ADGUARDHOME_DEMON}" "${KVAS_BACKUP_PATH}/S99adguardhome.orign"
+				fi
+
 				cp /opt/apps/kvas/etc/init.d/S99adguard  /opt/etc/init.d/S99adguardhome
 				mv /opt/bin/AdGuardHome.yaml /opt/etc/AdGuardHome/AdGuardHome.yaml
 				"${ADGUARDHOME_DEMON}" restart  &> /dev/null
