@@ -88,7 +88,7 @@ ip4_firewall_dns_rules_set(){
 		#	Если не заданы аргументы, то ничего не выполняем
 		if [ -n "${interface}" ] && [ -n "${local_ip}" ]; then
 			# если правила для tcp есть, то пропускаем их добавление
-			if ! ip4save | grep -q "${protocol} \-\-dport ${DNS_PORT} \-j DNAT"; then
+			if ! ip4save | grep -q "${protocol} \-\-dport ${DNS_PORT} \-j DNAT"  &>/dev/null  ; then
 				log_warning "Подключаем правила для корректной работы DNS трафика через 53 порт:"
 				log_warning "Интерфейс: ${interface}, IP: ${local_ip}, протокол: ${protocol}."
 
@@ -134,7 +134,7 @@ ip4_firewall_exclude_locals(){
 # ------------------------------------------------------------------------------------------
 ip4_firewall_vpn_mark(){
 
-	if ! ip4save | grep "${VPN_IPTABLES_CHAIN}" | grep -vq '\[0:0\]' ; then
+	if ! ip4save | grep "${VPN_IPTABLES_CHAIN}" | grep -vq '\[0:0\]'  &>/dev/null ; then
 		# Маркируем трафик для домашней(основной) сети и прохождение пакетов через VPN подключение
 		{
 			table=mangle
@@ -169,7 +169,7 @@ ip4_firewall_vpn_mark(){
 #
 # ------------------------------------------------------------------------------------------
 ip4_firewall_mark_rules_tcp_udp_on(){
-	if ! ip4save | grep "\j MARK" | grep -q "${table_name}" ; then
+	if ! ip4save | grep "\j MARK" | grep -q "${table_name}"  &>/dev/null ; then
 		{
 			log_warning "Маркировка VPN подключений когда программное и аппаратное ускорение ОТКЛЮЧЕНО."
 			# Исключаем маркировку трафика для гостевой (в том числе) сети
@@ -188,7 +188,7 @@ ip4_firewall_mark_rules_tcp_udp_on(){
 #
 # ------------------------------------------------------------------------------------------
 ip4_add_guest_to_vpn_network(){
-	if ! ip4save | grep "\-j MASQUERADE" | grep -q "${INFACE_GUEST_ENT}" ; then
+	if ! ip4save | grep "\-j MASQUERADE" | grep -q "${INFACE_GUEST_ENT}"  &>/dev/null ; then
 		# Маркируем трафик гостевой сети
 		{
 			log_warning "Подключаем правила маркировки гостевого трафика."
@@ -237,8 +237,8 @@ ip4_firewall_set_ssr_rules(){
 	# https://github.com/shadowsocks/shadowsocks-libev/blob/master/doc/ss-redir.asciidoc?ysclid=l949tgrsfn795375643
 	# Создаем новую цепочку SHADOWSOCKS
 
-	if ! ip4save | grep "${SSR_IPTABLES_CHAIN}" | grep -qv '\[0:0\]' && \
-	   ! ip4save | grep PREROUTING | grep "${table_name}" | grep -q "${proxy_port}" ; then
+	if ! ip4save | grep "${SSR_IPTABLES_CHAIN}" | grep -qv '\[0:0\]'  &>/dev/null  && \
+	   ! ip4save | grep PREROUTING | grep "${table_name}" | grep -q "${proxy_port}"  &>/dev/null ; then
 		{
 			log_warning "Подключаем правила для SHADOWSOCKS интерфейса ${interface} порт ${proxy_port}."
 
@@ -286,7 +286,7 @@ ip4tbl_flush_rm_chain(){
 	table="${1}"; chain="${2}"
 	#	Если не заданы аргументы, то ничего не выполняем
 	if [ -n "${table}" ] && [ -n "${chain}" ] ; then
-		ip4save | grep -q "${chain}" && {
+		ip4save | grep -q "${chain}"  &>/dev/null && {
 			log_warning "Производим удаление правил в таблице ${table} и цепочке ${route} и удаляем цепочку."
 			iptab -F "${chain}" -t "${table}"
 			iptab -X "${chain}" -t "${table}"
@@ -309,7 +309,7 @@ ip4tbl_flush_rm_pre_out(){
 		log_warning "Производим удаление стандартных правил в таблице ${table}, цепочке ${route} для ${chain}"
 
 		for prot in tcp udp icmp; do
-			ip4save | grep "${route}" | grep "${chain}" | grep -q "${prot}" && {
+			ip4save | grep "${route}" | grep "${chain}" | grep -q "${prot}" &>/dev/null  && {
 				if [ "${icmp_arg}" = 'icmp' ] && [ "${prot}" = icmp ]; then
 					iptab -t "${table}" -D "${route}" ! -p "${prot}" -j "${chain}"
 				else
@@ -333,7 +333,7 @@ ip4tbl_flush_rm_match_set(){
 		log_warning "Производим удаление правил match-set в таблице ${table}, цепочке ${route} для ${chain}"
 
 		for prot in tcp udp; do
-			ip4save | grep "${route}" | grep "${chain}" | grep -q "${prot}" && {
+			ip4save | grep "${route}" | grep "${chain}" | grep -q "${prot}"  &>/dev/null  && {
 				if [ -n "${interface}" ] && [ -n "${proxy_port}" ] ; then
 #					Для shadowsocks
 					iptab -t "${table}" -i "${interface}" -D "${route}" -p "${prot}" -m set --match-set ${table_name} dst -j "${chain}" --to-ports "${proxy_port}"

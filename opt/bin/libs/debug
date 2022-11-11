@@ -353,7 +353,9 @@ router_info() {
 # ------------------------------------------------------------------------------------------
 date_info() {
 	echo "Версия пакета КВАС ${APP_VERSION}-${APP_RELEASE}"
-	echo_debug "Текущая дата и время" "$(date)"
+	print_line
+	echo "Текущая дата и время $(date)"
+	echo ''
 }
 
 show_install_log(){
