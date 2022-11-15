@@ -66,27 +66,28 @@ ip4_firewall_flush_all_rules &>/dev/null
 ip4_flush_all_tables &>/dev/null
 if [ $? = 0 ]; then when_ok "УСПЕШНО"; else when_bad "ОШИБКА"; fi
 
-if adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
+if /opt/etc/init.d/S99adguardhome status | grep -q "alive" ; then
 
 	if [ -f "${KVAS_BACKUP_PATH}/S99adguardhome.orign" ]; then
 		ready "Восстанавливаем службу adguardhome"
 		cp "${KVAS_BACKUP_PATH}/S99adguardhome.orign" /opt/etc/init.d/S99adguardhome
 		cp /opt/etc/AdGuardHome/AdGuardHome.yaml /opt/bin/AdGuardHome.yaml
 		/opt/etc/init.d/S99adguardhome restart &> /dev/null
-		[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+		[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 	fi
+
 else
 	ready "Останавливаем службу dnsmasq "
 	/opt/etc/init.d/S56dnsmasq stop &> /dev/null
-	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 	ready "Останавливаем службу dnscrypt-proxy2 "
 	/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
-	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
 	ready "Архивируем файлы служб dnsmasq и dnscrypt-proxy2"
 	mv /opt/etc/init.d/S56dnsmasq /opt/etc/init.d/eK56dnsmasq
 	mv /opt/etc/init.d/S09dnscrypt-proxy2 /opt/etc/init.d/K09dnscrypt-proxy2
-	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 	warning "Файлы сохранены в папке /opt/etc/init.d"
 	warning "под именами K56dnsmasq и K09dnscrypt-proxy2"
 

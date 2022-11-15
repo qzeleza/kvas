@@ -268,7 +268,9 @@ adguardhome_setup() {
 #
 # ------------------------------------------------------------------------------------------
 get_adguardhome_ip_port() {
-	echo "$(cat < "${ADGUARDHOME_CONFIG}" | grep '^bind_host: ' | cut -d':' -f2 | tr -d ' \n')#${MAIN_DNS_PORT}"
+	dns_ip="$(cat < "${ADGUARDHOME_CONFIG}" | grep '^bind_host: ' | cut -d':' -f2 | tr -d ' \n')"
+	echo "${dns_ip}" | grep -q '0.0.0.0' && dns_ip=$(get_router_ip)
+	echo "${dns_ip}#${MAIN_DNS_PORT}"
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -1326,7 +1328,7 @@ show_vpn_list() {
 		cli_inface_desc=$(echo "${line}" | cut -d"|" -f3)
 		cli_inface=$(echo "${line}" | cut -d"|" -f1)
 		mess="${num}. Интерфейс ${cli_inface_desc}"
-#		sleep 1
+		sleep 1
 		connected=$(is_vpn_interface_connected "${cli_inface}")
 
 		if [ -n "${is_current_vpn}" ]; then
