@@ -134,7 +134,9 @@ ip4_firewall_exclude_locals(){
 # ------------------------------------------------------------------------------------------
 ip4_firewall_vpn_mark(){
 
-	if ! ip4save | grep "${VPN_IPTABLES_CHAIN}" | grep -vq '\[0:0\]' ; then
+	rules=$(ip4save | grep "${VPN_IPTABLES_CHAIN}" | grep -v '\[0:0\]')
+
+	if [ -z "${rules}" ] ; then
 		# Маркируем трафик для домашней(основной) сети и прохождение пакетов через VPN подключение
 		{
 			table=mangle
@@ -169,7 +171,10 @@ ip4_firewall_vpn_mark(){
 #
 # ------------------------------------------------------------------------------------------
 ip4_firewall_mark_rules_tcp_udp_on(){
-	if ! ip4save | grep "\j MARK" | grep -q "${table_name}" ; then
+
+	rules=$(ip4save | grep "\j MARK" | grep "${table_name}")
+
+	if [ -z "${rules}" ] ; then
 		{
 			log_warning "Маркировка VPN подключений когда программное и аппаратное ускорение ОТКЛЮЧЕНО."
 			# Исключаем маркировку трафика для гостевой (в том числе) сети
@@ -188,7 +193,9 @@ ip4_firewall_mark_rules_tcp_udp_on(){
 #
 # ------------------------------------------------------------------------------------------
 ip4_add_guest_to_vpn_network(){
-	if ! ip4save | grep "\-j MASQUERADE" | grep -q "${INFACE_GUEST_ENT}"; then
+
+	rules=$(ip4save | grep "\-j MASQUERADE" | grep "${INFACE_GUEST_ENT}")
+	if [ -z "${rules}" ] ; then
 		# Маркируем трафик гостевой сети
 		{
 			log_warning "Подключаем правила маркировки гостевого трафика."
@@ -236,9 +243,10 @@ ip4_firewall_set_ssr_rules(){
 	# Источник:
 	# https://github.com/shadowsocks/shadowsocks-libev/blob/master/doc/ss-redir.asciidoc?ysclid=l949tgrsfn795375643
 	# Создаем новую цепочку SHADOWSOCKS
+	ssr_rules=$(ip4save | grep "${SSR_IPTABLES_CHAIN}" | grep -v '\[0:0\]')
+	prouting_rules=$(ip4save | grep PREROUTING | grep "${table_name}" | grep "${proxy_port}")
 
-	if ! ip4save | grep "${SSR_IPTABLES_CHAIN}" | grep -qv '\[0:0\]'  && \
-	   ! ip4save | grep PREROUTING | grep "${table_name}" | grep -q "${proxy_port}" ; then
+	if [ -z "${ssr_rules}" ]  &&  [ -z "${prouting_rules}" ] ; then
 		{
 			log_warning "Подключаем правила для SHADOWSOCKS интерфейса ${interface} порт ${proxy_port}."
 
