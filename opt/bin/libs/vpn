@@ -1146,16 +1146,12 @@ shadowsocks_on() {
 	cp "/opt/apps/${APP_NAME}/etc/ndm/netfilter.d/100-proxy-redirect" "/opt/etc/ndm/netfilter.d/100-proxy-redirect"
 	chmod +x "/opt/etc/ndm/netfilter.d/100-proxy-redirect"
 
-	sed -i "s/@PROXY_PORT/${proxy_port}/g; \
-			s/@INFACE/${inface}/g;" \
-			"/opt/etc/ndm/netfilter.d/100-proxy-redirect"
-
 	inface_ent=$(ip4 a | grep ezcfg | head -1 | cut -d': ' -f2 | tr -d ' ')
 	ndm_interface_change "${inface_ent}" "shadowsocks"
 
 	cmd_shadowsocks_iptable_reset  &> /dev/null
 	#   настройка S22shadowsocks конфигурации
-	if [ -f "${SHADOWSOCKS_CONF}.kvas" ] && ! grep -qE '""|@' "${SHADOWSOCKS_CONF}" && ! grep -q '["::1", '"${LOCALHOST_IP}"']'; then
+	if [ -f "${SHADOWSOCKS_CONF}.kvas" ] && ! grep -qE '""|@' "${SHADOWSOCKS_CONF}" && ! grep -q '["::1", '"${LOCALHOST_IP}"']' "${SHADOWSOCKS_CONF}"; then
 	   	ready "Используем данные"
 		cp "${SHADOWSOCKS_CONF}.kvas" "${SHADOWSOCKS_CONF}"
 		when_alert "ИЗ АРХИВА"
