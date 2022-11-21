@@ -839,10 +839,14 @@ cmd_vpn_iptable_flush() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_vpn_iptable_reset() {
-	ready "Переустановка iptables для vpn завершена"
-	cmd_vpn_iptable_flush  &> /dev/null
-	/opt/etc/ndm/fs.d/100-vpn start &> /dev/null
-	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
+	if [ -f /opt/etc/ndm/fs.d/100-vpn ] ; then
+		ready "Переустановка iptables для vpn завершена"
+		cmd_vpn_iptable_flush  &> /dev/null
+		/opt/etc/ndm/fs.d/100-vpn start &> /dev/null
+		[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
+	else
+		warning "VPN соединение не активно!"
+	fi
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -997,10 +1001,15 @@ cmd_shadowsocks_read_new_data() {
 	SSR_SERVER_IP=""; SSR_SERVER_PORT=""; SSR_SERVER_CRYPT=""; SSR_SERVER_PASSWD=""
 
 	read_value "Ведите доменное имя или IP адрес сервера:" SSR_SERVER_IP
+	[ "${SSR_SERVER_IP}" ] && exit 0
 	read_value "Ведите порт сервера:" SSR_SERVER_PORT 'digit'
+	[ "${SSR_SERVER_PORT}" ] && exit 0
 	read_value "Ведите метод шифрования на стороне сервера:" SSR_SERVER_CRYPT
+	[ "${SSR_SERVER_CRYPT}" ] && exit 0
 	read_value "Ведите пароль сервера:" SSR_SERVER_PASSWD 'password'
+	[ "${SSR_SERVER_PASSWD}" ] && exit 0
 	echo
+
 	proxy_port=$(get_config_value SSR_DNS_PORT)
 
 	sed -i "s/\(\"server\":\).*/\1 \"${SSR_SERVER_IP}\",/; 			\
@@ -2078,4 +2087,33 @@ cmd_vpn_guest_network() {
 		error "Сейчас используется shadowsocks соединение."
 		error "Добавление гостевой сети для vpn пока не доступно."
 	fi
+}
+# ------------------------------------------------------------------------------------------
+#
+#	 Удаляет полностью пакет Квас с устройства
+#	 $1 - тип удаления
+#		<ПУСТО> - если без аргументов, то удаляем без удаления пакетов, но со всеми архивами
+#	 	full - удаляем полностью со всеми ранее установленными пакетами и файлами архивов
+#
+# ------------------------------------------------------------------------------------------
+cmd_uninstall() {
+	rm_type=${1}; auto=''
+
+	if [ -z "${rm_type}" ]; then
+		mess="Удаляем пакет КВАС и все архивные данные (без зависимостей)."
+	elif [ "${rm_type}" = full ]; then
+		mess="Удаляем пакет КВАС и все архивные данные и все зависимые пакеты."
+	 	auto='--autoremove'
+
+		rm -f /opt/etc/init/K56dnsmasq  /opt/etc/init/K09dnscrypt-proxy2
+	else
+		warning "Указан неверный аргумент вызова функции cmd_uninstall"
+		exit 0
+	fi
+
+	ready "${mess}"
+	opkg remove kvas "${auto}"
+	rm -rf /opt/etc/.kvas
+	rm -f /opt/etc/hosts.list.kvas /opt/etc/adblock.sources.kvas
+
 }

@@ -133,6 +133,9 @@ case "${1}" in
 		;;
 	help|-h|--h ) 			cmd_help
 		;;
+	uninstall ) 			cmd_uninstall  "${2}"
+		;;
+
 	*)						cmd_show_list
 		;;
 esac

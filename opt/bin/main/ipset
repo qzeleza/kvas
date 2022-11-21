@@ -28,9 +28,9 @@ logger -t "КВАС" "Запущен файл /opt/apps/kvas/bin/main/ipset"
 # ------------------------------------------------------------------------------
 # Добавляем переданные в функцию IP адреса в ipset таблицу unblock
 # ------------------------------------------------------------------------------
-ip_list_add_to_ipset(){
+add_host_by_iplist_to_ipset(){
 	host=${1//\*/}
-#	получаем список шз адресов от текущего dns сервера
+#	получаем список из адресов от текущего dns сервера
 # 	и исключаем из списка адреса типа 0.0.0.0
 	ip_list=$(kdig +short "${host}" @localhost \
 	| grep -Eo "${IP_FILTER}" \
@@ -42,7 +42,7 @@ ip_list_add_to_ipset(){
 			ipset list "${TABLE_NAME}" | grep -q "${ip}" || {
 				ipset -exist add "${TABLE_NAME}" "${ip}"
 				mess="Обнаружен новый IP=${ip} для домена ${host} и успешно добавлен в таблицу ipset."
-				echo "${mess}"
+#				echo "${mess}"
 				logger -t "КВАС" "${mess}"
 			}
 		done
@@ -50,7 +50,22 @@ ip_list_add_to_ipset(){
 	fi
 }
 
-
+# ------------------------------------------------------------------------------
+# Добавляем список AS IP диапазонов, в который может входить переданный host
+# ------------------------------------------------------------------------------
+add_host_by_ASlist_to_ipset(){
+	host=${1//\*/};
+	if [ "${host}" ]; then
+		for ip in $(kdig +short "${host}" @localhost); do
+			as_number=$(whois -h whois.radb.net "${ip}" | grep 'origin:' | tr -d ' ' | cut -d ':' -f2)
+			for net in $(whois -h whois.radb.net "!g${as_number}" | tr '\n' ' '); do
+				if echo "${net}" | grep -Eo "${IP_FILTER}" | grep -qv '0.0.0.0' ; then
+					ipset -exist add "${TABLE_NAME}" "${net}" &>/dev/null
+				fi
+			done
+		done
+	fi
+}
 # проверяем доступность сети
 until ADDRS=$(kdig +short ya.ru @localhost ) && [ -n "${ADDRS}" ] > /dev/null 2>&1; do sleep 5; done
 
@@ -70,7 +85,11 @@ while read -r line || [ -n "${line}" ]; do
 	if echo "${host}" | grep -qoE "${IP_FILTER}"; then
 		ipset -exist add "${TABLE_NAME}" "${host}" &>/dev/null
 	else
-		ip_list_add_to_ipset "${host}"
+#		if [ "${host::1}" = "*" ]; then
+#			add_host_by_ASlist_to_ipset "${host}"
+#		else
+		add_host_by_iplist_to_ipset "${host}"
+#		fi
 	fi
 
 done < "${HOST_LIST}"
