@@ -522,7 +522,10 @@ log_warning(){
 log_error(){
 	logger -p err -t "${APP_NAME_DESC}" "ОШИБКА::${1}"
 }
-
+log_alert(){
+	header=${2:-${APP_NAME_DESC}}
+	logger -p err -t "${header}" "${1}"
+}
 #
 # Извлекаем ссылку на скачивание пакета с github
 #

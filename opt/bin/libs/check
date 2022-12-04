@@ -12,7 +12,7 @@
 # ------------------------------------------------------------------------------------------
 
 . /opt/apps/kvas/bin/libs/main
-. /opt/apps/kvas/bin/libs/ndm
+. /opt/apps/kvas/bin/libs/vpn
 
 NOT_IN_TABLE=false
 IPSET=$(which ipset)

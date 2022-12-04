@@ -21,7 +21,7 @@
 
 case ${1} in
 	start|restart)
-		. /opt/apps/kvas/bin/libs/ndm
+		. /opt/apps/kvas/bin/libs/vpn
 		cmd_kvas_init
 	;;
 esac

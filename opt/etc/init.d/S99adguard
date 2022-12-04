@@ -34,7 +34,6 @@ DESC=${PROCS}
 PATH=/opt/sbin:/opt/bin:/opt/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 case ${1} in
         start|restart)
-                . /opt/apps/kvas/bin/libs/ndm
                 . /opt/apps/kvas/bin/libs/vpn
                 cmd_kvas_init initd
                 ready "Перезапускаем AdGuardHome"

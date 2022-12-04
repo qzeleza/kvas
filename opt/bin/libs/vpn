@@ -1,7 +1,7 @@
 #!/bin/sh
-. /opt/apps/kvas/bin/libs/.debug
-. /opt/apps/kvas/bin/libs/.ndm
-. /opt/apps/kvas/bin/libs/.adblock
+. /opt/apps/kvas/bin/libs/debug
+. /opt/apps/kvas/bin/libs/ndm
+. /opt/apps/kvas/bin/libs/adblock
 # ------------------------------------------------------------------------------------------
 #
 # 	Добавляет хосты в белый список, доступ к сайтам которого
@@ -21,6 +21,58 @@ LOCALHOST_IP=127.0.0.1
 
 DNS_IP_PORT="${LOCALHOST_IP}#${MAIN_DNS_PORT}"
 CMD_LIST="address prefix name-servers"
+
+
+# ------------------------------------------------------------------------------------------
+#
+# 	Производим иницилизацию пакета КВАС
+#
+# ------------------------------------------------------------------------------------------
+cmd_kvas_init(){
+	stage="${1:-no}"
+	prefix=''
+	mess="${prefix}Производим сброс пакета КВАС в исходное состояние."
+	warning "${mess}"; log_alert "${mess}"
+	print_line
+
+	recreate_ip4tables
+
+
+	if [ -f "/opt/etc/ndm/netfilter.d/100-vpn-mark" ]; then
+		recreate_vpn_rules
+	else
+		recreate_ssr_rules
+	fi
+
+	ready "${prefix}Заполняем ipset таблицу данными из списка разблокировки."
+	/opt/apps/kvas/bin/main/ipset &> /dev/null &
+	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+
+	if [ -f /opt/etc/init.d/S56dnsmasq ] ; then
+		refresh_dnsmasq_ipset_table
+	else
+		refresh_adguard_ipset_table
+		[ "${stage}" = initd ] || {
+			ready "${prefix}Перезапускаем сервис AdGuard Home"
+			/opt/etc/init.d/S99adguardhome restart &>/dev/null && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+		}
+	fi
+	. /opt/apps/kvas/bin/libs/adblock
+	if cmd_ads_status | grep -q 'ВКЛЮЧЕНА' ; then
+		ready "${prefix}Обновляем данные списка блокировки рекламы."
+		/opt/apps/kvas/bin/main/adblock &>/dev/null && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+	fi
+
+	ready "${prefix}Синхронизируем дату роутера с сервером времени."
+	date_update &>/dev/null && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+
+#	ready "${prefix}Производим перезапуск подключения ${INFACE_CLI}."
+#	reset_connection "${INFACE_CLI}" && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+
+	log_alert "${prefix}Сброс пакета КВАС в исходное состояние ЗАВЕРШЕНА!"
+
+}
+
 
 ip4() (/opt/sbin/ip -4 "$@")
 # ------------------------------------------------------------------------------------------
@@ -882,7 +934,6 @@ ndm_interface_change() {
 	chmod +x /opt/apps/kvas/bin/libs/ndm
 	sed -i "s/INFACE_ENT=/INFACE_ENT=${inface_entware}/g" "/opt/apps/kvas/bin/libs/ndm"
 	sed -i "s/INFACE_CLI=/INFACE_CLI=${inface_cli}/g" "/opt/apps/kvas/bin/libs/ndm"
-	cp "/opt/apps/kvas/bin/libs/ndm" "/opt/apps/kvas/bin/libs/.ndm"
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -1438,6 +1489,31 @@ dns_crypt_port_change() {
 
 	[ $? = 0 ] && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 }
+
+
+# ------------------------------------------------------------------------------------------
+#
+# 	Пересоздаем таблицу ipset для dnsmasq и перезапускаем сервис
+# 	В том числе и обрабатываем dns_crypt в случае, если он запущен
+#
+# ------------------------------------------------------------------------------------------
+refresh_dnsmasq_ipset_table(){
+
+		ready "${prefix}Заполняем dnsmasq таблицу данными из списка разблокировки."
+		/opt/apps/kvas/bin/main/dnsmasq &>/dev/null
+		[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+
+		ready "${prefix}Перезапускаем сервис dnsmasq"
+		/opt/etc/init.d/S56dnsmasq restart &>/dev/null
+		[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+
+		if get_dns_crypt_status | grep -q on ; then
+			ready "${prefix}Перезапускаем сервис dns_crypt"
+			dns_crypt_install '' &>/dev/null
+			[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+		fi
+}
+
 
 # ------------------------------------------------------------------------------------------
 #

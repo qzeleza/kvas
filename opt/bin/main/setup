@@ -4,7 +4,7 @@
 
 # В случае проблем с инсталляцией пакета ставим в значение true
 ANSWER_AGH=n
-APP_VER=1.0-beta-21
+APP_VER=1.0-beta-22
 
 log_in_file(){
 	if [ "${1}" = line ]; then
@@ -78,21 +78,23 @@ setup_restore_prev_conf(){
 		warning "Обнаружен список разблокировки от предыдущей установки"
 		log_in_file "Список разблокировки ВОССТАНОВЛЕН из архива."
 		ready "Список разблокировки восстановлен"
-		mv -f "${UNBLOCK_LIST_FILE}.kvas" "${UNBLOCK_LIST_FILE}"
-		[ $? = 0 ] && when_ok "УСПЕШНО" || {
+		if mv -f "${UNBLOCK_LIST_FILE}.kvas" "${UNBLOCK_LIST_FILE}" ; then
+			when_ok "УСПЕШНО"
+		else
 			when_bad "ОШИБКА"
 			log_in_file "ОШИБКА: при восстановлении списка разблокировки"
 			exit 1
-		}
+		fi
 	else
 		log_in_file "УСТАНОВЛЕН список разблокировки ПО УМОЛЧАНИЮ."
 		ready "Копируем файл со списком разблокировки по умолчанию"
-		cp /opt/apps/kvas/etc/conf/hosts.list "${UNBLOCK_LIST_FILE}" &>/dev/null
-		[ $? = 0 ] && when_ok "УСПЕШНО" || {
+		if cp /opt/apps/kvas/etc/conf/hosts.list "${UNBLOCK_LIST_FILE}" &>/dev/null ; then
+			when_ok "УСПЕШНО"
+		else
 			when_bad "ОШИБКА"
 			log_in_file "ОШИБКА: при копировании списка разблокировки по умолчанию"
 			exit 1
-		}
+		fi
 	fi
 
 }
@@ -100,13 +102,14 @@ setup_restore_prev_conf(){
 
 setup_cron(){
 	ready "Ставим обновление ip адресов по умолчанию - каждые 12 часов..."
-	cmd_set_period_update "12h" &> /dev/null
-	[ $? = 0 ] && when_ok "ГОТОВО" || {
+	if cmd_set_period_update "12h" &> /dev/null ; then
+		when_ok "ГОТОВО"
+	else
 		when_bad "ОШИБКА"
 		mess="Проблема при установки задания в cron"
 		log_in_file "ОШИБКА: ${mess}"
 		exit 1
-	}
+	fi
 }
 
 
@@ -122,8 +125,9 @@ setup_print_finish(){
 
 cmd_install(){
 
-	# Пишем сообщение в лог роутера о начале устаноки пакета
-	logger -p err -t "PACKAGE INSTALLATION" "УСТАНОВКА ПАКЕТА КВАС"
+	LOG_HEADER="PACKAGE INSTALLATION"
+	# Пишем сообщение в лог роутера о начале установки пакета
+	log_alert "УСТАНОВКА ПАКЕТА КВАС" "${LOG_HEADER}"
 
 	setup_print_welcome
 	mkdir -p "${KVAS_BACKUP_PATH}"
@@ -202,21 +206,25 @@ cmd_install(){
 	# 	Запускаем КВАС в работу
 	#------------------------------------------------------
 	ready "Запускаем КВАС в работу"
-	cmd_kvas_init &> /dev/null && when_ok "УСПЕШНО" || {
+	if cmd_kvas_init &> /dev/null ; then
+		when_ok "УСПЕШНО"
+	else
 		when_bad "ОШИБКА"
 		ready "Пробуем перезапустить КВАС снова"
-		cmd_kvas_init &> /dev/null && when_ok "УСПЕШНО" || {
+		if cmd_kvas_init &> /dev/null ; then
+			when_ok "УСПЕШНО"
+		else
 			when_bad "ОШИБКА"
 			mess="Проблема при запуске КВАСа"
 			log_in_file "ОШИБКА: ${mess}"
 			exit 1
-		}
-	}
+		fi
+	fi
 
 	setup_print_finish
-	sed -i "s/\(SETUP_FINISHED=\).*/\1true/" /opt/apps/kvas/bin/main/setup
+	sed -i "s/\(SETUP_FINISHED=\).*/\1true/" /opt/apps/kvas/bin/kvas
 	# Пишем сообщение в лог роутера о начале установки пакета
-	logger -p err -t "PACKAGE INSTALLATION" "УСТАНОВКА ПАКЕТА КВАС ЗАВЕРШЕНА!"
+	log_alert "УСТАНОВКА ПАКЕТА КВАС ЗАВЕРШЕНА!" "${LOG_HEADER}"
 }
 
 
@@ -236,14 +244,12 @@ cmd_uninstall() {
 		mess="Удаляем пакет КВАС и все архивные данные и все зависимые пакеты."
 	 	auto='--autoremove'
 		rm -f /opt/etc/init/K56dnsmasq  /opt/etc/init/K09dnscrypt-proxy2
-	else
-		warning "Указан неверный аргумент вызова функции cmd_uninstall"
-		exit 0
 	fi
 
-#	ready "${mess}"
+	echo "${mess}"
+	print_line
 	opkg remove kvas "${auto}"
-	rm -rf /opt/etc/.kvas
+	rm -rf /opt/etc/.kvas /opt/etc/shadowsocks.json.kvas
 	rm -f /opt/etc/hosts.list.kvas /opt/etc/adblock.sources.kvas
 
 }

@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=kvas
 PKG_VERSION:=1.0
-PKG_RELEASE:=beta_21
+PKG_RELEASE:=beta_22
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)
 
 include $(INCLUDE_DIR)/package.mk
@@ -74,12 +74,12 @@ cp -f /opt/apps/kvas/etc/conf/adblock.sources /opt/etc/adblock.sources
 
 # Делаем копии файлов для того чтобы была возможность
 # использовать функции в них в скрипте при удалении пакета
-cp -f /opt/apps/kvas/bin/libs/vpn /opt/apps/kvas/bin/libs/.vpn
-cp -f /opt/apps/kvas/bin/libs/main /opt/apps/kvas/bin/libs/.main
-cp -f /opt/apps/kvas/bin/libs/debug /opt/apps/kvas/bin/libs/.debug
-cp -f /opt/apps/kvas/bin/libs/adblock /opt/apps/kvas/bin/libs/.adblock
+cp -f /opt/apps/kvas/bin/libs/vpn /opt/apps/kvas/bin/libs/vpn
+cp -f /opt/apps/kvas/bin/libs/main /opt/apps/kvas/bin/libs/main
+cp -f /opt/apps/kvas/bin/libs/debug /opt/apps/kvas/bin/libs/debug
+cp -f /opt/apps/kvas/bin/libs/adblock /opt/apps/kvas/bin/libs/adblock
 cp -f /opt/apps/kvas/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
-cp -f /opt/apps/kvas/bin/libs/ndm /opt/apps/kvas/bin/libs/.ndm
+cp -f /opt/apps/kvas/bin/libs/ndm /opt/apps/kvas/bin/libs/ndm
 
 
 
@@ -97,8 +97,8 @@ define Package/kvas/postrm
 
 #!/bin/sh
 
-. /opt/apps/kvas/bin/libs/.vpn
-. /opt/apps/kvas/bin/libs/.ndm
+. /opt/apps/kvas/bin/libs/vpn
+. /opt/apps/kvas/bin/libs/ndm
 #------------------------------------------------------------------------------
 #
 #	ПАКЕТ КВАС
@@ -142,7 +142,7 @@ rm_package_files(){
 }
 
 print_line
-echo -e "Удаление пакета $${GREEN}КВАС™$${NOCL} версия $${GREEN}1.0-beta-21$${NOCL}..."
+echo -e "Удаление пакета $${GREEN}КВАС™$${NOCL} версия $${GREEN}1.0-beta-22$${NOCL}..."
 print_line
 
 answer='y';
