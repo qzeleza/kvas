@@ -66,7 +66,7 @@ change_version_in_package
 #    make menuconfig
 if ! grep -q "${APP_NAME}" /apps/entware/.config ; then
 	cd /apps/entware/
-	make oldconfig <<< y
+	make oldconfig <<< m
 	make tools/install -j$(nproc)
 	make toolchain/install -j$(nproc)
 #	копируем ключи на роутер

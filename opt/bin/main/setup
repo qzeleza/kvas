@@ -1,0 +1,249 @@
+#!/bin/sh
+. /opt/apps/kvas/bin/libs/main
+. /opt/apps/kvas/bin/libs/vpn
+
+# В случае проблем с инсталляцией пакета ставим в значение true
+ANSWER_AGH=n
+APP_VER=1.0-beta-21
+
+log_in_file(){
+	if [ "${1}" = line ]; then
+		print_line >> "${INSTALL_LOG}"
+	else
+		echo "${1}" >> "${INSTALL_LOG}"
+	fi
+}
+
+
+
+# Проверяем отключено ли использование DNS провайдера
+setup_test_provider_dns(){
+	if ! curl -s "${LOCALHOST_IP}"':79/rci/opkg/dns-override' | grep -q true ; then
+		cli="$(get_router_host)/a"
+		log_in_file "ОШИБКА: Не отключено использование DNS провайдера."
+		echo -e "${RED}Для корректной работы DNS сервера необходимо отключить использование DNS провайдера!${NOCL}"
+		echo -e "С этой целью зайдите в админ панель роутера по адресу: ${GREEN}${cli}${NOCL}"
+		echo "и выполните последовательно три следующих команды: "
+		print_line
+		echo -e "1. ${GREEN}opkg dns-override ${NOCL} - отключаем использование DNS провайдера,"
+		echo -e "2. ${GREEN}system configuration save ${NOCL}  - сохраняем изменения,"
+		echo -e "3. ${GREEN}system reboot ${NOCL} - перегружаем роутер."
+		print_line
+		exit 1
+	fi
+}
+
+setup_print_welcome(){
+
+	welcome="Установка пакета ${GREEN}КВАС™${NOCL} версия ${GREEN}${APP_VER}${NOCL}"
+	echo -e "${welcome}"
+	print_line
+
+	log_in_file "${welcome}"
+	log_in_file line
+	log_in_file "Начало установки: $(date "${DATE_FORMAT}")"
+	log_in_file line
+}
+setup_adguard(){
+
+	if cmd_adguardhome_status | grep -qE "(ВКЛЮЧЕН|ОТКЛЮЧЕН)" ; then
+		warning "На роутере обнаружен AdGuard Home "
+		read_ynq "Установить AdGuard Home, как основной DNS сервер" ANSWER_AGH
+		if [ "${ANSWER_AGH}" = y ]; then
+			cmd_adguardhome_on
+			log_in_file "AdGuard Home НАСТРОЕН, как основной DNS сервер"
+		else
+			log_in_file "AdGuard Home пропущен."
+			cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" && {
+				ready "Останавливаем сервис AdGuard Home..."
+				/opt/etc/init.d/S99adguardhome stop &> /dev/null
+				if /opt/etc/init.d/S99adguardhome status | grep -q dead; then
+					when_ok "ГОТОВО"
+				else
+					when_bad "ОШИБКА"
+					mess="Невозможно остановить сервис AdGuard Home"
+					error "${mess}"
+					log_in_file "ОШИБКА: ${mess}"
+					exit 1
+				fi
+			}
+			cp /opt/etc/AdGuardHome/AdGuardHome.yaml "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml
+		fi
+		print_line
+	fi
+}
+
+setup_restore_prev_conf(){
+	if [ -f "${UNBLOCK_LIST_FILE}.kvas" ]; then
+		warning "Обнаружен список разблокировки от предыдущей установки"
+		log_in_file "Список разблокировки ВОССТАНОВЛЕН из архива."
+		ready "Список разблокировки восстановлен"
+		mv -f "${UNBLOCK_LIST_FILE}.kvas" "${UNBLOCK_LIST_FILE}"
+		[ $? = 0 ] && when_ok "УСПЕШНО" || {
+			when_bad "ОШИБКА"
+			log_in_file "ОШИБКА: при восстановлении списка разблокировки"
+			exit 1
+		}
+	else
+		log_in_file "УСТАНОВЛЕН список разблокировки ПО УМОЛЧАНИЮ."
+		ready "Копируем файл со списком разблокировки по умолчанию"
+		cp /opt/apps/kvas/etc/conf/hosts.list "${UNBLOCK_LIST_FILE}" &>/dev/null
+		[ $? = 0 ] && when_ok "УСПЕШНО" || {
+			when_bad "ОШИБКА"
+			log_in_file "ОШИБКА: при копировании списка разблокировки по умолчанию"
+			exit 1
+		}
+	fi
+
+}
+
+
+setup_cron(){
+	ready "Ставим обновление ip адресов по умолчанию - каждые 12 часов..."
+	cmd_set_period_update "12h" &> /dev/null
+	[ $? = 0 ] && when_ok "ГОТОВО" || {
+		when_bad "ОШИБКА"
+		mess="Проблема при установки задания в cron"
+		log_in_file "ОШИБКА: ${mess}"
+		exit 1
+	}
+}
+
+
+setup_print_finish(){
+	print_line
+	log_in_file line
+	log_in_file "Установка завершена: $(date "${DATE_FORMAT}")"
+	echo "Установка КВАСа завершена."
+	echo -e "Для общей справки наберите ${BLUE}kvas help${NOCL}"
+
+}
+
+
+cmd_install(){
+
+	# Пишем сообщение в лог роутера о начале устаноки пакета
+	logger -p err -t "PACKAGE INSTALLATION" "УСТАНОВКА ПАКЕТА КВАС"
+
+	setup_print_welcome
+	mkdir -p "${KVAS_BACKUP_PATH}"
+	cat /dev/null > "${INSTALL_LOG}"
+
+	ln -sf /opt/apps/kvas/bin/main/ipset /opt/etc/cron.5mins/ipset.kvas
+
+	setup_test_provider_dns
+
+	#------------------------------------------------------
+	# Отключаем IPv6
+	#------------------------------------------------------
+	if [ "$(ipv6_status)" = 0 ]; then
+		ipv6_inface_off "$(get_defaultgw_interface)"
+	fi
+
+	local_ip=$(get_router_ip)
+	set_config_value DNSMASQ_LISTEN_IP "${local_ip}"
+
+	#------------------------------------------------------
+	# Сейчас необходимо выбрать VPN интерфейс для работы пакета
+	#------------------------------------------------------
+	cmd_interface_change ask install
+	log_in_file "$(cmd_vpn_status)"
+	print_line
+	#------------------------------------------------------
+	# AdGuard Home
+	#------------------------------------------------------
+	setup_adguard
+
+	#------------------------------------------------------
+	# ВОССТАНАВЛИВАЕМ ФАЙЛ СО СПИСКОМ РАЗБЛОКИРОВКИ
+	#------------------------------------------------------
+	setup_restore_prev_conf
+
+	#----------------------------------------------------------
+	#
+	# 	В случае, если установить AdGuard Home отказались
+	# 	или не был обнаружен сервис AdGuard Home
+	# 	AdGuard Home подменяет сразу несколько сервисов
+	# 	таких как dnsmasq + dnscrypt_proxy2 + блокировка рекламы
+	#
+	#----------------------------------------------------------
+
+	if [ "${ANSWER_AGH}" = n ]; then
+		if [ -f "${ADGUARDHOME_DEMON}" ]; then
+			if "${ADGUARDHOME_DEMON}" status | grep -q alive; then
+				"${ADGUARDHOME_DEMON}" stop &> /dev/null
+			fi
+		fi
+
+		#------------------------------------------------------
+		# DNSMASQ
+		#------------------------------------------------------
+		dnsmasq_install
+		#------------------------------------------------------
+		# DNSCRYPT-PROXY2
+		#------------------------------------------------------
+		dns_crypt_install
+		log_in_file "Шифрование DNS трафика (dnscrypt-proxy2) ВКЛЮЧЕНО."
+		#------------------------------------------------------
+		# Блокировка рекламы
+		#------------------------------------------------------
+		log_in_file "Блокировка рекламы НЕ УСТАНОВЛЕНА.."
+		print_line
+	#	fi
+	fi
+
+
+	#------------------------------------------------------
+	# 	УСТАНОВКА ОБНОВЛЕНИЯ ДАННЫХ В CRON
+	#------------------------------------------------------
+	setup_cron
+
+	#------------------------------------------------------
+	# 	Запускаем КВАС в работу
+	#------------------------------------------------------
+	ready "Запускаем КВАС в работу"
+	cmd_kvas_init &> /dev/null && when_ok "УСПЕШНО" || {
+		when_bad "ОШИБКА"
+		ready "Пробуем перезапустить КВАС снова"
+		cmd_kvas_init &> /dev/null && when_ok "УСПЕШНО" || {
+			when_bad "ОШИБКА"
+			mess="Проблема при запуске КВАСа"
+			log_in_file "ОШИБКА: ${mess}"
+			exit 1
+		}
+	}
+
+	setup_print_finish
+	sed -i "s/\(SETUP_FINISHED=\).*/\1true/" /opt/apps/kvas/bin/main/setup
+	# Пишем сообщение в лог роутера о начале установки пакета
+	logger -p err -t "PACKAGE INSTALLATION" "УСТАНОВКА ПАКЕТА КВАС ЗАВЕРШЕНА!"
+}
+
+
+# ------------------------------------------------------------------------------------------
+#
+#	 Удаляет полностью пакет Квас с устройства
+#	 $1 - тип удаления
+#		<ПУСТО> - если без аргументов, то удаляем без удаления пакетов, но со всеми архивами
+#	 	full - удаляем полностью со всеми ранее установленными пакетами и файлами архивов
+#
+# ------------------------------------------------------------------------------------------
+cmd_uninstall() {
+	rm_type=${1}; auto=''
+
+	[ -z "${rm_type}" ] && mess="Удаляем пакет КВАС и все архивные данные без зависимостей."
+	if [ "${rm_type}" = full ]; then
+		mess="Удаляем пакет КВАС и все архивные данные и все зависимые пакеты."
+	 	auto='--autoremove'
+		rm -f /opt/etc/init/K56dnsmasq  /opt/etc/init/K09dnscrypt-proxy2
+	else
+		warning "Указан неверный аргумент вызова функции cmd_uninstall"
+		exit 0
+	fi
+
+#	ready "${mess}"
+	opkg remove kvas "${auto}"
+	rm -rf /opt/etc/.kvas
+	rm -f /opt/etc/hosts.list.kvas /opt/etc/adblock.sources.kvas
+
+}

@@ -5,10 +5,10 @@ APP_VER_FULL_TEXT="${version}-${stage}-${release}"
 APP_FULL_PATH="${APPS_ROOT}/${APP_NAME}"
 
 makefile="${APP_FULL_PATH}/build/Makefile"
-POST_INST=$(cat < "${APP_FULL_PATH}"/build/postinst \
-			| sed 's/\$/\$\$/g' \
-			| sed "s/@app_ver/${APP_VER_FULL_TEXT}/g" \
-			)
+
+sed -i "s/\(APP_VER=\).*/\1${APP_VER_FULL_TEXT}/" "${APP_FULL_PATH}"/opt/bin/main/setup
+
+POST_INST=$(cat < "${APP_FULL_PATH}"/build/postinst)
 POST_TERM=$(cat < "${APP_FULL_PATH}"/build/postrm \
 			| sed 's/\$/\$\$/g' \
 			| sed "s/@app_ver/${APP_VER_FULL_TEXT}/g" \
@@ -27,7 +27,8 @@ include \$(INCLUDE_DIR)/package.mk
 define Package/${APP_NAME}
 	SECTION:=utils
 	CATEGORY:=Keendev
-	DEPENDS:=+jq +curl +knot-dig +nano-full +cron +bind-dig +dnsmasq-full +ipset +iptables +shadowsocks-libev-ss-redir +shadowsocks-libev-config +libpcre +dnscrypt-proxy2
+	DEPENDS:=+jq +curl +knot-dig +nano-full +cron +bind-dig +dnsmasq-full +ipset +dnscrypt-proxy2 \
+		+iptables +shadowsocks-libev-ss-redir +shadowsocks-libev-config +libpcre
 	URL:=no
 	TITLE:=VPN клиент для обработки запросов по внесению хостов в белый список.
 	PKGARCH:=all

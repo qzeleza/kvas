@@ -55,6 +55,30 @@ EXCLUDED_NET_FILE=/opt/apps/kvas/etc/conf/excluded.net
 ERROR_LOG_FILE=/opt/tmp/kvas.err.log
 APP_NAME_DESC=КВАС
 
+INFACE_REQUEST="${LOCALHOST_IP}:79/rci/show/interface"
+INFACE_PART_REQUEST="${LOCALHOST_IP}:79/rci/interface"
+
+# ------------------------------------------------------------------------------------------
+#
+#	Получаем нумерованный список с именами интерфейсов
+#
+# ------------------------------------------------------------------------------------------
+reset_connection() {
+	inface_cli=${1}
+	# получаем текущее состояние инф-са для возвращения его к исходному состоянию
+	state=$(curl -s "${INFACE_REQUEST}" | jq -r '.[] | select(.id=="'"${inface_cli}"'") | .state')
+	# в зависимости от состояния - включаем и выключаем или выключаем и включаем интерфейс
+	# для того, чтобы сработал наш хук в файле /opt/etc/ndm/ifstatechanged.d/100-save-inface_entware
+	if [ "${state}" = 'up' ]; then
+		curl -s -d '{"down":"true"}' "${INFACE_PART_REQUEST}/${inface_cli}" &> /dev/null
+	else
+		curl -s -d '{"up":"true"}' "${INFACE_PART_REQUEST}/${inface_cli}" &> /dev/null
+	fi
+	sleep 3
+	curl -s -d "{\"${state}\":\"true\"}" "${INFACE_PART_REQUEST}/${inface_cli}" &> /dev/null
+}
+
+
 pause()(read -r pause &> /dev/null)
 
 # ------------------------------------------------------------------------------------------
@@ -253,9 +277,10 @@ ready_red() {
 	printf "%b%-${size}s%b" "${error}"
 }
 error() {
+	[ -z "${2}" ] && nn='\n' || nn=''
 	_error="${RED}${1}${NOCL}"
 	size=$(diff_len "${_error}")
-	printf "%b%-${size}s%b\n" "${_error}"
+	printf "${nn}%b%-${size}s%b\n" "${_error}"
 }
 warning() {
 	_error="${GREEN}${1}${NOCL}"

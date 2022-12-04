@@ -104,10 +104,10 @@ copy_app_to_router(){
 # Производим удаление и установку пакета
 run_reinstalation_on_router(){
 	app_pkg_tar_name=${1}
-	choice=$(printf "2\n" )
 
 	ssh -p "${PORT}" "${ROUTER}" 'opkg remove '"${APP_NAME}"
 	ssh -p "${PORT}" "${ROUTER}" 'opkg install /opt/packages/'"${app_pkg_tar_name}"  #<<< 2
+	ssh -p "${PORT}" "${ROUTER}" 'kvas setup'
 	show_line
 
 }

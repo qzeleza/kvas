@@ -20,9 +20,6 @@ MAIN_DNS_PORT=53
 LOCALHOST_IP=127.0.0.1
 
 DNS_IP_PORT="${LOCALHOST_IP}#${MAIN_DNS_PORT}"
-
-INFACE_REQUEST="${LOCALHOST_IP}:79/rci/show/interface"
-INFACE_PART_REQUEST="${LOCALHOST_IP}:79/rci/interface"
 CMD_LIST="address prefix name-servers"
 
 ip4() (/opt/sbin/ip -4 "$@")
@@ -644,8 +641,8 @@ ipset_dns_change() {
 dnsmasq_install(){
 	is_install_stage="${1}"
 
-	if [ -f "${KVAS_BACKUP_PATH}/S56dnsmasq" ]; then
-		cp "${KVAS_BACKUP_PATH}/S56dnsmasq" /opt/etc/init.d/S56dnsmasq
+	if [ -f /opt/etc/init.d/K56dnsmasq ]; then
+		cp /opt/etc/init.d/K56dnsmasq /opt/etc/init.d/S56dnsmasq
 	else
 		if ! [ -f "/opt/etc/init.d/S56dnsmasq" ]; then
 			ready "Устанавливаем пакет dnsmasq..."
@@ -661,8 +658,8 @@ dnsmasq_install(){
 				if ! [ -f /opt/etc/init.d/S56dnsmasq ]; then
 	#				Если вызвана функция из postinst
 					error "Пакет dnsmasq-full был усановлен с ошибками или поврежден!"
-					error "Файл запуска пакета /opt/etc/init.d/S56dnsmasq отсуствует!"
-					warring "Удалите Квас и затем переустановите пакет dnsmasq-full"
+					warning "Файл запуска пакета /opt/etc/init.d/S56dnsmasq отсуствует!"
+					warning "Удалите Квас и затем переустановите пакет dnsmasq-full"
 					exit 1
 				fi
 			fi
@@ -959,10 +956,9 @@ shadowsocks_backup() {
 				exit 1
 			fi
 		fi
-		if [ -f "${SHADOWSOCKS_CONF}.kvas" ] && {
-				 ! grep -qE '""|@' "${SHADOWSOCKS_CONF}.kvas" || \
-				 ! cat < "${SHADOWSOCKS_CONF}.kvas" | grep 'server' | grep -q "${LOCALHOST_IP}"
-			}; then
+		if [ -f "${SHADOWSOCKS_CONF}.kvas" ] && ! grep -qE '""|@' "${SHADOWSOCKS_CONF}" \
+			&& ! grep -E '127.0.0.1|barfoo!' "${SHADOWSOCKS_CONF}"; then
+
 			echo "Обнаружен архивный файл конфигурации shadowsocks."
 			answer=''; read_ynq "Удалить его и создать новый" answer
 			if [ "${answer}" = y ]; then
@@ -978,12 +974,37 @@ shadowsocks_backup() {
 					when_bad "ОШИБКА" && exit 1
 				fi
 			fi
-	#		shadowsocks_read_data
 		fi
 	else
 		error "Shadowsocks сервис не установлен. Дальнейшая установка невозможна."
 		exit 1;
 	fi
+}
+
+
+get_ssr_entware_interface()(ip4 a | grep ezcfg | head -1 | cut -d': ' -f2 | tr -d ' ')
+
+
+shadowsocks_read_config(){
+
+	SSR_SERVER_IP=""; SSR_SERVER_PORT=""; SSR_SERVER_CRYPT=""; SSR_SERVER_PASSWD=""
+
+	read_value "Ведите доменное имя или IP адрес сервера:" SSR_SERVER_IP
+	[ "${SSR_SERVER_IP}" = q ] && exit 1
+	read_value "Ведите порт сервера:" SSR_SERVER_PORT 'digit'
+	[ "${SSR_SERVER_PORT}" = q ] && exit 1
+	read_value "Ведите метод шифрования на стороне сервера:" SSR_SERVER_CRYPT
+	[ "${SSR_SERVER_CRYPT}" = q ] && exit 1
+	read_value "Ведите пароль сервера:" SSR_SERVER_PASSWD 'password'
+	[ "${SSR_SERVER_PASSWD}" = q ] && exit 1
+	echo
+
+	sed -i "s/\(\"server\":\).*/\1 \"${SSR_SERVER_IP}\",/; 			\
+			s/\(\"server_port\":\).*/\1 ${SSR_SERVER_PORT},/; 		\
+			s/\(\"local_port\":\).*/\1 $(get_config_value SSR_DNS_PORT),/; 		\
+			s/\(\"password\":\).*/\1 \"${SSR_SERVER_PASSWD}\",/; 	\
+			s/\(\"method\":\).*/\1 \"${SSR_SERVER_CRYPT}\",/;" 		\
+		"${SHADOWSOCKS_CONF}"
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -998,25 +1019,8 @@ cmd_shadowsocks_read_new_data() {
 	echo -e "${BLUE}Пожалуйста, последовательно введите эти данные ниже.${NOCL}"
 	print_line
 
-	SSR_SERVER_IP=""; SSR_SERVER_PORT=""; SSR_SERVER_CRYPT=""; SSR_SERVER_PASSWD=""
+	shadowsocks_read_config
 
-	read_value "Ведите доменное имя или IP адрес сервера:" SSR_SERVER_IP
-	[ "${SSR_SERVER_IP}" ] && exit 0
-	read_value "Ведите порт сервера:" SSR_SERVER_PORT 'digit'
-	[ "${SSR_SERVER_PORT}" ] && exit 0
-	read_value "Ведите метод шифрования на стороне сервера:" SSR_SERVER_CRYPT
-	[ "${SSR_SERVER_CRYPT}" ] && exit 0
-	read_value "Ведите пароль сервера:" SSR_SERVER_PASSWD 'password'
-	[ "${SSR_SERVER_PASSWD}" ] && exit 0
-	echo
-
-	proxy_port=$(get_config_value SSR_DNS_PORT)
-
-	sed -i "s/\(\"server\":\).*/\1 \"${SSR_SERVER_IP}\",/; 			\
-			s/\(\"server_port\":\).*/\1 ${SSR_SERVER_PORT},/; 		\
-			s/\(\"password\":\).*/\1 \"${SSR_SERVER_PASSWD}\",/; 	\
-			s/\(\"method\":\).*/\1 \"${SSR_SERVER_CRYPT}\",/;" 		\
-		"${SHADOWSOCKS_CONF}"
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -1034,25 +1038,8 @@ shadowsocks_read_data() {
 	#	устанавливаем новую конфигурацию shadowsocks
 	cp "/opt/apps/${APP_NAME}/etc/conf/shadowsocks.json" "${SHADOWSOCKS_CONF}"
 
-	SSR_SERVER_IP=""; SSR_SERVER_PORT=""; SSR_SERVER_CRYPT=""; SSR_SERVER_PASSWD=""
-
-	read_value "Ведите доменное имя или IP адрес сервера:" SSR_SERVER_IP
-	read_value "Ведите порт сервера:" SSR_SERVER_PORT 'digit'
-	read_value "Ведите метод шифрования на стороне сервера:" SSR_SERVER_CRYPT
-	read_value "Ведите пароль сервера:" SSR_SERVER_PASSWD 'password'
-	echo
-	proxy_port=$(get_config_value SSR_DNS_PORT)
-
-	sed -i "s/@SSR_SERVER_IP/${SSR_SERVER_IP}/g; \
-		s/@SSR_SERVER_PORT/${SSR_SERVER_PORT}/g; \
-		s/@SSR_SERVER_PASSWD/${SSR_SERVER_PASSWD}/g; \
-		s/@SSR_SERVER_CRYPT/${SSR_SERVER_CRYPT}/g; \
-		s/@PROXY_PORT/${proxy_port}/g;" \
-		"${SHADOWSOCKS_CONF}"
-
-	#	Производим замену в библиотеке ndm основных значения интерфейсов
-	ndm_interface_change "shadowsocks" "shadowsocks"
-
+	# читаем данные и Производим замену в библиотеке ndm основных значения интерфейсов
+	shadowsocks_read_config && 	ndm_interface_change "shadowsocks" "shadowsocks"
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -1141,6 +1128,7 @@ cmd_shadowsocks_local_port_change() {
 }
 
 
+
 # ------------------------------------------------------------------------------------------
 #
 #	Отключаем shadowsocks клиента
@@ -1150,28 +1138,30 @@ shadowsocks_on() {
 
 	local_ip=$(get_router_ip)
 	inface=$(get_inface_by_ip "${local_ip}")
-	proxy_port=$(get_config_value SSR_DNS_PORT)
+
 	#	настройка файла 100-proxy-redirect
 	cp "/opt/apps/${APP_NAME}/etc/ndm/netfilter.d/100-proxy-redirect" "/opt/etc/ndm/netfilter.d/100-proxy-redirect"
 	chmod +x "/opt/etc/ndm/netfilter.d/100-proxy-redirect"
 
-	inface_ent=$(ip4 a | grep ezcfg | head -1 | cut -d': ' -f2 | tr -d ' ')
-	ndm_interface_change "${inface_ent}" "shadowsocks"
+	ndm_interface_change "$(get_ssr_entware_interface)" "shadowsocks"
 
 	cmd_shadowsocks_iptable_reset  &> /dev/null
 	#   настройка S22shadowsocks конфигурации
-	if [ -f "${SHADOWSOCKS_CONF}.kvas" ] && ! grep -qE '""|@' "${SHADOWSOCKS_CONF}" && ! grep -q '["::1", '"${LOCALHOST_IP}"']' "${SHADOWSOCKS_CONF}"; then
+	if [ -f "${SHADOWSOCKS_CONF}.kvas" ] ; then
 	   	ready "Используем данные"
 		cp "${SHADOWSOCKS_CONF}.kvas" "${SHADOWSOCKS_CONF}"
 		when_alert "ИЗ АРХИВА"
-	else
-		/opt/etc/init.d/S22shadowsocks restart &> /dev/null
-		/opt/etc/init.d/S22shadowsocks status | grep -q 'alive' &> /dev/null
-		if [ $? -ne 0 ]; then
+	elif [ -f "${SHADOWSOCKS_CONF}" ] ; then
+		if grep -qE '""|@' "${SHADOWSOCKS_CONF}" || grep -qE '127.0.0.1|barfoo!' "${SHADOWSOCKS_CONF}"; then
 			print_line
 			shadowsocks_read_data
 		fi
+	else
+		print_line
+		shadowsocks_read_data
 	fi
+
+
 	# меняем данные в файлах shadowsocks
 	sed -i 's/ss-local/ss-redir/g' "/opt/etc/init.d/S22shadowsocks"
 	#	включаем shadowsocks службу
@@ -1188,6 +1178,8 @@ shadowsocks_on() {
 		exit 1
 	fi
 }
+
+
 # ------------------------------------------------------------------------------------------
 #
 #	Получаем нумерованный список с именами интерфейсов
@@ -1214,7 +1206,7 @@ EOF
 		chmod +x "${HOOK_INFACE_FILE}"
 	fi
 	# очищаем файл с именами интерфейсов
-	echo "shadowsocks|shadowsocks|shadowsocks" > "${INFACE_NAMES_FILE}"
+	echo "shadowsocks|$(get_ssr_entware_interface)|shadowsocks" > "${INFACE_NAMES_FILE}"
 	# обозначаем список типов обрабатываемых VPN интерфейсов
 	types_inface='"OpenVPN","Wireguard","IKE","SSTP","PPPOE","L2TP"'
 #	архивный вариант с выключенными интерфейсами сотовых операторов
@@ -1228,20 +1220,11 @@ EOF
 	# проходимся по каждому интерфейсу
 	# ВНИМАНИЕ! inface_list - все маленькими буквами!!!
 	for inface_cli in ${inface_list}; do
-		# получаем текущее состояние инф-са для возвращения его к исходному состоянию
-		state=$(get_value_interface_field "${inface_cli}" state)
-		# в зависимости от состояния - включаем и выключаем или выключаем и включаем интерфейс
-		# для того, чтобы сработал наш хук в файле /opt/etc/ndm/ifstatechanged.d/100-save-inface_entware
-		if [ "${state}" = 'up' ]; then
-			curl -s -d '{"down":"true"}' "${INFACE_PART_REQUEST}/${inface_cli}" &> /dev/null
-		else
-			curl -s -d '{"up":"true"}' "${INFACE_PART_REQUEST}/${inface_cli}" &> /dev/null
-		fi
-		sleep 3
-		curl -s -d "{\"${state}\":\"true\"}" "${INFACE_PART_REQUEST}/${inface_cli}" &> /dev/null
+#		переподключаем текущее соединение
+		reset_connection "${inface_cli}"
 		# получаем описание интерфейса
 		description=$(get_value_interface_field "${inface_cli}" description | sed 's|\/|\\/|g')
-		# вставляем описание в файл /opt/etc/infaces_names
+		# вставляем описание в файл /opt/etc/inface_equals
 		[ -n "${description}" ] && \
 			sed -i 's/\('"${inface_cli}"'.*\)/\1|'"${description}"'/' "${INFACE_NAMES_FILE}"
 	done
@@ -1484,11 +1467,11 @@ get_dns_crypt_status() {
 dns_crypt_install() {
 	is_install_stage="${1}"
 #	В случае наличия архива файла запуска сервиса dnscrypt_proxy2
-	if [ -f "${KVAS_BACKUP_PATH}/S09dnscrypt-proxy2" ]; then
+	if [ -f /opt/etc/init.d/K09dnscrypt-proxy2 ]; then
 		warning "Обнаружен архив файла S09dnscrypt-proxy2."
 		ready "Восстанавливаем S09dnscrypt-proxy2 из архива..."
 #		реанимируем его из аррхива
-		cp "${KVAS_BACKUP_PATH}/S09dnscrypt-proxy2" /opt/etc/init.d/S09dnscrypt-proxy2 1> /dev/null 2> "${ERROR_LOG_FILE}"
+		cp /opt/etc/init.d/K09dnscrypt-proxy2 /opt/etc/init.d/S09dnscrypt-proxy2 1> /dev/null 2> "${ERROR_LOG_FILE}"
 		ready_status "${?}" "Ошибка при восстановлении S09dnscrypt-proxy2 из архива"
 	else
 		# Если запуск функции был не при установке пакета Квас
@@ -1505,7 +1488,7 @@ dns_crypt_install() {
 	#				Если вызвана функция из postinst
 					error "Пакет dnscrypt-proxy2 был усановлен с ошибками или поврежден!"
 					error "Файл запуска пакета /opt/etc/init.d/S09dnscrypt-proxy2 отсуствует!"
-					warring "Удалите Квас и затем переустановите пакет dnscrypt-proxy2"
+					warning "Удалите Квас и затем переустановите пакет dnscrypt-proxy2"
 					exit 1
 				fi
 			fi
@@ -2087,33 +2070,4 @@ cmd_vpn_guest_network() {
 		error "Сейчас используется shadowsocks соединение."
 		error "Добавление гостевой сети для vpn пока не доступно."
 	fi
-}
-# ------------------------------------------------------------------------------------------
-#
-#	 Удаляет полностью пакет Квас с устройства
-#	 $1 - тип удаления
-#		<ПУСТО> - если без аргументов, то удаляем без удаления пакетов, но со всеми архивами
-#	 	full - удаляем полностью со всеми ранее установленными пакетами и файлами архивов
-#
-# ------------------------------------------------------------------------------------------
-cmd_uninstall() {
-	rm_type=${1}; auto=''
-
-	if [ -z "${rm_type}" ]; then
-		mess="Удаляем пакет КВАС и все архивные данные (без зависимостей)."
-	elif [ "${rm_type}" = full ]; then
-		mess="Удаляем пакет КВАС и все архивные данные и все зависимые пакеты."
-	 	auto='--autoremove'
-
-		rm -f /opt/etc/init/K56dnsmasq  /opt/etc/init/K09dnscrypt-proxy2
-	else
-		warning "Указан неверный аргумент вызова функции cmd_uninstall"
-		exit 0
-	fi
-
-	ready "${mess}"
-	opkg remove kvas "${auto}"
-	rm -rf /opt/etc/.kvas
-	rm -f /opt/etc/hosts.list.kvas /opt/etc/adblock.sources.kvas
-
 }

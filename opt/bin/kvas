@@ -3,6 +3,7 @@
 . /opt/apps/kvas/bin/libs/check
 . /opt/apps/kvas/bin/libs/update
 . /opt/apps/kvas/bin/libs/adblock
+. /opt/apps/kvas/bin/main/setup
 
 #------------------------------------------------------------------------------
 #
@@ -14,8 +15,8 @@
 #	Данный файл служит для запуска пакета КВАС из командной строки
 #	и содержит основные команды запуска пакета:
 #	Обработка получаемых аргументов скрипта
-#	$1 - комманда для обработки
-#	$2 - аргумент для работы команды (опционно)
+#	$1 - команда для обработки
+#	$2 - аргумент для работы команды
 #
 # ------------------------------------------------------------------------------
 #	Разработчик: mail@zeleza.ru
@@ -25,11 +26,23 @@
 
 APP_VERSION=1.0
 APP_RELEASE=beta-21
+SETUP_FINISHED=
+
+
+if [ -z "${SETUP_FINISHED}" ] ; then
+	print_line
+	error "Настройка пакета не завершена!" "1"
+	warning "Запускаем настройку пакета!"
+	print_line
+	cmd_install
+	print_line
+fi
 
 clear_file_content "${UNBLOCK_LIST_FILE}"
 
 print_line
 case "${1}" in
+
 	bridge)
 		case "${2}" in
 			add ) 			cmd_bridge_vpn_access_add "${3}" ;;

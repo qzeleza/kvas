@@ -48,7 +48,7 @@ mount_container_to_make(){
 		echo "${APP_NAME}::Производим подключение к контейнеру."
 		show_line
 		if [ -n "${script_to_run}" ] ; then
-			docker exec "${docker_running_id}" "${script_to_run}"
+			docker exec -it "${docker_running_id}" "${script_to_run}"
 		else
 			if [ "${run_with_root}" = yes ]; then
 				docker exec -it --user root:root "${docker_running_id}" /bin/bash
@@ -64,7 +64,7 @@ mount_container_to_make(){
 			show_line
 			docker start "${docker_stopped_id}"
 			if [ -n "${script_to_run}" ] ; then
-				docker exec "${docker_stopped_id}" "${script_to_run}"
+				docker exec -it "${docker_stopped_id}" "${script_to_run}"
 			else
 				if [ "${run_with_root}" = yes ]; then
 					docker exec -it --user root:root "${docker_stopped_id}" /bin/bash
