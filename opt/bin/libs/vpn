@@ -1025,6 +1025,8 @@ shadowsocks_backup() {
 					when_bad "ОШИБКА" && exit 1
 				fi
 			fi
+		else
+			[ -f "${SHADOWSOCKS_CONF}" ] || shadowsocks_read_data
 		fi
 	else
 		error "Shadowsocks сервис не установлен. Дальнейшая установка невозможна."
@@ -1033,7 +1035,7 @@ shadowsocks_backup() {
 }
 
 
-get_ssr_entware_interface()(ip4 a | grep ezcfg | head -1 | cut -d': ' -f2 | tr -d ' ')
+get_ssr_entware_interface()(ip4 a | grep "${SSR_ENTWARE_TEMPL}" | head -1 | cut -d': ' -f2 | tr -d ' ')
 
 
 shadowsocks_read_config(){
@@ -1081,7 +1083,7 @@ cmd_shadowsocks_read_new_data() {
 shadowsocks_read_data() {
 
 	echo "Чтобы продолжить работу необходимо ввести следующие данные:"
-	echo -e "${GREEN}Хост${NOCL} shadowsocks сервера, его ${GREEN}порт, пароль доступа${NOCL} и ${GREEN}метод шифрования${NOCL}"
+	echo -e "${GREEN}Хост${NOCL} сервера, его ${GREEN}порт, пароль доступа${NOCL} и ${GREEN}метод шифрования${NOCL}"
 
 	echo -e "${BLUE}Пожалуйста, последовательно введите эти данные ниже.${NOCL}"
 	print_line
@@ -1090,7 +1092,7 @@ shadowsocks_read_data() {
 	cp "/opt/apps/${APP_NAME}/etc/conf/shadowsocks.json" "${SHADOWSOCKS_CONF}"
 
 	# читаем данные и Производим замену в библиотеке ndm основных значения интерфейсов
-	shadowsocks_read_config && 	ndm_interface_change "shadowsocks" "shadowsocks"
+	shadowsocks_read_config && 	ndm_interface_change "$(get_ssr_entware_interface)" "shadowsocks"
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -1420,7 +1422,7 @@ cmd_interface_change() {
 			cli_inface=$(echo "${INFACE_NAMES_FILE}" | grep "${inface_entware}" | cut -d"|" -f1)
 			ndm_interface_change "${inface_entware}" "${cli_inface}"
 
-			if [ "${inface_entware}" = 'shadowsocks' ]; then
+			if [[ "${inface_entware}" =~ ${SSR_ENTWARE_TEMPL} ]]; then
 				vpn_off &> /dev/null
 				shadowsocks_backup
 				shadowsocks_on
@@ -1500,7 +1502,7 @@ dns_crypt_port_change() {
 refresh_dnsmasq_ipset_table(){
 
 		ready "${prefix}Заполняем dnsmasq таблицу данными из списка разблокировки."
-		/opt/apps/kvas/bin/main/dnsmasq &>/dev/null
+		/opt/apps/kvas/bin/main/dnsmasq #&>/dev/null
 		[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 
 		ready "${prefix}Перезапускаем сервис dnsmasq"

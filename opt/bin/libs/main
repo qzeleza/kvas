@@ -57,6 +57,7 @@ APP_NAME_DESC=КВАС
 
 INFACE_REQUEST="${LOCALHOST_IP}:79/rci/show/interface"
 INFACE_PART_REQUEST="${LOCALHOST_IP}:79/rci/interface"
+SSR_ENTWARE_TEMPL=ezcfg
 
 # ------------------------------------------------------------------------------------------
 #
