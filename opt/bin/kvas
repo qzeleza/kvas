@@ -35,6 +35,7 @@ if [ -z "${SETUP_FINISHED}" ] ; then
 	print_line
 	cmd_install
 	print_line
+	exit 0
 fi
 
 clear_file_content "${UNBLOCK_LIST_FILE}"

@@ -15,6 +15,8 @@ change_version_in_package(){
 		/apps/entware/package/utils/"${APP_NAME}"/files/bin/"${APP_NAME}"
 	sed -i -e 's/\(^.*Крайняя версия Кваса.\)\[.*\]\(.*\)/\1 ['"${full_version}"']\2/' \
 		/apps/"${APP_NAME}"/README.md
+	sed -i "s/@app_ver/${APP_VER_FULL_TEXT}/g" \
+		/apps/entware/package/utils/"${APP_NAME}"/files/bin/main/setup
 }
 
 

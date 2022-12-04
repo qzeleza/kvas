@@ -17,14 +17,6 @@ cp -f /opt/apps/kvas/etc/conf/hosts.list /opt/etc/hosts.list
 cp -f /opt/apps/kvas/etc/conf/adblock.sources /opt/etc/adblock.sources
 cp -f /opt/apps/kvas/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
 
-# для процесса пост-удаления postrm
-mkdir -p /opt/etc/.kvas/term
-cp -f /opt/apps/kvas/bin/libs/vpn /opt/etc/.kvas/term/vpn
-cp -f /opt/apps/kvas/bin/libs/main /opt/etc/.kvas/term/main
-cp -f /opt/apps/kvas/bin/libs/debug /opt/etc/.kvas/term/debug
-cp -f /opt/apps/kvas/bin/libs/adblock /opt/etc/.kvas/term/adblock
-cp -f /opt/apps/kvas/bin/libs/ndm /opt/etc/.kvas/term/ndm
-
 print_line
 echo -e "Для настройки пакета КВАС наберите \033[36mkvas setup\033[m"
 print_line
