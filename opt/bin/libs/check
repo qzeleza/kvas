@@ -387,18 +387,31 @@ adblock_dnsmasq_check() {
 		fi
 	fi
 }
+
+# ------------------------------------------------------------------------------------------
+#
+#	 Возвращаем статус подключения к интернету
+#
+# ------------------------------------------------------------------------------------------
+is_not_internet_connected(){
+	status=$(curl -s "${LOCALHOST_IP}:79/rci/show/internet/status" | grep internet )
+	echo "${status}" | grep -q false
+}
 # ------------------------------------------------------------------------------------------
 #
 #	 Формируем лог отладочной информации
 #
 # ------------------------------------------------------------------------------------------
 internet_check() {
-	status=$(curl -s "${LOCALHOST_IP}:79/rci/show/internet/status" | grep internet )
-	is_connected=$(echo "${status}" | grep false)
-	if [ -n "${is_connected}" ]; then
+	if is_not_internet_connected; then
 		when_bad "Выявлены проблемы с интернет подключением" "${status}"
-		answer=''; read_ynq "Рекомендуется сделать перезагрузку роутера. Перегрузить?" answer
-		[ "${answer}" = y ] && reboot
+		when_ok "Перезапускаем основное соединение c провайдером (ISP)!"
+		reset_ISP_connection
+		if is_not_internet_connected; then
+			when_bad "К сожалению, перезапуск соединения не помог."
+			answer=''; read_ynq "Рекомендуется сделать перезагрузку роутера. Перегрузить?" answer
+			[ "${answer}" = y ] && reboot
+		fi
 	fi
 }
 # ------------------------------------------------------------------------------------------

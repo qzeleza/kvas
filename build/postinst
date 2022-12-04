@@ -18,7 +18,7 @@ cp -f /opt/apps/kvas/etc/conf/adblock.sources /opt/etc/adblock.sources
 cp -f /opt/apps/kvas/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
 
 # для процесса пост-удаления postrm
-mkdir -pf /opt/etc/.kvas/term
+mkdir -p /opt/etc/.kvas/term
 cp -f /opt/apps/kvas/bin/libs/vpn /opt/etc/.kvas/term/vpn
 cp -f /opt/apps/kvas/bin/libs/main /opt/etc/.kvas/term/main
 cp -f /opt/apps/kvas/bin/libs/debug /opt/etc/.kvas/term/debug
