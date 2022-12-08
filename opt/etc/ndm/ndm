@@ -26,11 +26,9 @@ PRIORITY=1778
 MARK_NUM=0xd1000
 DNS_PORT=53
 
-INFACE_CLI=$(get_config_value "INFACE_CLI")
-INFACE_ENT=$(get_config_value "INFACE_ENT")
 
-#как пример гостевая сеть br3, которой необходимо обеспечить доступ к VPN
-INFACE_GUEST_ENT=$(get_config_value "INFACE_GUEST_ENT")
+
+
 
 # Метка VPN цепочки для правил iptables
 VPN_IPTABLES_CHAIN=VPNREDIR
@@ -49,10 +47,14 @@ iptab() (/opt/sbin/iptables "$@")
 ip4save() (/opt/sbin/iptables-save)
 get_gw4()([ "${1}" ] && ip4 addr show "${1}" | grep -Po "(?<=inet ).*(?=/)")
 
+#как пример гостевая сеть br3, которой необходимо обеспечить доступ к VPN
+inface_guest_ent()(get_config_value "INFACE_GUEST_ENT")
+inface_cli()(get_config_value "INFACE_CLI")
+inface_ent()(get_config_value "INFACE_ENT")
+inface_gw4()(get_gw4 "$(inface_ent)")
 
-
-INFACE_GW4=$(get_gw4 "${INFACE_ENT}")
-
+inface_guest_gw4()(get_gw4 "${INFACE_GUEST_ENT}")
+guest_net()(echo "$(echo "${INFACE_GUEST_GW4}" | cut -d'.' -f1-3).0/24")
 
 # ------------------------------------------------------------------------------------------
 # в случае если задан гостевой интерфейс, получаем значение интерфейса и сетку IP
@@ -182,8 +184,9 @@ ip4_firewall_mark_rules_tcp_udp_on(){
 		{
 			log_warning "Маркировка VPN подключений когда программное и аппаратное ускорение ОТКЛЮЧЕНО."
 			# Исключаем маркировку трафика для гостевой (в том числе) сети
-			ip4tables PREROUTING -t mangle -i "${INFACE_ENT}" -p tcp -m set --match-set ${table_name} dst -j MARK --set-mark ${MARK_NUM}
-			ip4tables PREROUTING -t mangle -i "${INFACE_ENT}" -p udp -m set --match-set ${table_name} dst -j MARK --set-mark ${MARK_NUM}
+			_inface_ent=$(inface_ent)
+			ip4tables PREROUTING -t mangle -i "${_inface_ent}" -p tcp -m set --match-set ${table_name} dst -j MARK --set-mark ${MARK_NUM}
+			ip4tables PREROUTING -t mangle -i "${_inface_ent}" -p udp -m set --match-set ${table_name} dst -j MARK --set-mark ${MARK_NUM}
 
 		}  2> "${ERROR_LOG_FILE}"
 		when_error "${?}" " ${IPv4} Возникла ошибка при маркировке трафика гостевой сети для tcp или udp."
@@ -200,13 +203,14 @@ ip4_add_guest_to_vpn_network(){
 
 	rules=$(ip4save | grep "\-j MASQUERADE" | grep "${INFACE_GUEST_ENT}")
 	if [ -z "${rules}" ] ; then
+		_inface_guest_gw4=$(inface_guest_gw4)
 		# Маркируем трафик гостевой сети
 		{
 			log_warning "Подключаем правила маркировки гостевого трафика."
-			ip4tables PREROUTING -t nat -p udp -d "${INFACE_GUEST_GW4}" --dport ${DNS_PORT} -j DNAT --to "${INFACE_GW4}:53"
+			ip4tables PREROUTING -t nat -p udp -d "${_inface_guest_gw4}" --dport ${DNS_PORT} -j DNAT --to "$(inface_gw4):53"
 			ip4tables POSTROUTING -t nat -s "${GUEST_NET}" -o "${INFACE_GUEST_ENT}" -j MASQUERADE
 		} 2> "${ERROR_LOG_FILE}"
-		when_error "${?}" " ${IPv4} Возникла ошибка при маркировке гостевого трафика ${INFACE_GUEST_ENT} [${INFACE_GUEST_GW4}]"
+		when_error "${?}" " ${IPv4} Возникла ошибка при маркировке гостевого трафика ${INFACE_GUEST_ENT} [${_inface_guest_gw4}]"
 	fi
 }
 
@@ -419,7 +423,7 @@ ip4_firewall_ssr_prune(){
 #
 # ------------------------------------------------------------------------------------------
 ip4_firewall_flush_vpn_guest_rules(){
-	iptab -D PREROUTING -t nat -p udp -d "${INFACE_GUEST_GW4}" --dport ${DNS_PORT} -j DNAT --to "${INFACE_GW4}:53"
+	iptab -D PREROUTING -t nat -p udp -d "$(inface_guest_gw4)" --dport ${DNS_PORT} -j DNAT --to "$(inface_gw4):53"
 	iptab -D POSTROUTING -t nat -s "${GUEST_NET}" -o "${INFACE_GUEST_ENT}" -j MASQUERADE
 }
 
@@ -478,10 +482,11 @@ ip4_flush_all_tables(){
 
 
 route_del(){
+	inface_ent=${1}
 	_route=$(ip4 route show table ${TABLE_ID})
 	inface=$(echo ${_route} | grep default | cut -d' ' -f5)
-	if [[ -n "${_route}" ]] && ! [[ "${inface}" = "${INFACE_ENT}" ]]; then
-		ip4 route del table ${TABLE_ID} default via "${INFACE_GW4}" dev ${INFACE_ENT}
+	if [[ -n "${_route}" ]] && ! [[ "${inface}" = "$(inface_ent)" ]]; then
+		ip4 route del table ${TABLE_ID} default via "$(inface_gw4)" dev $(inface_ent)
 	fi
 
 }
@@ -492,12 +497,15 @@ route_del(){
 # ------------------------------------------------------------------------------------------
 ip4_add_route_table(){
 
-	route_del
+	_inface_ent=$(get_config_value "INFACE_ENT")
 
-	if [ -z "$(ip4 route show table ${TABLE_ID} dev ${INFACE_ENT})"  ]; then
-		log_warning "IPv4::Создаем таблицу маршрутизации ID#${TABLE_ID} для '${INFACE_CLI}'."
-		ip4 route add table ${TABLE_ID} default via "${INFACE_GW4}" dev ${INFACE_ENT} 2> "${ERROR_LOG_FILE}"
-		when_error "${?}" " ${IPv4} Возникла ошибка при создании таблицы маршрутизации ID#${TABLE_ID} для '${INFACE_CLI}' интерфейса"
+	route_del "${_inface_ent}"
+
+	if [ -z "$(ip4 route show table ${TABLE_ID} dev ${_inface_ent})"  ]; then
+		_inface_cli=$(inface_cli)
+		log_warning "IPv4::Создаем таблицу маршрутизации ID#${TABLE_ID} для '${_inface_cli}'."
+		ip4 route add table ${TABLE_ID} default via "$(inface_gw4)" dev ${_inface_ent} 2> "${ERROR_LOG_FILE}"
+		when_error "${?}" " ${IPv4} Возникла ошибка при создании таблицы маршрутизации ID#${TABLE_ID} для '${_inface_cli}' интерфейса"
 
 		log_warning "IPv4::Копируем записи таблицы main в таблицу ID#${TABLE_ID}."
 		ip4 route show table main | grep -Ev ^default | \
@@ -523,7 +531,7 @@ ip4_rule_set_priority(){
 	if ! ip4 rule show | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID}"  ; then
 		log_warning "IPv4::Устанавливаем приоритет таблицы ID#${TABLE_ID} в значение ${PRIORITY}"
 		ip4 rule add fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID} priority ${PRIORITY} 2> "${ERROR_LOG_FILE}"
-		ip4 route add default dev ${INFACE_ENT} table ${TABLE_ID}
+		ip4 route add default dev $(inface_ent) table ${TABLE_ID}
 		when_error "${?}" " ${IPv4} Возникла ошибка при установке приоритета таблицы с ID#${TABLE_ID} в значение ${PRIORITY}"
 	fi
 
@@ -577,7 +585,7 @@ recreate_ip4tables(){
 	ip4set_create_table &>/dev/null
 	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 
-	ready "${prefix}Создаем таблицу маршрутизации ID#${TABLE_ID} для '${INFACE_CLI}'."
+	ready "${prefix}Создаем таблицу маршрутизации ID#${TABLE_ID} для '$(inface_cli)'."
 	#	Создаем таблицу IP адресов для  VPN подключения отличного от shadowsocks
 	ip4_add_route_table &> /dev/null
 	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
