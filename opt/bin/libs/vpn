@@ -387,7 +387,7 @@ adguardhome_check_config() {
 				echo "После всех произведенных настроек нажмите Ctrl-C"
 				echo -e "И затем снова запустите ${BLUE}kvas adguard on${NOCL}"
 				print_line
-				/opt/bin/AdGuardHome
+				/opt/bin/AdGuardHome && cmd_adguardhome_on
 			fi
 		fi
 }
@@ -1016,7 +1016,7 @@ shadowsocks_backup() {
 		fi
 		if [ -f "${SHADOWSOCKS_CONF}.kvas" ] ; then
 
-			if [ -f "${SHADOWSOCKS_CONF}" ] && ! grep -qE '""|@' "${SHADOWSOCKS_CONF}" && ! grep -E '127.0.0.1|barfoo!' "${SHADOWSOCKS_CONF}"; then
+			if [ -f "${SHADOWSOCKS_CONF}" ] && ! grep -qE '""|@' "${SHADOWSOCKS_CONF}" && ! grep -qE '127.0.0.1|barfoo!' "${SHADOWSOCKS_CONF}"; then
 					active_backup_config
 			else
 				active_backup_config

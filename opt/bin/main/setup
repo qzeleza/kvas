@@ -160,7 +160,7 @@ rm_package_files(){
 	full=${1:-no}
 	ready "Удаляем все файлы пакета Квас вместе с архивами"
 
-	if  "${full}" = full ] ; then
+	if [ "${full}" = full ] ; then
 		[ -f /opt/etc/hosts.list ] && mv -f /opt/etc/hosts.list /opt/etc/hosts.list.kvas
 		[ -f /opt/etc/adblock.sources ] && mv -f /opt/etc/adblock.sources /opt/etc/adblock.sources.kvas
 		[ -d /opt/tmp/adblock ] && rm -rf /opt/tmp/adblock
@@ -187,12 +187,9 @@ rm_package_files(){
 
 set_previous_condition(){
 
-	answer='y';
-	# read_ynq "Удалить файлы конфигурации пакета" answer
-	if [ "${answer}" = y ]; then
-		ready "Удаляем файлы конфигурации..."
-		if rm_package_files ; then when_ok "УСПЕШНО"; else when_bad "ОШИБКА"; fi
-	fi
+	full=${1:-no}
+	ready "Удаляем файлы конфигурации..."
+	if rm_package_files "${full}" &>/dev/null ; then when_ok "УСПЕШНО"; else when_bad "ОШИБКА"; fi
 
 	ready "Удаляем данные из cron..."
 	sed -i '/ipset/d' /opt/etc/crontab &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
@@ -374,8 +371,7 @@ cmd_uninstall() {
 	print_line
 	opkg remove kvas "${auto}"
 	print_line
-	set_previous_condition
-	rm_package_files "${rm_type}"
+	set_previous_condition "${rm_type}"
 	print_line
 	echo "Удаление КВАСа завершено."
 }
