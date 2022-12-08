@@ -409,7 +409,8 @@ adguardhome_install_locally() {
 		rm -f /opt/var/log/AdGuardHome.log
 		opkg remove adguardhome-go &> /dev/null
 		opkg install adguardhome-go &> /dev/null
-
+		. /opt/apps/kvas/bin/libs/update
+		cmd_adguard_update
 		adguardhome_check_config
 		ip=$(get_router_ip)
 		port=$(cat < "${ADGUARDHOME_CONFIG}" | grep '^bind_port: ' | cut -d':' -f2 | tr -d ' \n')
