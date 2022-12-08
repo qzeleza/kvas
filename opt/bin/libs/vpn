@@ -974,7 +974,23 @@ vpn_on() {
 
 }
 
-
+active_backup_config(){
+	echo "Обнаружен архивный файл конфигурации shadowsocks."
+	answer=''; read_ynq "Удалить его и создать новый" answer
+	if [ "${answer}" = y ]; then
+		ready "Удаляем архивный файл конфигурации shadowsocks..."
+		rm -f "${SHADOWSOCKS_CONF}.kvas"
+		[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+	else
+		ready "Восстанавливаем файл конфигурации shadowsocks из архива   "
+		mv -f "${SHADOWSOCKS_CONF}.kvas" "${SHADOWSOCKS_CONF}"  &>/dev/null
+		if [ ${?} = 0 ]; then
+			when_ok "ГОТОВО";
+		else
+			when_bad "ОШИБКА" && exit 1
+		fi
+	fi
+}
 # ------------------------------------------------------------------------------------------
 #
 #	Сохраняем данные для shadowsocks в архивный файл ${SHADOWSOCKS_CONF}.kvas
@@ -997,24 +1013,15 @@ shadowsocks_backup() {
 				exit 1
 			fi
 		fi
-		if [ -f "${SHADOWSOCKS_CONF}.kvas" ] && ! grep -qE '""|@' "${SHADOWSOCKS_CONF}" \
-			&& ! grep -E '127.0.0.1|barfoo!' "${SHADOWSOCKS_CONF}"; then
+		if [ -f "${SHADOWSOCKS_CONF}.kvas" ] ; then
 
-			echo "Обнаружен архивный файл конфигурации shadowsocks."
-			answer=''; read_ynq "Удалить его и создать новый" answer
-			if [ "${answer}" = y ]; then
-				ready "Удаляем архивный файл конфигурации shadowsocks..."
-				rm -f "${SHADOWSOCKS_CONF}.kvas"
-				[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+			if [ -f "${SHADOWSOCKS_CONF}" ] && ! grep -qE '""|@' "${SHADOWSOCKS_CONF}" && ! grep -E '127.0.0.1|barfoo!' "${SHADOWSOCKS_CONF}"; then
+					active_backup_config
 			else
-				ready "Восстанавливаем файл конфигурации shadowsocks из архива   "
-				mv -f "${SHADOWSOCKS_CONF}.kvas" "${SHADOWSOCKS_CONF}"  &>/dev/null
-				if [ ${?} = 0 ]; then
-					when_ok "ГОТОВО";
-				else
-					when_bad "ОШИБКА" && exit 1
-				fi
+				active_backup_config
 			fi
+
+
 		else
 			[ -f "${SHADOWSOCKS_CONF}" ] || shadowsocks_read_data
 		fi
@@ -1319,7 +1326,7 @@ get_current_vpn_interface() {
 			cli_desc) col=3 ;;
 			*) col=1 ;;
 		esac
-		inface_entware=$(grep 'INFACE_ENT=' "/opt/apps/kvas/bin/libs/ndm" | cut -d'=' -f2)
+		inface_entware=$(get_config_value "INFACE_ENT")
 		inface=$(grep "${inface_entware}" "${INFACE_NAMES_FILE}" | cut -d'|' -f"${col}")
 	fi
 	echo "${inface}"

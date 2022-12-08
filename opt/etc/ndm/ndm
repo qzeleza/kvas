@@ -53,16 +53,8 @@ inface_cli()(get_config_value "INFACE_CLI")
 inface_ent()(get_config_value "INFACE_ENT")
 inface_gw4()(get_gw4 "$(inface_ent)")
 
-inface_guest_gw4()(get_gw4 "${INFACE_GUEST_ENT}")
-guest_net()(echo "$(echo "${INFACE_GUEST_GW4}" | cut -d'.' -f1-3).0/24")
-
-# ------------------------------------------------------------------------------------------
-# в случае если задан гостевой интерфейс, получаем значение интерфейса и сетку IP
-# ------------------------------------------------------------------------------------------
-[ -n "${INFACE_GUEST_ENT}" ] && {
-	INFACE_GUEST_GW4=$(get_gw4 "${INFACE_GUEST_ENT}")
-	GUEST_NET="$(echo "${INFACE_GUEST_GW4}" | cut -d'.' -f1-3).0/24"
-}
+inface_guest_gw4()(get_gw4 "$(inface_guest_ent)")
+guest_net()(echo "$(inface_guest_gw4 | cut -d'.' -f1-3).0/24")
 
 # ------------------------------------------------------------------------------------------
 # проверка на доступность программного и аппаратного ускорения
@@ -200,17 +192,17 @@ ip4_firewall_mark_rules_tcp_udp_on(){
 #
 # ------------------------------------------------------------------------------------------
 ip4_add_guest_to_vpn_network(){
-
-	rules=$(ip4save | grep "\-j MASQUERADE" | grep "${INFACE_GUEST_ENT}")
+	_inface_guest_ent=$(inface_guest_ent)
+	rules=$(ip4save | grep "\-j MASQUERADE" | grep "${_inface_guest_ent}")
 	if [ -z "${rules}" ] ; then
 		_inface_guest_gw4=$(inface_guest_gw4)
 		# Маркируем трафик гостевой сети
 		{
 			log_warning "Подключаем правила маркировки гостевого трафика."
 			ip4tables PREROUTING -t nat -p udp -d "${_inface_guest_gw4}" --dport ${DNS_PORT} -j DNAT --to "$(inface_gw4):53"
-			ip4tables POSTROUTING -t nat -s "${GUEST_NET}" -o "${INFACE_GUEST_ENT}" -j MASQUERADE
+			ip4tables POSTROUTING -t nat -s "${GUEST_NET}" -o "${_inface_guest_ent}" -j MASQUERADE
 		} 2> "${ERROR_LOG_FILE}"
-		when_error "${?}" " ${IPv4} Возникла ошибка при маркировке гостевого трафика ${INFACE_GUEST_ENT} [${_inface_guest_gw4}]"
+		when_error "${?}" " ${IPv4} Возникла ошибка при маркировке гостевого трафика ${_inface_guest_ent} [${_inface_guest_gw4}]"
 	fi
 }
 
@@ -232,7 +224,7 @@ ip4_mark_vpn_network(){
 		ip4_firewall_mark_rules_tcp_udp_on
 	fi
 #	в случае наличия гостевой сети
-	if [ -n "${INFACE_GUEST_ENT}" ]; then
+	if [ -n "$(inface_guest_ent)" ]; then
 		ip4_add_guest_to_vpn_network
 	fi
 }
@@ -424,7 +416,7 @@ ip4_firewall_ssr_prune(){
 # ------------------------------------------------------------------------------------------
 ip4_firewall_flush_vpn_guest_rules(){
 	iptab -D PREROUTING -t nat -p udp -d "$(inface_guest_gw4)" --dport ${DNS_PORT} -j DNAT --to "$(inface_gw4):53"
-	iptab -D POSTROUTING -t nat -s "${GUEST_NET}" -o "${INFACE_GUEST_ENT}" -j MASQUERADE
+	iptab -D POSTROUTING -t nat -s "${GUEST_NET}" -o "$(inface_guest_ent)" -j MASQUERADE
 }
 
 
@@ -441,7 +433,7 @@ ip4_firewall_flush_vpn_rules(){
 #		Если программное и аппаратное ускорение ОТКЛЮЧЕНО
 		ip4_firewall_nofastnet_vpn_prune
 	fi
-	if [ -n "${INFACE_GUEST_ENT}" ]; then ip4_firewall_flush_vpn_guest_rules; fi
+	if [ -n "$(inface_guest_ent)" ]; then ip4_firewall_flush_vpn_guest_rules; fi
 }
 # ------------------------------------------------------------------------------------------
 #

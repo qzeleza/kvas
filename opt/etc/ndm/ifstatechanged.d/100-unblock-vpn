@@ -2,7 +2,7 @@
 
 if [ "${1}" = "hook" ] && [ "${change}" = "link" ] ; then
 	. /opt/apps/kvas/bin/libs/ndm
-	if [ "${id}" = "${INFACE_CLI}" ]; then
+	if [ "${id}" = "$(inface_cli)" ]; then
 		logger -t "КВАС"  "Запущен файл /opt/etc/ndm/ifstatechanged.d/100-unblock-vpn [${id}-${change}-${connected}-${link}-${up}]"
 		case "${id}-${change}-${connected}-${link}-${up}" in
 			"${id}-link-no-down-down" )
