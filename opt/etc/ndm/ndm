@@ -13,6 +13,11 @@
 #	Лицензия: Apache License 2.0
 # ------------------------------------------------------------------------------------------
 
+# ------------------------------------------------------------------------------------------
+# Подключаем функции логирования
+. /opt/apps/kvas/bin/libs/main
+# ------------------------------------------------------------------------------------------
+
 # имя таблицы для ipset
 table_name=unblock
 
@@ -21,11 +26,11 @@ PRIORITY=1778
 MARK_NUM=0xd1000
 DNS_PORT=53
 
-INFACE_CLI=
-INFACE_ENT=
+INFACE_CLI=$(get_config_value "INFACE_CLI")
+INFACE_ENT=$(get_config_value "INFACE_ENT")
 
 #как пример гостевая сеть br3, которой необходимо обеспечить доступ к VPN
-INFACE_GUEST_ENT=
+INFACE_GUEST_ENT=$(get_config_value "INFACE_GUEST_ENT")
 
 # Метка VPN цепочки для правил iptables
 VPN_IPTABLES_CHAIN=VPNREDIR
@@ -36,10 +41,7 @@ SSR_IPTABLES_CHAIN_MARK=SHADOWSOCKS_UDP_MARK
 IPv4='IPv4::'
 IPv6='IPv6::'
 
-# ------------------------------------------------------------------------------------------
-# Подключаем функции логирования
-. /opt/apps/kvas/bin/libs/main
-# ------------------------------------------------------------------------------------------
+
 
 ip4() (/opt/sbin/ip -4 "$@")
 ip4tables() (/opt/sbin/iptables -C "$@" &>/dev/null || /opt/sbin/iptables -A "$@")
@@ -475,6 +477,14 @@ ip4_flush_all_tables(){
 }
 
 
+route_del(){
+	_route=$(ip4 route show table ${TABLE_ID})
+	inface=$(echo ${_route} | grep default | cut -d' ' -f5)
+	if [[ -n "${_route}" ]] && ! [[ "${inface}" = "${INFACE_ENT}" ]]; then
+		ip4 route del table ${TABLE_ID} default via "${INFACE_GW4}" dev ${INFACE_ENT}
+	fi
+
+}
 # ------------------------------------------------------------------------------------------
 #
 # 	Создаем ip4 таблицу ${TABLE_ID} и копируем в нее данные из таблицы main
@@ -482,7 +492,9 @@ ip4_flush_all_tables(){
 # ------------------------------------------------------------------------------------------
 ip4_add_route_table(){
 
-	if [ -z "$(ip4 route show table ${TABLE_ID})" ]; then
+	route_del
+
+	if [ -z "$(ip4 route show table ${TABLE_ID} dev ${INFACE_ENT})"  ]; then
 		log_warning "IPv4::Создаем таблицу маршрутизации ID#${TABLE_ID} для '${INFACE_CLI}'."
 		ip4 route add table ${TABLE_ID} default via "${INFACE_GW4}" dev ${INFACE_ENT} 2> "${ERROR_LOG_FILE}"
 		when_error "${?}" " ${IPv4} Возникла ошибка при создании таблицы маршрутизации ID#${TABLE_ID} для '${INFACE_CLI}' интерфейса"
@@ -556,6 +568,7 @@ ip4set_create_table(){
 #
 # ------------------------------------------------------------------------------------------
 recreate_ip4tables(){
+
 	ready "${prefix}Удаляем все ранее созданные таблицы для утилит ipset и ip"
 	ip4_flush_all_tables &>/dev/null
 	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
@@ -565,7 +578,7 @@ recreate_ip4tables(){
 	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 
 	ready "${prefix}Создаем таблицу маршрутизации ID#${TABLE_ID} для '${INFACE_CLI}'."
-#	Создаем таблицу IP адресов для  VPN подключения отличного от shadowsocks
+	#	Создаем таблицу IP адресов для  VPN подключения отличного от shadowsocks
 	ip4_add_route_table &> /dev/null
 	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 }

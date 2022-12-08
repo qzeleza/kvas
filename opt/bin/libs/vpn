@@ -921,8 +921,9 @@ ndm_interface_change() {
 	inface_entware="${1}"; inface_cli="${2}"
 	cp /opt/apps/${APP_NAME}/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
 	chmod +x /opt/apps/kvas/bin/libs/ndm
-	sed -i "s/INFACE_ENT=/INFACE_ENT=${inface_entware}/g" "/opt/apps/kvas/bin/libs/ndm"
-	sed -i "s/INFACE_CLI=/INFACE_CLI=${inface_cli}/g" "/opt/apps/kvas/bin/libs/ndm"
+	set_config_value "INFACE_ENT" "${inface_entware}"
+	set_config_value "INFACE_CLI" "${inface_cli}"
+
 }
 # ------------------------------------------------------------------------------------------
 #

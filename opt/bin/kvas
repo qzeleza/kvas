@@ -25,10 +25,9 @@
 
 APP_VERSION=1.0
 APP_RELEASE=beta-22
-SETUP_FINISHED=
 
 
-if [ -z "${SETUP_FINISHED}" ] ; then
+if [ -z "$(get_config_value "SETUP_FINISHED")" ] ; then
 	print_line
 	error "Настройка пакета не завершена!" "1"
 	warning "Запускаем настройку пакета!"
@@ -42,7 +41,10 @@ clear_file_content "${UNBLOCK_LIST_FILE}"
 
 print_line
 case "${1}" in
-
+	setup)
+							echo "Настройка пакета КВАС завершена!"
+							echo "Для удаления пакета наберите 'kvas remove'"
+							;;
 	bridge)
 		case "${2}" in
 			add ) 			cmd_bridge_vpn_access_add "${3}" ;;

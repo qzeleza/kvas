@@ -341,7 +341,7 @@ cmd_install(){
 	fi
 
 	setup_print_finish
-	sed -i "s/\(SETUP_FINISHED=\).*/\1true/" /opt/apps/kvas/bin/kvas
+	set_config_value "SETUP_FINISHED" true
 	# Пишем сообщение в лог роутера о начале установки пакета
 	log_alert "УСТАНОВКА ПАКЕТА КВАС ЗАВЕРШЕНА!" "${LOG_HEADER}"
 }
