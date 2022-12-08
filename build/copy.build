@@ -5,4 +5,4 @@ app_pkg_tar_name=${APP_NAME}_${version}-${stage}_${release}_all.ipk
 app_pkg_file="/apps/entware/bin/targets/mipsel-3.4/generic-glibc/packages/${app_pkg_tar_name}"
 copy_app_to_router "${app_pkg_file}" "${app_pkg_tar_name}"
 run_reinstalation_on_router "${app_pkg_tar_name}"
-run_tests
+#run_tests

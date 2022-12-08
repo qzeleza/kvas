@@ -89,5 +89,5 @@ show_line
 # копируем собранный пакет на роутер
 copy_app_to_router "${APP_PKG_FILE}" "${APP_PKG_TAR_NAME}"
 run_reinstalation_on_router "${APP_PKG_TAR_NAME}"
-run_tests
+#run_tests
 echo "Сборка завершена: $(zdump EST-3)";
