@@ -368,8 +368,9 @@ ip4_firewall_fastnet_vpn_prune(){
 		ip4tbl_flush_rm_match_set "${table}" "${chain}" OUTPUT
 		ip4tbl_flush_rm_chain "${table}" "${chain}"
 
-	} 2> "${ERROR_LOG_FILE}"
-	when_error "${?}" "${IPv4} Возникла ошибка при обнулении VPN правил iptables для цепочки ${table}."
+	} &>/dev/null
+#	2> "${ERROR_LOG_FILE}"
+#	when_error "${?}" "${IPv4} Возникла ошибка при обнулении VPN правил iptables для цепочки ${table}."
 }
 
 
@@ -384,8 +385,9 @@ ip4_firewall_nofastnet_vpn_prune(){
 		ip4tbl_flush_rm_pre_out "${table}" "${chain}" PREROUTING
 		ip4tbl_flush_rm_chain "${table}" "${chain}"
 
-	} 2> "${ERROR_LOG_FILE}"
-	when_error "${?}" "${IPv4} Возникла ошибка при обнулении VPN правил iptables для цепочки ${table}."
+	} &>/dev/null
+#	2> "${ERROR_LOG_FILE}"
+#	when_error "${?}" "${IPv4} Возникла ошибка при обнулении VPN правил iptables для цепочки ${table}."
 }
 
 
@@ -441,7 +443,6 @@ ip4_firewall_flush_vpn_rules(){
 #
 # ------------------------------------------------------------------------------------------
 ip4_firewall_flush_all_rules(){
-	> "${ERROR_LOG_FILE}" # Обнуление файла журналирования
 
 #   Если активно VPN соединение
 	if [ -f "/opt/etc/ndm/netfilter.d/100-vpn-mark" ]; then
