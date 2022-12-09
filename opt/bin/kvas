@@ -23,10 +23,6 @@
 #	Лицензия: Apache License 2.0
 # ------------------------------------------------------------------------------
 
-APP_VERSION=1.0
-APP_RELEASE=beta-22
-
-
 if [ -z "$(get_config_value "SETUP_FINISHED")" ] ; then
 	print_line
 	error "Настройка пакета не завершена!" "1"

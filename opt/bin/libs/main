@@ -59,7 +59,6 @@ INFACE_REQUEST="${LOCALHOST_IP}:79/rci/show/interface"
 INFACE_PART_REQUEST="${LOCALHOST_IP}:79/rci/interface"
 SSR_ENTWARE_TEMPL=ezcfg
 
-
 # ------------------------------------------------------------------------------------------
 #
 #	Переподключаем основной интерфейс в случае обрыва
@@ -109,6 +108,10 @@ pause()(read -r pause &> /dev/null)
 get_config_value() {
 	grep "${1}=" "${KVAS_CONF_FILE}" | cut -d'=' -f2
 }
+
+APP_VERSION=$(get_config_value APP_VERSION)
+APP_RELEASE=$(get_config_value APP_RELEASE)
+
 # ------------------------------------------------------------------------------------------
 #
 # 		Получаем значение переменной из файла конфигурации

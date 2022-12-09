@@ -10,9 +10,9 @@ set -e
 #========================================================================================================
 change_version_in_package(){
 	sed -i "s/^\(APP_VERSION=\).*/\1${version}/g" \
-		/apps/entware/package/utils/"${APP_NAME}"/files/bin/"${APP_NAME}"
+		/apps/entware/package/utils/"${APP_NAME}"/files/etc/conf/kvas.conf
 	sed -i "s/^\(APP_RELEASE=\).*/\1${stage}-${release}/g" \
-		/apps/entware/package/utils/"${APP_NAME}"/files/bin/"${APP_NAME}"
+		/apps/entware/package/utils/"${APP_NAME}"/files/etc/conf/kvas.conf
 	sed -i -e 's/\(^.*Крайняя версия Кваса.\)\[.*\]\(.*\)/\1 ['"${full_version}"']\2/' \
 		/apps/"${APP_NAME}"/README.md
 	sed -i "s/@app_ver/${APP_VER_FULL_TEXT}/g" \

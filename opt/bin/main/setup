@@ -4,7 +4,6 @@
 
 # В случае проблем с инсталляцией пакета ставим в значение true
 ANSWER_AGH=n
-APP_VER=1.0-beta-22
 
 log_in_file(){
 	if [ "${1}" = line ]; then
@@ -35,7 +34,7 @@ setup_test_provider_dns(){
 
 setup_print_welcome(){
 
-	welcome="Установка пакета ${GREEN}КВАС™${NOCL} версия ${GREEN}${APP_VER}${NOCL}"
+	welcome="Установка пакета ${GREEN}КВАС™${NOCL} версия ${GREEN}${APP_VERSION}-${APP_RELEASE}${NOCL}"
 	echo -e "${welcome}"
 	print_line
 
