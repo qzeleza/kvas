@@ -25,7 +25,7 @@ CMD_LIST="address prefix name-servers"
 
 # ------------------------------------------------------------------------------------------
 #
-# 	Производим иницилизацию пакета КВАС
+# 	Производим инициализацию пакета КВАС
 #
 # ------------------------------------------------------------------------------------------
 cmd_kvas_init(){
@@ -101,7 +101,7 @@ get_value_interface_field() {
 }
 # ------------------------------------------------------------------------------------------
 #
-#	Получаем текущий интерфейс по умолчанию через который раздается интеренет
+#	Получаем текущий интерфейс по умолчанию через который раздается интернет
 #
 # ------------------------------------------------------------------------------------------
 get_defaultgw_interface() {
@@ -262,7 +262,7 @@ adguardhome_setup() {
 
 	ready "AdGuard Home установлен в качестве основного DNS сервера"
 
-#	в случае установленного dnsmasq отстанавливаем его и архивируем
+#	в случае установленного dnsmasq останавливаем его и архивируем
 	[ -f /opt/etc/init.d/S56dnsmasq ] && {
 		/opt/etc/init.d/S56dnsmasq stop &> /dev/null
 		mv -f /opt/etc/init.d/S56dnsmasq "${KVAS_BACKUP_PATH}"
@@ -278,7 +278,7 @@ adguardhome_setup() {
 	set_config_value DNS_DEFAULT "${ip}#${port}"
 #	меняем номер порта в файле конфигурации adguard
 	sed -i "s/\( port:\) .*/\1 ${port}/" "${ADGUARDHOME_CONFIG}"
-#	если файл сервис adguard в налиии то архивируем файл конфигурации
+#	если файл сервис adguard в наличии то архивируем файл конфигурации
 	if [ -f "${ADGUARDHOME_DEMON}" ]; then
 		cp /opt/etc/AdGuardHome/AdGuardHome.yaml "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml
 	fi
@@ -286,10 +286,10 @@ adguardhome_setup() {
 #	проверяем файл на оригинальность (без переделок ли он под квас)
 	if ! cat < "${ADGUARDHOME_DEMON}" | grep -q kvas ; then
 #		если оригинальный, то архивируем его
-		mv "${ADGUARDHOME_DEMON}" "${KVAS_BACKUP_PATH}/S99adguardhome.orign"
+		mv "${ADGUARDHOME_DEMON}" "${KVAS_BACKUP_PATH}/S99adguardhome.origin"
 	fi
 	cp /opt/apps/kvas/etc/init.d/S99adguard "${ADGUARDHOME_DEMON}"
-#	удаляем сервис запуса квас так как его теперь будет заменять файл сервиса adguard
+#	удаляем сервис запуска квас так как его теперь будет заменять файл сервиса adguard
 	rm -f "${KVAS_START_FILE}"
 #	меняем dns в настройках ipset
 	ipset_dns_change "${ip}#${port}"
@@ -376,7 +376,7 @@ adguardhome_check_config() {
 #				проверяем файл на оригинальность (без переделок ли он под квас)
 				if ! cat < "${ADGUARDHOME_DEMON}" | grep -q kvas ; then
 #					если оригинальный, то архивируем его
-					mv "${ADGUARDHOME_DEMON}" "${KVAS_BACKUP_PATH}/S99adguardhome.orign"
+					mv "${ADGUARDHOME_DEMON}" "${KVAS_BACKUP_PATH}/S99adguardhome.origin"
 				fi
 
 				cp /opt/apps/kvas/etc/init.d/S99adguard  /opt/etc/init.d/S99adguardhome
@@ -385,7 +385,7 @@ adguardhome_check_config() {
 			else
 				echo "Следуйте инструкциям на экране ниже..."
 				echo "После всех произведенных настроек нажмите Ctrl-C"
-				echo -e "И затем снова запустите ${BLUE}kvas adguard on${NOCL}"
+#				echo -e "И затем снова запустите ${BLUE}kvas adguard on${NOCL}"
 				print_line
 				/opt/bin/AdGuardHome && cmd_adguardhome_on
 			fi
@@ -889,7 +889,7 @@ cmd_vpn_iptable_reset() {
 }
 # ------------------------------------------------------------------------------------------
 #
-#	ВКЛлючаем VPN клиента
+#	ВКЛючаем VPN клиента
 #	$1 - id интерфейса в entware
 #
 # ------------------------------------------------------------------------------------------
@@ -928,7 +928,7 @@ ndm_interface_change() {
 }
 # ------------------------------------------------------------------------------------------
 #
-#	ВКЛлючаем VPN клиента
+#	ВКЛючаем VPN клиента
 #	$1 - id интерфейса в entware
 #
 # ------------------------------------------------------------------------------------------
@@ -1552,13 +1552,13 @@ dns_crypt_install() {
 	if [ -f /opt/etc/init.d/K09dnscrypt-proxy2 ]; then
 		warning "Обнаружен архив файла S09dnscrypt-proxy2."
 		ready "Восстанавливаем S09dnscrypt-proxy2 из архива..."
-#		реанимируем его из аррхива
+#		реанимируем его из архива
 		cp /opt/etc/init.d/K09dnscrypt-proxy2 /opt/etc/init.d/S09dnscrypt-proxy2 1> /dev/null 2> "${ERROR_LOG_FILE}"
 		ready_status "${?}" "Ошибка при восстановлении S09dnscrypt-proxy2 из архива"
 	else
 		# Если запуск функции был не при установке пакета Квас
 			if [ -z "${is_install_stage}" ]; then
-		#		при его отсутвии - устанавливаем пакет
+		#		при его отсутствии - устанавливаем пакет
 				if ! [ -f /opt/etc/init.d/S09dnscrypt-proxy2 ]; then
 					ready "Устанавливаем пакет dnscrypt-proxy2..."
 					opkg remove dnscrypt-proxy2 1> /dev/null 2> "${ERROR_LOG_FILE}"
@@ -1568,8 +1568,8 @@ dns_crypt_install() {
 			else
 				if ! [ -f /opt/etc/init.d/S09dnscrypt-proxy2 ]; then
 	#				Если вызвана функция из postinst
-					error "Пакет dnscrypt-proxy2 был усановлен с ошибками или поврежден!"
-					error "Файл запуска пакета /opt/etc/init.d/S09dnscrypt-proxy2 отсуствует!"
+					error "Пакет dnscrypt-proxy2 был установлен с ошибками или поврежден!"
+					error "Файл запуска пакета /opt/etc/init.d/S09dnscrypt-proxy2 отсутствует!"
 					warning "Удалите Квас и затем переустановите пакет dnscrypt-proxy2"
 					exit 1
 				fi
@@ -1710,7 +1710,7 @@ host_add() {
 
 	ready "Добавляем ${YELLOW}${_host}${NOCL} в список разблокировки..."
 	echo "${_host}" >> "${UNBLOCK_LIST_FILE}"
-#	если включен блокирощик рекламы
+#	если включен блокировщик рекламы
 	if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
 		ads_del_white_list_hosts &> /dev/null
 	fi
@@ -1720,7 +1720,7 @@ host_add() {
 # ------------------------------------------------------------------------------------------
 #
 #	Добавляем в белый список одно доменное имя, точнее список его IP адресов
-#	$1 - доменное имя, для котрого необходимо получить IP
+#	$1 - доменное имя, для которого необходимо получить IP
 #
 # ------------------------------------------------------------------------------------------
 cmd_add_one_host() {
@@ -1771,7 +1771,7 @@ cmd_add_one_host() {
 # ------------------------------------------------------------------------------------------
 #
 #	Удаляем из белого списка одно доменное имя, точнее список его IP адресов
-#	$1 - доменное имя для уадления
+#	$1 - доменное имя для удаления
 #
 # ------------------------------------------------------------------------------------------
 cmd_del_one_host() {
@@ -1926,7 +1926,7 @@ cmd_import_hosts() {
 }
 # ------------------------------------------------------------------------------------------
 #
-#	Экспортируем (сохраняем) список доменнов в другой файл
+#	Экспортируем (сохраняем) список доменов в другой файл
 #	$1 - имя файла архива
 #
 # ------------------------------------------------------------------------------------------
@@ -1958,7 +1958,7 @@ cmd_show_list() {
 	if [ -f "${UNBLOCK_LIST_FILE}" ]; then
 		num_plus=$(rec_in_file "${UNBLOCK_LIST_FILE}")
 		if [ "${num_plus}" -eq 0 ]; then
-#			Если список хостов пуст, то провряем есть ли архивная копия
+#			Если список хостов пуст, то проверяем есть ли архивная копия
 			if [ -f "${KVAS_BACKUP_LIST_FILE}" ] ; then
 				cp "${KVAS_BACKUP_LIST_FILE}" "${UNBLOCK_LIST_FILE}"
 				print_host_list

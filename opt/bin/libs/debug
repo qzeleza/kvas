@@ -205,7 +205,7 @@ unblock_list_ipset_check(){
 					ready "${line} (${ip})"
 					res=$(echo "${result_ipset}" | grep -E "${ip}")
 					[ -n "${res}" ] && when_ok "В ТАБЛИЦЕ" || {
-						when_bad "ОТСУСТВУЕТ"
+						when_bad "ОТСУТСВУЕТ"
 						NOT_IN_TABLE=true
 					}
 				fi

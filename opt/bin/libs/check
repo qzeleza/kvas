@@ -129,7 +129,7 @@ vpn_check(){
 					if [ "$(/opt/sbin/iptables-save | grep -c "${VPN_IPTABLES_CHAIN}")" -ge 2 ]; then
 						when_ok "ДОБАВЛЕНЫ"
 					else
-						when_bad "ОТСУСТВУЮТ"
+						when_bad "ОТСУТСТВУЮТ"
 						error "Запустите диагностику командой kvas debug"
 						exit 1
 					fi
