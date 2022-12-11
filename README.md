@@ -2,11 +2,6 @@
 # [КВАС](https://forum.keenetic.com/topic/14415-пробуем-квас-shadowsocks-и-другие-vpn-клиенты/?do=findComment&comment=152234) - выборочный обход блокировок
 ### VPN и SHADOWSOCKS клиент для [роутеров Keenetic](https://keenetic.ru/ru/)
 
---- 
-
-Автор: **[Zeleza](https://forum.keenetic.com/profile/20603-zeleza/)**  
-<p><img src="https://github-readme-stats.vercel.app/api?username=qzeleza&show_icons=true" alt="GitHub Stats"></p>
-
 ---
 
 Разработка проекта ведется на IDE от компании [JetBrains](https://www.jetbrains.com/ru-ru/). Для проведения тестов, в проекте используется пакет [BATS](https://github.com/bats-core/bats-core/blob/master/LICENSE.md) от нескольких [АВТОРОВ](https://github.com/bats-core/bats-core/blob/master/AUTHORS). 
