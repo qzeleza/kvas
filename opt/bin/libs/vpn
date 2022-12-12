@@ -1071,6 +1071,17 @@ cmd_shadowsocks_read_new_data() {
 	print_line
 
 	shadowsocks_read_config
+	ready "Перезапускаем shadowsocks интерфейс"
+	/opt/etc/init.d/S22shadowsocks restart &> /dev/null
+	/opt/etc/init.d/S22shadowsocks status &> /dev/null
+	if [ $? = 0 ]; then
+		when_ok "УСПЕШНО"
+	else
+		when_bad "ОШИБКА"
+		error "Возникла ошибка при подключении shadowsocks интерфейса!"
+		error "Проверьте доступность сервера и настройки клиента!"
+		exit 1
+	fi
 
 }
 # ------------------------------------------------------------------------------------------
