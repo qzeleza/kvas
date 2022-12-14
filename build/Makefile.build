@@ -1,7 +1,7 @@
 #!/bin/bash
 . /apps/kvas/build/library.run
 
-APP_VER_FULL_TEXT="${version}-${stage}-${release}"
+APP_VER_FULL_TEXT="$(get_full_package_version)"
 APP_FULL_PATH="${APPS_ROOT}/${APP_NAME}"
 
 makefile="${APP_FULL_PATH}/build/Makefile"
@@ -14,12 +14,14 @@ POST_TERM=$(cat < "${APP_FULL_PATH}"/build/postrm \
 			| sed "s/@app_ver/${APP_VER_FULL_TEXT}/g" \
 			)
 
+if [ -n "${RELEASE}" ] ; then _release="${stage}_${RELEASE}"; else _release="${stage}"; fi
+
 cat <<EOF > "${makefile}"
 include \$(TOPDIR)/rules.mk
 
 PKG_NAME:=${APP_NAME}
-PKG_VERSION:=${version}
-PKG_RELEASE:=${stage}_${release}
+PKG_VERSION:=${VERSION}
+PKG_RELEASE:=${_release}
 PKG_BUILD_DIR:=\$(BUILD_DIR)/\$(PKG_NAME)
 
 include \$(INCLUDE_DIR)/package.mk

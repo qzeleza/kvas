@@ -32,6 +32,13 @@ ready() {
 	printf "%b%-${size}s%b" "${1}"
 }
 
+VERSION=$(get_version_part VERSION)
+STAGE=$(get_version_part STAGE)
+RELEASE=$(get_version_part RELEASE)
+
+[ -n "${STAGE}" ] && full_version="${VERSION} ${STAGE} ${RELEASE}" || full_version="${VERSION} ${RELEASE}"
+
+
 # ------------------------------------------------------------------------------------------
 #
 #	 Читаем Y/N/Q из ввода данных в цикле
@@ -83,12 +90,23 @@ copy_ssh_keys_to_router(){
 	show_line
 }
 
+get_full_package_version(){
+	if [ -n "${STAGE}" ] ; then stg="-${STAGE}"; else stg=""; fi
+	if [ -n "${RELEASE}" ] ; then rel="_${RELEASE}"; else rel=""; fi
+	echo "${VERSION}${stg}${rel}"
+}
+
+get_package_name(){
+	echo "${APP_NAME}_$(get_full_package_version)_all.ipk"
+}
+
+
 # ИСПОЛНЯЕМ ВУТРИ КОНТЕЙНЕРА !!!
 # Производим копирование собранного пакета на роутер
 copy_app_to_router(){
 
-	app_pkg_file=${1}
-	app_pkg_tar_name=${2}
+	app_pkg_tar_name=$(get_package_name)
+	app_pkg_file=/apps/entware/bin/targets/mipsel-3.4/generic-glibc/packages/${app_pkg_tar_name}
 
 # 	Проверяем есть ли ключ на роутере
 	docker_key=$(cat < "$(get_key_file)")
@@ -103,10 +121,9 @@ copy_app_to_router(){
 # ИСПОЛНЯЕМ ВУТРИ КОНТЕЙНЕРА !!!
 # Производим удаление и установку пакета
 run_reinstalation_on_router(){
-	app_pkg_tar_name=${1}
 
 	ssh -p "${PORT}" "${ROUTER}" 'opkg remove '"${APP_NAME}"
-	ssh -p "${PORT}" "${ROUTER}" 'opkg install /opt/packages/'"${app_pkg_tar_name}"  #<<< 2
+	ssh -p "${PORT}" "${ROUTER}" 'opkg install /opt/packages/'"$(get_package_name)"  #<<< 2
 	ssh -p "${PORT}" "${ROUTER}" 'kvas setup'
 	show_line
 
@@ -123,13 +140,6 @@ run_tests(){
 	fi
 	show_line
 }
-
-version=$(get_version_part VERSION)
-stage=$(get_version_part STAGE)
-release=$(get_version_part RELEASE)
-
-[ -n "${stage}" ] && full_version="${version} ${stage} ${release}" || full_version="${version} ${release}"
-
 
 check_first_run(){
 

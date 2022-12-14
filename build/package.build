@@ -9,9 +9,10 @@ set -e
 #
 #========================================================================================================
 change_version_in_package(){
-	sed -i "s/^\(APP_VERSION=\).*/\1${version}/g" \
+	sed -i "s/^\(APP_VERSION=\).*/\1${VERSION}/g" \
 		/apps/entware/package/utils/"${APP_NAME}"/files/etc/conf/kvas.conf
-	sed -i "s/^\(APP_RELEASE=\).*/\1${stage}-${release}/g" \
+	if [ -n "${RELEASE}" ] ; then rel="-${RELEASE}"; else rel=""; fi
+	sed -i "s/^\(APP_RELEASE=\).*/\1${STAGE}${rel}/g" \
 		/apps/entware/package/utils/"${APP_NAME}"/files/etc/conf/kvas.conf
 	sed -i -e 's/\(^.*Крайняя версия Кваса.\)\[.*\]\(.*\)/\1 ['"${full_version}"']\2/' \
 		/apps/"${APP_NAME}"/README.md
@@ -58,8 +59,7 @@ show_line
 
 echo "Сборка запущена: $(zdump EST-3)"; show_line
 
-APP_PKG_TAR_NAME=${APP_NAME}_${version}-${stage}_${release}_all.ipk
-APP_PKG_FILE="/apps/entware/bin/targets/mipsel-3.4/generic-glibc/packages/${APP_PKG_TAR_NAME}"
+APP_PKG_FILE="/apps/entware/bin/targets/mipsel-3.4/generic-glibc/packages/$(get_package_name)"
 rm -f "${APP_PKG_FILE}"
 
 change_version_in_package
@@ -87,7 +87,7 @@ cp "${APP_PKG_FILE}" "/apps/${APP_NAME}/ipk"
 
 show_line
 # копируем собранный пакет на роутер
-copy_app_to_router "${APP_PKG_FILE}" "${APP_PKG_TAR_NAME}"
-run_reinstalation_on_router "${APP_PKG_TAR_NAME}"
+copy_app_to_router
+run_reinstalation_on_router
 #run_tests
 echo "Сборка завершена: $(zdump EST-3)";
