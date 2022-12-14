@@ -1,4 +1,4 @@
-
+![GitHub Repo stars](https://img.shields.io/github/stars/qzeleza/kvas?color=orange) ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/qzeleza/kvas) ![GitHub top language](https://img.shields.io/github/languages/top/qzeleza/kvas) ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/qzeleza/kvas) ![GitHub last commit](https://img.shields.io/github/last-commit/qzeleza/kvas)
 # [КВАС](https://forum.keenetic.com/topic/14415-пробуем-квас-shadowsocks-и-другие-vpn-клиенты/?do=findComment&comment=152234) - выборочный обход блокировок #
 
 #### VPN и SHADOWSOCKS клиент для [роутеров Keenetic](https://keenetic.ru/ru/)
@@ -30,8 +30,6 @@
 - [Перейти по cсылке](https://github.com/qzeleza/kvas/wiki).
 
 ---
-
-![GitHub Repo stars](https://img.shields.io/github/stars/qzeleza/kvas) ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/qzeleza/kvas) ![GitHub top language](https://img.shields.io/github/languages/top/qzeleza/kvas) ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/qzeleza/kvas) ![GitHub last commit](https://img.shields.io/github/last-commit/qzeleza/kvas)
 
 - Разработка проекта ведется на IDE от компании [JetBrains](https://www.jetbrains.com/ru-ru/). 
 - Для проведения тестов, в проекте используется пакет [BATS](https://github.com/bats-core/bats-core/blob/master/LICENSE.md) от нескольких [АВТОРОВ](https://github.com/bats-core/bats-core/blob/master/AUTHORS). 
