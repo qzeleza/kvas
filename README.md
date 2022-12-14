@@ -1,6 +1,7 @@
 
 # [КВАС](https://forum.keenetic.com/topic/14415-пробуем-квас-shadowsocks-и-другие-vpn-клиенты/?do=findComment&comment=152234) - выборочный обход блокировок
 ### VPN и SHADOWSOCKS клиент для [роутеров Keenetic](https://keenetic.ru/ru/)
+![GitHub Repo stars](https://img.shields.io/github/stars/qzeleza/kvas?style=plastic) ![GitHub last commit](https://img.shields.io/github/last-commit/qzeleza/kvas?style=plastic) ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/qzeleza/kvas?style=plastic)![GitHub top language](https://img.shields.io/github/languages/top/qzeleza/kvas?style=plastic)![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/qzeleza/kvas?style=plastic)
 
 ---
 
