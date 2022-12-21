@@ -1789,7 +1789,7 @@ cmd_del_one_host() {
 	host_="${1}"
 	if cat < "${UNBLOCK_LIST_FILE}" | grep -qe "${host_}$" ; then
 		ready "Удаляем ${YELLOW}${host_}${NOCL} из списка разблокировки..."
-		sed -i "/${host_}/d" "${UNBLOCK_LIST_FILE}"
+		sed -i "/${host_||/|\/}/d" "${UNBLOCK_LIST_FILE}"
 		cmd_kvas_init  &> /dev/null
 		[ $? = 0 ] && when_ok "УДАЛЕН" || when_bad "НЕ УДАЛЕН"
 	else

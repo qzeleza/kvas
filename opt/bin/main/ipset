@@ -82,14 +82,10 @@ while read -r line || [ -n "${line}" ]; do
 	host=$(echo "${line}" | sed 's/#.*$//g' | tr -s ' ' | sed 's/\*//')
 
 	# если строка начинается с IP, то проводим обработку по IP
-	if echo "${host}" | grep -qoE "${IP_FILTER}"; then
+	if echo "${host}" | grep -qoE "${IP_FILTER}|${IP_FILTER}-${IP_FILTER}|${IP_FILTER}/[0-9]{1,2}"; then
 		ipset -exist add "${TABLE_NAME}" "${host}" &>/dev/null
 	else
-#		if [ "${host::1}" = "*" ]; then
-#			add_host_by_ASlist_to_ipset "${host}"
-#		else
 		add_host_by_iplist_to_ipset "${host}"
-#		fi
 	fi
 
 done < "${HOST_LIST}"
