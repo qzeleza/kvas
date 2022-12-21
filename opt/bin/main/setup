@@ -34,7 +34,8 @@ setup_test_provider_dns(){
 
 setup_print_welcome(){
 
-	welcome="Установка пакета ${GREEN}КВАС™${NOCL} версия ${GREEN}${APP_VERSION}-${APP_RELEASE}${NOCL}"
+	[ -n "${APP_RELEASE}" ] && full_version="${APP_VERSION} ${APP_RELEASE}" || full_version="${APP_VERSION}"
+	welcome="Установка пакета ${GREEN}КВАС™${NOCL} версия ${GREEN}${full_version}${NOCL}"
 	echo -e "${welcome}"
 	print_line
 
