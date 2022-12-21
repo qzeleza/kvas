@@ -1735,13 +1735,17 @@ host_add() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_add_one_host() {
-	host="${1}"
-	clear_host=$(echo "${host}" | sed 's/\*//; s|http[s]\{,1\}://||;')
+	host=$(echo "${1}" | sed 's|http[s]\{,1\}://||;')
+	clear_host=$(echo "${host}" | sed 's/\*//')
 	ip_filter='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'
 	#	формальная проверка на наличие точки в имени домена
 	if echo "${host}" | grep -q '\.' ; then
-		if echo "${clear_host}" | grep -qE "${ip_filter}|${ip_filter}-${ip_filter}|${ip_filter}/[0-9]{1,2}" ; then
-			host_add "${host}"
+		if echo "${clear_host}" | grep -qE "${ip_filter}*" ; then
+			if echo "${clear_host}" | grep -qE "^${ip_filter}/[0-9]{1,2}$|^${ip_filter}$|^${ip_filter}-${ip_filter}$"; then
+				host_add "${host}"
+			else
+				echo -e "${RED}Введенный IP адрес или диапазон IP-адресов имеет некорректный формат.${NOCL}"
+			fi
 		else
 			echo "${host}" | grep -q '\*' && test_it=0 || test_it=1
 			if [ "${test_it}" = 1 ] && [ "$(test_host "${clear_host}")" -eq 0 ]; then
@@ -1790,7 +1794,7 @@ cmd_del_one_host() {
 	host_="${1}"
 	if cat < "${UNBLOCK_LIST_FILE}" | grep -qe "${host_}$" ; then
 		ready "Удаляем ${YELLOW}${host_}${NOCL} из списка разблокировки..."
-		sed -i "/${host_||/|\/}/d" "${UNBLOCK_LIST_FILE}"
+		sed -i "/${host_////\\/}/d" "${UNBLOCK_LIST_FILE}"
 		cmd_kvas_init  &> /dev/null
 		[ $? = 0 ] && when_ok "УДАЛЕН" || when_bad "НЕ УДАЛЕН"
 	else

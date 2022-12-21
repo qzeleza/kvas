@@ -198,11 +198,17 @@ unblock_list_ipset_check(){
 				dns_ip=$(get_config_value DNS_DEFAULT)
 				ip=$(kdig "${line}" +short "@${dns_ip}" | tr '\n' ',')
 				ip="${ip::-1}"
-				if [ -z "$ip" ]; then
-					ready "${line}" && when_alert "АДРЕСА НЕТ"
-				else
-					ip=$(echo "${ip}" | tr ',' '|')
-					ready "${line} (${ip})"
+				if [ -z "$ip" ] || [ "${ip}" = 0.0.0.0 ]; then
+                	ready "${BLUE}${line}${NOCL}" && when_alert "АДРЕСА НЕТ"
+	            else
+	                ip=$(echo "${ip}" | sed 's/,/|/g')
+					line_ips="${line}    ${ip}"
+					len_str=${#line_ips}
+					difflen=$((LENGTH - len_str))
+					_len=$((LENGTH - ${#line} - 9))
+					if [ "${difflen}" -lt 0 ]; then cutted="${ip:0:${_len}}...";
+	 				else cutted="${ip} "; fi
+                    ready "${GREEN}${line}${NOCL} --> ${cutted}"
 					res=$(echo "${result_ipset}" | grep -E "${ip}")
 					[ -n "${res}" ] && when_ok "В ТАБЛИЦЕ" || {
 						when_bad "ОТСУТСВУЕТ"
