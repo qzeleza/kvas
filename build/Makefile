@@ -1,8 +1,8 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=kvas
-PKG_VERSION:=1.0
-PKG_RELEASE:=beta_22
+PKG_VERSION:=1.1.1
+PKG_RELEASE:=
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)
 
 include $(INCLUDE_DIR)/package.mk
@@ -71,17 +71,7 @@ ln -sf /opt/apps/kvas/bin/kvas /opt/bin/kvas
 cp -f /opt/apps/kvas/etc/conf/kvas.conf /opt/etc/kvas.conf
 cp -f /opt/apps/kvas/etc/conf/hosts.list /opt/etc/hosts.list
 cp -f /opt/apps/kvas/etc/conf/adblock.sources /opt/etc/adblock.sources
-
-# Делаем копии файлов для того чтобы была возможность
-# использовать функции в них в скрипте при удалении пакета
-cp -f /opt/apps/kvas/bin/libs/vpn /opt/apps/kvas/bin/libs/vpn
-cp -f /opt/apps/kvas/bin/libs/main /opt/apps/kvas/bin/libs/main
-cp -f /opt/apps/kvas/bin/libs/debug /opt/apps/kvas/bin/libs/debug
-cp -f /opt/apps/kvas/bin/libs/adblock /opt/apps/kvas/bin/libs/adblock
 cp -f /opt/apps/kvas/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
-cp -f /opt/apps/kvas/bin/libs/ndm /opt/apps/kvas/bin/libs/ndm
-
-
 
 print_line
 echo -e "Для настройки пакета КВАС наберите \033[36mkvas setup\033[m"
@@ -96,129 +86,6 @@ endef
 define Package/kvas/postrm
 
 #!/bin/sh
-
-. /opt/apps/kvas/bin/libs/vpn
-. /opt/apps/kvas/bin/libs/ndm
-#------------------------------------------------------------------------------
-#
-#	ПАКЕТ КВАС
-#
-#------------------------------------------------------------------------------
-#
-#	Данный файл служит для удаления пакета Квас с роутера
-#
-# ------------------------------------------------------------------------------
-#	Разработчик: mail@zeleza.ru
-#	Дата создания: 21/05/2022
-#	Лицензия: Apache License 2.0
-# ------------------------------------------------------------------------------
-
-#------------------------------------------------------
-# 	УДАЛЕНИЕ ФАЙЛОВ КОНФИГУРАЦИИ
-#------------------------------------------------------
-rm_package_files(){
-
-	[ -f /opt/etc/hosts.list ] && mv -f /opt/etc/hosts.list /opt/etc/hosts.list.kvas
-	[ -f /opt/etc/adblock.sources ] && mv -f /opt/etc/adblock.sources /opt/etc/adblock.sources.kvas
-
-	[ -f /opt/etc/ndm/fs.d/100-vpn ] && rm -f /opt/etc/ndm/fs.d/100-vpn
-	[ -f /opt/etc/ndm/netfilter.d/100-vpn-mark ] && rm -f /opt/etc/ndm/netfilter.d/100-vpn-mark
-	[ -f /opt/etc/ndm/ifstatechanged.d/100-unblock-vpn ] && rm -f /opt/etc/ndm/ifstatechanged.d/100-unblock-vpn
-	[ -d /opt/tmp/adblock ] && rm -rf /opt/tmp/adblock
-
-	rm -rf /opt/bin/kvas
-	rm -fr /opt/etc/kvas*
-
-	rm -fr /opt/etc/hosts.list
-	rm -fr /opt/tmp/*kvas*
-	rm -fr /opt/tmp/host*
-	rm -fr /opt/etc/ads_exception.list
-
-	rm -f /opt/lib/opkg/info/kvas*
-	rm -f /opt/etc/inface_equals
-	rm -f /opt/etc/cron.5mins/ipset.kvas
-
-	del_period_update &>/dev/null
-}
-
-print_line
-echo -e "Удаление пакета $${GREEN}КВАС™$${NOCL} версия $${GREEN}1.0-beta-22$${NOCL}..."
-print_line
-
-answer='y';
-# read_ynq "Удалить файлы конфигурации пакета" answer
-if [ "$${answer}" = y ]; then
-	ready "Удаляем файлы конфигурации..."
-	if rm_package_files ; then when_ok "УСПЕШНО"; else when_bad "ОШИБКА"; fi
-fi
-
-ready "Удаляем данные из cron..."
-sed -i '/ipset/d' /opt/etc/crontab &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-
-#------------------------------------------------------
-# 	ОЧИЩЕНИЕ ВСЕХ ПРАВИЛ И ТАБЛИЦ
-#------------------------------------------------------
-ready "Очищаем все правила и таблицы..."
-ip4_firewall_flush_all_rules &>/dev/null
-ip4_flush_all_tables &>/dev/null
-if [ $$? = 0 ]; then when_ok "УСПЕШНО"; else when_bad "ОШИБКА"; fi
-
-if [ -f /opt/etc/init.d/S99adguardhome ]; then
-
-	ready "Восстанавливаем службу AdGuardHome"
-	if [ -f "$${KVAS_BACKUP_PATH}/S99adguardhome.orign" ]; then
-
-		cp "$${KVAS_BACKUP_PATH}/S99adguardhome.orign" /opt/etc/init.d/S99adguardhome
-		cp /opt/etc/AdGuardHome/AdGuardHome.yaml /opt/bin/AdGuardHome.yaml
-	fi
-
-	if /opt/etc/init.d/S99adguardhome status | grep -q "alive" ; then
-		/opt/etc/init.d/S99adguardhome restart &> /dev/null
-	fi
-	[ $$? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-
-fi
-
-if [ -f /opt/etc/init.d/S56dnsmasq ] ; then
-
-	if /opt/etc/init.d/S56dnsmasq status | grep -q "alive"; then
-		ready "Останавливаем службу dnsmasq "
-		/opt/etc/init.d/S56dnsmasq stop &> /dev/null
-		[ $$? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-	fi
-	ready "Архивируем файл конфигурации службы dnsmasq"
-	mv /opt/etc/init.d/S56dnsmasq /opt/etc/init.d/K56dnsmasq
-	[ $$? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-	warning "Файл конфигурации сохранен под именем /opt/etc/init.d/K56dnsmasq"
-
-fi
-if [ -f /opt/etc/init.d/S09dnscrypt-proxy2 ]; then
-
-	if /opt/etc/init.d/S09dnscrypt-proxy2 status | grep -q "alive"; then
-		ready "Останавливаем службу dnscrypt-proxy2 "
-		/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
-		[ $$? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-	fi
-
-	ready "Архивируем файл конфигурации службы dnscrypt-proxy2"
-	mv /opt/etc/init.d/S09dnscrypt-proxy2 /opt/etc/init.d/K09dnscrypt-proxy2
-	[ $$? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-	warning "Файл конфигурации сохранен под именем /opt/etc/init.d/K09dnscrypt-proxy2"
-fi
-
-print_line
-echo "При установке пакета КВАС™ были установлены следующие пакеты:"
-warning "shadowsocks-libev-ss-redir knot-dig iptables curl cron libpcre"
-warning "shadowsocks-libev-config dnsmasq-full nano-full bind-dig ipset jq"
-echo "Если данные пакеты Вами больше не используются, Вы можете их удалить следующей"
-echo -e "командой:  $${RED}opkg remove kvas --autoremove$${NOCL} все сразу, либо"
-echo -e "командой $${RED}opkg remove <package1 package2 package3...>$${NOCL}."
-
-print_line
-echo "Удаление КВАСа завершено."
-print_line
-# удаляем файлы пакета крайним шагом
-rm -fr /opt/apps/kvas
 
 endef
 

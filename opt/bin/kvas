@@ -51,8 +51,12 @@ case "${1}" in
 		case "${2}" in
 			port) 			cmd_dnsmasq_port_change "${3}" ;;
 			ip) 			cmd_dnsmasq_dns_change "${3}";;
-			status | *) 	cmd_dnsmasq_listen_show;
-							cmd_dnsmasq_port_show ;;
+			on)				cmd_adguardhome_off ;;
+			status | *) 	exit_when_adguard_on status;
+							[ "${status}" = 0 ] && {
+								cmd_dnsmasq_listen_show;
+								cmd_dnsmasq_port_show
+							} ;;
 		esac
 		;;
 	ssr)

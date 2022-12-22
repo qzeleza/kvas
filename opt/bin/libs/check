@@ -333,29 +333,31 @@ unblock_dnsmasq_check() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_adguard_check() {
-	ready "Список правил ipset для AdGuard Home"
-	if [ "$(cat < "${ADGUARDHOME_CONFIG}" | grep ipset | wc -c)" -gt 6 ]; then
-		when_ok "ЗАПОЛНЕН"
-		echo_debug "Журнал загрузки AdGuard Home (20 крайних записей)\nиз файла ${ADGUARDHOME_LOG}" "$(cat < "${ADGUARDHOME_LOG}" | tail )"
-	else
-		when_bad "ПУСТ"
-		/opt/apps/kvas/bin/main/adguard &> /dev/null
-		ready "Повторная проверка заполнения списка правил ipset для AdGuard Home"
+	exit_when_dnsmasq_on status; [ "${status}" = 0 ] && {
+		ready "Список правил ipset для AdGuard Home"
 		if [ "$(cat < "${ADGUARDHOME_CONFIG}" | grep ipset | wc -c)" -gt 6 ]; then
-			when_ok "ПРОЙДЕНА"
+			when_ok "ЗАПОЛНЕН"
+			echo_debug "Журнал загрузки AdGuard Home (20 крайних записей)\nиз файла ${ADGUARDHOME_LOG}" "$(cat < "${ADGUARDHOME_LOG}" | tail )"
 		else
-			when_bad "ОШИБКА"
-			print_line
-			if [ "$(cat < "${UNBLOCK_LIST_FILE}" | wc -l)" -gt 0 ]; then
-				error "Белый список пуст - /opt/etc/hosts.list"
-				warning "Добавьте в него хосты командой ${BLUE}kvas add имя_домена${NOCL}"
+			when_bad "ПУСТ"
+			/opt/apps/kvas/bin/main/adguard &> /dev/null
+			ready "Повторная проверка заполнения списка правил ipset для AdGuard Home"
+			if [ "$(cat < "${ADGUARDHOME_CONFIG}" | grep ipset | wc -c)" -gt 6 ]; then
+				when_ok "ПРОЙДЕНА"
 			else
-				error "Проверьте работу скрипта/opt/apps/kvas/bin/main/adguard"
+				when_bad "ОШИБКА"
+				print_line
+				if [ "$(cat < "${UNBLOCK_LIST_FILE}" | wc -l)" -gt 0 ]; then
+					error "Белый список пуст - /opt/etc/hosts.list"
+					warning "Добавьте в него хосты командой ${BLUE}kvas add имя_домена${NOCL}"
+				else
+					error "Проверьте работу скрипта/opt/apps/kvas/bin/main/adguard"
+				fi
+				print_line
+				exit 1
 			fi
-			print_line
-			exit 1
 		fi
-	fi
+	}
 }
 # ------------------------------------------------------------------------------------------
 #

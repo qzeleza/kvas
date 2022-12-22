@@ -92,7 +92,10 @@ copy_ssh_keys_to_router(){
 
 get_full_package_version(){
 	if [ -n "${STAGE}" ] ; then stg="-${STAGE}"; else stg=""; fi
-	if [ -n "${RELEASE}" ] ; then rel="_${RELEASE}"; else rel=""; fi
+	if [ -n "${RELEASE}" ] ; then
+		if [ -n "${STAGE}" ] ; then rel="_${RELEASE}";
+		else rel=".${RELEASE}"; fi
+	else rel=""; fi
 	echo "${VERSION}${stg}${rel}"
 }
 

@@ -73,6 +73,35 @@ cmd_kvas_init(){
 
 }
 
+SUFF=">> "
+# ------------------------------------------------------------------------------------------
+#
+#	Выводим предупреждение в случае, если пользователь
+#	запускает команду для другого DNS сервиса и возвращаем
+#	статус запущенной службы в случае, когда запущен именно AdGuard Home
+#
+# ------------------------------------------------------------------------------------------
+exit_when_adguard_on(){
+	if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
+		echo -e "${SUFF}${BLUE}Сейчас функции DNS сервера, шифрования DNS трафика и функции блокировки рекламы ${NOCL}"
+		echo -e "${SUFF}${BLUE}исполняет AdGuard Home, заменяющий связку [dnsmasq + dnscrypt_proxy2 + adblock].${NOCL}"
+		echo -e "${SUFF}${BLUE}Единовременно Квас может работать только с одной из этих связок.${NOCL}"
+		echo -e "${SUFF}${BLUE}Для перехода на связку с dnsmasq запустите команду ${GREEN}kvas adguard off${NOCL}"
+        eval "${1}=1"; else
+        eval "${1}=0";
+    fi
+}
+exit_when_dnsmasq_on(){
+	if ! cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
+		echo -e "${SUFF}${BLUE}Сейчас функции DNS сервера, шифрования DNS трафика и функции блокировки рекламы${NOCL}"
+		echo -e "${SUFF}${BLUE}исполняет связка [dnsmasq + dnscrypt_proxy2 + adblock], заменяющая AdGuard Home.${NOCL}"
+		echo -e "${SUFF}${BLUE}Единовременно Квас может работать только с одной из этих связок.${NOCL}"
+		echo -e "${SUFF}${BLUE}Для перехода на AdGuard Home запустите команду ${GREEN}kvas adguard on${NOCL}"
+        eval "${1}=1"; else
+        eval "${1}=0";
+    fi
+}
+
 
 ip4() (/opt/sbin/ip -4 "$@")
 # ------------------------------------------------------------------------------------------
@@ -777,12 +806,14 @@ dnsmasq_dns_change() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_dnsmasq_dns_change() {
-	dns_new=${1}; cmd=${2:-restart}
-	if [ -z "${dns_new}" ]; then
-		dns_show
-	else
-		dnsmasq_dns_change "${dns_new}" "${cmd}"
-	fi
+	exit_when_adguard_on status; [ "${status}" = 0 ] && {
+		dns_new=${1}; cmd=${2:-restart}
+		if [ -z "${dns_new}" ]; then
+			dns_show
+		else
+			dnsmasq_dns_change "${dns_new}" "${cmd}"
+		fi
+	}
 }
 
 # ------------------------------------------------------------------------------------------
@@ -791,10 +822,13 @@ cmd_dnsmasq_dns_change() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_dnsmasq_listen_show() {
-	ready "DNSMASQ слушает адрес"
-	ip=$(get_config_value DNSMASQ_LISTEN_IP)
-	when_alert "${ip}"
+	exit_when_adguard_on status; [ "${status}" = 0 ] && {
+		ready "DNSMASQ слушает адрес"
+		ip=$(get_config_value DNSMASQ_LISTEN_IP)
+		when_alert "${ip}"
+	}
 }
+
 
 # ------------------------------------------------------------------------------------------
 #
@@ -807,16 +841,20 @@ cmd_dnsmasq_listen_show() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_dnsmasq_port_change() {
-	port=${1}; cmd=${2:-restart}
-	if [ -z "${port}" ]; then
-		cmd_dnsmasq_port_show
-	else
-		ready "Замена порта на ${port} в dnsmasq завершена"
-		sed -i "s/\(port=\).*/\1${port}/"  "${DNSMASQ_CONFIG}"
-		set_config_value DNSMASQ_PORT "${port}"
-		[ "${cmd}" = restart ] && cmd_kvas_init  &> /dev/null
-		[ $? = 0 ] && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
-	fi
+
+	exit_when_adguard_on status; [ "${status}" = 0 ] && {
+
+		port=${1}; cmd=${2:-restart}
+		if [ -z "${port}" ]; then
+			cmd_dnsmasq_port_show
+		else
+			ready "Замена порта на ${port} в dnsmasq завершена"
+			sed -i "s/\(port=\).*/\1${port}/"  "${DNSMASQ_CONFIG}"
+			set_config_value DNSMASQ_PORT "${port}"
+			[ "${cmd}" = restart ] && cmd_kvas_init  &> /dev/null
+			[ $? = 0 ] && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+		fi
+	}
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -824,9 +862,12 @@ cmd_dnsmasq_port_change() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_dnsmasq_port_show() {
-	ready "DNSMASQ слушает порт"
-	port=$(get_config_value DNSMASQ_PORT)
-	when_alert "${port}"
+	exit_when_adguard_on status; [ "${status}" = 0 ] && {
+
+		ready "DNSMASQ слушает порт"
+		port=$(get_config_value DNSMASQ_PORT)
+		when_alert "${port}"
+	}
 }
 
 # ------------------------------------------------------------------------------------------
@@ -1618,24 +1659,27 @@ dns_crypt_install() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_dns_crypt_on() {
-	crypt_port=$(get_config_value DNS_CRYPT_PORT)
-	if [ "$(get_dns_crypt_status)" = on ]; then
-		ready "Шифрование DNS уже";	when_ok "ПОДКЛЮЧЕНО"
-	else
-		dns_crypt_port=$(get_config_value DNS_CRYPT_PORT)
-		dns_cache_enabled=$(get_config_value DNS_CACHE_ENABLED)
-		ready "Шифрование DNS"
-		{
-			sed -i "s/\(^cache.=.\).*$/\1${dns_cache_enabled}/g" '/opt/etc/dnscrypt-proxy.toml'
-			sed -i "s/\(^require_dnssec.=.\).*$/\1true/g" '/opt/etc/dnscrypt-proxy.toml'
+	exit_when_adguard_on status; [ "${status}" = 0 ] && {
 
-			sed -i "/proxy-dnssec/d" /opt/etc/dnsmasq.conf
-			echo "proxy-dnssec" >> /opt/etc/dnsmasq.conf
-			dns_crypt_port_change "${dns_crypt_port}" restart
+		crypt_port=$(get_config_value DNS_CRYPT_PORT)
+		if [ "$(get_dns_crypt_status)" = on ]; then
+			ready "Шифрование DNS уже";	when_ok "ПОДКЛЮЧЕНО"
+		else
+			dns_crypt_port=$(get_config_value DNS_CRYPT_PORT)
+			dns_cache_enabled=$(get_config_value DNS_CACHE_ENABLED)
+			ready "Шифрование DNS"
+			{
+				sed -i "s/\(^cache.=.\).*$/\1${dns_cache_enabled}/g" '/opt/etc/dnscrypt-proxy.toml'
+				sed -i "s/\(^require_dnssec.=.\).*$/\1true/g" '/opt/etc/dnscrypt-proxy.toml'
 
-		} 1> /dev/null 2> "${ERROR_LOG_FILE}"
-		ready_status "${?}" "Произошла непредвиденная ошибка." "ПОДКЛЮЧЕНО"
-	fi
+				sed -i "/proxy-dnssec/d" /opt/etc/dnsmasq.conf
+				echo "proxy-dnssec" >> /opt/etc/dnsmasq.conf
+				dns_crypt_port_change "${dns_crypt_port}" restart
+
+			} 1> /dev/null 2> "${ERROR_LOG_FILE}"
+			ready_status "${?}" "Произошла непредвиденная ошибка." "ПОДКЛЮЧЕНО"
+		fi
+	}
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -1643,26 +1687,28 @@ cmd_dns_crypt_on() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_dns_crypt_off() {
+	exit_when_adguard_on status; [ "${status}" = 0 ] && {
 
-	ready "Шифрование DNS"
-	{
-		crypt_port=$(get_config_value DNS_CRYPT_PORT)
-		static_dns=$(get_config_value DNS_STATIC_1)
-		sed -i "s/\(@.*\)\(:[0-9]\{2,6\}\)/@localhost/g" '/opt/apps/kvas/bin/main/ipset'
-		sed -i "/proxy-dnssec/d" /opt/etc/dnsmasq.conf
-		sed -i "s/\(^server=\)${LOCALHOST_IP}#${crypt_port}/\1${static_dns}/" /opt/etc/dnsmasq.conf
-		sed -i '/server/d' '/opt/apps/kvas/bin/main/dnsmasq'
+		ready "Шифрование DNS"
+		{
+			crypt_port=$(get_config_value DNS_CRYPT_PORT)
+			static_dns=$(get_config_value DNS_STATIC_1)
+			sed -i "s/\(@.*\)\(:[0-9]\{2,6\}\)/@localhost/g" '/opt/apps/kvas/bin/main/ipset'
+			sed -i "/proxy-dnssec/d" /opt/etc/dnsmasq.conf
+			sed -i "s/\(^server=\)${LOCALHOST_IP}#${crypt_port}/\1${static_dns}/" /opt/etc/dnsmasq.conf
+			sed -i '/server/d' '/opt/apps/kvas/bin/main/dnsmasq'
 
-		rm '/opt/etc/kvas.dnsmasq'
-		_dns=$(cat < "${DNSMASQ_CONFIG}" | sed -n 's/^server=\(.*\)$/\1/p')
-		set_config_value DNS_DEFAULT "${_dns}#${MAIN_DNS_PORT}"
-		set_config_value DNS_CRYPT_PORT "${crypt_port}"
+			rm '/opt/etc/kvas.dnsmasq'
+			_dns=$(cat < "${DNSMASQ_CONFIG}" | sed -n 's/^server=\(.*\)$/\1/p')
+			set_config_value DNS_DEFAULT "${_dns}#${MAIN_DNS_PORT}"
+			set_config_value DNS_CRYPT_PORT "${crypt_port}"
 
-		/opt/etc/init.d/S09dnscrypt-proxy2 stop
-		cmd_kvas_init
+			/opt/etc/init.d/S09dnscrypt-proxy2 stop
+			cmd_kvas_init
 
-	} 1> /dev/null 2> "${ERROR_LOG_FILE}"
-	ready_status "${?}" "Произошла непредвиденная ошибка." "ОТКЛЮЧЕНО"
+		} 1> /dev/null 2> "${ERROR_LOG_FILE}"
+		ready_status "${?}" "Произошла непредвиденная ошибка." "ОТКЛЮЧЕНО"
+	}
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -1670,12 +1716,15 @@ cmd_dns_crypt_off() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_dns_crypt_status_show() {
-	ready "Шифрование DNS"
-	if [ "$(get_dns_crypt_status)" = on ]; then
-		when_ok "ПОДКЛЮЧЕНО"
-	else
-		when_bad "ОТКЛЮЧЕНО"
-	fi
+	exit_when_adguard_on status; [ "${status}" = 0 ] && {
+
+		ready "Шифрование DNS"
+		if [ "$(get_dns_crypt_status)" = on ]; then
+			when_ok "ПОДКЛЮЧЕНО"
+		else
+			when_bad "ОТКЛЮЧЕНО"
+		fi
+	}
 
 }
 

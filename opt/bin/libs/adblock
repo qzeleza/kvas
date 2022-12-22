@@ -19,10 +19,12 @@
 #
 # ------------------------------------------------------------------------------------------
 cmd_ads_edit() {
-	nano '/opt/etc/adblock.sources' &&
-		{
-			cmd_ads_protect_on ask
-		}
+	exit_when_adguard_on status; [ "${status}" = 0 ] && {
+		nano '/opt/etc/adblock.sources' &&
+			{
+				cmd_ads_protect_on ask
+			}
+	}
 }
 
 # ------------------------------------------------------------------------------------------
@@ -31,18 +33,20 @@ cmd_ads_edit() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_ads_protect_off() {
-	if ! [ -f '/opt/apps/kvas/bin/main/adblock' ]; then
-		cp -f '/opt/apps/kvas/bin/main/adblock' '/opt/apps/kvas/bin/main/adblock'
-		chmod +x '/opt/apps/kvas/bin/main/adblock'
-	fi
-	ready "Блокировка рекламы"
-	sed -i 's/\(^ADS_BLOCKER_ON=.*\)/\10/' '/opt/apps/kvas/bin/main/update'
-	sed -i '/addn-hosts=\/opt\/tmp\/adblock/d' '/opt/etc/dnsmasq.conf'
-	OFF="ПОДКЛЮЧЕНА.\nПроизошла не предвиденная ошибка."
-	[ $? = 0 ] && when_ok "ОТКЛЮЧЕНА" || when_bad "${OFF}"
-	ready "Перезапуск службы dnsmasq"
-	/opt/etc/init.d/S56dnsmasq restart &> /dev/null
-	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+	exit_when_adguard_on status; [ "${status}" = 0 ] && {
+		if ! [ -f '/opt/apps/kvas/bin/main/adblock' ]; then
+			cp -f '/opt/apps/kvas/bin/main/adblock' '/opt/apps/kvas/bin/main/adblock'
+			chmod +x '/opt/apps/kvas/bin/main/adblock'
+		fi
+		ready "Блокировка рекламы"
+		sed -i 's/\(^ADS_BLOCKER_ON=.*\)/\10/' '/opt/apps/kvas/bin/main/update'
+		sed -i '/addn-hosts=\/opt\/tmp\/adblock/d' '/opt/etc/dnsmasq.conf'
+		OFF="ПОДКЛЮЧЕНА.\nПроизошла не предвиденная ошибка."
+		[ $? = 0 ] && when_ok "ОТКЛЮЧЕНА" || when_bad "${OFF}"
+		ready "Перезапуск службы dnsmasq"
+		/opt/etc/init.d/S56dnsmasq restart &> /dev/null
+		[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+	}
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -51,28 +55,30 @@ cmd_ads_protect_off() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_ads_protect_on() {
-	perform_to_aks="${1}"
-	if ! [ -f '/opt/apps/kvas/bin/main/adblock' ]; then
-		cp -f '/opt/apps/kvas/bin/main/adblock' '/opt/apps/kvas/bin/main/adblock'
-		chmod +x '/opt/apps/kvas/bin/main/adblock'
-	fi
+	exit_when_adguard_on status; [ "${status}" = 0 ] && {
+		perform_to_aks="${1}"
+		if ! [ -f '/opt/apps/kvas/bin/main/adblock' ]; then
+			cp -f '/opt/apps/kvas/bin/main/adblock' '/opt/apps/kvas/bin/main/adblock'
+			chmod +x '/opt/apps/kvas/bin/main/adblock'
+		fi
 
-	if cat < '/opt/etc/dnsmasq.conf' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep -q "${ADS_HOSTS_FILE}" ; then
-		ready "Блокировка рекламы уже "
-		when_ok "ВКЛЮЧЕНА"
-	else
-		ready "Блокировка рекламы"
-		sed -i '/addn-hosts=\/opt\/tmp\/adblock/d' '/opt/etc/dnsmasq.conf'
-		sed -i 's/\(^ADS_BLOCKER_ON=.*\)/\11/' '/opt/apps/kvas/bin/main/update'
-		echo "addn-hosts=${ADS_HOSTS_FILE}" >> '/opt/etc/dnsmasq.conf'
-		OFF="ОТКЛЮЧЕНА.\nПроизошла не предвиденная ошибка."
-		[ $? = 0 ] && when_ok "ВКЛЮЧЕНА" || when_bad "${OFF}"
-		ads_request_to_upload "${perform_to_aks}"
-	fi
-	print_line
-	ready "Перезапуск службы dnsmasq"
-	/opt/etc/init.d/S56dnsmasq restart &> /dev/null
-	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+		if cat < '/opt/etc/dnsmasq.conf' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep -q "${ADS_HOSTS_FILE}" ; then
+			ready "Блокировка рекламы уже "
+			when_ok "ВКЛЮЧЕНА"
+		else
+			ready "Блокировка рекламы"
+			sed -i '/addn-hosts=\/opt\/tmp\/adblock/d' '/opt/etc/dnsmasq.conf'
+			sed -i 's/\(^ADS_BLOCKER_ON=.*\)/\11/' '/opt/apps/kvas/bin/main/update'
+			echo "addn-hosts=${ADS_HOSTS_FILE}" >> '/opt/etc/dnsmasq.conf'
+			OFF="ОТКЛЮЧЕНА.\nПроизошла не предвиденная ошибка."
+			[ $? = 0 ] && when_ok "ВКЛЮЧЕНА" || when_bad "${OFF}"
+			ads_request_to_upload "${perform_to_aks}"
+		fi
+		print_line
+		ready "Перезапуск службы dnsmasq"
+		/opt/etc/init.d/S56dnsmasq restart &> /dev/null
+		[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+	}
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -102,6 +108,7 @@ cmd_ads_status() {
 #
 # ------------------------------------------------------------------------------------------
 ads_request_to_upload() {
+
 	answer="${1}"
 	sources_name_file=adblock.sources
 	if [ -f "/opt/etc/${sources_name_file}.kvas" ]; then
@@ -158,7 +165,7 @@ restart_dns_service(){
 #--------------------------------------------------------------
 cmd_ads_add_host(){
 
-	if [ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ]; then
+	exit_when_adguard_on status; [ "${status}" = 0 ] && {
 		host=${1//\*/}
 	#	Проверяем есть ли сам файл для исключений и есть ли в нем записи.
 		[ -f "${ADBLOCK_LIST_EXCEPTION}" ] || touch "${ADBLOCK_LIST_EXCEPTION}"
@@ -178,10 +185,7 @@ cmd_ads_add_host(){
 			when_ok "${diff_count}"
 			restart_dns_service
 		fi
-	else
-		warning "Обнаружен пакет AdGuard Home у которого имеется свой 'Черный список'"
-		warning "Чтобы воспользоваться встроенным списком блокировки рекламы отключите AdGuard Home"
-	fi
+	}
 }
 
 #--------------------------------------------------------------
@@ -190,8 +194,8 @@ cmd_ads_add_host(){
 #
 #--------------------------------------------------------------
 cmd_ads_del_from_skip_list(){
-	host=${1//\*/}
-	if [ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ]; then
+	exit_when_adguard_on status; [ "${status}" = 0 ] && {
+		host=${1//\*/}
 
 		if [ -f "${ADBLOCK_LIST_EXCEPTION}" ] ; then
 			ready "Доменное имя ${host} удалено из списка исключений"
@@ -201,10 +205,7 @@ cmd_ads_del_from_skip_list(){
 			warning "Списка исключений еще не существует. "
 			warning "Добавьте в него домен командой 'kvas adblock add <host>'"
 		fi
-	else
-		warning "Обнаружен пакет AdGuard Home у которого имеется свой 'Черный список'"
-		warning "Чтобы воспользоваться встроенным списком блокировки рекламы отключите AdGuard Home"
-	fi
+	}
 }
 
 
