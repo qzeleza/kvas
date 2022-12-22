@@ -37,5 +37,5 @@
 ## Документация по проекту
 - [Перейти по cсылке](https://github.com/qzeleza/kvas/wiki).
 
-## Скачать
-- [Каталог всех версий проекта](https://github.com/qzeleza/kvas/tree/main/ipk)
+## Каталог всех версий проекта
+- [Скачать](https://github.com/qzeleza/kvas/tree/main/ipk)
