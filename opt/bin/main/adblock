@@ -21,7 +21,7 @@
 # -----------------------------------------------------------------------------
 
 [ -z "${1}" ] && echo "Загрузка хостов для блокировки из источников..."
-logger -t "kvas" "Запущен файл /opt/apps/kvas/bin/main/adblock"
+logger -t "kvas" "Запущен файл ${0}"
 
 tmp_path="/opt/tmp/adblock"
 TMP_FILE="/opt/tmp/hosts.tmp"

@@ -90,8 +90,8 @@ ip4_firewall_dns_rules_set(){
 				log_warning "Подключаем правила для корректной работы DNS трафика через 53 порт:"
 				log_warning "Интерфейс: ${interface}, IP: ${local_ip}, протокол: ${protocol}."
 
-				ip4tables PREROUTING -w -t nat -i "${interface}" -p "${protocol}" --dport ${DNS_PORT} -j DNAT --to "${local_ip}" 1> /dev/null 2> "${ERROR_LOG_FILE}"
-				when_error "${?}" " ${IPv4} Ошибка при установке правил для DNS."
+				ip4tables PREROUTING -w -t nat -i "${interface}" -p "${protocol}" --dport ${DNS_PORT} -j DNAT --to "${local_ip}" &>/dev/null
+				# when_error "${?}" " ${IPv4} Ошибка при установке правил для DNS."
 			fi
 		else
 			log_error "При вызове ip4_firewall_dns_rules_set не были заданы обязательные аргументы."
@@ -107,10 +107,10 @@ ip4_firewall_exclude_locals(){
 	chain_name=${1}; table=${2};
 #	Если не заданы аргументы, то ничего не выполняем
 	if [ -n "${chain_name}" ] && [ -n "${table}" ]; then
-		log_warning "Подключаем правила для таблицы ${table} и цепочки ${chain_name}, которые исключают из работы локальные запросы."
+#		log_warning "Подключаем правила для таблицы ${table} и цепочки ${chain_name}, которые исключают из работы локальные запросы."
 	#	> "${ERROR_LOG_FILE}"
 	#	{
-		iptab -S ${VPN_IPTABLES_CHAIN} -t "${table}" 2>/dev/null | grep -q '\-N' || iptab -N ${VPN_IPTABLES_CHAIN} -t "${table}"
+		iptab -S ${VPN_IPTABLES_CHAIN} -t "${table}" &>/dev/null | grep -q '\-N' || iptab -N ${VPN_IPTABLES_CHAIN} -t "${table}" &>/dev/null
 
 		while read -r _net || [ -n "${_net}" ]; do
 			[ -z "${_net}" ] && continue
@@ -140,25 +140,25 @@ ip4_firewall_vpn_mark(){
 			table=mangle
 			log_warning "Маркируем VPN подключения, когда программное и аппаратное ускорение ПОДКЛЮЧЕНО"
 
-			iptab -S ${VPN_IPTABLES_CHAIN} -t "${table}" 2>/dev/null | grep -q '\-N' || iptab -N ${VPN_IPTABLES_CHAIN} -t "${table}"
-			ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -m set ! --match-set "${table_name}" dst -j RETURN
+			iptab -S ${VPN_IPTABLES_CHAIN} -t "${table}" 2>/dev/null | grep -q '\-N' || iptab -N ${VPN_IPTABLES_CHAIN} -t "${table}" &>/dev/null
+			ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -m set ! --match-set "${table_name}" dst -j RETURN &>/dev/null
 
 			# Игнорируем локальные сети и любые другие адреса, которые вы хотели бы обойти прокси
-			ip4_firewall_exclude_locals ${VPN_IPTABLES_CHAIN} "${table}"
+			ip4_firewall_exclude_locals ${VPN_IPTABLES_CHAIN} "${table}"  &>/dev/null
 
-			ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -j CONNMARK --restore-mark
-			ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -m mark --mark ${MARK_NUM} -j RETURN
-			ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -p tcp --syn -j MARK --set-mark ${MARK_NUM}
-			ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -p udp -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM}
-			ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -j CONNMARK --save-mark
+			ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -j CONNMARK --restore-mark &>/dev/null
+			ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -m mark --mark ${MARK_NUM} -j RETURN &>/dev/null
+			ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -p tcp --syn -j MARK --set-mark ${MARK_NUM} &>/dev/null
+			ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -p udp -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM} &>/dev/null
+			ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -j CONNMARK --save-mark &>/dev/null
 
-			ip4tables PREROUTING -t "${table}" -p tcp -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN}
-			ip4tables PREROUTING -t "${table}" -p udp -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN}
-			ip4tables OUTPUT     -t "${table}" -p tcp -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN}
-			ip4tables OUTPUT     -t "${table}" -p udp -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN}
+			ip4tables PREROUTING -t "${table}" -p tcp -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
+			ip4tables PREROUTING -t "${table}" -p udp -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
+			ip4tables OUTPUT     -t "${table}" -p tcp -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
+			ip4tables OUTPUT     -t "${table}" -p udp -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
 
-		} 2> "${ERROR_LOG_FILE}"
-		when_error "${?}" " ${IPv4} Во время маркировки трафика для VPN соединений возникли ошибки."
+		} &>/dev/null
+#		when_error "${?}" " ${IPv4} Во время маркировки трафика для VPN соединений возникли ошибки."
 	fi
 }
 
@@ -180,8 +180,8 @@ ip4_firewall_mark_rules_tcp_udp_on(){
 			ip4tables PREROUTING -t mangle -i "${_inface_ent}" -p tcp -m set --match-set ${table_name} dst -j MARK --set-mark ${MARK_NUM}
 			ip4tables PREROUTING -t mangle -i "${_inface_ent}" -p udp -m set --match-set ${table_name} dst -j MARK --set-mark ${MARK_NUM}
 
-		}  2> "${ERROR_LOG_FILE}"
-		when_error "${?}" " ${IPv4} Возникла ошибка при маркировке трафика гостевой сети для tcp или udp."
+		}  &>/dev/null
+#		when_error "${?}" " ${IPv4} Возникла ошибка при маркировке трафика гостевой сети для tcp или udp."
 	fi
 }
 
@@ -201,8 +201,8 @@ ip4_add_guest_to_vpn_network(){
 			log_warning "Подключаем правила маркировки гостевого трафика."
 			ip4tables PREROUTING -t nat -p udp -d "${_inface_guest_gw4}" --dport ${DNS_PORT} -j DNAT --to "$(inface_gw4):53"
 			ip4tables POSTROUTING -t nat -s "${GUEST_NET}" -o "${_inface_guest_ent}" -j MASQUERADE
-		} 2> "${ERROR_LOG_FILE}"
-		when_error "${?}" " ${IPv4} Возникла ошибка при маркировке гостевого трафика ${_inface_guest_ent} [${_inface_guest_gw4}]"
+		} &>/dev/null
+#		when_error "${?}" " ${IPv4} Возникла ошибка при маркировке гостевого трафика ${_inface_guest_ent} [${_inface_guest_gw4}]"
 	fi
 }
 
@@ -217,15 +217,15 @@ ip4_mark_vpn_network(){
 	if fastnet_enabled ; then
 		#log_warning "${app}::Проверка пройдена -> программное и аппаратное ускорение ПОДКЛЮЧЕНО."
 		# Без отключения ускорителей fastnat и hwnat
-		ip4_firewall_vpn_mark
+		ip4_firewall_vpn_mark &>/dev/null
 	else
 		#log_warning "${app}::Проверка пройдена -> программное и аппаратное ускорение ОТКЛЮЧЕНО!"
 		# С отключением fastnat и ускорителей hwnat
-		ip4_firewall_mark_rules_tcp_udp_on
+		ip4_firewall_mark_rules_tcp_udp_on &>/dev/null
 	fi
 #	в случае наличия гостевой сети
 	if [ -n "$(inface_guest_ent)" ]; then
-		ip4_add_guest_to_vpn_network
+		ip4_add_guest_to_vpn_network &>/dev/null
 	fi
 }
 
@@ -250,20 +250,20 @@ ip4_firewall_set_ssr_rules(){
 		{
 			log_warning "Подключаем правила для SHADOWSOCKS интерфейса ${interface} порт ${proxy_port}."
 
-			iptab -S ${SSR_IPTABLES_CHAIN} -t nat 2>/dev/null | grep -q '\-N' || iptab -N ${SSR_IPTABLES_CHAIN} -t nat
+			iptab -S ${SSR_IPTABLES_CHAIN} -t nat 2>/dev/null | grep -q '\-N' || iptab -N ${SSR_IPTABLES_CHAIN} -t nat &>/dev/null
 
 			# Игнорируем локальные сети и любые другие адреса, которые вы хотели бы обойти прокси
-			ip4_firewall_exclude_locals ${SSR_IPTABLES_CHAIN} nat
+			ip4_firewall_exclude_locals ${SSR_IPTABLES_CHAIN} nat &>/dev/null
 
 			ssr_ip=$(cat < /opt/etc/shadowsocks.json | grep 'server":' | tr -d '" ,' | cut -d':' -f2 )
 			# Исключаем любые обращения к собственному адресу SHADOWSOCKS
-			ip4tables ${SSR_IPTABLES_CHAIN} -t nat -d "${ssr_ip}" -j RETURN
+			ip4tables ${SSR_IPTABLES_CHAIN} -t nat -d "${ssr_ip}" -j RETURN &>/dev/null
 
-			ip4tables PREROUTING -w -t nat -i "${interface}" -p tcp -m set --match-set "${table_name}" dst -j REDIRECT --to-port "${proxy_port}"
-			ip4tables PREROUTING -w -t nat -i "${interface}" -p udp -m set --match-set "${table_name}" dst -j REDIRECT --to-port "${proxy_port}"
+			ip4tables PREROUTING -w -t nat -i "${interface}" -p tcp -m set --match-set "${table_name}" dst -j REDIRECT --to-port "${proxy_port}" &>/dev/null
+			ip4tables PREROUTING -w -t nat -i "${interface}" -p udp -m set --match-set "${table_name}" dst -j REDIRECT --to-port "${proxy_port}" &>/dev/null
 
-		} 2> "${ERROR_LOG_FILE}"
-		when_error "${?}" " ${IPv4} Возникла ошибка при установке правил iptable для Shadowsocks подключения"
+		} &>/dev/null
+#		when_error "${?}" " ${IPv4} Возникла ошибка при установке правил iptable для Shadowsocks подключения"
 	fi
 }
 # ------------------------------------------------------------------------------------------
@@ -275,10 +275,10 @@ ip4_firewall_set_all_rules(){
 
 #   Если активно VPN соединение
 	if [ -f "/opt/etc/ndm/netfilter.d/100-vpn-mark" ]; then
-		ip4_mark_vpn_network
+		ip4_mark_vpn_network &>/dev/null
 	else
 #		Если активно SHADOWSOCKS соединение
-		ip4_firewall_set_ssr_rules
+		ip4_firewall_set_ssr_rules &>/dev/null
 
 	fi
 
@@ -296,8 +296,8 @@ ip4tbl_flush_rm_chain(){
 	if [ -n "${table}" ] && [ -n "${chain}" ] ; then
 		ip4save | grep -q "${chain}" && {
 			log_warning "Производим удаление правил в таблице ${table} и цепочке ${route} и удаляем цепочку."
-			iptab -F "${chain}" -t "${table}"
-			iptab -X "${chain}" -t "${table}"
+			iptab -F "${chain}" -t "${table}" &>/dev/null
+			iptab -X "${chain}" -t "${table}" &>/dev/null
 		}
 	else
 		log_error "При вызове ip4tbl_flush_rm_chain не были заданы обязательные аргументы."
@@ -319,9 +319,9 @@ ip4tbl_flush_rm_pre_out(){
 		for prot in tcp udp icmp; do
 			ip4save | grep "${route}" | grep "${chain}" | grep -q "${prot}" && {
 				if [ "${icmp_arg}" = 'icmp' ] && [ "${prot}" = icmp ]; then
-					iptab -t "${table}" -D "${route}" ! -p "${prot}" -j "${chain}"
+					iptab -t "${table}" -D "${route}" ! -p "${prot}" -j "${chain}" &>/dev/null
 				else
-					iptab -t "${table}" -D "${route}" -p "${prot}" -j "${chain}"
+					iptab -t "${table}" -D "${route}" -p "${prot}" -j "${chain}" &>/dev/null
 				fi
 			}
 		done
@@ -344,10 +344,10 @@ ip4tbl_flush_rm_match_set(){
 			ip4save | grep "${route}" | grep "${chain}" | grep -q "${prot}" && {
 				if [ -n "${interface}" ] && [ -n "${proxy_port}" ] ; then
 #					Для shadowsocks
-					iptab -t "${table}" -i "${interface}" -D "${route}" -p "${prot}" -m set --match-set ${table_name} dst -j "${chain}" --to-ports "${proxy_port}"
+					iptab -t "${table}" -i "${interface}" -D "${route}" -p "${prot}" -m set --match-set ${table_name} dst -j "${chain}" --to-ports "${proxy_port}" &>/dev/null
 				else
 #					Для VPN
-					iptab -t "${table}" -D "${route}" -p "${prot}" -m set --match-set ${table_name} dst -j "${chain}"
+					iptab -t "${table}" -D "${route}" -p "${prot}" -m set --match-set ${table_name} dst -j "${chain}" &>/dev/null
 				fi
 			}
 		done
@@ -398,15 +398,15 @@ ip4_firewall_nofastnet_vpn_prune(){
 #
 # ------------------------------------------------------------------------------------------
 ip4_firewall_ssr_prune(){
+	{
+		ip4tbl_flush_rm_pre_out nat "${SSR_IPTABLES_CHAIN}" PREROUTING
+		ip4tbl_flush_rm_chain nat "${SSR_IPTABLES_CHAIN}"
 
-	ip4tbl_flush_rm_pre_out nat "${SSR_IPTABLES_CHAIN}" PREROUTING
-	ip4tbl_flush_rm_chain nat "${SSR_IPTABLES_CHAIN}"
+		interface=$(get_local_inface)
+		proxy_port=$(get_config_value SSR_DNS_PORT)
 
-	interface=$(get_local_inface)
-    proxy_port=$(get_config_value SSR_DNS_PORT)
-
-	ip4tbl_flush_rm_match_set nat REDIRECT PREROUTING "${interface}" "${proxy_port}"
-
+		ip4tbl_flush_rm_match_set nat REDIRECT PREROUTING "${interface}" "${proxy_port}"
+	} &>/dev/null
 }
 
 
@@ -417,9 +417,13 @@ ip4_firewall_ssr_prune(){
 #
 # ------------------------------------------------------------------------------------------
 ip4_firewall_flush_vpn_guest_rules(){
-	iptab -D PREROUTING -t nat -p udp -d "$(inface_guest_gw4)" --dport ${DNS_PORT} -j DNAT --to "$(inface_gw4):53"
-	iptab -D POSTROUTING -t nat -s "${GUEST_NET}" -o "$(inface_guest_ent)" -j MASQUERADE
+	{
+		iptab -D PREROUTING -t nat -p udp -d "$(inface_guest_gw4)" --dport ${DNS_PORT} -j DNAT --to "$(inface_gw4):53"
+		iptab -D POSTROUTING -t nat -s "${GUEST_NET}" -o "$(inface_guest_ent)" -j MASQUERADE
+
+	} &>/dev/null
 }
+
 
 
 # ------------------------------------------------------------------------------------------
@@ -430,12 +434,12 @@ ip4_firewall_flush_vpn_guest_rules(){
 ip4_firewall_flush_vpn_rules(){
 	if fastnet_enabled ; then
 #		Если программное и аппаратное ускорение ПОДКЛЮЧЕНО
-		ip4_firewall_fastnet_vpn_prune
+		ip4_firewall_fastnet_vpn_prune &>/dev/null
 	else
 #		Если программное и аппаратное ускорение ОТКЛЮЧЕНО
-		ip4_firewall_nofastnet_vpn_prune
+		ip4_firewall_nofastnet_vpn_prune &>/dev/null
 	fi
-	if [ -n "$(inface_guest_ent)" ]; then ip4_firewall_flush_vpn_guest_rules; fi
+	if [ -n "$(inface_guest_ent)" ]; then ip4_firewall_flush_vpn_guest_rules &>/dev/null; fi
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -446,10 +450,10 @@ ip4_firewall_flush_all_rules(){
 
 #   Если активно VPN соединение
 	if [ -f "/opt/etc/ndm/netfilter.d/100-vpn-mark" ]; then
-		ip4_firewall_flush_vpn_rules
+		ip4_firewall_flush_vpn_rules &>/dev/null
 	else
 #		Если активно SHADOWSOCKS соединение
-		ip4_firewall_ssr_prune
+		ip4_firewall_ssr_prune &>/dev/null
 	fi
 
 }
@@ -462,15 +466,15 @@ ip4_firewall_flush_all_rules(){
 ip4_flush_all_tables(){
 
 	log_warning "IPset::Производим очистку записей таблицы ${table_name}."
-	ipset flush "${table_name}" 2> "${ERROR_LOG_FILE}"
+	ipset flush "${table_name}"  &>/dev/null
 	when_error "${?}" " ${IPv4} Возникла ошибка при очистке записей ipset таблицы ${table_name}"
 
 	log_warning "IPv4::Производим очистку записей таблицы маршрутизации ID#${TABLE_ID} и удалим ее."
-	ip4 route flush table "${TABLE_ID}" 2> "${ERROR_LOG_FILE}"
-	ip4 rule del table "${TABLE_ID}" 2>> "${ERROR_LOG_FILE}"
+	ip4 route flush table "${TABLE_ID}" &>/dev/null
+	ip4 rule del table "${TABLE_ID}"  &>/dev/null
 	when_error "${?}" " ${IPv4} Возникла ошибка при очистке таблицы маршрутизации ID#${TABLE_ID}"
 
-	ip4_flush_cache
+	ip4_flush_cache &>/dev/null
 }
 
 
@@ -479,7 +483,7 @@ route_del(){
 	_route=$(ip4 route show table ${TABLE_ID})
 	inface=$(echo ${_route} | grep default | cut -d' ' -f5)
 	if [[ -n "${_route}" ]] && ! [[ "${inface}" = "$(inface_ent)" ]]; then
-		ip4 route del table ${TABLE_ID} default via "$(inface_gw4)" dev $(inface_ent)
+		ip4 route del table ${TABLE_ID} default via "$(inface_gw4)" dev $(inface_ent) &>/dev/null
 	fi
 
 }
@@ -497,7 +501,7 @@ ip4_add_route_table(){
 	if [ -z "$(ip4 route show table ${TABLE_ID} dev ${_inface_ent})"  ]; then
 		_inface_cli=$(inface_cli)
 		log_warning "IPv4::Создаем таблицу маршрутизации ID#${TABLE_ID} для '${_inface_cli}'."
-		ip4 route add table ${TABLE_ID} default via "$(inface_gw4)" dev ${_inface_ent} 2> "${ERROR_LOG_FILE}"
+		ip4 route add table ${TABLE_ID} default via "$(inface_gw4)" dev ${_inface_ent} &>/dev/null
 		when_error "${?}" " ${IPv4} Возникла ошибка при создании таблицы маршрутизации ID#${TABLE_ID} для '${_inface_cli}' интерфейса"
 
 		log_warning "IPv4::Копируем записи таблицы main в таблицу ID#${TABLE_ID}."
@@ -506,7 +510,7 @@ ip4_add_route_table(){
 #			Выделяем из строки ROUTE только первых три разряда сети, как пример: 10.0.124
 			_net=$(echo "${ROUTE}" | sed 's/^\([0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\).*/\1/')
 #			Если сеть доступна в роутере на текущий момент, то добавляем ее
-			ip4 a | grep -q "${_net}" && ip4 route add table ${TABLE_ID} ${ROUTE}
+			ip4 a | grep -q "${_net}" && ip4 route add table ${TABLE_ID} ${ROUTE} &>/dev/null
 		done
 #		Проверяем на число записей в таблице ${TABLE_ID} - их должно быть больше чем одна запись
 		test "$(ip4 route show table ${TABLE_ID} | grep -c dev)" -gt 1
@@ -523,12 +527,12 @@ ip4_rule_set_priority(){
 
 	if ! ip4 rule show | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID}"  ; then
 		log_warning "IPv4::Устанавливаем приоритет таблицы ID#${TABLE_ID} в значение ${PRIORITY}"
-		ip4 rule add fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID} priority ${PRIORITY} 2> "${ERROR_LOG_FILE}"
-		ip4 route add default dev $(inface_ent) table ${TABLE_ID}
+		ip4 rule add fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID} priority ${PRIORITY}  &>/dev/null
+		ip4 route add default dev $(inface_ent) table ${TABLE_ID} &>/dev/null
 		when_error "${?}" " ${IPv4} Возникла ошибка при установке приоритета таблицы с ID#${TABLE_ID} в значение ${PRIORITY}"
 	fi
 
-	ip4_flush_cache
+	ip4_flush_cache &>/dev/null
 }
 
 
@@ -541,11 +545,11 @@ ip4_rule_del_priority(){
 
 	if ip4 rule show | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID}"  ; then
 		log_warning "IPv4::Обнуляем приоритет таблицы ID#${TABLE_ID}"
-		ip4 rule del fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID} priority ${PRIORITY} 2> "${ERROR_LOG_FILE}"
+		ip4 rule del fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID} priority ${PRIORITY} &>/dev/null
 		when_error "${?}" " ${IPv4} Обнуление приоритета таблицы с ID#${TABLE_ID}"
 	fi
 
-	ip4_flush_cache
+	ip4_flush_cache &>/dev/null
 }
 
 
@@ -557,7 +561,7 @@ ip4_rule_del_priority(){
 ip4set_create_table(){
 	if ipset list ${table_name} 2>&1 | grep -q 'name does not exist' ; then
 		log_warning "IPset::Cоздаем таблицу с именем '${table_name}'."
-		ipset create ${table_name} hash:net family inet -exist 2> "${ERROR_LOG_FILE}"
+		ipset create ${table_name} hash:net family inet -exist &>/dev/null
 		when_error "${?}" "${IPv4} Возникла ошибка при создании таблицы с именем '${table_name}' для ipset"
 	fi
 }
@@ -592,7 +596,7 @@ recreate_ip4tables(){
 # ------------------------------------------------------------------------------------------
 recreate_vpn_rules(){
 	ready "${prefix}Очищаем все ранее созданные iptables правила для VPN."
-	ip4_firewall_flush_vpn_rules # &>/dev/null
+	ip4_firewall_flush_vpn_rules  &>/dev/null
 	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 
 	ready "${prefix}Обнуляем приоритет таблицы ID#${TABLE_ID}"
@@ -648,7 +652,7 @@ ip6tables() (if ! /opt/sbin/ip6tables -C "$@" &>/dev/null; then ip6tables -A "$@
 ip6save() (/opt/sbin/ip6tables-save)
 
 ip6set_create_table(){
-	ipset create "${table_name}6" hash:net family inet6 -exist 2> "${ERROR_LOG_FILE}"
+	ipset create "${table_name}6" hash:net family inet6 -exist  &>/dev/null
 	when_error "${?}" "${IPv6}Возникла ошибка при создании таблицы с именем '${table_name}' для ipset"
 }
 

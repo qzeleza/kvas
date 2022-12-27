@@ -20,7 +20,7 @@
 #	Лицензия: Apache License 2.0
 # -----------------------------------------------------------------------------
 app_name="КВАС"
-logger -t "${app_name}" "Запущен файл /opt/apps/kvas/bin/main/adguard"
+logger -t "${app_name}" "Запущен файл ${0}"
 
 adguard_ipset_list_update(){
 	ipset=''; domain='';

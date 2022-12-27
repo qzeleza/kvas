@@ -13,7 +13,7 @@
 # ------------------------------------------------------------------------------
 if [ "${1}" = "start" ] ; then
 	. /opt/apps/kvas/bin/libs/ndm
-	logger -t "КВАС" "Запущен файл /opt/etc/ndm/fs.d/100-ipset"
-	ip4set_create_table
+#	logger -t "КВАС" "Запущен файл ${0}"
+	ip4set_create_table &> /dev/null
 	# ip6set_create_table
 fi

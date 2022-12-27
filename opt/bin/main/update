@@ -21,5 +21,5 @@
 # ------------------------------------------------------------------------------
 
 
-log_warning "Запущен файл /opt/apps/kvas/bin/main/update"
-cmd_kvas_init
+log_warning "Запущен файл ${0}"
+cmd_kvas_init update

@@ -32,7 +32,8 @@ cmd_kvas_init(){
 	stage="${1:-no}"
 	prefix=''
 	mess="${prefix}Производим сброс пакета КВАС в исходное состояние."
-	warning "${mess}"; log_alert "${mess}"
+	warning "${mess}";
+#	log_alert "${mess}"
 	print_line
 
 	recreate_ip4tables
@@ -66,10 +67,12 @@ cmd_kvas_init(){
 	ready "${prefix}Синхронизируем дату роутера с сервером времени."
 	date_update &>/dev/null && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 
-	ready "${prefix}Производим перезапуск подключения к интернету"
-	reset_ISP_connection && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+	! [ "${stage}" = update ] && {
+		ready "${prefix}Производим перезапуск подключения к интернету"
+		reset_ISP_connection && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+	}
 
-	log_alert "${prefix}Сброс пакета КВАС в исходное состояние ЗАВЕРШЕНА!"
+#	log_alert "${prefix}Сброс пакета КВАС в исходное состояние ЗАВЕРШЕНА!"
 
 }
 

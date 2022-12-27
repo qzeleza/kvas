@@ -25,7 +25,7 @@ if [ "${type}" = "iptables" ] && echo "${table}" | grep -qE 'nat|mangle' ; then
 	proxy_port=$(get_config_value SSR_DNS_PORT)
 	if ! ip4save | grep "${SSR_IPTABLES_CHAIN}" | grep -qv '\[0:0\]' && \
    	   ! ip4save | grep PREROUTING | grep "${table_name}" | grep -q "${proxy_port}" ; then
-   		logger -t "КВАС"  "Запущен файл /opt/etc/ndm/netfilter.d/100-proxy-redirect"
+#   		logger -t "КВАС"  "Запущен файл ${0}"
 	#	 создаем правила для shadowsocks подключения
 		ip4_firewall_ssr_prune &> /dev/null
 		ip4_firewall_set_ssr_rules &> /dev/null
