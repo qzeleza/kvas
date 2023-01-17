@@ -42,3 +42,4 @@
 
 ## Каталог всех версий проекта
 - [Перейти по cсылке](https://github.com/qzeleza/kvas/tree/main/ipk)
+

@@ -1807,8 +1807,7 @@ cmd_add_one_host() {
 					echo 0
 				fi
 			else
-				is_here=$(cat < "${UNBLOCK_LIST_FILE}" | grep -e "^${clear_host}$")
-				if [ -n "${is_here}" ]; then
+				if cat < "${UNBLOCK_LIST_FILE}" | grep -qe "${clear_host}"; then
 					if [ -z "${2}" ]; then
 						warning "Такой домен уже есть в списке разблокировки!"
 						warning "Производим замену ${clear_host} на ${host}"
@@ -1912,17 +1911,18 @@ rec_in_var() {
 # ------------------------------------------------------------------------------------------
 
 cmd_import_hosts() {
-	if [ -z "${1}" ]; then
+	host_list="${1}"
+	if [ -z "${host_list}" ]; then
 		error "Не задано имя файла для импорта."
 		error "Укажите его вторым аргументом при запуске!"
 	else
-		if ! [ -f "${1}" ]; then
-			error "Списочный файл ${1} не существует."
+		if ! [ -f "${host_list}" ]; then
+			error "Списочный файл ${host_list} не существует."
 			error "Проверьте верность написания пути и его имени."
 		else
 			ready "Импортируем хосты в список разблокировки и обновляем маршруты..."
-			clear_file_content "${1}"
-			host_list="${1}"
+			clear_file_content "${host_list}"
+
 			clear_file_content "${UNBLOCK_LIST_FILE}"
 
 			hosts_to_add_ubl=''

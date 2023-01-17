@@ -37,8 +37,9 @@ fi
 if [ "${?}" = 0 ]; then
 	show_line; echo "Docker-образ собран без ошибок."
 	echo "Запускаем сборку пакета в самом контейнере..."
-	docker exec --user "${user}:${group}" -it "${image_name}" \
-			"/${APPS_ROOT}/${APP_NAME}/build/package.build" \
+	id_dc=$(docker ps -aq -f ancestor="${image_name}")
+	docker exec --user "${user}:${group}" -it "${id_dc}" \
+			"${APPS_ROOT}/${APP_NAME}/build/package.build" \
 			/bin/bash
 else
 	show_line; echo "Docker-образ собран с ошибками!"
