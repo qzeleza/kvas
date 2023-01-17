@@ -2021,17 +2021,29 @@ print_host_list(){
 	print_line
 	clear_content "${UNBLOCK_LIST_FILE}"
 }
+
 cmd_show_list() {
 
 	if [ -f "${UNBLOCK_LIST_FILE}" ]; then
 		num_plus=$(rec_in_file "${UNBLOCK_LIST_FILE}")
 		if [ "${num_plus}" -eq 0 ]; then
+			echo -e "${RED}Список разблокировки пуст!${NOCL}"
 #			Если список хостов пуст, то проверяем есть ли архивная копия
 			if [ -f "${KVAS_BACKUP_LIST_FILE}" ] ; then
-				cp "${KVAS_BACKUP_LIST_FILE}" "${UNBLOCK_LIST_FILE}"
-				print_host_list
+				print_line
+				warning "Обнаружена архивная копия списка разблокировки!"
+				answer=''; read_ynq "Восстановить данные из архива или нет [Y/N]?" answer
+				if [ "${answer}" = y ]; then
+					cp "${KVAS_BACKUP_LIST_FILE}" "${UNBLOCK_LIST_FILE}"
+					warning "Список разблокировки восстановлен из архивной копии."
+					print_line
+					print_host_list
+				else
+					print_line
+					warning "Пожалуйста, добавьте данные в список при помощи 'kvas add имя_домена'"
+				fi
 			else
-				error "Список разблокировки пуст!"
+				print_line
 				warning "Пожалуйста, добавьте в него данные при помощи 'kvas add имя_домена'"
 			fi
 		else
@@ -2040,10 +2052,14 @@ cmd_show_list() {
 	else
 #		Если список хостов не существует, то проверяем, есть ли архивная копия
 		if [ -f "${KVAS_BACKUP_LIST_FILE}" ] ; then
-			warning "Список разблокировки восстановлен из архивной копии."
-			print_line
-			cp "${KVAS_BACKUP_LIST_FILE}" "${UNBLOCK_LIST_FILE}"
-			print_host_list
+			warning "Обнаружена архивная копия списка разблокировки!"
+				answer=''; read_ynq "Восстановить данные из архива (Y) или нет (N)?" answer
+				if [ "${answer}" = y ]; then
+					cp "${KVAS_BACKUP_LIST_FILE}" "${UNBLOCK_LIST_FILE}"
+					warning "Список разблокировки восстановлен из архивной копии."
+					print_line
+					print_host_list
+				fi
 		else
 			error "Списка разблокировки не существует."
 			warning "Пожалуйста, добавьте в него данные при помощи 'kvas add имя_домена'"
