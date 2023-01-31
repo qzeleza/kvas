@@ -199,8 +199,9 @@ ip4_add_guest_to_vpn_network(){
 		# Маркируем трафик гостевой сети
 		{
 			log_warning "Подключаем правила маркировки гостевого трафика."
+
 			ip4tables PREROUTING -t nat -p udp -d "${_inface_guest_gw4}" --dport ${DNS_PORT} -j DNAT --to "$(inface_gw4):53"
-			ip4tables POSTROUTING -t nat -s "${GUEST_NET}" -o "${_inface_guest_ent}" -j MASQUERADE
+			ip4tables POSTROUTING -t nat -s "$(guest_net)" -o "${_inface_guest_ent}" -j MASQUERADE
 		} &>/dev/null
 #		when_error "${?}" " ${IPv4} Возникла ошибка при маркировке гостевого трафика ${_inface_guest_ent} [${_inface_guest_gw4}]"
 	fi
@@ -419,7 +420,7 @@ ip4_firewall_ssr_prune(){
 ip4_firewall_flush_vpn_guest_rules(){
 	{
 		iptab -D PREROUTING -t nat -p udp -d "$(inface_guest_gw4)" --dport ${DNS_PORT} -j DNAT --to "$(inface_gw4):53"
-		iptab -D POSTROUTING -t nat -s "${GUEST_NET}" -o "$(inface_guest_ent)" -j MASQUERADE
+		iptab -D POSTROUTING -t nat -s "$(guest_net)" -o "$(inface_guest_ent)" -j MASQUERADE
 
 	} &>/dev/null
 }

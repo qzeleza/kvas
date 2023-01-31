@@ -2182,7 +2182,7 @@ vpn_add_guest_network() {
 			guest_network_ent="${1}"
 			ip_net=$(ip addr show "${guest_network_ent}" | grep -Po "(?<=inet ).*(?=brd)")
 			ready "Правила для маркировки гостевой сети ${guest_network_ent} -> ${ip_net} добавлены"
-			sed -i "s/\(INFACE_GUEST_ENT=\).*/\1${guest_network_ent}/g" /opt/apps/kvas/bin/libs/ndm
+#			sed -i "s/\(INFACE_GUEST_ENT=\).*/\1${guest_network_ent}/g" /opt/apps/kvas/bin/libs/ndm
 			ip4_add_guest_to_vpn_network
 			[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 		else
