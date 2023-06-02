@@ -36,6 +36,9 @@
 - Разработка проекта ведется на **IDE** от компании [JetBrains](https://www.jetbrains.com/ru-ru/).
 - Для проведения тестов, в проекте используется пакет [BATS](https://github.com/bats-core/bats-core/blob/master/LICENSE.md) от нескольких [АВТОРОВ](https://github.com/bats-core/bats-core/blob/master/AUTHORS).
 
+## Помощь проекту
+Лучшей поддержкой проекта будет Ваше участие в нем. Заявку на участие отправляйте на **kvas @ zeleza.ru**.
+Если сейчас, нет возможности помочь своей энергией, то энергия денег принимается на [этот кошелек ЮМани](https://yoomoney.ru/to/4100117756734493).
 
 ## Документация по проекту
 - [Перейти по cсылке](https://github.com/qzeleza/kvas/wiki).
