@@ -2,6 +2,7 @@
 . /opt/apps/kvas/bin/libs/debug
 . /opt/apps/kvas/bin/libs/ndm
 . /opt/apps/kvas/bin/libs/adblock
+. /opt/apps/kvas/bin/libs/main
 # ------------------------------------------------------------------------------------------
 #
 # 	Добавляет хосты в белый список, доступ к сайтам которого
@@ -38,7 +39,6 @@ cmd_kvas_init(){
 
 	recreate_ip4tables
 
-
 	if [ -f "/opt/etc/ndm/netfilter.d/100-vpn-mark" ]; then
 		recreate_vpn_rules
 	else
@@ -72,7 +72,7 @@ cmd_kvas_init(){
 		reset_ISP_connection && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 	}
 
-#	log_alert "${prefix}Сброс пакета КВАС в исходное состояние ЗАВЕРШЕНА!"
+	log_alert "${prefix}Сброс пакета КВАС в исходное состояние ЗАВЕРШЕНА!"
 
 }
 
@@ -137,8 +137,17 @@ get_value_interface_field() {
 #
 # ------------------------------------------------------------------------------------------
 get_defaultgw_interface() {
-	curl -s "${INFACE_REQUEST}" | jq -r '.[] | select(.defaultgw==true) | ."interface-name"'
+	curl -s "${INFACE_REQUEST}" | jq -r '.[] | select(.defaultgw==true and .global==true) | ."interface-name"'
 }
+# ------------------------------------------------------------------------------------------
+#
+#	Получаем текущий id по умолчанию через который раздается интернет
+#
+# ------------------------------------------------------------------------------------------
+get_defaultgw_id() {
+	curl -s "${INFACE_REQUEST}" | jq -r '.[] | select(.defaultgw==true and .global==true) | .id'
+}
+
 # ------------------------------------------------------------------------------------------
 #
 #	Функция вЫключения IPv6
@@ -507,7 +516,7 @@ cmd_adguardhome_off(){
 #	$1 - ID гостевого моста в entware
 #
 # ------------------------------------------------------------------------------------------
-cmd_bridge_vpn_access_del() {
+bridge_vpn_access_del() {
 	guest_bridge_id="${1}"
 	ready "Удаление гостевого интерфейса ${guest_bridge_id} из vpn цепочки завершено"
 
@@ -540,8 +549,9 @@ cmd_bridge_vpn_access_list() {
 		num=$((num + 1))
 		net=$(ip4 a | grep " ${bridge_id}" | grep inet | sed 's/^ *//' | cut -d' ' -f2)
 		num_inface=$(echo "${bridge_id}" | tr -d '[:alpha:]')
-		ready "${num}. Интерфейс Bridge${num_inface} -> ${net}"
-		grep 'interface=' "${DNSMASQ_CONFIG}" | grep -q "${bridge_id}" && when_ok "ПОДКЛЮЧЕН" || when_bad "НЕ ПОДКЛЮЧЕН"
+        desc=$(curl -s "${INFACE_REQUEST}/Bridge${num_inface}" | grep '"description":' | cut -d':' -f2 |  sed 's/[,"]//g; s/^[ ]//')
+        ready "${num}. Интерфейс '${desc}::Bridge${num_inface}' -> ${net}"
+		grep 'interface=' "${DNSMASQ_CONFIG}" | grep -q "${bridge_id}" && when_ok "ПОДКЛЮЧЕН" || when_bad "ОТКЛЮЧЕН"
 	done
 #	echo "${guest_bridge_list_id}"
 }
@@ -566,10 +576,10 @@ cmd_bridge_vpn_access_del() {
 						  )
 	if [ "${option}" = all ]; then
 		for bridge_id in ${guest_bridge_list_id}; do
-			cmd_bridge_vpn_access_del "${bridge_id}"
+			bridge_vpn_access_del "${bridge_id}"
 		done
 	elif [ -n "${option}" ] && echo "${option}" | grep -qi 'br'; then
-		cmd_bridge_vpn_access_del "${option}"
+		bridge_vpn_access_del "${option}"
 	else
 		count_infaces=$(echo "${guest_bridge_list_id}" | wc -w)
 		if [ "${count_infaces}" -gt 1 ]; then
@@ -578,7 +588,7 @@ cmd_bridge_vpn_access_del() {
 			guest_bridge_id=${guest_bridge_list_id}
 		fi
 		if [ -n "${guest_bridge_id}" ]; then
-			cmd_bridge_vpn_access_del "${bridge_id}"
+			bridge_vpn_access_del "${bridge_id}"
 		fi
 	fi
 	if [ -n "${guest_bridge_id}" ] && [ "${cmd}" = update ]; then cmd_kvas_init ; fi

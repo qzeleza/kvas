@@ -66,7 +66,7 @@ SSR_ENTWARE_TEMPL=ezcfg
 # ------------------------------------------------------------------------------------------
 reset_ISP_connection() {
 	# получаем текущее состояние инф-са для возвращения его к исходному состоянию
-	id=$(curl -s "${INFACE_REQUEST}" | jq -r '.[] | select(."interface-name"=="ISP") | .id')
+	id=$(get_defaultgw_id)
 	curl -s -d '{"down":"true"}' "${INFACE_PART_REQUEST}/${id}" &> /dev/null
 	sleep 3
 	curl -s -d '{"up":"true"}' "${INFACE_PART_REQUEST}/${id}" &> /dev/null
@@ -214,7 +214,7 @@ get_inface_by_ip() {
 # ------------------------------------------------------------------------------------------
 get_local_inface() {
 	local_ip="$(get_router_ip)"
-	/opt/sbin/ip a | grep "${local_ip}" | sed 's/^ *//g' | grep -E -o '[^ ]+$'
+	/opt/sbin/ip a | grep "${local_ip}/24" | sed 's/^ *//g' | grep -E -o '[^ ]+$'
 }
 # ------------------------------------------------------------------------------------------
 #
