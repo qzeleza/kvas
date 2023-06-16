@@ -192,19 +192,20 @@ ip4_firewall_mark_rules_tcp_udp_on(){
 #
 # ------------------------------------------------------------------------------------------
 ip4_add_guest_to_vpn_network(){
-	_inface_guest_ent=$(inface_guest_ent)
-	rules=$(ip4save | grep "\-j MASQUERADE" | grep "${_inface_guest_ent}")
-	if [ -z "${rules}" ] ; then
-		_inface_guest_gw4=$(inface_guest_gw4)
-		# Маркируем трафик гостевой сети
-		{
-			log_warning "Подключаем правила маркировки гостевого трафика."
 
-			ip4tables PREROUTING -t nat -p udp -d "${_inface_guest_gw4}" --dport ${DNS_PORT} -j DNAT --to "$(inface_gw4):53"
-			ip4tables POSTROUTING -t nat -s "$(guest_net)" -o "${_inface_guest_ent}" -j MASQUERADE
-		} &>/dev/null
-#		when_error "${?}" " ${IPv4} Возникла ошибка при маркировке гостевого трафика ${_inface_guest_ent} [${_inface_guest_gw4}]"
-	fi
+        _inface_guest_ent=$(inface_guest_ent)
+        rules=$(ip4save | grep "\-j MASQUERADE" | grep "${_inface_guest_ent}")
+        if [ -z "${rules}" ] ; then
+                _inface_guest_gw4=$(inface_guest_gw4)
+                # Маркируем трафик гостевой сети
+                {
+                        log_warning "Подключаем правила маркировки гостевого трафика."
+                        ip4tables PREROUTING -t nat -p udp -d "${_inface_guest_gw4}" --dport ${DNS_PORT} -j DNAT ->
+                        ip4tables PREROUTING -t nat -p tcp -d "${_inface_guest_gw4}" --dport ${DNS_PORT} -j DNAT ->
+                        ip4tables POSTROUTING -t nat -s "$(guest_net)" -o "${_inface_guest_ent}" -j MASQUERADE
+                } &>/dev/null
+                when_error "${?}" " ${IPv4} Возникла ошибка при маркировке гостевого трафика ${_inface_guest_ent} >
+        fi
 }
 
 
