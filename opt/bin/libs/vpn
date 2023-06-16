@@ -604,22 +604,18 @@ bridge_access_add() {
 	guest_bridge_id=${1}; ip=${2}; crypt_port=${3}
 
 	ready "Добавление гостевого интерфейса ${guest_bridge_id} в vpn цепочку завершено"
-	if [ -f "${DNS_LOCAL_DEMON_FILE}" ]; then
 
-		rule="/opt/sbin/iptables -w -t nat -I PREROUTING -i ${guest_bridge_id} -p tcp --dport ${MAIN_DNS_PORT} -j DNAT --to ${ip}"
-		sed -i "s/\(tcp.*DNAT --to.*\)/\1\n\t${rule}/g" "${DNS_LOCAL_DEMON_FILE}"
+	#if [ -f "${IPSET_REDIRECT_DEMON_FILE}" ]; then
+	#	crypt_port=$(get_config_value DNS_CRYPT_PORT)
+	#	rule="/opt/sbin/iptables -w -t nat -A PREROUTING -i ${guest_bridge_id} -p tcp -m set --match-set unblock dst -j REDIRECT --to-port ${crypt_port}"
+	#	sed -i "s/\(REDIRECT --to-port.*\)/\1\n\t${rule}/g" "${IPSET_REDIRECT_DEMON_FILE}"
+	#fi
 
-		rule="/opt/sbin/iptables -w -t nat -I PREROUTING -i ${guest_bridge_id} -p udp --dport ${MAIN_DNS_PORT} -j DNAT --to ${ip}"
-		sed -i "s/\(udp.*DNAT --to.*\)/\1\n\t${rule}/g" "${DNS_LOCAL_DEMON_FILE}"
-	fi
+	#sed -i "s/\(interface=.*\)/\1,${guest_bridge_id}/g" "${DNSMASQ_CONFIG}"
 
-	if [ -f "${IPSET_REDIRECT_DEMON_FILE}" ]; then
-		crypt_port=$(get_config_value DNS_CRYPT_PORT)
-		rule="/opt/sbin/iptables -w -t nat -A PREROUTING -i ${guest_bridge_id} -p tcp -m set --match-set unblock dst -j REDIRECT --to-port ${crypt_port}"
-		sed -i "s/\(REDIRECT --to-port.*\)/\1\n\t${rule}/g" "${IPSET_REDIRECT_DEMON_FILE}"
-	fi
-
-	sed -i "s/\(interface=.*\)/\1,${guest_bridge_id}/g" "${DNSMASQ_CONFIG}"
+	sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1,${guest_bridge_id}/g" ${KVAS_CONF_FILE}
+	ip4_add_guest_to_vpn_network
+	sed -i 's/\(^fi\)/\tip4_add_guest_to_vpn_network br2 \&> \/dev\/null\n\1/' "${DNS_LOCAL_DEMON_FILE}"
 	[ $? = 0 ] && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 }
 # ------------------------------------------------------------------------------------------
@@ -652,7 +648,7 @@ cmd_bridge_vpn_access_add() {
 	else
 		guest_bridge_id=''; bridge_inface_select guest_bridge_id
 		if [ -n "${guest_bridge_id}" ]; then
-			cmd_bridge_vpn_access_del "${guest_bridge_id}" 'not_update' &> /dev/null
+			# cmd_bridge_vpn_access_del "${guest_bridge_id}" 'not_update' &> /dev/null
 			bridge_access_add "${guest_bridge_id}" "${ip}" "${crypt_port}"
 			cmd_kvas_init
 		fi
@@ -704,7 +700,7 @@ bridge_inface_select() {
 			case "${num_inface}" in
 				[qQ]*) break ;;
 				[1-${total}]* )  eval "${1}=$(echo "${entware_bridge_list}" \
-								| cut -d ' ' -f" ${num_inface}")"; break ;;
+								| cut -d ' ' -f"${num_inface}")"; break ;;
 				* ) error "Введите цифру от 1 до ${total}." ;;
 			esac
 		done
