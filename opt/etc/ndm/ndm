@@ -246,7 +246,7 @@ ip4_firewall_set_ssr_rules(){
 	# https://github.com/shadowsocks/shadowsocks-libev/blob/master/doc/ss-redir.asciidoc?ysclid=l949tgrsfn795375643
 	# Создаем новую цепочку SHADOWSOCKS
 	ssr_rules=$(ip4save | grep "${SSR_IPTABLES_CHAIN}" | grep -v '\[0:0\]')
-	prouting_rules=$(ip4save | grep PREROUTING | grep "${table_name}" | grep "${proxy_port}")
+	prouting_rules=$(ip4save | grep PREROUTING | grep "${interface}" | grep "${table_name}" | grep REDIRECT | grep "${proxy_port}")
 
 	if [ -z "${ssr_rules}" ]  &&  [ -z "${prouting_rules}" ] ; then
 		{
