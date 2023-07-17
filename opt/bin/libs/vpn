@@ -1805,30 +1805,21 @@ cmd_add_one_host() {
 				echo -e "${RED}Введенный IP адрес или диапазон IP-адресов имеет некорректный формат.${NOCL}"
 			fi
 		else
-			echo "${host}" | grep -q '\*' && test_it=0 || test_it=1
-			if [ "${test_it}" = 1 ] && [ "$(test_host "${clear_host}")" -eq 0 ]; then
+			if cat < "${UNBLOCK_LIST_FILE}" | grep -qe "${clear_host}"; then
 				if [ -z "${2}" ]; then
-					error "Домен '${1}' не отвечает."
+					warning "Такой домен уже есть в списке разблокировки!"
+					warning "Производим замену ${clear_host} на ${host}"
+					print_line
+					sed -i "/^${clear_host}$/d" "${UNBLOCK_LIST_FILE}"
+					host_add "${host}"
 				else
-					echo 0
+					echo 1
 				fi
 			else
-				if cat < "${UNBLOCK_LIST_FILE}" | grep -qe "${clear_host}"; then
-					if [ -z "${2}" ]; then
-						warning "Такой домен уже есть в списке разблокировки!"
-						warning "Производим замену ${clear_host} на ${host}"
-						print_line
-						sed -i "/^${clear_host}$/d" "${UNBLOCK_LIST_FILE}"
-						host_add "${host}"
-					else
-						echo 1
-					fi
+				if [ -z "${2}" ]; then
+					host_add "${host}"
 				else
-					if [ -z "${2}" ]; then
-						host_add "${host}"
-					else
-						echo +
-					fi
+					echo +
 				fi
 			fi
 		fi
