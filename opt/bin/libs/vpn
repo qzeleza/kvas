@@ -1334,6 +1334,7 @@ EOF
 	for inface_cli in ${inface_list}; do
 #		переподключаем текущее соединение
 		reset_connection "${inface_cli}"
+		sleep 10
 		# получаем описание интерфейса
 		description=$(get_value_interface_field "${inface_cli}" description | sed 's|\/|\\/|g')
 		# вставляем описание в файл /opt/etc/inface_equals
