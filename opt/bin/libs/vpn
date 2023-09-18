@@ -39,10 +39,11 @@ cmd_kvas_init(){
 
 	recreate_ip4tables
 
-	if [ -f "/opt/etc/ndm/netfilter.d/100-vpn-mark" ]; then
-		recreate_vpn_rules
-	else
+	if has_ssr_enable; then
 		recreate_ssr_rules
+
+	else
+		recreate_vpn_rules
 	fi
 
 	ready "${prefix}Заполняем ipset таблицу данными из списка разблокировки."
@@ -228,6 +229,7 @@ ipv6_status() {
 		when_bad "СБОЙ"
 		error "Не задан интерфейс"
 	fi
+}
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -550,7 +552,7 @@ cmd_bridge_vpn_access_list() {
 		net=$(ip4 a | grep " ${bridge_id}" | grep inet | sed 's/^ *//' | cut -d' ' -f2)
 		num_inface=$(echo "${bridge_id}" | tr -d '[:alpha:]')
         desc=$(curl -s "${INFACE_REQUEST}/Bridge${num_inface}" | grep '"description":' | cut -d':' -f2 |  sed 's/[,"]//g; s/^[ ]//')
-        ready "${num}. Интерфейс '${desc}::Bridge${num_inface}' -> ${net}"
+        ready "${num}. Интерфейс '${desc}::Bridge${num_inface}' [${net}]"
 		grep 'interface=' "${DNSMASQ_CONFIG}" | grep -q "${bridge_id}" && when_ok "ПОДКЛЮЧЕН" || when_bad "ОТКЛЮЧЕН"
 	done
 #	echo "${guest_bridge_list_id}"
@@ -593,6 +595,8 @@ cmd_bridge_vpn_access_del() {
 	fi
 	if [ -n "${guest_bridge_id}" ] && [ "${cmd}" = update ]; then cmd_kvas_init ; fi
 }
+
+
 # ------------------------------------------------------------------------------------------
 #
 #	Функция подключает гостевую сеть к активному vpn
@@ -603,19 +607,19 @@ bridge_access_add() {
 
 	guest_bridge_id=${1}; ip=${2}; crypt_port=${3}
 
-	ready "Добавление гостевого интерфейса ${guest_bridge_id} в vpn цепочку завершено"
+	has_ssr_enable && vpn_type='shadowsocks' || vpn_type='vpn'
 
-	#if [ -f "${IPSET_REDIRECT_DEMON_FILE}" ]; then
-	#	crypt_port=$(get_config_value DNS_CRYPT_PORT)
-	#	rule="/opt/sbin/iptables -w -t nat -A PREROUTING -i ${guest_bridge_id} -p tcp -m set --match-set unblock dst -j REDIRECT --to-port ${crypt_port}"
-	#	sed -i "s/\(REDIRECT --to-port.*\)/\1\n\t${rule}/g" "${IPSET_REDIRECT_DEMON_FILE}"
-	#fi
+	ready "Добавление гостевого интерфейса ${guest_bridge_id} в ${vpn_type} цепочку завершено"
 
-	#sed -i "s/\(interface=.*\)/\1,${guest_bridge_id}/g" "${DNSMASQ_CONFIG}"
+	has_guest_nets=$(cat ${KVAS_CONF_FILE} | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p')
+	[ -n "${has_guest_nets}" ] && point=',' || point=''
+	sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}${guest_bridge_id}/g" ${KVAS_CONF_FILE}
 
-	sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1,${guest_bridge_id}/g" ${KVAS_CONF_FILE}
-	ip4_add_guest_to_vpn_network
-	sed -i 's/\(^fi\)/\tip4_add_guest_to_vpn_network br2 \&> \/dev\/null\n\1/' "${DNS_LOCAL_DEMON_FILE}"
+	if has_ssr_enable then
+		ip4_add_guest_to_vpn_network
+	else
+		ip4_add_guest_to_ssr_network
+	fi
 	[ $? = 0 ] && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 }
 # ------------------------------------------------------------------------------------------
@@ -642,14 +646,14 @@ cmd_bridge_vpn_access_add() {
 							| tr '\n' ' ' \
 						 	)
 		for bridge_id in ${entware_bridge_list}; do
-			bridge_access_add "${bridge_id}" "${ip}" "${crypt_port}"
+			bridge_access_add "${bridge_id}" "${ip}"
 		done
 		cmd_kvas_init ''
 	else
 		guest_bridge_id=''; bridge_inface_select guest_bridge_id
 		if [ -n "${guest_bridge_id}" ]; then
 			# cmd_bridge_vpn_access_del "${guest_bridge_id}" 'not_update' &> /dev/null
-			bridge_access_add "${guest_bridge_id}" "${ip}" "${crypt_port}"
+			bridge_access_add "${guest_bridge_id}" "${ip}"
 			cmd_kvas_init
 		fi
 	fi
@@ -2167,26 +2171,26 @@ del_period_update(){
 # ------------------------------------------------------------------------------------------
 #
 #	 Добавляет указанную гостевую сеть в список маркировки трафика
-#	 $1 - тип гостевой сети в терминах entware
+#	 $1 - тип гостевой сети в терминах entware, например br2
 #
 # ------------------------------------------------------------------------------------------
 vpn_add_guest_network() {
 
-	if cmd_vpn_status | grep -qi shadowsocks ; then
-		error "Добавление гостевой сети возможно только для VPN подключений, отличных от shadowsocks"
-	else
-		if ip4 a | grep -qe " ${1}:" ; then
-			guest_network_ent="${1}"
-			ip_net=$(ip addr show "${guest_network_ent}" | grep -Po "(?<=inet ).*(?=brd)")
-			ready "Правила для маркировки гостевой сети ${guest_network_ent} -> ${ip_net} добавлены"
-#			sed -i "s/\(INFACE_GUEST_ENT=\).*/\1${guest_network_ent}/g" /opt/apps/kvas/bin/libs/ndm
-			ip4_add_guest_to_vpn_network
-			[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+	if ip4 a | grep -qe " ${1}:" ; then
+		guest_network_ent="${1}"
+		ip_net=$(ip addr show "${guest_network_ent}" | grep -Po "(?<=inet ).*(?=brd)")
+		ready "Правила для маркировки гостевой сети ${guest_network_ent} -> ${ip_net} добавлены"
+		if cmd_vpn_status | grep -qi shadowsocks ; then
+			ip4_add_guest_to_ssr_network
 		else
-			error "Такой сети '${1}' не существует. "
-			error "Проверьте правильность ее написания."
+			ip4_add_guest_to_vpn_network
 		fi
+		[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+	else
+		error "Такой сети '${1}' не существует. "
+		error "Проверьте правильность ее написания."
 	fi
+
 
 }
 
