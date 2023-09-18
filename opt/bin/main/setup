@@ -245,6 +245,10 @@ cmd_install(){
 	# Пишем сообщение в лог роутера о начале установки пакета
 	log_alert "УСТАНОВКА ПАКЕТА КВАС" "${LOG_HEADER}"
 
+#	обновляем itpables
+	opkg update &> /dev/null
+	opkg install iptables &> /dev/null
+
 	setup_print_welcome
 	mkdir -p "${KVAS_BACKUP_PATH}"
 	cat /dev/null > "${INSTALL_LOG}"
