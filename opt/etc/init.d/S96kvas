@@ -23,5 +23,12 @@ case ${1} in
 	start|restart)
 		. /opt/apps/kvas/bin/libs/vpn
 		cmd_kvas_init
+		if has_ssr_enable; then
+			while /opt/etc/init.d/S22shadowsocks status | grep -q dead
+			do
+				/opt/etc/init.d/S22shadowsocks restart
+				sleep 2
+			done
+		fi
 	;;
 esac
