@@ -5,7 +5,6 @@
 # Специфичиские пути
 .DS_Store
 .idea/
-ipk/
 .env
 
 ## User-specific stuff
