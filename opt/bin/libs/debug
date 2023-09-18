@@ -358,7 +358,8 @@ router_info() {
 #
 # ------------------------------------------------------------------------------------------
 date_info() {
-	echo "Версия пакета КВАС ${APP_VERSION}-${APP_RELEASE}"
+	[ -n "${APP_RELEASE}" ] && rel="-${APP_RELEASE}" || rel=''
+	echo "КВАС версии ${APP_VERSION}${rel}"
 	print_line
 	echo "Текущая дата и время $(date)"
 	echo ''

@@ -230,7 +230,7 @@ ipv6_status() {
 		error "Не задан интерфейс"
 	fi
 }
-}
+
 # ------------------------------------------------------------------------------------------
 #
 #	Функция проверки фактического наличия в списке доступного CLI интерфейса
@@ -615,7 +615,7 @@ bridge_access_add() {
 	[ -n "${has_guest_nets}" ] && point=',' || point=''
 	sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}${guest_bridge_id}/g" ${KVAS_CONF_FILE}
 
-	if has_ssr_enable then
+	if has_ssr_enable; then
 		ip4_add_guest_to_vpn_network
 	else
 		ip4_add_guest_to_ssr_network
