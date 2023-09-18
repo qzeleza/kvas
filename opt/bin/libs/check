@@ -224,7 +224,6 @@ dnscrypt_proxy_check() {
 		fi
 	else
 		ready "Шифрование DNS посредством dnscrypt-proxy2"
-		cmd_dns_crypt_off &> /dev/null
 		when_bad "ОТКЛЮЧЕНО"
 	fi
 

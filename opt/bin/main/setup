@@ -106,9 +106,9 @@ setup_restore_prev_conf(){
 restore_adguard(){
 
 	ready "Восстанавливаем службу AdGuardHome"
-	if [ -f "${KVAS_BACKUP_PATH}/S99adguardhome.orign" ]; then
+	if [ -f "${KVAS_BACKUP_PATH}/S99adguardhome.origin" ]; then
 
-		cp "${KVAS_BACKUP_PATH}/S99adguardhome.orign" /opt/etc/init.d/S99adguardhome
+		cp "${KVAS_BACKUP_PATH}/S99adguardhome.origin" /opt/etc/init.d/S99adguardhome
 		cp /opt/etc/AdGuardHome/AdGuardHome.yaml /opt/bin/AdGuardHome.yaml
 	fi
 
@@ -256,6 +256,8 @@ cmd_install(){
 	ln -sf /opt/apps/kvas/bin/main/ipset /opt/etc/cron.5mins/ipset.kvas
 
 	setup_test_provider_dns
+
+	chmod +x "${KVAS_START_FILE}"
 
 	#------------------------------------------------------
 	# Отключаем IPv6
