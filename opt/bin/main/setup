@@ -359,19 +359,22 @@ cmd_uninstall() {
 	echo -e "Удаление пакета ${GREEN}КВАС™${NOCL} версия ${GREEN}${NOCL}..."
 	print_line
 
+	answer=''; read_ynq "Вы уверены в удалении пакета [Y/N]?" answer
+	if [ "${answer}" = y ]; then
 
-	[ -z "${rm_type}" ] && mess="Удаляем все архивные данные, зависимые пакеты оставляем."
-	if [ "${rm_type}" = full ]; then
-		mess="Удаляем все архивные данные и все зависимые пакеты."
-	 	auto='--autoremove'
-		rm -f /opt/etc/init/K56dnsmasq  /opt/etc/init/K09dnscrypt-proxy2
+		[ -z "${rm_type}" ] && mess="Удаляем все архивные данные, зависимые пакеты оставляем."
+		if [ "${rm_type}" = full ]; then
+			mess="Удаляем все архивные данные и все зависимые пакеты."
+			auto='--autoremove'
+			rm -f /opt/etc/init/K56dnsmasq  /opt/etc/init/K09dnscrypt-proxy2
+		fi
+
+		echo "${mess}"
+		print_line
+		opkg remove kvas "${auto}"
+		print_line
+		set_previous_condition "${rm_type}"
+		print_line
+		echo "Удаление КВАСа завершено."
 	fi
-
-	echo "${mess}"
-	print_line
-	opkg remove kvas "${auto}"
-	print_line
-	set_previous_condition "${rm_type}"
-	print_line
-	echo "Удаление КВАСа завершено."
 }

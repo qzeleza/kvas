@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=kvas
-PKG_VERSION:=1.1.3
+PKG_VERSION:=1.1.4
 PKG_RELEASE:=
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)
 

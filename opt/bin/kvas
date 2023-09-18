@@ -129,7 +129,7 @@ case "${1}" in
 		;;
 	export)					cmd_export_hosts "${2}"
 		;;
-	del | rm)				cmd_del_one_host "${2}"
+	del)				cmd_del_one_host "${2}"
 		;;
 	purge | clear)			cmd_clear_list "${2}"
 		;;
@@ -147,7 +147,7 @@ case "${1}" in
 		;;
 	help|-h|--h ) 			cmd_help
 		;;
-	uninstall|remove ) 		cmd_uninstall  "${2}"
+	uninstall|remove|rm ) 		cmd_uninstall  "${2}"
 		;;
 
 	*)						cmd_show_list
