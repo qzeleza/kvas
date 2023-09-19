@@ -455,8 +455,8 @@ adguardhome_install_locally() {
 		. /opt/apps/kvas/bin/libs/update
 		cmd_adguard_update
 		adguardhome_check_config
-		ip=$(get_router_ip)
-		port=$(cat < "${ADGUARDHOME_CONFIG}" | grep '^bind_port: ' | cut -d':' -f2 | tr -d ' \n')
+#		ip=$(get_router_ip)
+#		port=$(cat < "${ADGUARDHOME_CONFIG}" | grep '^bind_port: ' | cut -d':' -f2 | tr -d ' \n')
 		adguardhome_setup
 	fi
 }
@@ -605,7 +605,7 @@ cmd_bridge_vpn_access_del() {
 # ------------------------------------------------------------------------------------------
 bridge_access_add() {
 
-	guest_bridge_id=${1}; ip=${2}; crypt_port=${3}
+	guest_bridge_id=${1}; ip=${2};
 
 	has_ssr_enable && vpn_type='shadowsocks' || vpn_type='vpn'
 
