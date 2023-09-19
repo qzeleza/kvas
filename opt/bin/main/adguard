@@ -31,9 +31,6 @@ adguard_ipset_list_update(){
 
 	# В случае отсутствия списочного файла создаем его
 	! [ -f "${host_list}" ] && touch "${host_list}"
-	# если списочный файл пуст, то создаем пустой ipset блок
-	[ "$(cat < "${host_list}" | wc -l )" = 0 ] && ipset="[]"
-	sed -i '/ipset/,/ipset_file/{//!d};' "${adguard_config}"
 
 	# В случае наличия списочного файла читаем из него строки
 	while read -r line || [ -n "${line}" ]; do
@@ -54,8 +51,8 @@ adguard_ipset_list_update(){
 
 	done < "${host_list}"
 
-#	в случае наличия данных в переменной ipset меняем ее файле.
-	if [ -n "${ipset}" ]; then
+#	в случае наличия данных в переменной domain меняем ее файле.
+	if [ -n "${domain}" ]; then
 #		Добаявляем данные ipset блока в отдельный файл и его имя вписываем
 #		в переменную ipset_file в файле adguard_config
 		echo "${domain}" >> "${adguard_ipset_file}"
