@@ -65,4 +65,6 @@ adguard_ipset_list_update(){
 
 }
 
+
+rm -f "${adguard_ipset_file}"
 adguard_ipset_list_update
