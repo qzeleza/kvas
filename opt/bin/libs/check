@@ -334,14 +334,14 @@ unblock_dnsmasq_check() {
 cmd_adguard_check() {
 	exit_when_dnsmasq_on status; [ "${status}" = 0 ] && {
 		ready "Список правил ipset для AdGuard Home"
-		if [ "$(cat < "${ADGUARDHOME_CONFIG}" | grep ipset | wc -c)" -gt 6 ]; then
+		if [ "$(cat < "${ADGUARD_IPSET_FILE}" | wc -c)" -gt 6 ]; then
 			when_ok "ЗАПОЛНЕН"
 			echo_debug "Журнал загрузки AdGuard Home (20 крайних записей)\nиз файла ${ADGUARDHOME_LOG}" "$(cat < "${ADGUARDHOME_LOG}" | tail )"
 		else
 			when_bad "ПУСТ"
 			/opt/apps/kvas/bin/main/adguard &> /dev/null
 			ready "Повторная проверка заполнения списка правил ipset для AdGuard Home"
-			if [ "$(cat < "${ADGUARDHOME_CONFIG}" | grep ipset | wc -c)" -gt 6 ]; then
+			if [ "$(cat < "${ADGUARD_IPSET_FILE}" | wc -c)" -gt 6 ]; then
 				when_ok "ПРОЙДЕНА"
 			else
 				when_bad "ОШИБКА"

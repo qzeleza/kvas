@@ -46,6 +46,7 @@ DNSMASQ_CONFIG=/opt/etc/dnsmasq.conf
 DNSCRYPT_CONFIG=/opt/etc/dnscrypt-proxy.toml
 KVAS_BACKUP_LIST_FILE=/opt/etc/.kvas/backup/hosts.list
 KVAS_START_FILE=/opt/etc/init.d/S96kvas
+ADGUARD_IPSET_FILE=/opt/etc/AdGuardHome/kvas.ipset
 
 
 # Файл в котором содержатся сети, запросы из которых необходимо исключить

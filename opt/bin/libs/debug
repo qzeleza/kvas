@@ -264,8 +264,8 @@ unblock_adguard_debug() {
 
 #	result=$(cat < "/opt/apps/kvas/bin/main/adguard" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
 #	echo_debug "Скрипт заполнения списка разблокировки /opt/apps/kvas/bin/main/dnsmasq" "${result}"
-	result=$(cat < "${ADGUARDHOME_CONFIG}" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | sed -n '/ipset/,/filtering_enabled/p' | sed -e '$d' )
-	echo_debug "Блок записей по ipset в ${ADGUARDHOME_CONFIG}" "${result}"
+	result=$(cat < "${ADGUARD_IPSET_FILE}" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | sed -e '$d' )
+	echo_debug "Блок записей по ipset в ${ADGUARD_IPSET_FILE}" "${result}"
 	result=$(cat < "${ADGUARDHOME_LOG}" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | tail -20)
 	echo_debug "Журнал загрузки AdGuard Home в ${ADGUARDHOME_LOG}" "${result}"
 

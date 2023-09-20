@@ -58,7 +58,7 @@ adguard_ipset_list_update(){
 	if [ -n "${ipset_list}" ]; then
 #		Добавляем данные ipset блока в отдельный файл и его имя вписываем
 #		в переменную ipset_file в файле adguard_config
-		printf "${ipset_list}\n" >> "${adguard_ipset_file}"
+		printf "\n${ipset_list}\n" >> "${adguard_ipset_file}"
 		adguard_ipset_file=$(echo "${adguard_ipset_file}" | sed 's/\//\\\//g')
 		sed -i 's/ipset_file.*/ipset_file: "'"${adguard_ipset_file}"'"/g' "${adguard_config}"
 	fi
