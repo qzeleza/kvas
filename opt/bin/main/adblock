@@ -188,7 +188,7 @@ dnsmasq_test(){
 	[ -f "${DNSMASQ_DEMON}" ] && {
 		if grep -q alive "${DNSMASQ_DEMON}"; then
 			ready "Проверяем на ошибки скаченные файлы"
-			/opt/sbin/dnsmasq_demon --test --hostsdir="${tmp_path}"  &> /dev/null
+			/opt/sbin/dnsmasq --test --hostsdir="${tmp_path}"  &> /dev/null
 			if [ "$?" = 0 ]; then
 				when_ok "ГОТОВО"
 				logger "Рекламных хостов для блокировки добавлено $(dig_frm ${hosts}) шт."

@@ -743,8 +743,8 @@ dnsmasq_install(){
 			ready "Устанавливаем пакет dnsmasq..."
 			if ! [ -f /opt/etc/init.d/S56dnsmasq ]; then
 #				то в этом случае можем попытаться удалять или устанавливать пакеты
-				opkg remove dnsmasq 1> /dev/null 2> "${ERROR_LOG_FILE}"
-				opkg install dnsmasq 1> /dev/null 2> "${ERROR_LOG_FILE}"
+				opkg remove dnsmasq-full 1> /dev/null 2> "${ERROR_LOG_FILE}"
+				opkg install dnsmasq-full 1> /dev/null 2> "${ERROR_LOG_FILE}"
 				when_error "${?}" "Ошибка при установке пакета dnsmasq"
 			fi
 		fi

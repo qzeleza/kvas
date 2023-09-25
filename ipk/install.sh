@@ -1,8 +1,8 @@
 #!/bin/sh
 
-last_package_ver=$(curl -s https://github.com/qzeleza/kvas/releases | grep "Версия" | head -1| sed -n 's/.*Версия\(.*\)<\/h.*/\1/p' | tr -d ' ')
-file_name=kvas_${last_package_ver}_all.ipk
-package_name=https://github.com/qzeleza/kvas/releases/download/v${last_package_ver}/${file_name}
+package_name=kvas_all.ipk
+package_url=https://github.com/qzeleza/kvas/releases/latest/download/${package_name}
+list_backup=/opt/etc/hosts.list.backup
 
 mkdir -p /opt/packages
 cd /opt/packages || {
@@ -12,5 +12,7 @@ cd /opt/packages || {
 echo 'Установка пакета, ждите...'
 echo ----------------------------------------------------------------
 opkg update && opkg upgrade && opkg install curl iptables &>/dev/null
-curl -LsJO "${package_name}"  &>/dev/null
-opkg install "./${file_name}" && clear && kvas setup
+[ -f /opt/bin/kvas ] && kvas export ${list_backup}
+curl -L "${package_url}" -o  ${package_name} &>/dev/null
+opkg install "./${package_name}" && clear && kvas setup && kvas import ${list_backup}
+
