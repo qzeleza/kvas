@@ -105,15 +105,17 @@ setup_restore_prev_conf(){
 #------------------------------------------------------
 restore_adguard(){
 
+	agh_service=/opt/etc/init.d/S99adguardhome
 	ready "Восстанавливаем службу AdGuardHome"
 	if [ -f "${KVAS_BACKUP_PATH}/S99adguardhome.origin" ]; then
 
-		cp "${KVAS_BACKUP_PATH}/S99adguardhome.origin" /opt/etc/init.d/S99adguardhome
+		cp "${KVAS_BACKUP_PATH}/S99adguardhome.origin" "${agh_service}"
 		cp /opt/etc/AdGuardHome/AdGuardHome.yaml /opt/bin/AdGuardHome.yaml
 	fi
 
 	if /opt/etc/init.d/S99adguardhome status | grep -q "alive" ; then
-		/opt/etc/init.d/S99adguardhome restart &> /dev/null
+		sed -i '/case/,/esac/ s/^\(.*\)/#\1/; /\*)/,/;;/ s/#\(.*rc.func\)/\1/' "${agh_service}"
+		"${agh_service}" restart &> /dev/null
 	fi
 	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 }
@@ -365,7 +367,7 @@ cmd_uninstall() {
 	echo -e "Удаление пакета ${GREEN}КВАС™${NOCL} версия ${GREEN}${NOCL}..."
 	print_line
 
-	answer=''; read_ynq "Вы уверены в удалении пакета [Y/N]?" answer
+	answer=''; read_ynq "Вы уверены в удалении пакета ?" answer
 	if [ "${answer}" = y ]; then
 
 		[ -z "${rm_type}" ] && mess="Удаляем все архивные данные, зависимые пакеты оставляем."

@@ -83,11 +83,11 @@ make package/"${APP_NAME}"/compile "${deb}"
 change_version_in_package
 
 # копируем собранный пакет в папку где хранятся все сборки
-cp "${APP_PKG_FILE}" "/apps/${APP_NAME}/ipk"
+cp "${APP_PKG_FILE}" "/apps/${APP_NAME}/ipk/${APP_NAME}_all.ipk"
 
 show_line
 # копируем собранный пакет на роутер
-copy_app_to_router
-run_reinstalation_on_router
+#copy_app_to_router
+#run_reinstalation_on_router
 #run_tests
 echo "Сборка завершена: $(zdump EST-3)";

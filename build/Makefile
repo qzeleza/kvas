@@ -62,7 +62,7 @@ NOCL="\033[m";
 print_line()(printf "%83s\n" | tr " " "=")
 
 chmod -R +x /opt/apps/kvas/bin/*
-chmod -R +x /opt/apps/kvas/sbin/dnsmasq/*
+#chmod -R +x /opt/apps/kvas/sbin/dnsmasq/*
 chmod -R +x /opt/apps/kvas/etc/init.d/*
 chmod -R +x /opt/apps/kvas/etc/ndm/*
 

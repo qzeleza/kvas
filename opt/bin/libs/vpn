@@ -760,22 +760,22 @@ dnsmasq_install(){
 	cp /opt/apps/kvas/etc/conf/dnsmasq.conf /opt/etc/dnsmasq.conf 1> /dev/null 2> "${ERROR_LOG_FILE}"
 	ready_status "${?}" "Проблемы при замене в файле конфигурации dnsmasq"
 
-	ready "Меняем dnsmasq на версию с поддержкой wildcard"
-	bin_path="/opt/apps/kvas/sbin/dnsmasq"
-	chmod -R +x "${bin_path}"
-	arch=$(grep "arch" /opt/etc/entware_release | cut -f2 -d"=")
-	case "${arch}" in
-		mips) cp ${bin_path}/mips /opt/sbin/dnsmasq 1> /dev/null 2> "${ERROR_LOG_FILE}";;
-		mipsel) cp ${bin_path}/mipsel /opt/sbin/dnsmasq 1> /dev/null 2> "${ERROR_LOG_FILE}";;
-		aarch64) cp ${bin_path}/aarch64 /opt/sbin/dnsmasq 1> /dev/null 2> "${ERROR_LOG_FILE}";;
-		*) 	when_bad "ОШИБКА"
-			mess="Неизвестная архитектура процессора: ${arch}!"
-			warning "${mess}"
-			log_in_file "ОШИБКА: ${mess}"
-			exit 1
-		;;
-	esac
-	ready_status "${?}" "Проблема при замене dnsmasq на версию с поддержкой wildcard"
+#	ready "Меняем dnsmasq на версию с поддержкой wildcard"
+#	bin_path="/opt/apps/kvas/sbin/dnsmasq"
+#	chmod -R +x "${bin_path}"
+#	arch=$(grep "arch" /opt/etc/entware_release | cut -f2 -d"=")
+#	case "${arch}" in
+#		mips) cp ${bin_path}/mips /opt/sbin/dnsmasq 1> /dev/null 2> "${ERROR_LOG_FILE}";;
+#		mipsel) cp ${bin_path}/mipsel /opt/sbin/dnsmasq 1> /dev/null 2> "${ERROR_LOG_FILE}";;
+#		aarch64) cp ${bin_path}/aarch64 /opt/sbin/dnsmasq 1> /dev/null 2> "${ERROR_LOG_FILE}";;
+#		*) 	when_bad "ОШИБКА"
+#			mess="Неизвестная архитектура процессора: ${arch}!"
+#			warning "${mess}"
+#			log_in_file "ОШИБКА: ${mess}"
+#			exit 1
+#		;;
+#	esac
+#	ready_status "${?}" "Проблема при замене dnsmasq на версию с поддержкой wildcard"
 
 	uplevel_dns=$(get_config_value DNS_DEFAULT)
 	local_ip=$(get_router_ip)

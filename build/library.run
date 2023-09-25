@@ -106,6 +106,8 @@ get_package_name(){
 
 # ИСПОЛНЯЕМ ВУТРИ КОНТЕЙНЕРА !!!
 # Производим копирование собранного пакета на роутер
+kvas_install='curl -sL https://raw.githubusercontent.com/qzeleza/kvas/main/ipk/install.sh | sh'
+
 copy_app_to_router(){
 
 	app_pkg_tar_name=$(get_package_name)
@@ -115,19 +117,23 @@ copy_app_to_router(){
 	docker_key=$(cat < "$(get_key_file)")
 	ssh -p "${PORT}" "${ROUTER}" 'cat /opt/root/.ssh/authorized_keys' | grep -q "${docker_key}" \
 	|| copy_ssh_keys_to_router
-	echo "Загрузка пакета на роутер..."
-	ssh -p "${PORT}" "${ROUTER}" '[ -d /opt/packages ] || mkdir -p /opt/packages'
-	ssh -p "${PORT}" "${ROUTER}" 'rm -f '"/opt/packages/${app_pkg_tar_name}" #&> /dev/null
-	scp -P "${PORT}" "${app_pkg_file}" "${ROUTER}:/opt/packages/${app_pkg_tar_name}"
+	set -x
+	echo "Загрузка и установки пакета на роутер..."
+	ssh -p "${PORT}" "${ROUTER}" "${kvas_install}"
+#	ssh -p "${PORT}" "${ROUTER}" '[ -d /opt/packages ] || mkdir -p /opt/packages'
+#	ssh -p "${PORT}" "${ROUTER}" 'rm -f '"/opt/packages/${app_pkg_tar_name}" #&> /dev/null
+#	scp -P "${PORT}" "${app_pkg_file}" "${ROUTER}:/opt/packages/${app_pkg_tar_name}"
+#	scp -P "${PORT}" "${app_pkg_file}" "${ROUTER}:/opt/packages/${APP_NAME}_all.ipk"
 }
 
 # ИСПОЛНЯЕМ ВУТРИ КОНТЕЙНЕРА !!!
 # Производим удаление и установку пакета
 run_reinstalation_on_router(){
 
-	ssh -p "${PORT}" "${ROUTER}" 'opkg remove '"${APP_NAME}"
-	ssh -p "${PORT}" "${ROUTER}" 'opkg install /opt/packages/'"$(get_package_name)"  #<<< 2
-	ssh -p "${PORT}" "${ROUTER}" 'kvas setup'
+	ssh -p "${PORT}" "${ROUTER}" "${APP_NAME} rm full"
+	ssh -p "${PORT}" "${ROUTER}" "${kvas_install}"
+#	ssh -p "${PORT}" "${ROUTER}" 'opkg install /opt/packages/'"$(get_package_name)"  #<<< 2
+#	ssh -p "${PORT}" "${ROUTER}" 'kvas setup'
 	show_line
 
 }

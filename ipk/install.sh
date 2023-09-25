@@ -9,10 +9,20 @@ cd /opt/packages || {
 	echo "Невозможно создать папку /opt/packages";
 	exit 1
 }
-echo 'Установка пакета, ждите...'
+clear
 echo ----------------------------------------------------------------
-opkg update && opkg upgrade && opkg install curl iptables &>/dev/null
+echo 'Загрузка пакета, ждите...'
+echo ----------------------------------------------------------------
+{
+	opkg update && opkg upgrade && opkg install curl iptables
+} &>/dev/null && {
+	echo "ГОТОВО"
+	echo ----------------------------------------------------------------
+	echo наберите 'kvas setup' для настройки пакета
+	echo ----------------------------------------------------------------
+}
+
 [ -f /opt/bin/kvas ] && kvas export ${list_backup}
 curl -L "${package_url}" -o  ${package_name} &>/dev/null
-opkg install "./${package_name}" && clear && kvas setup && kvas import ${list_backup}
-
+opkg install "./${package_name}" &>/dev/null
+rm -f ./install.sh
