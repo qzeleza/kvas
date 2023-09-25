@@ -84,9 +84,9 @@ case "${1}" in
 			set) 			cmd_interface_change ask ;;
 			reset) 			cmd_vpn_iptable_reset ;;
 			guest)
-				case "${2}" in
-					add ) 			cmd_bridge_vpn_access_add "${3}" ;;
-					del ) 			cmd_bridge_vpn_access_del "${3}" ;;
+				case "${3}" in
+					add ) 			cmd_bridge_vpn_access_add "${4}" ;;
+					del ) 			cmd_bridge_vpn_access_del "${4}" ;;
 					*) 				cmd_bridge_vpn_access_list ;;
 				esac
 				;;

@@ -521,15 +521,7 @@ cmd_adguardhome_off(){
 bridge_vpn_access_del() {
 	guest_bridge_id="${1}"
 	ready "Удаление гостевого интерфейса ${guest_bridge_id} из vpn цепочки завершено"
-
-	if [ -f "${DNS_LOCAL_DEMON_FILE}" ]; then
-		sed -i "/PREROUTING -i ${guest_bridge_id}/d" "${DNS_LOCAL_DEMON_FILE}"
-	fi
-	if [ -f "${IPSET_REDIRECT_DEMON_FILE}" ]; then
-		sed -i "/PREROUTING -i ${guest_bridge_id}/d" "${IPSET_REDIRECT_DEMON_FILE}"
-	fi
-	sed -i "s/\(interface=.*\),${guest_bridge_id}/\1/" "${DNSMASQ_CONFIG}"
-	[ $? = 0 ] && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+	ip4_firewall_rm_selected_guest_net "${guest_bridge_id}" && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -553,13 +545,14 @@ cmd_bridge_vpn_access_list() {
 		num_inface=$(echo "${bridge_id}" | tr -d '[:alpha:]')
         desc=$(curl -s "${INFACE_REQUEST}/Bridge${num_inface}" | grep '"description":' | cut -d':' -f2 |  sed 's/[,"]//g; s/^[ ]//')
         ready "${num}. Интерфейс '${desc}::Bridge${num_inface}' [${net}]"
-		grep 'interface=' "${DNSMASQ_CONFIG}" | grep -q "${bridge_id}" && when_ok "ПОДКЛЮЧЕН" || when_bad "ОТКЛЮЧЕН"
+        has_in_iptables_rules "br${num_inface}" && when_ok "ПОДКЛЮЧЕН" || when_bad "ОТКЛЮЧЕН"
+#		grep 'interface=' "${DNSMASQ_CONFIG}" | grep -q "${bridge_id}" && when_ok "ПОДКЛЮЧЕН" || when_bad "ОТКЛЮЧЕН"
 	done
 #	echo "${guest_bridge_list_id}"
 }
 # ------------------------------------------------------------------------------------------
 #
-#	Функция подключает гостевую сеть к активному vpn
+#	Функция удаляет гостевую сеть из активного vpn
 #
 #	$1 - команда для удаления всех гостевых сетей к активному vpn
 #	$2 - команда для обновления внесенных изменений
@@ -570,12 +563,8 @@ cmd_bridge_vpn_access_list() {
 cmd_bridge_vpn_access_del() {
 
 	option=${1}; cmd="${2:-update}"; guest_bridge_id=''
-	guest_bridge_list_id=$(cat < "${DNSMASQ_CONFIG}" \
-						  | grep -E 'interface=br[0-9]' \
-						  | sed 's/\(interface=br[0-9]\)\(.*\)/\2/'\
-						  | cut -d',' -f2- \
-						  | tr ',' ' ' \
-						  )
+	guest_bridge_list_id=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p' | tr ',' ' ' )
+
 	if [ "${option}" = all ]; then
 		for bridge_id in ${guest_bridge_list_id}; do
 			bridge_vpn_access_del "${bridge_id}"
@@ -608,18 +597,14 @@ bridge_access_add() {
 	guest_bridge_id=${1}; ip=${2};
 
 	has_ssr_enable && vpn_type='shadowsocks' || vpn_type='vpn'
-
 	ready "Добавление гостевого интерфейса ${guest_bridge_id} в ${vpn_type} цепочку завершено"
 
-	has_guest_nets=$(cat ${KVAS_CONF_FILE} | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p')
+	has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p')
 	[ -n "${has_guest_nets}" ] && point=',' || point=''
-	sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}${guest_bridge_id}/g" ${KVAS_CONF_FILE}
+	sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}${guest_bridge_id}/g" "${KVAS_CONF_FILE}"
 
-	if has_ssr_enable; then
-		ip4_add_guest_to_vpn_network
-	else
-		ip4_add_guest_to_ssr_network
-	fi
+	set_selected_guest_nets_rules "${guest_bridge_id}"
+
 	[ $? = 0 ] && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 }
 # ------------------------------------------------------------------------------------------
@@ -658,6 +643,16 @@ cmd_bridge_vpn_access_add() {
 		fi
 	fi
 }
+
+# Проверяем есть ли правила для данной гостевой сети в iptables
+has_in_iptables_rules(){
+	if has_ssr_enable; then
+		iptables-save | grep "${1}" | grep PREROUTING | grep -q DNAT && iptables-save | grep "${1}" | grep PREROUTING | grep unblock | grep -q REDIRECT
+	else
+		iptables-save | grep "${1}" | grep PREROUTING | grep -q DNAT && iptables-save | grep "${1}" | grep PREROUTING | grep -q MASQUERADE
+	fi
+}
+
 # ------------------------------------------------------------------------------------------
 #
 #	Функция подключает гостевую сеть к активному vpn
@@ -691,9 +686,8 @@ bridge_inface_select() {
 			num_inface=$(echo "${cli_inface}" | tr -d '[:alpha:]')
 			net=$(ip4 a | grep " br${num_inface}" | grep inet | sed 's/^ *//' | cut -d' ' -f2)
 			mess="${num}. Интерфейс ${cli_inface} -> ${net}"
-			connected=$(is_vpn_interface_connected "${cli_inface}")
 			ready "${mess}"
-			if [ "${connected}" = "on" ]; then when_ok "В СЕТИ"; else when_bad "ОТКЛЮЧЕН"; fi
+			has_in_iptables_rules "br${num_inface}" && when_ok "В СЕТИ" || when_bad "ОТКЛЮЧЕН"
 		done
 
 		while true; do
@@ -756,26 +750,8 @@ dnsmasq_install(){
 	fi
 	ready "Заменяем файл конфигурации dnsmasq...   "
 	[ -f /opt/etc/dnsmasq.conf ] && mv -f /opt/etc/dnsmasq.conf "${KVAS_BACKUP_PATH}/dnsmasq.conf" 1> /dev/null 2> "${ERROR_LOG_FILE}"
-	[ -f /opt/sbin/dnsmasq ] && mv -f /opt/sbin/dnsmasq "${KVAS_BACKUP_PATH}/dnsmasq" 1> /dev/null 2> "${ERROR_LOG_FILE}"
 	cp /opt/apps/kvas/etc/conf/dnsmasq.conf /opt/etc/dnsmasq.conf 1> /dev/null 2> "${ERROR_LOG_FILE}"
 	ready_status "${?}" "Проблемы при замене в файле конфигурации dnsmasq"
-
-#	ready "Меняем dnsmasq на версию с поддержкой wildcard"
-#	bin_path="/opt/apps/kvas/sbin/dnsmasq"
-#	chmod -R +x "${bin_path}"
-#	arch=$(grep "arch" /opt/etc/entware_release | cut -f2 -d"=")
-#	case "${arch}" in
-#		mips) cp ${bin_path}/mips /opt/sbin/dnsmasq 1> /dev/null 2> "${ERROR_LOG_FILE}";;
-#		mipsel) cp ${bin_path}/mipsel /opt/sbin/dnsmasq 1> /dev/null 2> "${ERROR_LOG_FILE}";;
-#		aarch64) cp ${bin_path}/aarch64 /opt/sbin/dnsmasq 1> /dev/null 2> "${ERROR_LOG_FILE}";;
-#		*) 	when_bad "ОШИБКА"
-#			mess="Неизвестная архитектура процессора: ${arch}!"
-#			warning "${mess}"
-#			log_in_file "ОШИБКА: ${mess}"
-#			exit 1
-#		;;
-#	esac
-#	ready_status "${?}" "Проблема при замене dnsmasq на версию с поддержкой wildcard"
 
 	uplevel_dns=$(get_config_value DNS_DEFAULT)
 	local_ip=$(get_router_ip)
@@ -1267,11 +1243,9 @@ shadowsocks_on() {
 	   	ready "Используем данные"
 		cp "${SHADOWSOCKS_CONF}.kvas" "${SHADOWSOCKS_CONF}"
 		when_alert "ИЗ АРХИВА"
-	elif [ -f "${SHADOWSOCKS_CONF}" ] ; then
-		if grep -qE '""|@' "${SHADOWSOCKS_CONF}" || grep -qE '127.0.0.1|barfoo!' "${SHADOWSOCKS_CONF}"; then
-			print_line
-			shadowsocks_read_data
-		fi
+	elif [ -f "${SHADOWSOCKS_CONF}" ] && grep -qE '""|@' "${SHADOWSOCKS_CONF}" || grep -qE '127.0.0.1|barfoo!' "${SHADOWSOCKS_CONF}"; then
+		print_line
+		shadowsocks_read_data
 	else
 		print_line
 		shadowsocks_read_data
@@ -1282,11 +1256,11 @@ shadowsocks_on() {
 	sed -i 's/ss-local/ss-redir/g' "/opt/etc/init.d/S22shadowsocks"
 	#	включаем shadowsocks службу
 
-	ready "Интерфейс shadowsocks подключен "
+	ready "Запускаем сервис shadowsocks..."
 	/opt/etc/init.d/S22shadowsocks restart &> /dev/null
 	/opt/etc/init.d/S22shadowsocks status &> /dev/null
 	if [ $? = 0 ]; then
-		when_ok "УСПЕШНО"
+		when_ok "ГОТОВО"
 	else
 		when_bad "ОШИБКА"
 		error "Возникла ошибка при подключении shadowsocks интерфейса!"
@@ -2182,7 +2156,7 @@ vpn_add_guest_network() {
 		guest_network_ent="${1}"
 		ip_net=$(ip addr show "${guest_network_ent}" | grep -Po "(?<=inet ).*(?=brd)")
 		ready "Правила для маркировки гостевой сети ${guest_network_ent} -> ${ip_net} добавлены"
-		if cmd_vpn_status | grep -qi shadowsocks ; then
+		if has_ssr_enable ; then
 			ip4_add_guest_to_ssr_network
 		else
 			ip4_add_guest_to_vpn_network

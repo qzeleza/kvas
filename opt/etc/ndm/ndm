@@ -192,21 +192,26 @@ ip4_firewall_mark_rules_tcp_udp_on(){
 # 	Правила маркировки гостевого трафика
 #
 # ------------------------------------------------------------------------------------------
+ip4_add_selected_guest_to_vpn_network(){
+	guest_inface="${1}"
+	rules_masq=$(ip4save | grep "\-j MASQUERADE" | grep "${guest_inface}")
+	rules_dns=$(ip4save | grep "${guest_inface}" | grep DNAT | grep -q 53)
+	if [ -z "${rules_dns}${rules_masq}" ] ; then
+			# Маркируем трафик гостевой сети
+			{
+					log_warning "Подключаем правила маркировки гостевого трафика для VPN."
+					ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p tcp -j DNAT --to "$(inface_gw4):53"
+					ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p udp -j DNAT --to "$(inface_gw4):53"
+					ip4tables POSTROUTING -t nat -s "$(guest_net "${guest_inface}")" -o "${guest_inface}" -j MASQUERADE
+			} &>/dev/null
+			when_error "${?}" " ${IPv4} Возникла ошибка при маркировке гостевого трафика ${guest_inface} [$(guest_net "${guest_inface}")] для VPN."
+	fi
+}
 ip4_add_guest_to_vpn_network(){
 
         for guest_inface in $(inface_guest_ent | sed 's/,/\n/g')
         do
-			rules=$(ip4save | grep "\-j MASQUERADE" | grep "${guest_inface}")
-			if [ -z "${rules}" ] ; then
-					# Маркируем трафик гостевой сети
-					{
-							log_warning "Подключаем правила маркировки гостевого трафика для VPN."
-							ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p tcp -j DNAT --to "$(inface_gw4):53"
-							ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p udp -j DNAT --to "$(inface_gw4):53"
-							ip4tables POSTROUTING -t nat -s "$(guest_net "${guest_inface}")" -o "${guest_inface}" -j MASQUERADE
-					} &>/dev/null
-					when_error "${?}" " ${IPv4} Возникла ошибка при маркировке гостевого трафика ${guest_inface} [$(guest_net "${guest_inface}")] для VPN."
-			fi
+			ip4_add_selected_guest_to_vpn_network "${guest_inface}"
 		done
 }
 
@@ -215,29 +220,44 @@ ip4_add_guest_to_vpn_network(){
 # 	Правила маркировки гостевого трафика
 #
 # ------------------------------------------------------------------------------------------
+ip4_add_selected_guest_to_ssr_network(){
+	guest_inface="${1}"
+	ssr_port=$(get_config_value "SSR_DNS_PORT")
+	rules_block=$(ip4save | grep "${table_name}" | grep "REDIRECT" | grep "${ssr_port}" | grep -q "${guest_inface}" )
+	rules_dns=$(ip4save | grep "${guest_inface}" | grep DNAT | grep -q 53)
+	if [ -z "${rules_block}${rules_dns}" ]; then
+			# Маркируем трафик гостевой сети
+			{
+				log_warning "Подключаем правила маркировки гостевого трафика для SHADOWSOCKS."
+				# DNS
+				ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p tcp -j DNAT --to "$(inface_gw4):53"
+				ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p udp -j DNAT --to "$(inface_gw4):53"
+				# Выборочные IP в Shadowsocks
+				ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p tcp -m set --match-set unblock dst -j REDIRECT --to-port "${ssr_port}"
+				ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p udp -m set --match-set unblock dst -j REDIRECT --to-port "${ssr_port}"
+
+			} &>/dev/null
+			when_error "${?}" " ${IPv4} Возникла ошибка при маркировке гостевого трафика ${guest_inface} [$(guest_net "${guest_inface}")]  для SHADOWSOCKS"
+	fi
+}
+
 ip4_add_guest_to_ssr_network(){
-		ssr_port=$(get_config_value "SSR_DNS_PORT")
         for guest_inface in $(inface_guest_ent | sed 's/,/\n/g')
         do
-			rules=$(ip4save | grep "${table_name}" | grep "REDIRECT" | grep "${ssr_port}" | grep "${guest_inface}")
-			if [ -z "${rules}" ] ; then
-					# Маркируем трафик гостевой сети
-					{
-						log_warning "Подключаем правила маркировки гостевого трафика для SHADOWSOCKS."
-						# DNS
-						ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p tcp -j DNAT --to "$(inface_gw4):53"
-						ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p udp -j DNAT --to "$(inface_gw4):53"
-						# Выборочные IP в Shadowsocks
-						ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p tcp -m set --match-set unblock dst -j REDIRECT --to-port "${ssr_port}"
-						ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p udp -m set --match-set unblock dst -j REDIRECT --to-port "${ssr_port}"
-
-					} &>/dev/null
-					when_error "${?}" " ${IPv4} Возникла ошибка при маркировке гостевого трафика ${guest_inface} [$(guest_net "${guest_inface}")]  для SHADOWSOCKS"
-			fi
+			ip4_add_selected_guest_to_ssr_network "${guest_inface}"
 		done
 }
 
+set_selected_guest_nets_rules(){
 
+	guest_inface="${1}"
+	if has_ssr_enable; then
+		ip4_add_selected_guest_to_ssr_network "${guest_inface}"
+	else
+		ip4_add_selected_guest_to_vpn_network "${guest_inface}"
+	fi
+
+}
 set_guest_nets_rules(){
 
 	#	в случае наличия гостевой сети
@@ -294,7 +314,7 @@ ip4_firewall_set_ssr_rules(){
 	ssr_rules=$(ip4save | grep "${SSR_IPTABLES_CHAIN}" | grep -v '\[0:0\]')
 	prouting_rules=$(ip4save | grep PREROUTING | grep "${interface}" | grep "${table_name}" | grep REDIRECT | grep "${proxy_port}")
 
-	if [ -z "${ssr_rules}" ]  &&  [ -z "${prouting_rules}" ] ; then
+	if [ -z "${ssr_rules}${prouting_rules}" ] ; then
 		{
 			log_warning "Подключаем правила для SHADOWSOCKS интерфейса ${interface} порт ${proxy_port}."
 
@@ -463,15 +483,18 @@ ip4_firewall_ssr_prune(){
 # которые были добавлены при работе пакета в старой редакции
 #
 # ------------------------------------------------------------------------------------------
+# для одного гостевого интерфейса
+ip4_firewall_rm_vpn_selected_guest_net(){
+	guest_inface="${1}"
+	iptab -D PREROUTING -t nat -p udp -i "${guest_inface}" -j DNAT --to "$(inface_gw4):53"
+	iptab -D PREROUTING -t nat -p tcp -i "${guest_inface}" -j DNAT --to "$(inface_gw4):53"
+	iptab -D POSTROUTING -t nat -s "$(guest_net "${guest_inface}")" -o "${guest_inface}" -j MASQUERADE
+}
+# для всех гостевых интерфейсов
 ip4_firewall_flush_vpn_guest_rules(){
 	for guest_inface in $(inface_guest_ent | sed 's/,/\n/g')
 	do
-		{
-			iptab -D PREROUTING -t nat -p udp -i "${guest_inface}" -j DNAT --to "$(inface_gw4):53"
-			iptab -D PREROUTING -t nat -p tcp -i "${guest_inface}" -j DNAT --to "$(inface_gw4):53"
-			iptab -D POSTROUTING -t nat -s "$(guest_net "${guest_inface}")" -o "${guest_inface}" -j MASQUERADE
-
-		} &>/dev/null
+		ip4_firewall_rm_vpn_selected_guest_net "${guest_inface}" &>/dev/null
 	done
 }
 
@@ -481,16 +504,19 @@ ip4_firewall_flush_vpn_guest_rules(){
 # которые были добавлены при работе пакета в старой редакции
 #
 # ------------------------------------------------------------------------------------------
+# для одного гостевого интерфейса
+ip4_firewall_rm_ssr_selected_guest_net(){
+	guest_inface="${1}"
+	iptab -D PREROUTING -t nat -p udp -i "${guest_inface}" -j DNAT --to "$(inface_gw4):53"
+	iptab -D PREROUTING -t nat -p tcp -i "${guest_inface}" -j DNAT --to "$(inface_gw4):53"
+	iptab -D PREROUTING -t nat -p udp -i "${guest_inface}" -m set --match-set unblock dst -j REDIRECT --to-port "${ssr_port}"
+	iptab -D PREROUTING -t nat -p tcp -i "${guest_inface}" -m set --match-set unblock dst -j REDIRECT --to-port "${ssr_port}"
+}
+# для всех гостевых интерфейсов
 ip4_firewall_flush_ssr_guest_rules(){
 	for guest_inface in $(inface_guest_ent | sed 's/,/\n/g')
 	do
-		{
-			iptab -D PREROUTING -t nat -p udp -i "${guest_inface}" -j DNAT --to "$(inface_gw4):53"
-			iptab -D PREROUTING -t nat -p tcp -i "${guest_inface}" -j DNAT --to "$(inface_gw4):53"
-			iptab -D PREROUTING -t nat -p udp -i "${guest_inface}" -m set --match-set unblock dst -j REDIRECT --to-port "${ssr_port}"
-			iptab -D PREROUTING -t nat -p tcp -i "${guest_inface}" -m set --match-set unblock dst -j REDIRECT --to-port "${ssr_port}"
-
-		} &>/dev/null
+		ip4_firewall_rm_ssr_selected_guest_net "${guest_inface}" &>/dev/null
 	done
 }
 
@@ -500,6 +526,26 @@ ip4_firewall_flush_ssr_guest_rules(){
 # 	Удаляем все правила iptables которые были добавлены при работе пакета
 #
 # ------------------------------------------------------------------------------------------
+# для одного гостевого интерфейса
+ip4_firewall_rm_selected_guest_net(){
+	guest_inface="${1}"
+	if fastnet_enabled ; then
+#		Если программное и аппаратное ускорение ПОДКЛЮЧЕНО
+		ip4_firewall_fastnet_vpn_prune &>/dev/null
+	else
+#		Если программное и аппаратное ускорение ОТКЛЮЧЕНО
+		ip4_firewall_nofastnet_vpn_prune &>/dev/null
+	fi
+
+	if [ -n "$(inface_guest_ent)" ]; then
+		if has_ssr_enable; then
+			ip4_firewall_rm_ssr_selected_guest_net "${guest_inface}"  &>/dev/null;
+		else
+			ip4_firewall_rm_vpn_selected_guest_net "${guest_inface}"  &>/dev/null;
+		fi
+	fi
+}
+# для всех гостевых интерфейсов
 ip4_firewall_flush_vpn_rules() {
 	if fastnet_enabled ; then
 #		Если программное и аппаратное ускорение ПОДКЛЮЧЕНО

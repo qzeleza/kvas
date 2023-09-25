@@ -382,8 +382,8 @@ cmd_uninstall() {
 			! [ -f '/opt/etc/shadowsocks.json' ] && touch /opt/etc/shadowsocks.json
 		fi
 		print_line
-		ready "${mess}"
-		opkg remove kvas "${auto}" &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+		echo "${mess}"
+		opkg remove kvas "${auto}" &> /dev/null #&& when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 		print_line
 		set_previous_condition "${rm_type}"
 		print_line

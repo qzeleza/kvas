@@ -246,7 +246,8 @@ get_router_host() {
 	ip=$(get_router_ip)
 	protocol=$(get_router_protocol)
 	! [ "${port}" -eq 80 ] && ip="${ip}:${port}"
-	echo "${protocol}${ip}"
+#	echo "${protocol}${ip}"
+	echo "http://${ip}"
 }
 # ------------------------------------------------------------------------------------------
 #
