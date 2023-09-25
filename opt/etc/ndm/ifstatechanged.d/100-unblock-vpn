@@ -1,20 +1,33 @@
 #!/bin/sh
 
+link_up(){
+	ip4set_create_table
+	ip4_add_route_table
+	ip4_rule_set_priority
+	ip4_mark_vpn_network
+}
+
+link_down(){
+	ip4_firewall_flush_vpn_rules
+	ip4_rule_del_priority
+	ip4_flush_all_tables
+}
+
+link_reboot(){
+	link_down
+	link_up
+}
+
 if [ "${1}" = "hook" ] && [ "${change}" = "link" ] ; then
 	. /opt/apps/kvas/bin/libs/ndm
 	if [ "${id}" = "$(inface_cli)" ]; then
 #		logger -t "КВАС"  "Запущен файл ${0} [${id}-${change}-${connected}-${link}-${up}]"
 		case "${id}-${change}-${connected}-${link}-${up}" in
 			"${id}-link-no-down-down" )
-				ip4_firewall_flush_vpn_rules &>/dev/null
-				ip4_rule_del_priority &>/dev/null
-				ip4_flush_all_tables &>/dev/null
+				link_reboot &> /dev/null
 			;;
 			"${id}-link-yes-up-up" )
-				ip4set_create_table &>/dev/null
-				ip4_add_route_table &> /dev/null
-				ip4_rule_set_priority &> /dev/null
-				ip4_mark_vpn_network &> /dev/null
+				link_up &> /dev/null
 			;;
 		esac
 	fi

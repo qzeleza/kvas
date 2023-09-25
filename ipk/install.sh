@@ -23,9 +23,8 @@ list_backup=/opt/etc/hosts.list.backup
 
 
 print_line
-echo "${GREEN}Начинаем установку пакета КВАС${NOCL}"
-print_line
-
+ready "${GREEN}Начинаем установку пакета КВАС${NOCL}"
+echo
 mkdir -p /opt/packages
 cd /opt/packages || {
         echo "Невозможно создать папку /opt/packages";
