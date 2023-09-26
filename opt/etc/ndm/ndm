@@ -199,11 +199,18 @@ ip4_add_selected_guest_to_vpn_network(){
 			# Маркируем трафик гостевой сети
 			{
 					log_warning "Подключаем правила маркировки гостевого трафика для VPN."
-					ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p tcp -j DNAT --to "$(inface_gw4):53"
-					ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p udp -j DNAT --to "$(inface_gw4):53"
-					ip4tables POSTROUTING -t nat -s "$(guest_net "${guest_inface}")" -o "${guest_inface}" -j MASQUERADE
+#					ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p tcp -j DNAT --to "$(inface_gw4):53"
+#					ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p udp -j DNAT --to "$(inface_gw4):53"
+					ip4tables POSTROUTING -t nat -s "$(guest_net "${guest_inface}")" -o "${guest_inface}" -m ndmmark --ndmmark ${MARK_NUM} -j MASQUERADE
+#					Под вопросом ?
+					ip4tables POSTROUTING -t nat -s "$(guest_net "${guest_inface}")" -o "${guest_inface}" -m ndmmark --ndmmark ${MARK_NUM} -j SNAT --to-source $(inface_guest_gw4 "${guest_inface}")
+
 			} &>/dev/null
-			when_error "${?}" " ${IPv4} Возникла ошибка при маркировке гостевого трафика ${guest_inface} [$(guest_net "${guest_inface}")] для VPN."
+			rules_masq=$(ip4save | grep "\-j MASQUERADE" | grep " ${guest_inface} ")
+			rules_dns=$(ip4save | grep " ${guest_inface} " | grep DNAT | grep 53)
+			if [ -z "${rules_dns}" ] || [ -z "${rules_masq}" ] ; then
+				error "${IPv4} Возникла ошибка при маркировке гостевого трафика ${guest_inface} [$(guest_net "${guest_inface}")] для VPN."
+			fi
 	fi
 }
 ip4_add_guest_to_vpn_network(){
@@ -232,15 +239,15 @@ ip4_add_selected_guest_to_ssr_network(){
 				ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p tcp -j DNAT --to "$(inface_gw4):53"
 				ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p udp -j DNAT --to "$(inface_gw4):53"
 				# Выборочные IP в Shadowsocks
-				ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p tcp -m set --match-set unblock dst -j REDIRECT --to-ports "${ssr_port}"
-				ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p udp -m set --match-set unblock dst -j REDIRECT --to-ports "${ssr_port}"
+				ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p tcp -m set --match-set unblock dst -j REDIRECT --to-port "${ssr_port}"
+				ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p udp -m set --match-set unblock dst -j REDIRECT --to-port "${ssr_port}"
 
 			} &>/dev/null
 
 			rules_block=$(ip4save | grep " ${guest_inface} " | grep "${table_name}" | grep "REDIRECT" | grep "${ssr_port}")
 			rules_dns=$(ip4save | grep " ${guest_inface} " | grep DNAT | grep 53)
 			if [ -z "${rules_block}" ] || [ -z "${rules_dns}" ]; then
-				when_error "${?}" " ${IPv4} Возникла ошибка при маркировке гостевого трафика ${guest_inface} [$(guest_net "${guest_inface}")]  для SHADOWSOCKS"
+				error "${IPv4} Возникла ошибка при маркировке гостевого трафика ${guest_inface} [$(guest_net "${guest_inface}")]  для SHADOWSOCKS"
 			fi
 	fi
 }
@@ -331,8 +338,8 @@ ip4_firewall_set_ssr_rules(){
 			# Исключаем любые обращения к собственному адресу SHADOWSOCKS
 			ip4tables ${SSR_IPTABLES_CHAIN} -t nat -d "${ssr_ip}" -j RETURN &>/dev/null
 
-			ip4tables PREROUTING -w -t nat -i "${interface}" -p tcp -m set --match-set "${table_name}" dst -j REDIRECT --to-ports "${proxy_port}" &>/dev/null
-			ip4tables PREROUTING -w -t nat -i "${interface}" -p udp -m set --match-set "${table_name}" dst -j REDIRECT --to-ports "${proxy_port}" &>/dev/null
+			ip4tables PREROUTING -w -t nat -i "${interface}" -p tcp -m set --match-set "${table_name}" dst -j REDIRECT --to-port "${proxy_port}" &>/dev/null
+			ip4tables PREROUTING -w -t nat -i "${interface}" -p udp -m set --match-set "${table_name}" dst -j REDIRECT --to-port "${proxy_port}" &>/dev/null
 
 		} &>/dev/null
 #		when_error "${?}" " ${IPv4} Возникла ошибка при установке правил iptable для Shadowsocks подключения"
@@ -415,7 +422,7 @@ ip4tbl_flush_rm_match_set(){
 			ip4save | grep "${route}" | grep "${chain}" | grep -q "${prot}" && {
 				if [ -n "${interface}" ] && [ -n "${proxy_port}" ] ; then
 #					Для shadowsocks
-					iptab -t "${table}" -i "${interface}" -D "${route}" -p "${prot}" -m set --match-set ${table_name} dst -j "${chain}" --to-ports "${proxy_port}" &>/dev/null
+					iptab -t "${table}" -i "${interface}" -D "${route}" -p "${prot}" -m set --match-set ${table_name} dst -j "${chain}" --to-port "${proxy_port}" &>/dev/null
 				else
 #					Для VPN
 					iptab -t "${table}" -D "${route}" -p "${prot}" -m set --match-set ${table_name} dst -j "${chain}" &>/dev/null
@@ -514,8 +521,8 @@ ip4_firewall_rm_ssr_selected_guest_net(){
 	ssr_port=$(get_config_value "SSR_DNS_PORT")
 	iptab -D PREROUTING -t nat -p udp -i "${guest_inface}" -j DNAT --to-destination "$(inface_gw4):53"
 	iptab -D PREROUTING -t nat -p tcp -i "${guest_inface}" -j DNAT --to-destination "$(inface_gw4):53"
-	iptab -D PREROUTING -t nat -p udp -i "${guest_inface}" -m set --match-set unblock dst -j REDIRECT --to-ports "${ssr_port}"
-	iptab -D PREROUTING -t nat -p tcp -i "${guest_inface}" -m set --match-set unblock dst -j REDIRECT --to-ports "${ssr_port}"
+	iptab -D PREROUTING -t nat -p udp -i "${guest_inface}" -m set --match-set unblock dst -j REDIRECT --to-port "${ssr_port}"
+	iptab -D PREROUTING -t nat -p tcp -i "${guest_inface}" -m set --match-set unblock dst -j REDIRECT --to-port "${ssr_port}"
 }
 # для всех гостевых интерфейсов
 ip4_firewall_flush_ssr_guest_rules(){

@@ -522,7 +522,6 @@ bridge_vpn_access_del() {
 	guest_bridge_id="${1}"
 	ready "Удаление гостевого интерфейса ${guest_bridge_id} завершено"
 	ip4_firewall_rm_selected_guest_net "${guest_bridge_id}" && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
-	print_line
 }
 
 
@@ -577,7 +576,7 @@ cmd_bridge_vpn_access_del() {
 			bridge_vpn_access_del "${guest_bridge_id}"
 		fi
 	fi
-	if [ -n "${guest_bridge_id}" ] && [ "${cmd}" = update ]; then cmd_kvas_init ; fi
+	#if [ -n "${guest_bridge_id}" ] && [ "${cmd}" = update ]; then cmd_kvas_init ; fi
 }
 
 
@@ -621,12 +620,12 @@ cmd_bridge_vpn_access_add() {
 		for bridge_id in ${entware_bridge_list}; do
 			bridge_access_add "${bridge_id}" "${ip}"
 		done
-		cmd_kvas_init ''
+#		cmd_kvas_init ''
 	else
 		guest_bridge_id=''; bridge_inface_select guest_bridge_id add
 		if [ -n "${guest_bridge_id}" ]; then
 			bridge_access_add "${guest_bridge_id}" "${ip}"
-			cmd_kvas_init
+#			cmd_kvas_init
 		fi
 	fi
 }
@@ -636,7 +635,7 @@ has_in_iptables_rules(){
 	if has_ssr_enable; then
 		iptables-save | grep " ${1} " | grep PREROUTING | grep -q DNAT && iptables-save | grep " ${1} " | grep PREROUTING | grep unblock | grep -q REDIRECT
 	else
-		iptables-save | grep " ${1} " | grep PREROUTING | grep -q DNAT && iptables-save | grep " ${1} " | grep PREROUTING | grep -q MASQUERADE
+		iptables-save | grep " ${1} " | grep PREROUTING | grep -q DNAT && iptables-save | grep " ${1} " | grep POSTROUTING | grep -q MASQUERADE
 	fi
 }
 
@@ -669,15 +668,16 @@ bridge_inface_select() {
 			if echo "${action}" | grep -q "del" && has_in_iptables_rules "${inface}"; then
 				del_count=$((del_count + 1))
 	#			отображаем только те гостевые интерфейсы, для которых правила уже есть
-				ready "${num}. Интерфейс '${desc}::Bridge${num_inface}' [${net}]"
+				ready "${num}. Интерфейс '${desc}' [br${num_inface}:${net}]"
 				when_ok "ПОДКЛЮЧЕН"
 			elif echo "${action}" | grep -q "add" && ! has_in_iptables_rules "${inface}"; then
 				add_count=$((add_count + 1))
 	#			отображаем только те гостевые интерфейсы, для которых правил еще нет
-				ready "${num}. Интерфейс '${desc}::Bridge${num_inface}' [${net}]"
+				ready "${num}. Интерфейс '${desc}' [br${num_inface}:${net}]"
 				when_bad "ОТКЛЮЧЕН"
 			fi
 		done
+		total=$((add_count+del_count))
 		if [ "${add_count}" -gt 0 ] || [ "${del_count}" -gt 0 ]; then
 			while true; do
 				print_line
@@ -1584,7 +1584,7 @@ dns_crypt_install() {
 	is_install_stage="${1}"
 #	В случае наличия архива файла запуска сервиса dnscrypt_proxy2
 	if [ -f /opt/etc/init.d/K09dnscrypt-proxy2 ]; then
-		warning "Обнаружен архив файла S09dnscrypt-proxy2."
+		#warning "Обнаружен архив файла S09dnscrypt-proxy2."
 		ready "Восстанавливаем S09dnscrypt-proxy2 из архива..."
 #		реанимируем его из архива
 		cp /opt/etc/init.d/K09dnscrypt-proxy2 /opt/etc/init.d/S09dnscrypt-proxy2 1> /dev/null 2> "${ERROR_LOG_FILE}"
@@ -1621,13 +1621,13 @@ dns_crypt_install() {
 
 #	архивируем предыдущие настройки
 	if [ -f '/opt/etc/dnscrypt-proxy.toml' ]; then
-		warning "Файл конфигурации dnscrypt-proxy2 сохраняем"
+		#warning "Файл конфигурации dnscrypt-proxy2 сохраняем"
 		cp /opt/etc/dnscrypt-proxy.toml ${KVAS_BACKUP_PATH}/dnscrypt-proxy.toml
-		warning "под именем ${KVAS_BACKUP_PATH}/dnscrypt-proxy.toml"
+		#warning "под именем ${KVAS_BACKUP_PATH}/dnscrypt-proxy.toml"
 	elif [ -f "${KVAS_BACKUP_PATH}/dnscrypt-proxy.toml" ]; then
-		warning "Обнаружен файл конфигурации dnscrypt-proxy2 "
+		#warning "Обнаружен файл конфигурации dnscrypt-proxy2 "
 		cp "${KVAS_BACKUP_PATH}/dnscrypt-proxy.toml" /opt/etc/dnscrypt-proxy.toml
-		warning "Восстанавливаем предыдущие настройки."
+		#warning "Восстанавливаем предыдущие настройки."
 	fi
 
 #	Настраиваем сервис

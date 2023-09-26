@@ -25,7 +25,9 @@
 
 if  echo "${1}" | grep -qvEi 'uninstall|remove|rm' && [ -z "$(get_config_value "SETUP_FINISHED")" ]; then
 	print_line
-	error "Настройка пакета не завершена, запускаем настройку пакета" "1"
+	echo "${2}" | grep -q "update" && warning "Запускаем настройку пакета" || {
+		error "Настройка пакета не завершена, запускаем настройку пакета" "1"
+	}
 	print_line
 	cmd_install
 	print_line
