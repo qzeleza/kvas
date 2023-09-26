@@ -520,9 +520,14 @@ cmd_adguardhome_off(){
 # ------------------------------------------------------------------------------------------
 bridge_vpn_access_del() {
 	guest_bridge_id="${1}"
-	ready "Удаление гостевого интерфейса ${guest_bridge_id} из vpn цепочки завершено"
+	ready "Удаление гостевого интерфейса ${guest_bridge_id} завершено"
 	ip4_firewall_rm_selected_guest_net "${guest_bridge_id}" && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+	print_line
 }
+
+
+
+
 # ------------------------------------------------------------------------------------------
 #
 #	Функция выводит список гостевых сетей в наличии
@@ -530,16 +535,7 @@ bridge_vpn_access_del() {
 # ------------------------------------------------------------------------------------------
 cmd_bridge_vpn_access_list() {
 
-	action="${1}"
-
-	num_id_local_inface=$(get_local_inface | tr 'a-zA-Z' ' ' | tr -d ' ')
-	entware_bridge_list=$(ip4 a \
-						| grep -E ': br[0-9]' \
-						| grep -v "br${num_id_local_inface}" \
-						| cut -d':' -f1-2 \
-						| cut -d' ' -f2\
-						| tr '\n' ' ' \
-						)
+	entware_bridge_list=$(get_guest_inface_list)
 	num=0
 	for bridge_id in ${entware_bridge_list}; do
 		num=$((num + 1))
@@ -547,20 +543,9 @@ cmd_bridge_vpn_access_list() {
 		num_inface=$(echo "${bridge_id}" | tr -d '[:alpha:]')
 		inface="br${num_inface}"
 		desc=$(curl -s "${INFACE_REQUEST}/Bridge${num_inface}" | grep '"description":' | cut -d':' -f2 |  sed 's/[,"]//g; s/^[ ]//')
-
-		if echo "${action}" | grep -q "del" && has_in_iptables_rules "${inface}"; then
-#			отображаем только те гостевые интерфейсы, для которых правила уже есть
-			ready "${num}. Интерфейс '${desc}::Bridge${num_inface}' [${net}]"
-			when_ok "ПОДКЛЮЧЕН"
-		elif echo "${action}" | grep -q "add" && ! has_in_iptables_rules "${inface}"; then
-#			отображаем только те гостевые интерфейсы, для которых правил еще нет
-		    ready "${num}. Интерфейс '${desc}::Bridge${num_inface}' [${net}]"
-		    when_bad "ОТКЛЮЧЕН"
-		elif echo "${action}" | grep -q "all"; then
-#			отображаем все гостевые интерфейсы
-			ready "${num}. Интерфейс '${desc}::Bridge${num_inface}' [${net}]"
-        	has_in_iptables_rules "${inface}" && when_ok "ПОДКЛЮЧЕН" || when_bad "ОТКЛЮЧЕН"
-        fi
+#		отображаем все гостевые интерфейсы
+		ready "${num}. Интерфейс '${desc}' [br${num_inface}:${net}]"
+		has_in_iptables_rules "${inface}" && when_ok "ПОДКЛЮЧЕН" || when_bad "ОТКЛЮЧЕН"
 	done
 
 }
@@ -577,7 +562,7 @@ cmd_bridge_vpn_access_list() {
 cmd_bridge_vpn_access_del() {
 
 	option=${1}; cmd="${2:-update}"; guest_bridge_id=''
-	guest_bridge_list_id=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p' | tr ',' ' ' )
+	guest_bridge_list_id=$(get_guest_inface_list)
 
 	if [ "${option}" = all ]; then
 		for bridge_id in ${guest_bridge_list_id}; do
@@ -586,14 +571,10 @@ cmd_bridge_vpn_access_del() {
 	elif [ -n "${option}" ] && echo "${option}" | grep -qi 'br'; then
 		bridge_vpn_access_del "${option}"
 	else
-		count_infaces=$(echo "${guest_bridge_list_id}" | wc -w)
-		if [ "${count_infaces}" -gt 1 ]; then
-			bridge_inface_select guest_bridge_id del
-		else
-			guest_bridge_id=${guest_bridge_list_id}
-		fi
+		bridge_inface_select guest_bridge_id del
+
 		if [ -n "${guest_bridge_id}" ]; then
-			bridge_vpn_access_del "br${guest_bridge_id}"
+			bridge_vpn_access_del "${guest_bridge_id}"
 		fi
 	fi
 	if [ -n "${guest_bridge_id}" ] && [ "${cmd}" = update ]; then cmd_kvas_init ; fi
@@ -611,7 +592,7 @@ bridge_access_add() {
 	guest_bridge_id=${1}; ip=${2};
 
 	has_ssr_enable && vpn_type='shadowsocks' || vpn_type='vpn'
-	ready "Добавление гостевого интерфейса ${guest_bridge_id} в ${vpn_type} цепочку завершено"
+	ready "Добавление гостевого интерфейса ${guest_bridge_id} завершено"
 
 	has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p')
 	[ -n "${has_guest_nets}" ] && point=',' || point=''
@@ -636,14 +617,7 @@ cmd_bridge_vpn_access_add() {
 
 	if [ -n "${option}" ] && [ "${option}" = all ]; then
 		cmd_bridge_vpn_access_del 'all' 'not_update' &> /dev/null
-		num_id_local_inface=$(get_local_inface | tr 'a-zA-Z' ' ' | tr -d ' ')
-		entware_bridge_list=$(ip4 a \
-							| grep -E ': br[0-9]' \
-							| grep -v "br${num_id_local_inface}" \
-							| cut -d':' -f1-2 \
-							| cut -d' ' -f2\
-							| tr '\n' ' ' \
-						 	)
+		entware_bridge_list=$(get_guest_inface_list)
 		for bridge_id in ${entware_bridge_list}; do
 			bridge_access_add "${bridge_id}" "${ip}"
 		done
@@ -651,7 +625,7 @@ cmd_bridge_vpn_access_add() {
 	else
 		guest_bridge_id=''; bridge_inface_select guest_bridge_id add
 		if [ -n "${guest_bridge_id}" ]; then
-			bridge_access_add "br${guest_bridge_id}" "${ip}"
+			bridge_access_add "${guest_bridge_id}" "${ip}"
 			cmd_kvas_init
 		fi
 	fi
@@ -660,9 +634,9 @@ cmd_bridge_vpn_access_add() {
 # Проверяем есть ли правила для данной гостевой сети в iptables
 has_in_iptables_rules(){
 	if has_ssr_enable; then
-		iptables-save | grep "${1}" | grep PREROUTING | grep -q DNAT && iptables-save | grep "${1}" | grep PREROUTING | grep unblock | grep -q REDIRECT
+		iptables-save | grep " ${1} " | grep PREROUTING | grep -q DNAT && iptables-save | grep " ${1} " | grep PREROUTING | grep unblock | grep -q REDIRECT
 	else
-		iptables-save | grep "${1}" | grep PREROUTING | grep -q DNAT && iptables-save | grep "${1}" | grep PREROUTING | grep -q MASQUERADE
+		iptables-save | grep " ${1} " | grep PREROUTING | grep -q DNAT && iptables-save | grep " ${1} " | grep PREROUTING | grep -q MASQUERADE
 	fi
 }
 
@@ -675,30 +649,54 @@ has_in_iptables_rules(){
 bridge_inface_select() {
 	action="${2}"
 	num_id_local_inface=$(get_local_inface | tr 'a-zA-Z' ' ' | tr -d ' ')
-	total=$(ip4 a \
-		| grep -E ': br[0-9]' \
-		| grep -v "br${num_id_local_inface}" \
-		| cut -d':' -f1-2 \
-		| cut -d' ' -f2\
-		| tr '\n' ' ' \
-	 	| wc -w
- 	)
+	entware_bridge_list=$(ip4 a \
+						| grep -E ': br[0-9]' \
+						| grep -v "br${num_id_local_inface}" \
+						| cut -d':' -f1-2 \
+						| cut -d' ' -f2\
+						| tr '\n' ' ' \
+						)
 
-	if [ "${total}" -gt 0 ]; then
-		cmd_bridge_vpn_access_list "${action}"
+	if [ -n "${entware_bridge_list}" ]; then
+		num=0; add_count=0; del_count=0;
+		for bridge_id in ${entware_bridge_list}; do
+			num=$((num + 1))
+			net=$(ip4 a | grep " ${bridge_id}" | grep inet | sed 's/^ *//' | cut -d' ' -f2)
+			num_inface=$(echo "${bridge_id}" | tr -d '[:alpha:]')
+			inface="br${num_inface}"
+			desc=$(curl -s "${INFACE_REQUEST}/Bridge${num_inface}" | grep '"description":' | cut -d':' -f2 |  sed 's/[,"]//g; s/^[ ]//')
 
-		while true; do
-			print_line
-			#warning "Зеленым цветом выделен текущий интерфейс"
-			ready "Выберите номер интерфейса [1-${total}, Q-выход]:"
-			read -r num_inface
-			case "${num_inface}" in
-				[qQ]*) break ;;
-				[1-${total}]* )  eval "${1}=$(echo "${entware_bridge_list}" \
-								| cut -d ' ' -f"${num_inface}")"; break ;;
-				* ) error "Введите цифру от 1 до ${total}." ;;
-			esac
+			if echo "${action}" | grep -q "del" && has_in_iptables_rules "${inface}"; then
+				del_count=$((del_count + 1))
+	#			отображаем только те гостевые интерфейсы, для которых правила уже есть
+				ready "${num}. Интерфейс '${desc}::Bridge${num_inface}' [${net}]"
+				when_ok "ПОДКЛЮЧЕН"
+			elif echo "${action}" | grep -q "add" && ! has_in_iptables_rules "${inface}"; then
+				add_count=$((add_count + 1))
+	#			отображаем только те гостевые интерфейсы, для которых правил еще нет
+				ready "${num}. Интерфейс '${desc}::Bridge${num_inface}' [${net}]"
+				when_bad "ОТКЛЮЧЕН"
+			fi
 		done
+		if [ "${add_count}" -gt 0 ] || [ "${del_count}" -gt 0 ]; then
+			while true; do
+				print_line
+				#warning "Зеленым цветом выделен текущий интерфейс"
+				ready "Выберите номер интерфейса [1-${total}, Q-выход]:"
+				read -r num_inface
+				case "${num_inface}" in
+					[qQ]*) break ;;
+					[1-${total}]* )  eval "${1}=$(echo "${entware_bridge_list}" \
+									| cut -d ' ' -f"${num_inface}")"; break ;;
+					* ) error "Введите цифру от 1 до ${total}." ;;
+				esac
+			done
+			print_line
+		else
+			echo "${action}" | grep -q "add" && act="добавления" || act="удаления"
+			echo "Гостевые интерфейсы для ${act} отсутствуют!"
+		fi
+
 	fi
 }
 # ------------------------------------------------------------------------------------------
@@ -1236,9 +1234,9 @@ shadowsocks_on() {
 
 	cmd_shadowsocks_iptable_reset  &> /dev/null
 	#   настройка S22shadowsocks конфигурации
-	if [ -f "${SHADOWSOCKS_CONF}.kvas" ] ; then
+	if [ -f "${SHADOWSOCKS_CONF_BACKUP}" ] ; then
 	   	ready "Используем данные"
-		cp "${SHADOWSOCKS_CONF}.kvas" "${SHADOWSOCKS_CONF}"
+		cp "${SHADOWSOCKS_CONF_BACKUP}" "${SHADOWSOCKS_CONF}"
 		when_alert "ИЗ АРХИВА"
 	elif [ -f "${SHADOWSOCKS_CONF}" ] && grep -qE '""|@' "${SHADOWSOCKS_CONF}" || grep -qE '127.0.0.1|barfoo!' "${SHADOWSOCKS_CONF}"; then
 		print_line

@@ -365,13 +365,19 @@ cmd_install(){
 # ------------------------------------------------------------------------------------------
 cmd_uninstall() {
 
-	rm_type=${1}; auto=''
+	rm_type=${1}; auto=''; sure="${2}"
 
 	[ -n "${APP_RELEASE}" ] && rel="-${APP_RELEASE}" || rel=''
 	echo -e "Удаление пакета ${GREEN}КВАС™${NOCL} версия ${GREEN}${APP_VERSION}${rel}${NOCL}..."
-	print_line
 
-	answer=''; read_ynq "Вы уверены в удалении пакета ?" answer
+
+	if echo "${rm_type}" | grep -qEi 'y|Yes|да' || echo "${sure}" | grep -qEi 'y|Yes|да' ; then
+		answer=y; sure=y
+	else
+		print_line
+		answer=''; read_ynq "Вы уверены в удалении пакета ?" answer
+	fi
+
 	if [ "${answer}" = y ]; then
 
 		[ -z "${rm_type}" ] && mess="Удаляем все архивные данные, зависимые пакеты оставляем."
@@ -379,9 +385,11 @@ cmd_uninstall() {
 			mess="Удаляем все архивные данные и все зависимые пакеты..."
 			auto='--autoremove'
 			rm -f /opt/etc/init/K56dnsmasq  /opt/etc/init/K09dnscrypt-proxy2
-			! [ -f '/opt/etc/shadowsocks.json' ] && touch /opt/etc/shadowsocks.json
+			! [ -f "${SHADOWSOCKS_CONF}" ] && touch "${SHADOWSOCKS_CONF}"
+		else
+			[ -f "${SHADOWSOCKS_CONF}" ] && cp "${SHADOWSOCKS_CONF}" "${SHADOWSOCKS_CONF_BACKUP}"
 		fi
-		print_line
+		[ -z "${sure}" ] && print_line
 		echo "${mess}"
 		opkg remove kvas "${auto}" &> /dev/null #&& when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 		print_line

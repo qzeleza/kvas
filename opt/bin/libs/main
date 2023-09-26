@@ -42,6 +42,7 @@ IPSET_REDIRECT_DEMON_FILE=/opt/etc/ndm/netfilter.d/100-proxy-redirect
 HOOK_INFACE_FILE=/opt/etc/ndm/ifstatechanged.d/100-save-inface_entware
 INFACE_NAMES_FILE=/opt/etc/inface_equals
 SHADOWSOCKS_CONF=/opt/etc/shadowsocks.json
+SHADOWSOCKS_CONF_BACKUP=${KVAS_BACKUP_PATH}/shadowsocks.json
 DNSMASQ_CONFIG=/opt/etc/dnsmasq.conf
 DNSCRYPT_CONFIG=/opt/etc/dnscrypt-proxy.toml
 KVAS_BACKUP_LIST_FILE=/opt/etc/.kvas/backup/hosts.list
@@ -559,3 +560,12 @@ get_github_latest_update_url() {
 			| jq -r '.assets[] | select(.browser_download_url | contains("linux_'"${arch}"'_softfloat")) | .browser_download_url'
 }
 
+#  Получаем список гостевых интерфейсов
+get_guest_inface_list(){
+	ip4 a \
+		| grep -E ': br[0-9]:' \
+		| grep -v "$(get_local_inface):" \
+		| cut -d':' -f1-2 \
+		| cut -d' ' -f2\
+		| tr '\n' ' '
+}
