@@ -87,7 +87,7 @@ case "${1}" in
 				case "${3}" in
 					add ) 			cmd_bridge_vpn_access_add "${4}" ;;
 					del ) 			cmd_bridge_vpn_access_del "${4}" ;;
-					*) 				cmd_bridge_vpn_access_list ;;
+					*) 				cmd_bridge_vpn_access_list all;;
 				esac
 				;;
 

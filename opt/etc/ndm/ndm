@@ -196,7 +196,7 @@ ip4_add_selected_guest_to_vpn_network(){
 	guest_inface="${1}"
 	rules_masq=$(ip4save | grep "\-j MASQUERADE" | grep "${guest_inface}")
 	rules_dns=$(ip4save | grep "${guest_inface}" | grep DNAT | grep -q 53)
-	if [ -z "${rules_dns}${rules_masq}" ] ; then
+	if [ -z "${rules_dns}" ] || [ -z "${rules_masq}" ] ; then
 			# Маркируем трафик гостевой сети
 			{
 					log_warning "Подключаем правила маркировки гостевого трафика для VPN."
@@ -225,7 +225,7 @@ ip4_add_selected_guest_to_ssr_network(){
 	ssr_port=$(get_config_value "SSR_DNS_PORT")
 	rules_block=$(ip4save | grep "${table_name}" | grep "REDIRECT" | grep "${ssr_port}" | grep -q "${guest_inface}" )
 	rules_dns=$(ip4save | grep "${guest_inface}" | grep DNAT | grep -q 53)
-	if [ -z "${rules_block}${rules_dns}" ]; then
+	if [ -z "${rules_block}" ] || [ -z "${rules_dns}" ]; then
 			# Маркируем трафик гостевой сети
 			{
 				log_warning "Подключаем правила маркировки гостевого трафика для SHADOWSOCKS."
@@ -312,9 +312,9 @@ ip4_firewall_set_ssr_rules(){
 	# https://github.com/shadowsocks/shadowsocks-libev/blob/master/doc/ss-redir.asciidoc?ysclid=l949tgrsfn795375643
 	# Создаем новую цепочку SHADOWSOCKS
 	ssr_rules=$(ip4save | grep "${SSR_IPTABLES_CHAIN}" | grep -v '\[0:0\]')
-	prouting_rules=$(ip4save | grep PREROUTING | grep "${interface}" | grep "${table_name}" | grep REDIRECT | grep "${proxy_port}")
+	routing_rules=$(ip4save | grep PREROUTING | grep "${interface}" | grep "${table_name}" | grep REDIRECT | grep "${proxy_port}")
 
-	if [ -z "${ssr_rules}${prouting_rules}" ] ; then
+	if [ -z "${ssr_rules}" ] || [ -z "${routing_rules}" ] ; then
 		{
 			log_warning "Подключаем правила для SHADOWSOCKS интерфейса ${interface} порт ${proxy_port}."
 

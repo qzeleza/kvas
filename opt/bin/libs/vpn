@@ -526,9 +526,11 @@ bridge_vpn_access_del() {
 # ------------------------------------------------------------------------------------------
 #
 #	Функция выводит список гостевых сетей в наличии
-#
+#	action = add|del|all
 # ------------------------------------------------------------------------------------------
 cmd_bridge_vpn_access_list() {
+
+	action="${1}"
 
 	num_id_local_inface=$(get_local_inface | tr 'a-zA-Z' ' ' | tr -d ' ')
 	entware_bridge_list=$(ip4 a \
@@ -543,12 +545,24 @@ cmd_bridge_vpn_access_list() {
 		num=$((num + 1))
 		net=$(ip4 a | grep " ${bridge_id}" | grep inet | sed 's/^ *//' | cut -d' ' -f2)
 		num_inface=$(echo "${bridge_id}" | tr -d '[:alpha:]')
-        desc=$(curl -s "${INFACE_REQUEST}/Bridge${num_inface}" | grep '"description":' | cut -d':' -f2 |  sed 's/[,"]//g; s/^[ ]//')
-        ready "${num}. Интерфейс '${desc}::Bridge${num_inface}' [${net}]"
-        has_in_iptables_rules "br${num_inface}" && when_ok "ПОДКЛЮЧЕН" || when_bad "ОТКЛЮЧЕН"
-#		grep 'interface=' "${DNSMASQ_CONFIG}" | grep -q "${bridge_id}" && when_ok "ПОДКЛЮЧЕН" || when_bad "ОТКЛЮЧЕН"
+		inface="br${num_inface}"
+		desc=$(curl -s "${INFACE_REQUEST}/Bridge${num_inface}" | grep '"description":' | cut -d':' -f2 |  sed 's/[,"]//g; s/^[ ]//')
+
+		if echo "${action}" | grep -q "del" && has_in_iptables_rules "${inface}"; then
+#			отображаем только те гостевые интерфейсы, для которых правила уже есть
+			ready "${num}. Интерфейс '${desc}::Bridge${num_inface}' [${net}]"
+			when_ok "ПОДКЛЮЧЕН"
+		elif echo "${action}" | grep -q "add" && ! has_in_iptables_rules "${inface}"; then
+#			отображаем только те гостевые интерфейсы, для которых правил еще нет
+		    ready "${num}. Интерфейс '${desc}::Bridge${num_inface}' [${net}]"
+		    when_bad "ОТКЛЮЧЕН"
+		elif echo "${action}" | grep -q "all"; then
+#			отображаем все гостевые интерфейсы
+			ready "${num}. Интерфейс '${desc}::Bridge${num_inface}' [${net}]"
+        	has_in_iptables_rules "${inface}" && when_ok "ПОДКЛЮЧЕН" || when_bad "ОТКЛЮЧЕН"
+        fi
 	done
-#	echo "${guest_bridge_list_id}"
+
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -574,12 +588,12 @@ cmd_bridge_vpn_access_del() {
 	else
 		count_infaces=$(echo "${guest_bridge_list_id}" | wc -w)
 		if [ "${count_infaces}" -gt 1 ]; then
-			bridge_inface_select guest_bridge_id
+			bridge_inface_select guest_bridge_id del
 		else
 			guest_bridge_id=${guest_bridge_list_id}
 		fi
 		if [ -n "${guest_bridge_id}" ]; then
-			bridge_vpn_access_del "${bridge_id}"
+			bridge_vpn_access_del "br${guest_bridge_id}"
 		fi
 	fi
 	if [ -n "${guest_bridge_id}" ] && [ "${cmd}" = update ]; then cmd_kvas_init ; fi
@@ -635,10 +649,9 @@ cmd_bridge_vpn_access_add() {
 		done
 		cmd_kvas_init ''
 	else
-		guest_bridge_id=''; bridge_inface_select guest_bridge_id
+		guest_bridge_id=''; bridge_inface_select guest_bridge_id add
 		if [ -n "${guest_bridge_id}" ]; then
-			# cmd_bridge_vpn_access_del "${guest_bridge_id}" 'not_update' &> /dev/null
-			bridge_access_add "${guest_bridge_id}" "${ip}"
+			bridge_access_add "br${guest_bridge_id}" "${ip}"
 			cmd_kvas_init
 		fi
 	fi
@@ -660,35 +673,19 @@ has_in_iptables_rules(){
 #
 # ------------------------------------------------------------------------------------------
 bridge_inface_select() {
-
+	action="${2}"
 	num_id_local_inface=$(get_local_inface | tr 'a-zA-Z' ' ' | tr -d ' ')
-	entware_bridge_list=$(ip4 a \
-							| grep -E ': br[0-9]' \
-							| grep -v "br${num_id_local_inface}" \
-							| cut -d':' -f1-2 \
-							| cut -d' ' -f2\
-							| tr '\n' ' ' \
-						 )
-	cli_bridge_list=$(curl -s "${INFACE_REQUEST}" \
-						| grep 'id":' \
-						| grep -iE 'bridge[0-9]' \
-						| grep -vi "bridge${num_id_local_inface}" \
-						| cut -d ':' -f2 \
-						| tr -d ' ",:'\
-						| tr '\n' ' ' \
-					  )
-	total=$(echo "${entware_bridge_list}" | wc -w)
+	total=$(ip4 a \
+		| grep -E ': br[0-9]' \
+		| grep -v "br${num_id_local_inface}" \
+		| cut -d':' -f1-2 \
+		| cut -d' ' -f2\
+		| tr '\n' ' ' \
+	 	| wc -w
+ 	)
 
 	if [ "${total}" -gt 0 ]; then
-		num=0;
-		for cli_inface in ${cli_bridge_list}; do
-			num=$((num + 1))
-			num_inface=$(echo "${cli_inface}" | tr -d '[:alpha:]')
-			net=$(ip4 a | grep " br${num_inface}" | grep inet | sed 's/^ *//' | cut -d' ' -f2)
-			mess="${num}. Интерфейс ${cli_inface} -> ${net}"
-			ready "${mess}"
-			has_in_iptables_rules "br${num_inface}" && when_ok "В СЕТИ" || when_bad "ОТКЛЮЧЕН"
-		done
+		cmd_bridge_vpn_access_list "${action}"
 
 		while true; do
 			print_line
