@@ -3,6 +3,7 @@
 . /opt/apps/kvas/bin/libs/check
 . /opt/apps/kvas/bin/libs/update
 . /opt/apps/kvas/bin/main/setup
+. /opt/apps/kvas/bin/main/upgrade
 
 #------------------------------------------------------------------------------
 #
@@ -145,6 +146,8 @@ case "${1}" in
 		esac
 		;;
 	update|reset|init)		cmd_kvas_init
+		;;
+	upgrade)			upgrade
 		;;
 	version | ver)			warning "Версия скрипта ${APP_VERSION}-${APP_RELEASE}"
 		;;
