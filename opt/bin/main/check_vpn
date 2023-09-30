@@ -65,8 +65,10 @@ ping_ip(){
 test_vpn_connection(){
 	ip_to_test=$(get_ip_from_unblock)
 	inface=$(get_current_entware_vpn_interface)
-
-	ps w | grep -v grep | grep -q "ping -I ${inface} ${ip_to_test}" ||  ping_ip "${ip_to_test}" &
+	for i in {0..3}
+	do
+  		ps w | grep -v grep | grep -q "ping -I ${inface} ${ip_to_test}" ||  ping_ip "${ip_to_test}"
+	done
 }
 
 test_vpn_connection &
