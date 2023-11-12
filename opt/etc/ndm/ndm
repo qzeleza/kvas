@@ -229,7 +229,8 @@ ip4_add_guest_to_vpn_network(){
 ip4_add_selected_guest_to_ssr_network(){
 	guest_inface="${1}"
 	ssr_port=$(get_config_value "SSR_DNS_PORT")
-	rules_block=$(ip4save | grep " ${guest_inface} " | grep "${table_name}" | grep "REDIRECT" | grep "${ssr_port}")
+#	rules_block=$(ip4save | grep " ${guest_inface} " | grep "${table_name}" | grep "REDIRECT" | grep "${ssr_port}")
+	rules_block=$(ip4save | grep PREROUTING | grep "${interface}" | grep "${table_name}" | grep REDIRECT | grep "${ssr_port}")
 	rules_dns=$(ip4save | grep " ${guest_inface} " | grep DNAT | grep 53)
 	if [ -z "${rules_block}" ] || [ -z "${rules_dns}" ]; then
 			# Маркируем трафик гостевой сети
@@ -244,7 +245,7 @@ ip4_add_selected_guest_to_ssr_network(){
 
 			} &>/dev/null
 
-			rules_block=$(ip4save | grep " ${guest_inface} " | grep "${table_name}" | grep "REDIRECT" | grep "${ssr_port}")
+			rules_block=$(ip4save | grep PREROUTING | grep " ${guest_inface} " | grep "${table_name}" | grep "REDIRECT" | grep "${ssr_port}")
 			rules_dns=$(ip4save | grep " ${guest_inface} " | grep DNAT | grep 53)
 			if [ -z "${rules_block}" ] || [ -z "${rules_dns}" ]; then
 				error "${IPv4} Возникла ошибка при маркировке гостевого трафика ${guest_inface} [$(guest_net "${guest_inface}")]  для SHADOWSOCKS"
