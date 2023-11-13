@@ -323,8 +323,10 @@ cmd_install(){
 	#	fi
 	fi
 
-	ready "Устанавливаем проверку зависания VPN соединения в cron - раз в 5 минут."
-	ln -s /opt/apps/kvas/bin/main/check_vpn /opt/etc/cron.5mins/check_vpn && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+	[ -f /opt/etc/cron.5mins/check_vpn ] || {
+		ready "Устанавливаем проверку зависания VPN соединения в cron - раз в 5 минут."
+		ln -s /opt/apps/kvas/bin/main/check_vpn /opt/etc/cron.5mins/check_vpn && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+	}
 
 	#------------------------------------------------------
 	# 	УСТАНОВКА ОБНОВЛЕНИЯ ДАННЫХ В CRON

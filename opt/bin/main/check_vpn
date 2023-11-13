@@ -1,75 +1,100 @@
 #!/bin/sh
 
+EQUALS_INTERFACE_FILE=/opt/etc/inface_equals
+
+
 get_config_value(){
-	grep "${1}" /opt/etc/kvas.conf | cut -d'=' -f2
+        grep "${1}" /opt/etc/kvas.conf | cut -d'=' -f2
 }
 get_current_entware_vpn_interface() {
-	inface_entware=$(get_config_value INFACE_ENT)
-	inface=$(grep "${inface_entware}" /opt/etc/inface_equals | cut -d'|' -f2)
-	echo "${inface}"
+        inface_entware=$(get_config_value INFACE_ENT)
+        inface=$(grep "${inface_entware}" "${EQUALS_INTERFACE_FILE}" | cut -d'|' -f2)
+        echo "${inface}"
 }
 
 get_current_cli_vpn_interface() {
         inface_entware=$(get_config_value INFACE_ENT)
-        inface=$(grep "${inface_entware}" /opt/etc/inface_equals | cut -d'|' -f1)
+        inface=$(grep "${inface_entware}" "${EQUALS_INTERFACE_FILE}"  | cut -d'|' -f1)
         echo "${inface}"
 }
 
-reset_connection(){
-	vpn_inface=$(get_current_entware_vpn_interface)
-	echo "${vpn_inface}" | grep -q ezcfg && {
-		/opt/etc/init.d S22shadowsocks restart
-	} || {
-		cli_inface=$(get_current_cli_vpn_interface)
-		curl -s -d '{"down":"true"}' "localhost:79/rci/interface/""${cli_inface}"
-		sleep 1
-		curl -s -d '{"up":"true"}' "localhost:79/rci/interface/""${cli_inface}"
-	}
+ENTWARE_INTERFACE=$(get_current_entware_vpn_interface)
+CLI_INTERFACE=$(get_current_cli_vpn_interface)
+
+reset_logger(){
+        logger -t "КВАС"  "Осуществляем перезапуск ${CLI_INTERFACE}::${ENTWARE_INTERFACE}"
+}
+
+
+restart_ssr_connection(){
+        reset_logger
+        /opt/etc/init.d/S22shadowsocks restart &>/dev/null
+}
+restart_vpn_connection(){
+
+        cli_request="localhost:79/rci/interface/${CLI_INTERFACE}"
+        reset_logger
+        curl -s -d '{"down":"true"}' "${cli_request}"
+        sleep 1
+        curl -s -d '{"up":"true"}' "${cli_request}"
 }
 
 get_host_ip(){
-	host="${1}"; dns="${2}"
-	nslookup  "${host}" "${dns}" \
-		|sed -n '/Name/,/Address/ p' \
-		| grep Address \
-		| cut -d: -f2 \
-		| cut -d' ' -f2\
-		| grep -E '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'
+        # Удаляем из имени хоста все звездочки (*) в выражениях *domain.com
+        # и символы косой четы и все что после нее в выражения XX.XX.XX.XX/10,
+        # получая на выходе XX.XX.XX.XX
+        host="${1//\*}"; dns="${2}"; host="${host///*}";
+        nslookup  "${host}" "${dns}" \
+                | sed -n '/Name/,/Address/ p' \
+                | grep Address \
+                | cut -d: -f2 \
+                | cut -d' ' -f2\
+                | grep -E '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'
 }
 
 get_ip_from_unblock(){
-	ub_tag=unblock
-	host_list=/opt/etc/hosts.list
-	num=0; ip=''
-	dns=$(get_config_value DNS_DEFAULT | cut -d'#' -f1)
-	while read -r host || [ -n "${host}" ]; do
-		ip=$(get_host_ip "${host}" "${dns}")
-		if [ -n "${ip}" ]; then
-			if ipset list "${ub_tag}" | grep -q "${ip}" || \
-			   grep -q "${host}/${ub_tag}" /opt/etc/AdGuardHome/AdGuardHome.yaml ; then
-				break
-			fi
-		fi
-	done < "${host_list}"
-	echo "${ip}"
+        ub_tag=unblock
+        host_list=/opt/etc/hosts.list
+        num=0; ip=''
+        dns=$(get_config_value DNS_DEFAULT | cut -d'#' -f1)
+        while read -r host || [ -n "${host}" ]; do
+                ip=$(get_host_ip "${host}" "${dns}")
+                if [ -n "${ip}" ]; then
+                        if ipset list "${ub_tag}" | grep -q "${ip}" || \
+                           ([ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ] && grep -q "${host}/${ub_tag}" /opt/etc/AdGuardHome/AdGuardHome.yaml) ; then
+                                break
+                        fi
+                fi
+        done < "${host_list}"
+        echo "${ip}"
 }
 
-ping_ip(){
-	ip="${1}"
-	inface=$(get_current_entware_vpn_interface)
-	ping -I "${inface}" "${ip}" -i 10 &>/dev/null || {
-                        reset_connection
+test_ip(){
+
+        ip="${1}"
+        ping -I "${ENTWARE_INTERFACE}" "${ip}" -i 10 &>/dev/null || {
+                restart_vpn_connection
         }
 }
 
-test_vpn_connection(){
-	ip_to_test=$(get_ip_from_unblock)
-	inface=$(get_current_entware_vpn_interface)
-	for i in {0..3}
-	do
-  		ps w | grep -v grep | grep -q "ping -I ${inface} ${ip_to_test}" ||  ping_ip "${ip_to_test}"
-	done
+test_connection(){
+
+        if echo "${ENTWARE_INTERFACE}" | grep -q ezcfg ; then
+                if /opt/etc/init.d/S22shadowsocks status | grep -vq alive ;then
+                        reset_ssr_connection
+                fi
+        else
+                if curl -s "http://localhost:79/rci/show/interface" | jq -r '.[] | select(.id=="'"${CLI_INTERFACE}"'" and .state=="up" and .link=="up") | .connected' | grep -v 'yes' ; then
+                        reset_vpn_connection
+                fi
+                #ip_to_test=$(get_ip_from_unblock)
+                #for i in {0..3}
+                #do
+                #       ps w | grep -v grep | grep -q "ping -I ${ENTWARE_INTERFACE} ${ip_to_test}" ||  ping_ip "${ip_to_test}"
+                #done
+        fi
+
+
 }
 
-test_vpn_connection &
-
+test_connection &
