@@ -45,8 +45,6 @@ while read -r line || [ -n "${line}" ]; do
 
 done < "${host_list}"
 
-num_recs_hosts_list=$(cat < "${host_list}" | wc -l)
-num_recs_hosts_list=$((num_recs_hosts_list * 2))
-num_recs_dnsmasq_list=$(cat < "/opt/etc/kvas.dnsmasq" | wc -l)
-#echo "${num_recs_hosts_list}=${num_recs_dnsmasq_list}"
+num_recs_hosts_list=$(cat < "${host_list}" | grep -Evc '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' )
+num_recs_dnsmasq_list=$(cat < "/opt/etc/kvas.dnsmasq" | grep -c ipset )
 [ $num_recs_hosts_list -gt 1 ] && [ "${num_recs_hosts_list}" = "${num_recs_dnsmasq_list}" ]
