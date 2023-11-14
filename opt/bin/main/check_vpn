@@ -80,18 +80,24 @@ test_ip(){
 test_connection(){
 
         if echo "${ENTWARE_INTERFACE}" | grep -q ezcfg ; then
-                if /opt/etc/init.d/S22shadowsocks status | grep -vq alive ;then
+        	ssr_ip=$(cat < /opt/etc/shadowsocks.json.kvas | grep '"server"'| sed 's/.*:.*"\(.*\)".*/\1/')
+        	# если пинг на сервер ssr не проходит или статус сервиса отличен от alive, то перезапускаем сервис ssr
+            if ! ping -c1 -A | "${ssr_ip}" | grep -q 'seq=' || /opt/etc/init.d/S22shadowsocks status | grep -vq alive ; then
                         reset_ssr_connection
-                fi
+            fi
         else
-                if curl -s "http://localhost:79/rci/show/interface" | jq -r '.[] | select(.id=="'"${CLI_INTERFACE}"'" and .state=="up" and .link=="up") | .connected' | grep -v 'yes' ; then
-                        reset_vpn_connection
-                fi
-                #ip_to_test=$(get_ip_from_unblock)
-                #for i in {0..3}
-                #do
-                #       ps w | grep -v grep | grep -q "ping -I ${ENTWARE_INTERFACE} ${ip_to_test}" ||  ping_ip "${ip_to_test}"
-                #done
+#        	если соединение отлично от ssr и его состояния: state и link отличны от up,
+#        	а состояние флага connected отлично от состояния yes, то vpn соединение перезапускаем
+			if curl -s "http://localhost:79/rci/show/interface" | jq -r '.[] | select(.id=="'"${CLI_INTERFACE}"'" and .state=="up" and .link=="up") | .connected' | grep -qv 'yes' ; then
+					reset_vpn_connection
+			fi
+
+#			После проверки работоспособности кода выше этот код и участвующие в нем функции выше удалить!!!
+			#ip_to_test=$(get_ip_from_unblock)
+			#for i in {0..3}
+			#do
+			#       ps w | grep -v grep | grep -q "ping -I ${ENTWARE_INTERFACE} ${ip_to_test}" ||  ping_ip "${ip_to_test}"
+			#done
         fi
 
 
