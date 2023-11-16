@@ -521,7 +521,23 @@ cmd_adguardhome_off(){
 bridge_vpn_access_del() {
 	guest_bridge_id="${1}"
 	ready "Удаление гостевого интерфейса ${guest_bridge_id} завершено"
-	ip4_firewall_rm_selected_guest_net "${guest_bridge_id}" && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+	{
+
+		ip4_firewall_rm_selected_guest_net "${guest_bridge_id}"
+		#	Слушаем 53 порт гостевого интерфейса
+		guest_net_ip=$(ip a | grep global | grep -E ' '"${guest_bridge_id}" | sed 's/inet \(.*\)\/.*/\1/' | tr -d ' ')
+		if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
+	#		Если доступен ADGUARDHOME
+			sed -i -e '/bind_hosts/,/port/{ /- '"${guest_net_ip}"'/d }' "${ADGUARDHOME_CONFIG}"
+#			grep -v '    -'"${guest_net_ip}" /opt/tmp/agh.conf
+#			mv -f /opt/tmp/agh.conf "${ADGUARDHOME_CONFIG}"
+		else
+	#		Если сейчас работает только dnsmasq
+			sed -i -e '/listen-address/,/port/{ /listen-address='"${guest_net_ip}"'/d}' "${DNSMASQ_CONFIG}"
+#			grep -v 'listen-address='"${guest_net_ip}" "${DNSMASQ_CONFIG}" > /opt/tmp/dnsmasq.conf
+#			mv -f /opt/tmp/dnsmasq.conf "${DNSMASQ_CONFIG}"
+		fi
+	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 }
 
 
@@ -576,7 +592,12 @@ cmd_bridge_vpn_access_del() {
 			bridge_vpn_access_del "${guest_bridge_id}"
 		fi
 	fi
-	#if [ -n "${guest_bridge_id}" ] && [ "${cmd}" = update ]; then cmd_kvas_init ; fi
+	#	перезапускаем DNS сервер новыми IP для прослушки на 53 порту
+	if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
+		/opt/etc/init.d/S99adguardhome restart
+	else
+		/opt/etc/init.d/S56dnsmasq restart
+	fi
 }
 
 
@@ -598,7 +619,16 @@ bridge_access_add() {
 	sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}${guest_bridge_id}/g" "${KVAS_CONF_FILE}"
 
 	set_selected_guest_nets_rules "${guest_bridge_id}"
+#	Слушаем 53 порт гостевого интерфейса
+	guest_net_ip=$(ip a | grep global | grep -E ' '"${guest_bridge_id}" | sed 's/inet \(.*\)\/.*/\1/' | tr -d ' ')
+	if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
+#		Если доступен ADGUARDHOME
+		sed -i '/bind_hosts/,/port/ s/.*\(port.*\)/    - '"${guest_net_ip}"'\n\1/1' "${ADGUARDHOME_CONFIG}"
+	else
+#		Если сейчас работает только dnsmasq
+		sed -i '/listen-address/,/port/ s/.*\(port.*\)/listen-address='"${guest_net_ip}"'\n\1/' "${DNSMASQ_CONFIG}"
 
+	fi
 	[ $? = 0 ] && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 }
 # ------------------------------------------------------------------------------------------
@@ -615,18 +645,24 @@ cmd_bridge_vpn_access_add() {
 	crypt_port=$(get_config_value DNS_CRYPT_PORT)
 
 	if [ -n "${option}" ] && [ "${option}" = all ]; then
+#		Если добавляем все интерфейсы обозначенные в списке гостевых сетей
 		cmd_bridge_vpn_access_del 'all' 'not_update' &> /dev/null
 		entware_bridge_list=$(get_guest_inface_list)
 		for bridge_id in ${entware_bridge_list}; do
 			bridge_access_add "${bridge_id}" "${ip}"
 		done
-#		cmd_kvas_init ''
 	else
+#		Если добавляем конкретный интерфейс
 		guest_bridge_id=''; bridge_inface_select guest_bridge_id add
 		if [ -n "${guest_bridge_id}" ]; then
 			bridge_access_add "${guest_bridge_id}" "${ip}"
-#			cmd_kvas_init
 		fi
+	fi
+#	перезапускаем DNS сервер новыми IP для прослушки на 53 порту
+	if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
+		/opt/etc/init.d/S99adguardhome restart
+	else
+		/opt/etc/init.d/S56dnsmasq restart
 	fi
 }
 
