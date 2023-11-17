@@ -550,17 +550,19 @@ bridge_vpn_access_del() {
 # ------------------------------------------------------------------------------------------
 cmd_bridge_vpn_access_list() {
 
-	entware_bridge_list=$(get_guest_inface_list)
+#	entware_bridge_list=$(get_guest_inface_list)
+#	Список интерфейсов которые доступны в формате "<Description> [XX.XX.XX.XX]"
+	interfaces_json=$(curl -s "${INFACE_REQUEST}" )
+	interfaces_list=$(echo "${interfaces_json}" || jq -r '.[] | select(.address != null ) | select(.id != "Bridge0") | select(.type != "GigabitEthernet") | (.description + " [" + .address + "]")' | grep -E '[0-9].')
 	num=0
-	for bridge_id in ${entware_bridge_list}; do
+	for desc_ip in ${interfaces_list}; do
 		num=$((num + 1))
-		net=$(ip4 a | grep " ${bridge_id}" | grep inet | sed 's/^ *//' | cut -d' ' -f2)
-		num_inface=$(echo "${bridge_id}" | tr -d '[:alpha:]')
-		inface="br${num_inface}"
-		desc=$(curl -s "${INFACE_REQUEST}/Bridge${num_inface}" | grep '"description":' | cut -d':' -f2 |  sed 's/[,"]//g; s/^[ ]//')
+		net_ip=$(echo "${desc_ip}" | sed 's/.*\[\(.*\)\]/\1/')
+#		connected=$(echo "${interfaces_json}" | jq -r '.[] | select(.address == "'"${net_ip}"'" ) | .connected' | grep -q "yes")
+		ent_inf=$(ip a | grep global | grep "${net_ip}" | sed 's/.* \(.*\)$/\1/')
 #		отображаем все гостевые интерфейсы
-		ready "${num}. Интерфейс '${desc}' [br${num_inface}:${net}]"
-		has_in_iptables_rules "${inface}" && when_ok "ПОДКЛЮЧЕН" || when_bad "ОТКЛЮЧЕН"
+		ready "${num}. Интерфейс ${desc_ip}, ${ent_inf}"
+		cat < "/opt/etc/kvas.conf" | grep 'INFACE_GUEST_ENT=' | grep -q "${ent_inf}" && when_ok "ПОДКЛЮЧЕН" || when_bad "ОТКЛЮЧЕН"
 	done
 
 }
@@ -583,13 +585,17 @@ cmd_bridge_vpn_access_del() {
 		for bridge_id in ${guest_bridge_list_id}; do
 			bridge_vpn_access_del "${bridge_id}"
 		done
-	elif [ -n "${option}" ] && echo "${option}" | grep -qi 'br'; then
+		sed -i 's/\(INFACE_GUEST_ENT=\).*/\1/' "/opt/etc/kvas.conf"
+	elif [ -n "${option}" ] && echo "${option}"; then
 		bridge_vpn_access_del "${option}"
+		sed -i 's/INFACE_GUEST_ENT=\(.*\)/\1/ ; s/'"${option}"'[,]\{0,1\}//; s/^,//' "/opt/etc/kvas.conf"
+
 	else
 		bridge_inface_select guest_bridge_id del
 
 		if [ -n "${guest_bridge_id}" ]; then
 			bridge_vpn_access_del "${guest_bridge_id}"
+			sed -i 's/INFACE_GUEST_ENT=\(.*\)/\1/ ; s/'"${guest_bridge_id}"'[,]\{0,1\}//; s/^,//' "/opt/etc/kvas.conf"
 		fi
 	fi
 	#	перезапускаем DNS сервер новыми IP для прослушки на 53 порту
@@ -598,6 +604,7 @@ cmd_bridge_vpn_access_del() {
 	else
 		/opt/etc/init.d/S56dnsmasq restart
 	fi
+
 }
 
 
