@@ -90,5 +90,5 @@ while read -r line || [ -n "${line}" ]; do
 
 done < "${HOST_LIST}"
 
-count=$(ipset list "${TABLE_NAME}" | grep -cE "^${IP_FILTER}")
-logger -t "Общее число IP адресов в ipset составляет ${count} шт."
+#count=$(ipset list "${TABLE_NAME}" | grep -cE "^${IP_FILTER}")
+#logger -t "Общее число IP адресов в ipset составляет ${count} шт."

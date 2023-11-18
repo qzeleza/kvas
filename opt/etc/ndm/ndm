@@ -44,7 +44,7 @@ IPv6='IPv6::'
 ip4() (/opt/sbin/ip -4 "$@")
 ip4tables() (/opt/sbin/iptables -C "$@" &>/dev/null || /opt/sbin/iptables -A "$@")
 iptab() (/opt/sbin/iptables "$@")
-ip4save() (/opt/sbin/iptables-save)
+ip4save() (/opt/sbin/iptables-save | grep -vE '\-A _')
 get_gw4()([ "${1}" ] && ip4 addr show "${1}" | grep -Po "(?<=inet ).*(?=/)")
 has_ssr_enable() ([ ! -f "/opt/etc/ndm/netfilter.d/100-vpn-mark" ])
 
@@ -191,24 +191,24 @@ ip4_firewall_mark_rules_tcp_udp_on(){
 # 	Правила маркировки гостевого трафика
 #
 # ------------------------------------------------------------------------------------------
+get_guest_net(){
+	ip addr show "${1}" | grep global | sed 's/^.*inet \(.*\).*/\1/' | cut -d' ' -f1
+}
 ip4_add_selected_guest_to_vpn_network(){
 	guest_inface="${1}"
-	rules_masq=$(ip4save | grep "\-j MASQUERADE" | grep " ${guest_inface} ")
-	rules_dns=$(ip4save | grep " ${guest_inface} " | grep DNAT | grep 53)
-	if [ -z "${rules_dns}" ] || [ -z "${rules_masq}" ] ; then
+	rules_masq=$(ip4save  | grep "\-j MASQUERADE" | grep " ${guest_inface} ")
+#	rules_dns=$(ip4save | grep " ${guest_inface} " | grep DNAT | grep 53)
+	if [ -z "${rules_masq}" ] ; then
 			# Маркируем трафик гостевой сети
 			{
 					log_warning "Подключаем правила маркировки гостевого трафика для VPN."
-#					ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p tcp -j DNAT --to "$(inface_gw4):53"
-#					ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p udp -j DNAT --to "$(inface_gw4):53"
-					ip4tables POSTROUTING -t nat -s "$(guest_net "${guest_inface}")" -o "${guest_inface}" -m ndmmark --ndmmark ${MARK_NUM} -j MASQUERADE
+					ip4tables POSTROUTING -t nat -s "$(get_guest_net "${guest_inface}")" -o "${guest_inface}" -m ndmmark --ndmmark ${MARK_NUM} -j MASQUERADE
 #					Под вопросом ?
-					ip4tables POSTROUTING -t nat -s "$(guest_net "${guest_inface}")" -o "${guest_inface}" -m ndmmark --ndmmark ${MARK_NUM} -j SNAT --to-source $(inface_guest_gw4 "${guest_inface}")
+#					ip4tables POSTROUTING -t nat -s "$(get_guest_net "${guest_inface}")" -o "${guest_inface}" -m ndmmark --ndmmark ${MARK_NUM} -j SNAT --to-source $(inface_guest_gw4 "${guest_inface}")
 
 			} &>/dev/null
 			rules_masq=$(ip4save | grep "\-j MASQUERADE" | grep " ${guest_inface} ")
-			rules_dns=$(ip4save | grep " ${guest_inface} " | grep DNAT | grep 53)
-			if [ -z "${rules_dns}" ] || [ -z "${rules_masq}" ] ; then
+			if [ -z "${rules_masq}" ] ; then
 				error "${IPv4} Возникла ошибка при маркировке гостевого трафика ${guest_inface} [$(guest_net "${guest_inface}")] для VPN."
 			fi
 	fi

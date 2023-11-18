@@ -514,30 +514,30 @@ cmd_adguardhome_off(){
 
 # ------------------------------------------------------------------------------------------
 #
-#	Функция подключает гостевую сеть к активному vpn
-#	$1 - ID гостевого моста в entware
+#       Функция подключает гостевую сеть к активному vpn
+#       $1 - ID гостевого моста в entware
 #
 # ------------------------------------------------------------------------------------------
 bridge_vpn_access_del() {
-	guest_bridge_id="${1}"
-	ready "Удаление гостевого интерфейса ${guest_bridge_id} завершено"
-	{
+        guest_bridge_id="${1}"
+        ready "Удаление гостевого интерфейса ${guest_bridge_id} завершено"
+        {
 
-		ip4_firewall_rm_selected_guest_net "${guest_bridge_id}"
-		#	Слушаем 53 порт гостевого интерфейса
-		guest_net_ip=$(ip a | grep global | grep -E ' '"${guest_bridge_id}" | sed 's/inet \(.*\)\/.*/\1/' | tr -d ' ')
-		if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
-	#		Если доступен ADGUARDHOME
-			sed -i -e '/bind_hosts/,/port/{ /- '"${guest_net_ip}"'/d }' "${ADGUARDHOME_CONFIG}"
-#			grep -v '    -'"${guest_net_ip}" /opt/tmp/agh.conf
-#			mv -f /opt/tmp/agh.conf "${ADGUARDHOME_CONFIG}"
-		else
-	#		Если сейчас работает только dnsmasq
-			sed -i -e '/listen-address/,/port/{ /listen-address='"${guest_net_ip}"'/d}' "${DNSMASQ_CONFIG}"
-#			grep -v 'listen-address='"${guest_net_ip}" "${DNSMASQ_CONFIG}" > /opt/tmp/dnsmasq.conf
-#			mv -f /opt/tmp/dnsmasq.conf "${DNSMASQ_CONFIG}"
-		fi
-	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+#                ip4_firewall_rm_selected_guest_net "${guest_bridge_id}"
+                #       Слушаем 53 порт гостевого интерфейса
+                guest_net_ip=$(ip a | grep global | grep -E ' '"${guest_bridge_id}" | sed 's/inet \(.*\)\/.*/\1/' | tr -d ' ')
+                if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
+        #               Если доступен ADGUARDHOME
+                        sed -i -e '/bind_hosts/,/port/{ /- '"${guest_net_ip}"'/d }' "${ADGUARDHOME_CONFIG}"
+#                       grep -v '    -'"${guest_net_ip}" /opt/tmp/agh.conf
+#                       mv -f /opt/tmp/agh.conf "${ADGUARDHOME_CONFIG}"
+                else
+        #               Если сейчас работает только dnsmasq
+                        sed -i -e '/listen-address/,/port/{ /listen-address='"${guest_net_ip}"'/d}' "${DNSMASQ_CONFIG}"
+#                       grep -v 'listen-address='"${guest_net_ip}" "${DNSMASQ_CONFIG}" > /opt/tmp/dnsmasq.conf
+#                       mv -f /opt/tmp/dnsmasq.conf "${DNSMASQ_CONFIG}"
+                fi
+        } && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 }
 
 
@@ -545,203 +545,173 @@ bridge_vpn_access_del() {
 
 # ------------------------------------------------------------------------------------------
 #
-#	Функция выводит список гостевых сетей в наличии
-#	action = add|del|all
+#       Функция выводит список гостевых сетей в наличии
+#       action = add|del|all
 # ------------------------------------------------------------------------------------------
 cmd_bridge_vpn_access_list() {
+		action=${1}
+        selected_vpn=$(get_config_value INFACE_CLI)
+#       Список интерфейсов которые доступны в формате "<Description> [XX.XX.XX.XX]"
+        interfaces_json=$(curl -s "${INFACE_REQUEST}" )
+        interfaces_list=$(echo "${interfaces_json}" | jq -r '.[] | select(.address != null ) | select(.id != "'"${selected_vpn}"'" and .id != "Bridge0") | select(.type != "GigabitEthernet") | ("\"" + .description + "\" [" + .address + "]")' | grep -E '[0-9].')
+        num=0
+        printf '%s\n' "${interfaces_list}" |
+        while IFS= read -r desc_ip ; do
+                num=$((num + 1))
+                net_ip=$(echo "${desc_ip}" | sed 's/.*\[\(.*\)\].*/\1/')
+                ent_inf=$(ip a | grep global | grep "${net_ip}" | sed 's/.* \(.*\)$/\1/')
+#               отображаем все гостевые интерфейсы
+                ready "${num}. Интерфейс ${desc_ip}"
+                cat < "/opt/etc/kvas.conf" | grep 'INFACE_GUEST_ENT=' | grep -q "[^_]${ent_inf}" && when_ok "ПОДКЛЮЧЕН" || when_bad "ОТКЛЮЧЕН"
 
-#	entware_bridge_list=$(get_guest_inface_list)
-#	Список интерфейсов которые доступны в формате "<Description> [XX.XX.XX.XX]"
-	interfaces_json=$(curl -s "${INFACE_REQUEST}" )
-	interfaces_list=$(echo "${interfaces_json}" || jq -r '.[] | select(.address != null ) | select(.id != "Bridge0") | select(.type != "GigabitEthernet") | (.description + " [" + .address + "]")' | grep -E '[0-9].')
-	num=0
-	for desc_ip in ${interfaces_list}; do
-		num=$((num + 1))
-		net_ip=$(echo "${desc_ip}" | sed 's/.*\[\(.*\)\]/\1/')
-#		connected=$(echo "${interfaces_json}" | jq -r '.[] | select(.address == "'"${net_ip}"'" ) | .connected' | grep -q "yes")
-		ent_inf=$(ip a | grep global | grep "${net_ip}" | sed 's/.* \(.*\)$/\1/')
-#		отображаем все гостевые интерфейсы
-		ready "${num}. Интерфейс ${desc_ip}, ${ent_inf}"
-		cat < "/opt/etc/kvas.conf" | grep 'INFACE_GUEST_ENT=' | grep -q "${ent_inf}" && when_ok "ПОДКЛЮЧЕН" || when_bad "ОТКЛЮЧЕН"
-	done
+        done
 
 }
 # ------------------------------------------------------------------------------------------
 #
-#	Функция удаляет гостевую сеть из активного vpn
+#       Функция удаляет гостевую сеть из активного vpn
 #
-#	$1 - команда для удаления всех гостевых сетей к активному vpn
-#	$2 - команда для обновления внесенных изменений
-#	внесена для того, чтобы предотвратить обновления
-#	при использовании в функции cmd_bridge_vpn_access_add
+#       $1 - команда для удаления всех гостевых сетей к активному vpn
+#       $2 - команда для обновления внесенных изменений
+#       внесена для того, чтобы предотвратить обновления
+#       при использовании в функции cmd_bridge_vpn_access_add
 #
 # ------------------------------------------------------------------------------------------
 cmd_bridge_vpn_access_del() {
 
-	option=${1}; cmd="${2:-update}"; guest_bridge_id=''
-	guest_bridge_list_id=$(get_guest_inface_list)
+        option=${1}; cmd="${2:-update}"; guest_bridge_id=''
+#        guest_bridge_list_id=$(get_guest_inface_list)
 
-	if [ "${option}" = all ]; then
-		for bridge_id in ${guest_bridge_list_id}; do
-			bridge_vpn_access_del "${bridge_id}"
-		done
-		sed -i 's/\(INFACE_GUEST_ENT=\).*/\1/' "/opt/etc/kvas.conf"
-	elif [ -n "${option}" ] && echo "${option}"; then
-		bridge_vpn_access_del "${option}"
-		sed -i 's/INFACE_GUEST_ENT=\(.*\)/\1/ ; s/'"${option}"'[,]\{0,1\}//; s/^,//' "/opt/etc/kvas.conf"
+#        if [ "${option}" = all ]; then
+#                for bridge_id in ${guest_bridge_list_id}; do
+#                        bridge_vpn_access_del "${bridge_id}"
+#                done
+#                sed -i 's/\(INFACE_GUEST_ENT=\).*/\1/' "/opt/etc/kvas.conf"
+        if [ -n "${option}" ] && echo "${option}"; then
+                bridge_vpn_access_del "${option}"
+                sed -i '/INFACE_GUEST_ENT=/,/^$/ s/'"${option}"'[,]\{0,1\}//' "/opt/etc/kvas.conf"
 
-	else
-		bridge_inface_select guest_bridge_id del
+        else
+                bridge_inface_select guest_bridge_id del
 
-		if [ -n "${guest_bridge_id}" ]; then
-			bridge_vpn_access_del "${guest_bridge_id}"
-			sed -i 's/INFACE_GUEST_ENT=\(.*\)/\1/ ; s/'"${guest_bridge_id}"'[,]\{0,1\}//; s/^,//' "/opt/etc/kvas.conf"
-		fi
-	fi
-	#	перезапускаем DNS сервер новыми IP для прослушки на 53 порту
-	if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
-		/opt/etc/init.d/S99adguardhome restart
-	else
-		/opt/etc/init.d/S56dnsmasq restart
-	fi
+                if [ -n "${guest_bridge_id}" ]; then
+                        bridge_vpn_access_del "${guest_bridge_id}"
+                        sed -i '/INFACE_GUEST_ENT=/,/^$/ s/'"${guest_bridge_id}"'[,]\{0,1\}//' "/opt/etc/kvas.conf"
+                fi
+        fi
+        #       перезапускаем DNS сервер новыми IP для прослушки на 53 порту
+        if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
+                /opt/etc/init.d/S99adguardhome restart &> /dev/null
+        else
+                /opt/etc/init.d/S56dnsmasq restart &> /dev/null
+        fi
 
 }
 
 
 # ------------------------------------------------------------------------------------------
 #
-#	Функция подключает гостевую сеть к активному vpn
-#	$1 - ID гостевого моста в entware
+#       Функция подключает гостевую сеть к активному vpn
+#       $1 - ID гостевого моста в entware
 #
 # ------------------------------------------------------------------------------------------
 bridge_access_add() {
 
-	guest_bridge_id=${1}; ip=${2};
+        guest_bridge_id=${1}; ip=${2};
 
-	has_ssr_enable && vpn_type='shadowsocks' || vpn_type='vpn'
-	ready "Добавление гостевого интерфейса ${guest_bridge_id} завершено"
+        has_ssr_enable && vpn_type='shadowsocks' || vpn_type='vpn'
+        ready "Добавление гостевого интерфейса ${guest_bridge_id} завершено"
 
-	has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p')
-	[ -n "${has_guest_nets}" ] && point=',' || point=''
-	sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}${guest_bridge_id}/g" "${KVAS_CONF_FILE}"
+        has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p')
+        [ -n "${has_guest_nets}" ] && point=',' || point=''
+        sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}${guest_bridge_id}/g" "${KVAS_CONF_FILE}"
 
-	set_selected_guest_nets_rules "${guest_bridge_id}"
-#	Слушаем 53 порт гостевого интерфейса
-	guest_net_ip=$(ip a | grep global | grep -E ' '"${guest_bridge_id}" | sed 's/inet \(.*\)\/.*/\1/' | tr -d ' ')
-	if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
-#		Если доступен ADGUARDHOME
-		sed -i '/bind_hosts/,/port/ s/.*\(port.*\)/    - '"${guest_net_ip}"'\n\1/1' "${ADGUARDHOME_CONFIG}"
-	else
-#		Если сейчас работает только dnsmasq
-		sed -i '/listen-address/,/port/ s/.*\(port.*\)/listen-address='"${guest_net_ip}"'\n\1/' "${DNSMASQ_CONFIG}"
+        #set_selected_guest_nets_rules "${guest_bridge_id}"
+#       Слушаем 53 порт гостевого интерфейса
+        guest_net_ip=$(ip a | grep global | grep -E ' '"${guest_bridge_id}" | sed 's/inet \(.*\)\/.*/\1/' | tr -d ' ')
+        if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
+#               Если доступен ADGUARDHOME
+                sed -i '/bind_hosts/,/port/ s/.*\(port.*\)/    - '"${guest_net_ip}"'\n\1/1' "${ADGUARDHOME_CONFIG}"
+        else
+#               Если сейчас работает только dnsmasq
+                sed -i '/listen-address/,/port/ s/.*\(port.*\)/listen-address='"${guest_net_ip}"'\n\1/' "${DNSMASQ_CONFIG}"
 
-	fi
-	[ $? = 0 ] && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+        fi
+        [ $? = 0 ] && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 }
 # ------------------------------------------------------------------------------------------
 #
-#	Обертка вокруг функции добавления гостевых сетей к активному vpn
-#	$1 - команда для добавления всех гостевых сетей к активному vpn
+#       Обертка вокруг функции добавления гостевых сетей к активному vpn
+#       $1 - команда для добавления всех гостевых сетей к активному vpn
 #
 # ------------------------------------------------------------------------------------------
 cmd_bridge_vpn_access_add() {
 
-	option=${1};
+        option=${1};
 
-	ip=$(get_router_ip)
-	crypt_port=$(get_config_value DNS_CRYPT_PORT)
+        ip=$(get_router_ip)
+#        crypt_port=$(get_config_value DNS_CRYPT_PORT)
 
-	if [ -n "${option}" ] && [ "${option}" = all ]; then
-#		Если добавляем все интерфейсы обозначенные в списке гостевых сетей
-		cmd_bridge_vpn_access_del 'all' 'not_update' &> /dev/null
-		entware_bridge_list=$(get_guest_inface_list)
-		for bridge_id in ${entware_bridge_list}; do
-			bridge_access_add "${bridge_id}" "${ip}"
-		done
-	else
-#		Если добавляем конкретный интерфейс
+#        if [ -n "${option}" ] && [ "${option}" = all ]; then
+##               Если добавляем все интерфейсы обозначенные в списке гостевых сетей
+#                cmd_bridge_vpn_access_del 'all' 'not_update' &> /dev/null
+#                entware_bridge_list=$(get_guest_inface_list)
+#                for bridge_id in ${entware_bridge_list}; do
+#                        bridge_access_add "${bridge_id}" "${ip}"
+#                done
+#        else
+#               Если добавляем конкретный интерфейс
 		guest_bridge_id=''; bridge_inface_select guest_bridge_id add
 		if [ -n "${guest_bridge_id}" ]; then
-			bridge_access_add "${guest_bridge_id}" "${ip}"
+				bridge_access_add "${guest_bridge_id}" "${ip}"
 		fi
-	fi
-#	перезапускаем DNS сервер новыми IP для прослушки на 53 порту
-	if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
-		/opt/etc/init.d/S99adguardhome restart
-	else
-		/opt/etc/init.d/S56dnsmasq restart
-	fi
+#        fi
+#       перезапускаем DNS сервер новыми IP для прослушки на 53 порту
+        if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
+                /opt/etc/init.d/S99adguardhome restart &> /dev/null
+        else
+                /opt/etc/init.d/S56dnsmasq restart &> /dev/null
+        fi
 }
 
-# Проверяем есть ли правила для данной гостевой сети в iptables
-has_in_iptables_rules(){
-	if has_ssr_enable; then
-		iptables-save | grep " ${1} " | grep PREROUTING | grep -q DNAT && iptables-save | grep " ${1} " | grep PREROUTING | grep unblock | grep -q REDIRECT
-	else
-		iptables-save | grep " ${1} " | grep PREROUTING | grep -q DNAT && iptables-save | grep " ${1} " | grep POSTROUTING | grep -q MASQUERADE
-	fi
-}
+
 
 # ------------------------------------------------------------------------------------------
 #
-#	Функция подключает гостевую сеть к активному vpn
-#	$1 - переменная для записи ID гостевого моста в entware
+#       Функция подключает гостевую сеть к активному vpn
+#       $1 - переменная для записи ID гостевого моста в entware
 #
 # ------------------------------------------------------------------------------------------
 bridge_inface_select() {
-	action="${2}"
-	num_id_local_inface=$(get_local_inface | tr 'a-zA-Z' ' ' | tr -d ' ')
-	entware_bridge_list=$(ip4 a \
-						| grep -E ': br[0-9]' \
-						| grep -v "br${num_id_local_inface}" \
-						| cut -d':' -f1-2 \
-						| cut -d' ' -f2\
-						| tr '\n' ' ' \
-						)
+        action="${2}"
+#       num_id_local_inface=$(get_local_inface | tr 'a-zA-Z' ' ' | tr -d ' ')
+        entware_list=$(cmd_bridge_vpn_access_list "${action}")
+        if [ -n "${entware_list}" ]; then
+                echo "${entware_list}"
+                total=$(echo -e "${entware_list}" | wc -l)
+                if [ "${total}" -gt 0 ]; then
+                        while true; do
+                                print_line
+                                #warning "Зеленым цветом выделен текущий интерфейс"
+                                ready "Выберите номер интерфейса [1-${total}, Q-выход]:"
+                                read -r num_inface
+                                case "${num_inface}" in
+                                        [qQ]*) break ;;
+                                        [1-${total}]* )
+                                                net_ip=$(echo "${entware_list}" | sed -n "${num_inface}"'p' | sed 's/.*\[\([0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}\)\].*/\1/')
+                                                eval "${1}=$(get_inface_by_ip ${net_ip})" ; break ;;
+                                        * ) error "Введите цифру от 1 до ${total}." ;;
+                                esac
+                        done
+                        print_line
+                else
+                        echo "${action}" | grep -q "add" && act="добавления" || act="удаления"
+                        echo "Гостевые интерфейсы для ${act} отсутствуют!"
+                fi
 
-	if [ -n "${entware_bridge_list}" ]; then
-		num=0; add_count=0; del_count=0;
-		for bridge_id in ${entware_bridge_list}; do
-			num=$((num + 1))
-			net=$(ip4 a | grep " ${bridge_id}" | grep inet | sed 's/^ *//' | cut -d' ' -f2)
-			num_inface=$(echo "${bridge_id}" | tr -d '[:alpha:]')
-			inface="br${num_inface}"
-			desc=$(curl -s "${INFACE_REQUEST}/Bridge${num_inface}" | grep '"description":' | cut -d':' -f2 |  sed 's/[,"]//g; s/^[ ]//')
-
-			if echo "${action}" | grep -q "del" && has_in_iptables_rules "${inface}"; then
-				del_count=$((del_count + 1))
-	#			отображаем только те гостевые интерфейсы, для которых правила уже есть
-				ready "${num}. Интерфейс '${desc}' [br${num_inface}:${net}]"
-				when_ok "ПОДКЛЮЧЕН"
-			elif echo "${action}" | grep -q "add" && ! has_in_iptables_rules "${inface}"; then
-				add_count=$((add_count + 1))
-	#			отображаем только те гостевые интерфейсы, для которых правил еще нет
-				ready "${num}. Интерфейс '${desc}' [br${num_inface}:${net}]"
-				when_bad "ОТКЛЮЧЕН"
-			fi
-		done
-		total=$((add_count+del_count))
-		if [ "${add_count}" -gt 0 ] || [ "${del_count}" -gt 0 ]; then
-			while true; do
-				print_line
-				#warning "Зеленым цветом выделен текущий интерфейс"
-				ready "Выберите номер интерфейса [1-${total}, Q-выход]:"
-				read -r num_inface
-				case "${num_inface}" in
-					[qQ]*) break ;;
-					[1-${total}]* )  eval "${1}=$(echo "${entware_bridge_list}" \
-									| cut -d ' ' -f"${num_inface}")"; break ;;
-					* ) error "Введите цифру от 1 до ${total}." ;;
-				esac
-			done
-			print_line
-		else
-			echo "${action}" | grep -q "add" && act="добавления" || act="удаления"
-			echo "Гостевые интерфейсы для ${act} отсутствуют!"
-		fi
-
-	fi
+        fi
 }
+
 # ------------------------------------------------------------------------------------------
 #
 #	Меняем текущий DNS в настройках ipset на новый
@@ -1443,7 +1413,9 @@ show_vpn_list() {
 		is_current_vpn=$(echo "${line}" | grep -i "${inface_entware}")
 		cli_inface_desc=$(echo "${line}" | cut -d"|" -f3)
 		cli_inface=$(echo "${line}" | cut -d"|" -f1)
-		mess="${num}. Интерфейс ${cli_inface_desc}"
+		ent_inface=$(echo "${line}" | cut -d"|" -f2)
+		net_ip=$(get_ip_by_inface "${ent_inface}")
+		mess="${num}. Интерфейс ${cli_inface_desc} [${net_ip}]"
 		sleep 1
 		connected=$(is_vpn_interface_connected "${cli_inface}")
 
@@ -1982,10 +1954,10 @@ cmd_import_hosts() {
 			if [ "${num_to_add_ubl}" -eq 0 ]; then
 				warning "Новых записей добавлено не было!"
 			else
-				warning "В список разблокировки было добавлено ${YELLOW}${num_to_add_ubl}${GREEN} записей:"
+				warning "В список разблокировки было добавлено ${YELLOW}${num_to_add_ubl}${GREEN} новых доменов:"
 				print_line
 				if [ "${num_to_add_ubl}" -gt 0 ]; then
-					warning "${tab}Список разблокировки ${YELLOW}${num_to_add_ubl}${GREEN} записей:"
+					warning "${tab}Список добавленных доменов:"
 					print_line
 					echo -e "${hosts_to_add_ubl}" | sed 's/^$//; /^[-]/!s/\(.*\)/'"${tab}${tab}"'\1/g'
 				fi
