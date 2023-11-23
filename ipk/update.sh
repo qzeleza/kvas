@@ -59,7 +59,7 @@ ready 'Загружаем пакет...'
 
 ready 'Устанавливаем новую версию пакета...'
 {
-	opkg install "./${package_name}"
+	opkg install "/opt/packages/${package_name}"
 
 } &>/dev/null && when_ready || when_err
 
