@@ -36,6 +36,7 @@ case ${1} in
         start|restart)
                 . /opt/apps/kvas/bin/libs/vpn
                 cmd_kvas_init initd
+                iptables_reset &> /dev/null
                 ready "Перезапускаем AdGuardHome"
                 . /opt/etc/init.d/rc.func &>/dev/null
                 if [ $? = 0 ]; then when_ok "ГОТОВО"; else when_bad "ОШИБКА"; fi

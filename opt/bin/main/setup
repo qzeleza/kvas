@@ -338,11 +338,13 @@ cmd_install(){
 	#------------------------------------------------------
 	ready "Запускаем КВАС в работу"
 	if cmd_kvas_init &> /dev/null ; then
+		iptables_reset &> /dev/null
 		when_ok "УСПЕШНО"
 	else
 		when_bad "ОШИБКА"
 		ready "Пробуем перезапустить КВАС снова"
 		if cmd_kvas_init &> /dev/null ; then
+			iptables_reset &> /dev/null
 			when_ok "УСПЕШНО"
 		else
 			when_bad "ОШИБКА"

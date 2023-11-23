@@ -22,7 +22,8 @@
 case ${1} in
 	start|restart)
 		. /opt/apps/kvas/bin/libs/vpn
-		cmd_kvas_init
+		cmd_kvas_init no
+		iptables_reset
 		if has_ssr_enable; then
 			while /opt/etc/init.d/S22shadowsocks status | grep -q dead
 			do

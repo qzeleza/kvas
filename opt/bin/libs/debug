@@ -367,7 +367,11 @@ date_info() {
 }
 
 show_install_log(){
-	[ -f "${INSTALL_LOG}" ] && cat < "${INSTALL_LOG}"
+	if [ -f "${INSTALL_LOG}" ] ; then
+		echo "Журнал установки пакета:"
+		print_line
+		cat < "${INSTALL_LOG}" | sed 's/\(^Текущее.*\) .*$/\1/'
+	fi
 }
 # ------------------------------------------------------------------------------------------
 #

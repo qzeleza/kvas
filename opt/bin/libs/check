@@ -246,7 +246,7 @@ iptable_check() {
 	else
 		when_bad "ПРАВИЛ НЕТ"
 		if [ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ]; then
-			/opt/etc/ndm/netfilter.d/100-proxy-redirect &> /dev/null
+			export type=iptables; export table=mangle && /opt/etc/ndm/netfilter.d/100-proxy-redirect &> /dev/null
 		else
 			cmd_vpn_iptable_flush
 			ip4set_create_table
@@ -497,7 +497,7 @@ cmd_state_checker() {
 	if [ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ]; then
 #		Проверяем работу shadowsocks
 		shadowsocks_check
-		/opt/etc/ndm/netfilter.d/100-proxy-redirect
+		export type=iptables; export table=mangle && /opt/etc/ndm/netfilter.d/100-proxy-redirect
 	else
 #		Проверяем работу vpn подключения
 		vpn_check
@@ -515,6 +515,7 @@ cmd_state_checker() {
 	if [ "${NOT_IN_TABLE}" = true ]; then
 #		если хотя бы один из адресов не находится в таблице, то делаем проверку повторно
 		cmd_kvas_init
+		iptables_reset
 		print_line
 		warning "Пробуем запустить повторно."
 		print_line
