@@ -435,7 +435,8 @@ adguardhome_check_config() {
 				echo "После всех произведенных настроек нажмите Ctrl-C"
 #				echo -e "И затем снова запустите ${BLUE}kvas adguard on${NOCL}"
 				print_line
-				/opt/bin/AdGuardHome && cmd_adguardhome_on
+				/opt/bin/AdGuardHome
+				cmd_adguardhome_on
 			fi
 		fi
 }
@@ -473,9 +474,11 @@ cmd_adguardhome_on() {
 
 	status=$(cmd_adguardhome_status)
 	if echo "${status}" | grep -q "НЕ УСТАНОВЛЕН" ; then
-		echo "Пакет AdGuard Home не установлен на роутере."
+		error "Пакет AdGuard Home не установлен на роутере."
+		print_line
 		answer=''; read_ynq "Установить его на роутер [Y] или отказаться [N]?" answer
 		if [ "${answer}" = y ]; then
+			print_line
 			adguardhome_install_locally
 		fi
 	elif echo "${status}" | grep -q "НЕ НАСТРОЕН" ; then
@@ -1525,7 +1528,7 @@ select_vpn_interface() {
 	total=$(cat < "${INFACE_NAMES_FILE}" | wc -l)
 	while true; do
 		print_line
-		ready "${BLUE}Выберите номер варианта VPN соединения от 1 до ${total}|S-скан.|Q-выход:${NOCL}"
+		ready "${BLUE}Выберите номер варианта VPN соединения 1-${total} | S-скан. | Q-выход:${NOCL}"
 		read -r num_vpn_inface
 		if ! echo "${num_vpn_inface}" | grep -qiE "[1-${total}qs]"; then
 			error "Введите цифру от 1 до ${total} или S - сканирование, Q - выход."
@@ -1551,14 +1554,15 @@ select_vpn_interface() {
 				cli="$(get_router_host)/a"
 				print_line
 				echo -e "${RED}Процедура настройки прервана пользователем!${NOCL}"
+				print_line
 				/opt/etc/init.d/S56dnsmasq stop  &> /dev/null
 				echo "В случае, если сейчас у Вас пропал интернет, то для восстановления подключения"
 				echo -e "необходимо зайти в админ панель роутера по адресу: ${GREEN}${cli}${NOCL}"
 				echo "и выполнить последовательно три следующих команды: "
 				print_line
-				echo -e "1. ${GREEN}no opkg dns-override ${NOCL} - вновь подключаем DNS провайдера,"
+				echo -e "1. ${GREEN}no opkg dns-override ${NOCL}       - вновь подключаем DNS провайдера,"
 				echo -e "2. ${GREEN}system configuration save ${NOCL}  - сохраняем изменения,"
-				echo -e "3. ${GREEN}system reboot ${NOCL} - перегружаем роутер."
+				echo -e "3. ${GREEN}system reboot ${NOCL}              - перегружаем роутер."
 				print_line
 				exit 1
 			else
@@ -1871,6 +1875,7 @@ host_add() {
 	_host="${1}"
 	reset="${2}"
 	clear_host=$(echo "${host}" | sed 's/\*//')
+
 
 	ready "Добавляем ${YELLOW}${_host}${NOCL} в список разблокировки..."
 	echo "${_host}" >> "${UNBLOCK_LIST_FILE}"

@@ -215,7 +215,7 @@ ip4_add_selected_guest_to_vpn_network(){
 }
 ip4_add_guest_to_vpn_network(){
 
-        for guest_inface in $(get_guest_inface_list)
+        for guest_inface in $(get_guest_inface_list_from_config)
         do
 			ip4_add_selected_guest_to_vpn_network "${guest_inface}"
 		done
@@ -254,7 +254,7 @@ ip4_add_selected_guest_to_ssr_network(){
 }
 
 ip4_add_guest_to_ssr_network(){
-        for guest_inface in $(get_guest_inface_list)
+        for guest_inface in $(get_guest_inface_list_from_config)
         do
 			ip4_add_selected_guest_to_ssr_network "${guest_inface}"
 		done
@@ -273,7 +273,7 @@ set_selected_guest_nets_rules(){
 set_guest_nets_rules(){
 
 	#	в случае наличия гостевой сети
-	if [ -n "$(get_guest_inface_list)" ]; then
+	if [ -n "$(get_guest_inface_list_from_config)" ]; then
 		if has_ssr_enable; then
 			#	для ssr
 			ip4_add_guest_to_ssr_network &>/dev/null
@@ -504,7 +504,7 @@ ip4_firewall_rm_vpn_selected_guest_net(){
 }
 # для всех гостевых интерфейсов
 ip4_firewall_flush_vpn_guest_rules(){
-	for guest_inface in $(get_guest_inface_list)
+	for guest_inface in $(get_guest_inface_list_from_config)
 	do
 		ip4_firewall_rm_vpn_selected_guest_net "${guest_inface}" &>/dev/null
 	done
@@ -525,9 +525,12 @@ ip4_firewall_rm_ssr_selected_guest_net(){
 	iptab -D PREROUTING -t nat -p udp -i "${guest_inface}" -m set --match-set unblock dst -j REDIRECT --to-port "${ssr_port}"
 	iptab -D PREROUTING -t nat -p tcp -i "${guest_inface}" -m set --match-set unblock dst -j REDIRECT --to-port "${ssr_port}"
 }
+
+
+
 # для всех гостевых интерфейсов
 ip4_firewall_flush_ssr_guest_rules(){
-	for guest_inface in $(get_guest_inface_list)
+	for guest_inface in $(get_guest_inface_list_from_config)
 	do
 		ip4_firewall_rm_ssr_selected_guest_net "${guest_inface}" &>/dev/null
 	done
@@ -550,11 +553,16 @@ ip4_firewall_rm_selected_guest_net(){
 		ip4_firewall_nofastnet_vpn_prune &>/dev/null
 	fi
 
-	if has_ssr_enable; then
-		ip4_firewall_rm_ssr_selected_guest_net "${guest_inface}"  &>/dev/null;
-	else
-		ip4_firewall_rm_vpn_selected_guest_net "${guest_inface}"  &>/dev/null;
-	fi
+	for guest_inface in $(get_guest_inface_list_from_config)
+	do
+		if has_ssr_enable; then
+			ip4_firewall_rm_ssr_selected_guest_net "${guest_inface}"  &>/dev/null;
+		else
+			ip4_firewall_rm_vpn_selected_guest_net "${guest_inface}"  &>/dev/null;
+		fi
+	done
+
+
 }
 
 # для всех гостевых интерфейсов
@@ -567,11 +575,14 @@ ip4_firewall_flush_vpn_rules() {
 		ip4_firewall_nofastnet_vpn_prune &>/dev/null
 	fi
 
-	if has_ssr_enable; then
-		ip4_firewall_flush_ssr_guest_rules &>/dev/null;
-	else
-		ip4_firewall_flush_vpn_guest_rules &>/dev/null;
-	fi
+	for guest_inface in $(get_guest_inface_list_from_config)
+	do
+		if has_ssr_enable; then
+			ip4_firewall_flush_ssr_guest_rules &>/dev/null;
+		else
+			ip4_firewall_flush_vpn_guest_rules &>/dev/null;
+		fi
+	done
 }
 # ------------------------------------------------------------------------------------------
 #

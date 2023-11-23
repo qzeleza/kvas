@@ -14,7 +14,7 @@ ready() {
         size=$(diff_len "${1}")
         printf "%b%-${size}s%b" "${1}"
 }
-when_ok() (echo -e "${GREEN}ГОТОВО${NOCL}")
+when_good() (echo -e "${GREEN}ГОТОВО${NOCL}")
 when_err() (echo -e "${RED}ОШИБКА${NOCL}" )
 
 package_name=kvas_all.ipk
@@ -35,7 +35,7 @@ upgrade(){
   ready 'Обновляем opkg...'
   {
   	opkg update && opkg upgrade && opkg install curl iptables
-  } &>/dev/null && when_ok || when_err
+  } &>/dev/null && when_good || when_err
   
   
   ready 'Загружаем пакет...'
@@ -43,24 +43,24 @@ upgrade(){
   
   	cd /opt/packages
   	curl -sOL "${package_url}"
-  } &>/dev/null && when_ok || when_err
+  } &>/dev/null && when_good || when_err
   
   [ -f "${host_list}" ] && {
   	ready 'Сохраняем список разблокировки в архив...'
-  	mv "${host_list}" "${list_backup}" &>/dev/null && when_ok || when_err
+  	mv "${host_list}" "${list_backup}" &>/dev/null && when_good || when_err
   }
   
   ready 'Удаляем предыдущую версию пакета...'
   {
   	kvas rm yes
   
-  } &>/dev/null && when_ok || when_err
+  } &>/dev/null && when_good || when_err
   
   ready 'Устанавливаем новую версию пакета...'
   {
   	opkg install "./${package_name}"
   
-  } &>/dev/null && when_ok || when_err
+  } &>/dev/null && when_good || when_err
   
   print_line
   sleep 1
@@ -72,7 +72,7 @@ upgrade(){
   
   [ -f "${list_backup}" ] && {
   	ready 'Восстанавливаем список разблокировки из архива...'
-  	kvas import "${list_backup}" &>/dev/null && when_ok || when_err
+  	kvas import "${list_backup}" &>/dev/null && when_good || when_err
   }
   
   print_line 
