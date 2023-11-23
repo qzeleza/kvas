@@ -46,7 +46,7 @@ ip4tables() (/opt/sbin/iptables -C "$@" &>/dev/null || /opt/sbin/iptables -A "$@
 iptab() (/opt/sbin/iptables "$@")
 ip4save() (/opt/sbin/iptables-save | grep -vE '\-A _')
 get_gw4()([ "${1}" ] && ip4 addr show "${1}" | grep -Po "(?<=inet ).*(?=/)")
-has_ssr_enable() ([ ! -f "/opt/etc/ndm/netfilter.d/100-vpn-mark" ])
+
 
 #как пример гостевая сеть br3, которой необходимо обеспечить доступ к VPN
 inface_cli()(get_config_value "INFACE_CLI")

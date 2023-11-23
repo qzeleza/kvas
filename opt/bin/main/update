@@ -23,4 +23,3 @@
 
 log_warning "Запущен файл ${0}"
 cmd_kvas_init update
-iptables_reset

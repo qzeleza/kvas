@@ -292,7 +292,7 @@ adblock_dnsmasq_debug() {
 #
 # ------------------------------------------------------------------------------------------
 iptables_debug() {
-	if [ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ]; then
+	if has_ssr_enable; then
 		print_line
 		cmd_shadowsocks_iptable_reset
 		result=$(/opt/sbin/iptables-save 2>/dev/null | grep -E 'unblock|SHADOWSOCKS')
@@ -417,7 +417,7 @@ cmd_print_debug() {
 	fi
 
 	print_line
-	if [ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ]; then
+	if has_ssr_enable; then
 		shadowsocks_debug
 	else
 		vpn_debug
