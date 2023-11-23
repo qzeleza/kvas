@@ -14,11 +14,11 @@ ready() {
         size=$(diff_len "${1}")
         printf "%b%-${size}s%b" "${1}"
 }
-when_ok() (echo -e "${GREEN}ГОТОВО${NOCL}")
+when_ready() (echo -e "${GREEN}ГОТОВО${NOCL}")
 when_err() (echo -e "${RED}ОШИБКА${NOCL}" )
 
-package_name=kvas_all.ipk
-package_url=https://github.com/qzeleza/kvas/releases/latest/download/${package_name}
+package_url=$(curl -sH "Accept: application/vnd.github.v3+json" https://api.github.com/repos/qzeleza/kvas/releases/latest | sed -n 's/.*browser_download_url\": "\(.*\)\"/\1/p;'| tr -d ' ' |  sed '/^$/d')
+package_name=$(echo "${package_url}" | sed 's/.*\/\(.*ipk\)$/\1/')
 list_backup=/opt/etc/hosts.list.backup
 host_list=/opt/etc/hosts.list
 
@@ -34,32 +34,34 @@ print_line
 ready 'Обновляем opkg...'
 {
 	opkg update && opkg upgrade && opkg install curl iptables
-} &>/dev/null && when_ok || when_err
+} &>/dev/null && when_ready || when_err
 
 
 ready 'Загружаем пакет...'
 {
 
 	cd /opt/packages
+	rm -f "./${package_name}"
 	curl -sOL "${package_url}"
-} &>/dev/null && when_ok || when_err
+} &>/dev/null && when_ready || when_err
 
-[ -f "${host_list}" ] && {
+[ -f "${host_list}" ] && [ -f /opt/bin/kvas ] && {
 	ready 'Сохраняем список разблокировки в архив...'
-	mv "${host_list}" "${list_backup}" &>/dev/null && when_ok || when_err
+	kvas import "${list_backup}" &>/dev/null && when_ready || when_err
 }
 
-ready 'Удаляем предыдущую версию пакета...'
-{
-	kvas rm yes
+[ -f /opt/bin/kvas ] && {
+	ready 'Удаляем предыдущую версию пакета...'
+	rm_type="${1}"
+	kvas rm "${rm_type}" yes
 
-} &>/dev/null && when_ok || when_err
+} #&>/dev/null && when_ready || when_err
 
 ready 'Устанавливаем новую версию пакета...'
 {
 	opkg install "./${package_name}"
 
-} &>/dev/null && when_ok || when_err
+} &>/dev/null && when_ready || when_err
 
 print_line
 sleep 1
@@ -71,7 +73,7 @@ sleep 1
 
 [ -f "${list_backup}" ] && {
 	ready 'Восстанавливаем список разблокировки из архива...'
-	kvas import "${list_backup}" &>/dev/null && when_ok || when_err
+	kvas import "${list_backup}" &>/dev/null && when_ready || when_err
 }
 
 print_line
