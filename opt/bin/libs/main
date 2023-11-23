@@ -61,6 +61,9 @@ INFACE_REQUEST="${LOCALHOST_IP}:79/rci/show/interface"
 INFACE_PART_REQUEST="${LOCALHOST_IP}:79/rci/interface"
 SSR_ENTWARE_TEMPL=ezcfg
 
+
+
+
 # ------------------------------------------------------------------------------------------
 #
 #	Переподключаем основной интерфейс в случае обрыва
@@ -113,6 +116,11 @@ get_config_value() {
 
 APP_VERSION=$(get_config_value APP_VERSION)
 APP_RELEASE=$(get_config_value APP_RELEASE)
+
+version(){
+	[ -n "${APP_RELEASE}" ] && APP_RELEASE="-${APP_RELEASE}"
+	warning "Версия пакета ${APP_VERSION}${APP_RELEASE}"
+}
 
 # ------------------------------------------------------------------------------------------
 #

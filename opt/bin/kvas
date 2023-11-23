@@ -24,6 +24,7 @@
 #	Лицензия: Apache License 2.0
 # ------------------------------------------------------------------------------
 
+
 if  echo "${1}" | grep -qvEi 'uninstall|remove|rm' && [ -z "$(get_config_value "SETUP_FINISHED")" ]; then
 	print_line
 	echo "${2}" | grep -q "update" && warning "Запускаем настройку пакета" || {
@@ -133,7 +134,7 @@ case "${1}" in
 		;;
 	export)					cmd_export_hosts "${2}"
 		;;
-	del)				cmd_del_one_host "${2}"
+	del)					cmd_del_one_host "${2}"
 		;;
 	purge | clear)			cmd_clear_list "${2}"
 		;;
@@ -147,13 +148,13 @@ case "${1}" in
 		;;
 	update|reset|init)		cmd_kvas_init
 		;;
-	upgrade)			upgrade
+	upgrade)				upgrade
 		;;
-	version | ver)			warning "Версия скрипта ${APP_VERSION}-${APP_RELEASE}"
+	version | ver)			version
 		;;
 	help|-h|--h ) 			cmd_help
 		;;
-	uninstall|remove|rm ) 		cmd_uninstall  "${2}" "${3}"
+	uninstall|remove|rm ) 	cmd_uninstall  "${2}" "${3}"
 		;;
 
 	*)						cmd_show_list
