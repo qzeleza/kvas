@@ -6,15 +6,14 @@ APP_FULL_PATH="${APPS_ROOT}/${APP_NAME}"
 
 makefile="${APP_FULL_PATH}/build/Makefile"
 
-sed -i "s/\(APP_VER=\).*/\1${APP_VER_FULL_TEXT}/" "${APP_FULL_PATH}"/opt/bin/main/setup
-
 POST_INST=$(cat < "${APP_FULL_PATH}"/build/postinst)
 POST_TERM=$(cat < "${APP_FULL_PATH}"/build/postrm \
 			| sed 's/\$/\$\$/g' \
 			| sed "s/@app_ver/${APP_VER_FULL_TEXT}/g" \
 			)
 
-if [ -n "${RELEASE}" ] ; then _release="${stage}_${RELEASE}"; else _release="${stage}"; fi
+if [ -n "${RELEASE}" ] ; then _release="${STAGE}_${RELEASE}"; else _release="${STAGE}"; fi
+FULL_PACKAGE_NAME=$(get_full_package_version)
 
 cat <<EOF > "${makefile}"
 include \$(TOPDIR)/rules.mk
@@ -22,7 +21,7 @@ include \$(TOPDIR)/rules.mk
 PKG_NAME:=${APP_NAME}
 PKG_VERSION:=${VERSION}
 PKG_RELEASE:=${_release}
-PKG_BUILD_DIR:=\$(BUILD_DIR)/\$(PKG_NAME)
+PKG_BUILD_DIR:=\$(BUILD_DIR)/\${FULL_PACKAGE_NAME}_
 
 include \$(INCLUDE_DIR)/package.mk
 

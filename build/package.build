@@ -59,10 +59,11 @@ show_line
 
 echo "Сборка запущена: $(zdump EST-3)"; show_line
 
-APP_PKG_FILE="/apps/entware/bin/targets/mipsel-3.4/generic-glibc/packages/$(get_package_name)"
+PACKAGE_NAME=$(get_package_name)
+APP_PKG_FILE="/apps/entware/bin/targets/mipsel-3.4/generic-glibc/packages/${PACKAGE_NAME}"
 rm -f "${APP_PKG_FILE}"
 
-change_version_in_package
+#change_version_in_package
 /apps/"${APP_NAME}"/build/Makefile.build
 
 #    make menuconfig
@@ -83,11 +84,12 @@ make package/"${APP_NAME}"/compile "${deb}"
 change_version_in_package
 
 # копируем собранный пакет в папку где хранятся все сборки
-cp "${APP_PKG_FILE}" "/apps/${APP_NAME}/ipk/${APP_NAME}_all.ipk"
+#cp "${APP_PKG_FILE}" "/apps/${APP_NAME}/ipk/${APP_NAME}_all.ipk"
+cp "${APP_PKG_FILE}" "/apps/${APP_NAME}/ipk/${PACKAGE_NAME}"
 
 show_line
 # копируем собранный пакет на роутер
 #copy_app_to_router
 #run_reinstalation_on_router
 #run_tests
-echo "Сборка завершена: $(zdump EST-3)";
+echo "Сборка УСПЕШНО завершена: $(zdump EST-3)";
