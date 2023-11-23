@@ -955,7 +955,7 @@ cmd_vpn_iptable_reset() {
 		ready "Переустановка iptables для vpn завершена"
 		cmd_vpn_iptable_flush  &> /dev/null
 		/opt/etc/ndm/fs.d/100-vpn start &> /dev/null
-		[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
+		[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "C ОШИБКАМИ"
 	else
 		warning "VPN соединение не активно!"
 	fi
@@ -1457,7 +1457,7 @@ show_vpn_list() {
 		connected=$(is_vpn_interface_connected "${cli_inface}")
 
 		if [ -n "${is_current_vpn}" ]; then
-			mess="${BLUE}${mess} [текущий]${NOCL}"
+			mess="${BLUE}${mess} текущий${NOCL}"
 		fi
 
 		ready "${mess}"
@@ -1872,11 +1872,16 @@ test_host() {
 # ------------------------------------------------------------------------------------------
 
 host_add() {
-	_host="${1}"
 	reset="${2}"
-	clear_host=$(echo "${host}" | sed 's/\*//')
+	clear_host=$(echo "${1}" | sed 's/\*//')
+	_host="${clear_host}"
 
+	answer=''; read_ynq "Добавить хост с поддоменами wildcard [Y] или нет [N]?" answer
 
+	if [ "${answer}" = y ]; then
+		_host="*${clear_host}"
+	fi
+	print_line
 	ready "Добавляем ${YELLOW}${_host}${NOCL} в список разблокировки..."
 	echo "${_host}" >> "${UNBLOCK_LIST_FILE}"
 #	если включен блокировщик рекламы
@@ -1886,6 +1891,9 @@ host_add() {
 	[ "${reset}" = 'yes' ] && iptables_reset &> /dev/null
 
 	[ $? = 0 ] && when_ok "ДОБАВЛЕН" || when_bad "НЕ ДОБАВЛЕН"
+
+
+
 }
 # ------------------------------------------------------------------------------------------
 #
