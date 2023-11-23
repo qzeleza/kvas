@@ -245,7 +245,7 @@ iptable_check() {
 		when_ok "ЕСТЬ"
 	else
 		when_bad "ПРАВИЛ НЕТ"
-		if [ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ]; then
+		if has_ssr_enable; then
 			export type=iptables; export table=mangle && /opt/etc/ndm/netfilter.d/100-proxy-redirect &> /dev/null
 		else
 			cmd_vpn_iptable_flush
@@ -257,7 +257,7 @@ iptable_check() {
 			when_ok "ПРОЙДЕНА"
 		else
 			when_bad "ОШИБКА"
-			if [ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ]; then
+			if has_ssr_enable; then
 				script=/opt/etc/ndm/netfilter.d/100-proxy-redirect
 			else
 				script=/opt/etc/ndm/netfilter.d/100-vpn-mark
@@ -494,7 +494,7 @@ cmd_state_checker() {
 	fi
 	print_line
 #	По наличию файла ниже определяем наличие использования shadowsocks
-	if [ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ]; then
+	if has_ssr_enable; then
 #		Проверяем работу shadowsocks
 		shadowsocks_check
 		export type=iptables; export table=mangle && /opt/etc/ndm/netfilter.d/100-proxy-redirect
@@ -515,7 +515,6 @@ cmd_state_checker() {
 	if [ "${NOT_IN_TABLE}" = true ]; then
 #		если хотя бы один из адресов не находится в таблице, то делаем проверку повторно
 		cmd_kvas_init
-		iptables_reset
 		print_line
 		warning "Пробуем запустить повторно."
 		print_line

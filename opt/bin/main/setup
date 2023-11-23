@@ -178,8 +178,16 @@ rm_package_files(){
 	fi
 
 	[ -f /opt/etc/ndm/fs.d/100-vpn ] && rm -f /opt/etc/ndm/fs.d/100-vpn
-	[ -f /opt/etc/ndm/netfilter.d/100-vpn-mark ] && rm -f /opt/etc/ndm/netfilter.d/100-vpn-mark
+	[ -f /opt/etc/ndm/fs.d/100-ipset ] && rm -f /opt/etc/ndm/fs.d/100-ipset
+
 	[ -f /opt/etc/ndm/ifstatechanged.d/100-unblock-vpn ] && rm -f /opt/etc/ndm/ifstatechanged.d/100-unblock-vpn
+
+	[ -f /opt/etc/ndm/netfilter.d/100-vpn-mark ] && rm -f /opt/etc/ndm/netfilter.d/100-vpn-mark
+	[ -f /opt/etc/ndm/netfilter.d/100-proxy-redirect ] && rm -f /opt/etc/ndm/netfilter.d/100-proxy-redirect
+	[ -f /opt/etc/ndm/netfilter.d/100-dns-local ] && rm -f /opt/etc/ndm/netfilter.d/100-dns-local
+
+	[ -f /opt/etc/ndm/wan.d/internet-up ] && rm -f /opt/etc/ndm/wan.d/internet-up
+
 	rm -rf /opt/bin/kvas
 	rm -fr /opt/tmp/*kvas*
 	rm -fr /opt/tmp/host*
@@ -338,13 +346,11 @@ cmd_install(){
 	#------------------------------------------------------
 	ready "Запускаем КВАС в работу"
 	if cmd_kvas_init &> /dev/null ; then
-		iptables_reset &> /dev/null
 		when_ok "УСПЕШНО"
 	else
 		when_bad "ОШИБКА"
 		ready "Пробуем перезапустить КВАС снова"
 		if cmd_kvas_init &> /dev/null ; then
-			iptables_reset &> /dev/null
 			when_ok "УСПЕШНО"
 		else
 			when_bad "ОШИБКА"

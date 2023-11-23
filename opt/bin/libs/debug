@@ -292,7 +292,7 @@ adblock_dnsmasq_debug() {
 #
 # ------------------------------------------------------------------------------------------
 iptables_debug() {
-	if [ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ]; then
+	if has_ssr_enable; then
 		print_line
 		cmd_shadowsocks_iptable_reset
 		result=$(/opt/sbin/iptables-save 2>/dev/null | grep -E 'unblock|SHADOWSOCKS')
@@ -345,8 +345,7 @@ router_info() {
 			| tr -d ' ",' \
 			| sed 's/:/: /; s/country/Страна/; s/ndmhwid/Модель/; s/product/Продукт/' \
 			)
-	arch=$(grep "arch" /opt/etc/entware_release | sed 's/arch=/Тип архитектуры: /'
-)
+	arch=$(grep "arch" /opt/etc/entware_release | sed 's/arch=/Тип архитектуры: /')
 	result="${result}\n${arch}"
 	echo_debug "Информация о роутере" "${result}"
 
@@ -417,7 +416,7 @@ cmd_print_debug() {
 	fi
 
 	print_line
-	if [ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ]; then
+	if has_ssr_enable; then
 		shadowsocks_debug
 	else
 		vpn_debug
@@ -426,7 +425,5 @@ cmd_print_debug() {
 	iptables_debug
 	kvas_list_debug
 	unblock_ipset_debug
-
-}
 
 }

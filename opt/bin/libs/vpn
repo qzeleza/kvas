@@ -74,6 +74,8 @@ cmd_kvas_init(){
 		reset_ISP_connection && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 	}
 
+	iptables_reset
+
 	log_alert "${prefix}Сброс пакета КВАС в исходное состояние ЗАВЕРШЕН!"
 
 }
@@ -798,7 +800,7 @@ dnsmasq_install(){
 	sed -i "s/@LOCAL_IP/${local_ip}/g; s/@INFACE/${inface}/g; s/@UPLEVEL_DNS/${uplevel_dns}/g;" /opt/etc/dnsmasq.conf 1> /dev/null 2> "${ERROR_LOG_FILE}"
 	ready_status "${?}" "Проблема при настройке файлов конфигурации dnsmasq"
 	# Если запуск функции был не при установке пакета Квас
-	[ -z "${is_install_stage}" ] && cmd_kvas_init "no" && iptables_reset
+	[ -z "${is_install_stage}" ] && cmd_kvas_init "no"
 
 }
 
@@ -878,7 +880,7 @@ cmd_dnsmasq_port_change() {
 			ready "Замена порта на ${port} в dnsmasq завершена"
 			sed -i "s/\(port=\).*/\1${port}/"  "${DNSMASQ_CONFIG}"
 			set_config_value DNSMASQ_PORT "${port}"
-			[ "${cmd}" = restart ] && cmd_kvas_init "no" &> /dev/null && iptables_reset &> /dev/null
+			[ "${cmd}" = restart ] && cmd_kvas_init "no" &> /dev/null
 			[ $? = 0 ] && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 		fi
 	}
@@ -1395,7 +1397,7 @@ get_vpn_interface_by_num() {
 # ------------------------------------------------------------------------------------------
 get_current_vpn_interface() {
 	type="${1}"
-	if [ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ]; then
+	if has_ssr_enable; then
 		inface='shadowsocks'
 	else
 		case "${type}" in
@@ -1418,7 +1420,8 @@ get_current_vpn_interface() {
 # ------------------------------------------------------------------------------------------
 is_vpn_interface_connected() {
 	cli_inface="${1}"
-	if [ "${cli_inface}" = shadowsocks ]; then
+	has_ssr_enable
+	if has_ssr_enable; then
 		/opt/etc/init.d/S22shadowsocks status | grep -q 'alive' &> /dev/null
 		if [ $? = 0 ]; then connected="on"; else connected="off"; fi
 	else
@@ -1445,7 +1448,8 @@ show_vpn_list() {
 		cli_inface=$(echo "${line}" | cut -d"|" -f1)
 		ent_inface=$(echo "${line}" | cut -d"|" -f2)
 		net_ip=$(get_ip_by_inface "${ent_inface}")
-		mess="${num}. Интерфейс ${cli_inface_desc} [${net_ip}]"
+		[ -n "${net_ip}" ] && net_ip=" [${net_ip}]"
+		mess="${num}. Интерфейс ${cli_inface_desc}${net_ip}"
 		sleep 1
 		connected=$(is_vpn_interface_connected "${cli_inface}")
 
@@ -1456,6 +1460,31 @@ show_vpn_list() {
 		ready "${mess}"
 		if [ "${connected}" = "on" ]; then when_ok "В СЕТИ"; else when_bad "ОТКЛЮЧЕН"; fi
 	done <${INFACE_NAMES_FILE}
+}
+
+# ------------------------------------------------------------------------------------------
+#
+#	Отображаем диалог обновления списка интерфейсов с запросом
+#   $1  - ask - делаем запросы на ввод данные ,
+#
+# ------------------------------------------------------------------------------------------
+show_interface_name_list_process(){
+
+	answer="${1}"
+
+	if [ -f "${INFACE_NAMES_FILE}" ]; then
+		if [ "${answer}" = ask ] ; then
+			read_ynq "Обновить список интерфейсов" answer
+			print_line
+			if [ "${answer}" = y ]; then
+				update_interface_name_list
+			fi
+		elif [ "${answer}" = no ] ; then
+			update_interface_name_list
+		fi
+	else
+		update_interface_name_list
+	fi
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -1469,17 +1498,24 @@ cmd_interface_change() {
 	answer="${1}"
 	is_install_stage="${2:-no}"
 
-	if [ -f "${INFACE_NAMES_FILE}" ]; then
-		if [ "${answer}" = ask ] ; then
-			read_ynq "Обновить список интерфейсов" answer
-			print_line
-			if [ "${answer}" = y ]; then
-				update_interface_name_list
-			fi
-		fi
-	else
-		update_interface_name_list
-	fi
+	show_interface_name_list_process "${answer}"
+
+
+#	Отображаем список текущих интерфейсов с номерами по порядку и данными об их доступности
+	select_vpn_interface "${is_install_stage}"
+
+}
+
+# ------------------------------------------------------------------------------------------
+#
+#	Переключаем интерфейс клиента
+#   $1  - ask - делаем запросы на ввод данные ,
+#   	  no - список интерфейсов не обновляем
+#
+# ------------------------------------------------------------------------------------------
+select_vpn_interface() {
+
+	is_install_stage="${1:-no}"
 
 	warning "Выберите VPN интерфейс для работы пакета"
 	print_line
@@ -1489,32 +1525,52 @@ cmd_interface_change() {
 	total=$(cat < "${INFACE_NAMES_FILE}" | wc -l)
 	while true; do
 		print_line
-		ready "${BLUE}Выберите номер варианта VPN соединения [1-${total}]:${NOCL}"
+		ready "${BLUE}Выберите номер варианта VPN соединения от 1 до ${total}|S-скан.|Q-выход:${NOCL}"
 		read -r num_vpn_inface
-		if ! echo "${num_vpn_inface}" | grep -qE "[1-${total}]"; then
-			error "Введите цифру от 1 до ${total}."
+		if ! echo "${num_vpn_inface}" | grep -qiE "[1-${total}qs]"; then
+			error "Введите цифру от 1 до ${total} или S - сканирование, Q - выход."
 		else
-#			Меняем интерфейс в файле ndm
-			inface_entware=$(get_vpn_interface_by_num "${num_vpn_inface}")
-			cli_inface=$(echo "${INFACE_NAMES_FILE}" | grep "${inface_entware}" | cut -d"|" -f1)
-			ndm_interface_change "${inface_entware}" "${cli_inface}"
+			if echo "${num_vpn_inface}" | grep -qiE "[1-${total}]"; then
+				print_line
+	#			Меняем интерфейс в файле ndm
+				inface_entware=$(get_vpn_interface_by_num "${num_vpn_inface}")
+				cli_inface=$(echo "${INFACE_NAMES_FILE}" | grep "${inface_entware}" | cut -d"|" -f1)
+				ndm_interface_change "${inface_entware}" "${cli_inface}"
 
-			if [[ "${inface_entware}" =~ ${SSR_ENTWARE_TEMPL} ]]; then
-				vpn_off &> /dev/null
-				shadowsocks_backup
-				shadowsocks_on
+				if [[ "${inface_entware}" =~ ${SSR_ENTWARE_TEMPL} ]]; then
+					vpn_off &> /dev/null
+					shadowsocks_backup
+					shadowsocks_on
+				else
+					shadowsocks_off &> /dev/null
+					vpn_on "${inface_entware}"
+				fi
+				[ "${is_install_stage}" = no ] && cmd_kvas_init "no" &> /dev/null
+
+			elif echo "${num_vpn_inface}" | grep -qi "q"; then
+				cli="$(get_router_host)/a"
+				print_line
+				echo -e "${RED}Процедура настройки прервана пользователем!${NOCL}"
+				/opt/etc/init.d/S56dnsmasq stop  &> /dev/null
+				echo "В случае, если сейчас у Вас пропал интернет, то для восстановления подключения"
+				echo -e "необходимо зайти в админ панель роутера по адресу: ${GREEN}${cli}${NOCL}"
+				echo "и выполнить последовательно три следующих команды: "
+				print_line
+				echo -e "1. ${GREEN}no opkg dns-override ${NOCL} - вновь подключаем DNS провайдера,"
+				echo -e "2. ${GREEN}system configuration save ${NOCL}  - сохраняем изменения,"
+				echo -e "3. ${GREEN}system reboot ${NOCL} - перегружаем роутер."
+				print_line
+				exit 1
 			else
-				shadowsocks_off &> /dev/null
-				vpn_on "${inface_entware}"
+				print_line
+				cmd_interface_change "no" "${is_install_stage}"
 			fi
-			[ "${is_install_stage}" = no ] && cmd_kvas_init "no" &> /dev/null
+
 			break
 		fi
 	done
 
 }
-
-
 
 # ------------------------------------------------------------------------------------------
 #
@@ -1732,7 +1788,6 @@ cmd_dns_crypt_off() {
 
 			/opt/etc/init.d/S09dnscrypt-proxy2 stop
 			cmd_kvas_init "no"
-			iptables_reset
 
 		} 1> /dev/null 2> "${ERROR_LOG_FILE}"
 		ready_status "${?}" "Произошла непредвиденная ошибка." "ОТКЛЮЧЕНО"
@@ -1823,7 +1878,7 @@ host_add() {
 	if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
 		ads_del_white_list_hosts &> /dev/null
 	fi
-	[ "${reset}" = 'yes' ] && iptables_reset
+	[ "${reset}" = 'yes' ] && iptables_reset &> /dev/null
 
 	[ $? = 0 ] && when_ok "ДОБАВЛЕН" || when_bad "НЕ ДОБАВЛЕН"
 }
@@ -1892,7 +1947,7 @@ cmd_del_one_host() {
 		sed -i "/${host_////\\/}/d" "${UNBLOCK_LIST_FILE}"
 		[ -f /opt/bin/AdGuardHome ] && sed -i "/${host_////\\/}/d" "${ADGUARD_IPSET_FILE}"
 #		cmd_kvas_init  "no"  &> /dev/null
-		iptables_reset
+		iptables_reset &> /dev/null
 		[ $? = 0 ] && when_ok "УДАЛЕН" || when_bad "НЕ УДАЛЕН"
 	else
 		error "Такая запись отсутствует в списке разблокировки!"
@@ -1919,7 +1974,7 @@ cmd_clear_list() {
 					rm -f "${ADGUARD_IPSET_FILE}"
 					touch "${UNBLOCK_LIST_FILE}"
 #					cmd_kvas_init  "no" &> /dev/null
-					iptables_reset
+					iptables_reset &> /dev/null
 					[ $? = 0 ] && when_ok "ОЧИЩЕН" || when_bad "ОШИБКА"
 					print_line
 					warning "Предыдущий список разблокировки был сохранен в файл ${KVAS_BACKUP_LIST_FILE}"
@@ -2004,7 +2059,7 @@ cmd_import_hosts() {
 
 #			cmd_kvas_init  "no" &> /dev/null
 #			сброс всех правил
-			iptables_reset
+			iptables_reset &> /dev/null
 
 			[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 
