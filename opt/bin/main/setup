@@ -166,7 +166,6 @@ rm_package_files(){
 
 	if [ "${full}" = full ] ; then
 		[ -f /opt/etc/hosts.list ] && mv -f /opt/etc/hosts.list /opt/etc/hosts.list.kvas
-		[ -f /opt/etc/adblock.sources ] && mv -f /opt/etc/adblock.sources /opt/etc/adblock.sources.kvas
 		[ -d /opt/tmp/adblock ] && rm -rf /opt/tmp/adblock
 		rm -fr /opt/etc/kvas*
 		rm -fr /opt/etc/hosts.list

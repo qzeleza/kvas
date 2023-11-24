@@ -29,8 +29,10 @@ DNSMASQ_DEMON=/opt/etc/init.d/S56dnsmasq
 HOME_PATH=/opt/apps/kvas
 KVAS_BACKUP_PATH=/opt/etc/.kvas/backup
 
+ADS_MAIN_SCRIPT=/opt/apps/kvas/bin/main/adblock
 ADBLOCK_LIST_EXCEPTION=/opt/etc/adblock/exception.list
-ADS_HOSTS_FILE=/opt/etc/adblock/adshosts.list
+ADS_HOSTS_FILE=/opt/etc/adblock/ads.hosts.list
+ADS_SOURCES_LIST=/opt/etc/adblock/sources.list
 
 APP_NAME=kvas
 INSTALL_LOG=/opt/tmp/kvas.install.log

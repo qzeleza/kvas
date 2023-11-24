@@ -551,10 +551,9 @@ bridge_vpn_access_del() {
 # ------------------------------------------------------------------------------------------
 #
 #       Функция выводит список гостевых сетей в наличии
-#       action = add|del|all
 # ------------------------------------------------------------------------------------------
 cmd_bridge_vpn_access_list() {
-		action=${1}
+
         selected_vpn=$(get_config_value INFACE_CLI)
 #       Список интерфейсов которые доступны в формате "<Description> [XX.XX.XX.XX]"
         interfaces_json=$(curl -s "${INFACE_REQUEST}" )
@@ -576,34 +575,16 @@ cmd_bridge_vpn_access_list() {
 #
 #       Функция удаляет гостевую сеть из активного vpn
 #
-#       $1 - команда для удаления всех гостевых сетей к активному vpn
-#       $2 - команда для обновления внесенных изменений
-#       внесена для того, чтобы предотвратить обновления
-#       при использовании в функции cmd_bridge_vpn_access_add
-#
 # ------------------------------------------------------------------------------------------
 cmd_bridge_vpn_access_del() {
 
-        option=${1}; cmd="${2:-update}"; guest_bridge_id=''
-#        guest_bridge_list_id=$(get_guest_inface_list)
+        guest_bridge_id=''; bridge_inface_select guest_bridge_id del
 
-#        if [ "${option}" = all ]; then
-#                for bridge_id in ${guest_bridge_list_id}; do
-#                        bridge_vpn_access_del "${bridge_id}"
-#                done
-#                sed -i 's/\(INFACE_GUEST_ENT=\).*/\1/' "/opt/etc/kvas.conf"
-        if [ -n "${option}" ] && echo "${option}"; then
-                bridge_vpn_access_del "${option}"
-                sed -i '/INFACE_GUEST_ENT=/,/^$/ s/'"${option}"'[,]\{0,1\}//' "/opt/etc/kvas.conf"
+		if [ -n "${guest_bridge_id}" ]; then
+				bridge_vpn_access_del "${guest_bridge_id}"
+				sed -i '/INFACE_GUEST_ENT=/,/^$/ s/'"${guest_bridge_id}"'[,]\{0,1\}//' "/opt/etc/kvas.conf"
+		fi
 
-        else
-                bridge_inface_select guest_bridge_id del
-
-                if [ -n "${guest_bridge_id}" ]; then
-                        bridge_vpn_access_del "${guest_bridge_id}"
-                        sed -i '/INFACE_GUEST_ENT=/,/^$/ s/'"${guest_bridge_id}"'[,]\{0,1\}//' "/opt/etc/kvas.conf"
-                fi
-        fi
         #       перезапускаем DNS сервер новыми IP для прослушки на 53 порту
         if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
                 /opt/etc/init.d/S99adguardhome restart &> /dev/null
@@ -631,7 +612,6 @@ bridge_access_add() {
         [ -n "${has_guest_nets}" ] && point=',' || point=''
         sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}${guest_bridge_id}/g" "${KVAS_CONF_FILE}"
 
-        #set_selected_guest_nets_rules "${guest_bridge_id}"
 #       Слушаем 53 порт гостевого интерфейса
         guest_net_ip=$(ip a | grep global | grep -E ' '"${guest_bridge_id}" | sed 's/inet \(.*\)\/.*/\1/' | tr -d ' ')
         if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
@@ -647,30 +627,16 @@ bridge_access_add() {
 # ------------------------------------------------------------------------------------------
 #
 #       Обертка вокруг функции добавления гостевых сетей к активному vpn
-#       $1 - команда для добавления всех гостевых сетей к активному vpn
 #
 # ------------------------------------------------------------------------------------------
 cmd_bridge_vpn_access_add() {
 
-        option=${1};
-
         ip=$(get_router_ip)
-#        crypt_port=$(get_config_value DNS_CRYPT_PORT)
-
-#        if [ -n "${option}" ] && [ "${option}" = all ]; then
-##               Если добавляем все интерфейсы обозначенные в списке гостевых сетей
-#                cmd_bridge_vpn_access_del 'all' 'not_update' &> /dev/null
-#                entware_bridge_list=$(get_guest_inface_list)
-#                for bridge_id in ${entware_bridge_list}; do
-#                        bridge_access_add "${bridge_id}" "${ip}"
-#                done
-#        else
-#               Если добавляем конкретный интерфейс
+#       Если добавляем конкретный интерфейс
 		guest_bridge_id=''; bridge_inface_select guest_bridge_id add
 		if [ -n "${guest_bridge_id}" ]; then
 				bridge_access_add "${guest_bridge_id}" "${ip}"
 		fi
-#        fi
 #       перезапускаем DNS сервер новыми IP для прослушки на 53 порту
         if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
                 /opt/etc/init.d/S99adguardhome restart &> /dev/null
@@ -1430,7 +1396,6 @@ get_current_vpn_interface() {
 # ------------------------------------------------------------------------------------------
 is_vpn_interface_connected() {
 	cli_inface="${1}"
-	has_ssr_enable
 	if has_ssr_enable; then
 		/opt/etc/init.d/S22shadowsocks status | grep -q 'alive' &> /dev/null
 		if [ $? = 0 ]; then connected="on"; else connected="off"; fi
@@ -1535,10 +1500,10 @@ select_vpn_interface() {
 	total=$(cat < "${INFACE_NAMES_FILE}" | wc -l)
 	while true; do
 		print_line
-		ready "${BLUE}Выберите номер варианта VPN соединения 1-${total} | S-скан. | Q-выход:${NOCL}"
+		ready "${BLUE}Выберите номер варианта VPN соединения 1/${total} | S-скан. | Q-выход:${NOCL}"
 		read -r num_vpn_inface
 		if ! echo "${num_vpn_inface}" | grep -qiE "[1-${total}qs]"; then
-			error "Введите цифру от 1 до ${total} или S - сканирование, Q - выход."
+			error "Введите цифру 1/${total} или S - сканирование, Q - выход."
 		else
 			if echo "${num_vpn_inface}" | grep -qiE "[1-${total}]"; then
 	#			Меняем интерфейс в файле ndm

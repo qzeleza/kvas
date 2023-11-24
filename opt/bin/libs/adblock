@@ -12,7 +12,7 @@
 # ------------------------------------------------------------------------------------------
 
 . /opt/apps/kvas/bin/libs/main
-
+FLASHED_HOST_FILE=$(echo "${ADS_HOSTS_FILE}" | sed 's/\//\\\//g')
 # ------------------------------------------------------------------------------------------
 #
 #	 Редактируем файл источников блокировки рекламы и нежелательных сайтов
@@ -20,7 +20,7 @@
 # ------------------------------------------------------------------------------------------
 cmd_ads_edit() {
 	exit_when_adguard_on status; [ "${status}" = 0 ] && {
-		nano '/opt/etc/adblock.sources' &&
+		nano "${ADS_SOURCES_LIST}" &&
 			{
 				cmd_ads_protect_on ask
 			}
@@ -34,13 +34,13 @@ cmd_ads_edit() {
 # ------------------------------------------------------------------------------------------
 cmd_ads_protect_off() {
 	exit_when_adguard_on status; [ "${status}" = 0 ] && {
-		if ! [ -f '/opt/apps/kvas/bin/main/adblock' ]; then
-			cp -f '/opt/apps/kvas/bin/main/adblock' '/opt/apps/kvas/bin/main/adblock'
-			chmod +x '/opt/apps/kvas/bin/main/adblock'
-		fi
+#		if ! [ -f "${ADS_MAIN_SCRIPT}" ]; then
+#			cp -f '/opt/apps/kvas/bin/main/adblock' '/opt/apps/kvas/bin/main/adblock'
+#			chmod +x '/opt/apps/kvas/bin/main/adblock'
+#		fi
 		ready "Блокировка рекламы"
-		sed -i 's/\(^ADS_BLOCKER_ON=.*\)/\10/' '/opt/apps/kvas/bin/main/update'
-		sed -i '/addn-hosts=\/opt\/tmp\/adblock/d' '/opt/etc/dnsmasq.conf'
+
+		sed -i '/addn-hosts='"${FLASHED_HOST_FILE}"'/d' "${DNSMASQ_CONFIG}"
 		OFF="ПОДКЛЮЧЕНА.\nПроизошла не предвиденная ошибка."
 		[ $? = 0 ] && when_ok "ОТКЛЮЧЕНА" || when_bad "${OFF}"
 		ready "Перезапуск службы dnsmasq"
@@ -57,18 +57,18 @@ cmd_ads_protect_off() {
 cmd_ads_protect_on() {
 	exit_when_adguard_on status; [ "${status}" = 0 ] && {
 		perform_to_aks="${1}"
-		if ! [ -f '/opt/apps/kvas/bin/main/adblock' ]; then
-			cp -f '/opt/apps/kvas/bin/main/adblock' '/opt/apps/kvas/bin/main/adblock'
-			chmod +x '/opt/apps/kvas/bin/main/adblock'
-		fi
+#		if ! [ -f '/opt/apps/kvas/bin/main/adblock' ]; then
+#			cp -f '/opt/apps/kvas/bin/main/adblock' '/opt/apps/kvas/bin/main/adblock'
+#			chmod +x '/opt/apps/kvas/bin/main/adblock'
+#		fi
 
 		if cat < '/opt/etc/dnsmasq.conf' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep -q "${ADS_HOSTS_FILE}" ; then
 			ready "Блокировка рекламы уже "
 			when_ok "ВКЛЮЧЕНА"
 		else
 			ready "Блокировка рекламы"
-			sed -i '/addn-hosts=\/opt\/tmp\/adblock/d' '/opt/etc/dnsmasq.conf'
-			sed -i 's/\(^ADS_BLOCKER_ON=.*\)/\11/' '/opt/apps/kvas/bin/main/update'
+			sed -i '/addn-hosts='"${FLASHED_HOST_FILE}"'/d' "${DNSMASQ_CONFIG}"
+#			sed -i 's/\(^ADS_BLOCKER_ON=.*\)/\11/' '/opt/apps/kvas/bin/main/update'
 			echo "addn-hosts=${ADS_HOSTS_FILE}" >> '/opt/etc/dnsmasq.conf'
 			OFF="ОТКЛЮЧЕНА.\nПроизошла непредвиденная ошибка."
 			[ $? = 0 ] && when_ok "ВКЛЮЧЕНА" || when_bad "${OFF}"
@@ -86,10 +86,10 @@ cmd_ads_protect_on() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_ads_status() {
-	if [ -f '/opt/apps/kvas/bin/main/adblock' ]; then
+	if [ -f "${ADS_MAIN_SCRIPT}" ]; then
 		ready "Блокировка рекламы "
 		if [ -f '/opt/etc/init.d/S56dnsmasq' ]; then
-			cat < '/opt/etc/dnsmasq.conf' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep -q "/opt/tmp/adblock/hosts" &> /dev/null
+			cat < '/opt/etc/dnsmasq.conf' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep -q "${ADS_HOSTS_FILE}" &> /dev/null
 			[ $? = 0 ] && when_ok "ВКЛЮЧЕНА" || when_bad "ОТКЛЮЧЕНА"
 		else
 			when_bad "ОТКЛЮЧЕНА"
@@ -111,17 +111,26 @@ ads_request_to_upload() {
 
 	answer="${1}"
 	sources_name_file=adblock.sources
-	if [ -f "/opt/etc/${sources_name_file}.kvas" ]; then
-		warning "Обнаружен архивный файл с источниками обновления рекламы."
-		[ "${answer}" = ask ] && read_ynq "Восстановить данный файл" answer
-		if [ "${answer}" = y ]; then
-			ready "Восстановление архива с источниками рекламы завершено"
-			mv -f "/opt/etc/${sources_name_file}.kvas" "/opt/etc/${sources_name_file}"
-			[ $? = 0 ] && when_ok "УДАЧНО" || when_bad "С ОШИБКОЙ"
+	if [ -f "${ADS_SOURCES_LIST}" ]; then
+		ready "Загрузка источников рекламы по умолчанию"
+		cp -f "/opt/apps/kvas/etc/conf/${sources_name_file}" "${ADS_SOURCES_LIST}"
+		[ $? = 0 ] && when_ok "УДАЧНО" || when_bad "С ОШИБКОЙ"
+	else
+		if [ -f "${ADS_SOURCES_LIST}.kvas" ]; then
+			warning "Обнаружен архивный файл с источниками обновления рекламы."
+			[ "${answer}" = ask ] && read_ynq "Восстановить данный файл" answer
+			if [ "${answer}" = y ]; then
+				ready "Восстановление архива с источниками рекламы завершено"
+				mv -f "${ADS_SOURCES_LIST}.kvas" "${ADS_SOURCES_LIST}"
+				[ $? = 0 ] && when_ok "УДАЧНО" || when_bad "С ОШИБКОЙ"
+			else
+				ready "Загрузка источников рекламы по умолчанию"
+				cp -f "/opt/apps/kvas/etc/conf/${sources_name_file}" "${ADS_SOURCES_LIST}"
+				[ $? = 0 ] && when_ok "УДАЧНО" || when_bad "С ОШИБКОЙ"
+			fi
 		else
-			ready "Загрузка источников рекламы по умолчанию"
-			cp -f "/opt/apps/kvas/etc/conf/${sources_name_file}" "/opt/etc/${sources_name_file}"
-			[ $? = 0 ] && when_ok "УДАЧНО" || when_bad "С ОШИБКОЙ"
+			mkdir -p "$(echo "${ADS_SOURCES_LIST}" | sed 's/^\(.*\)\/.*.list/\1/')"
+			cp -f /opt/apps/kvas/etc/conf/adblock.sources "${ADS_SOURCES_LIST}"
 		fi
 	fi
 	if [ -f "${ADS_HOSTS_FILE}" ]; then
