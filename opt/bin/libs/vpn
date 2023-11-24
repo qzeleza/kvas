@@ -605,7 +605,7 @@ bridge_access_add() {
 
         guest_bridge_id=${1}; ip=${2};
 
-        has_ssr_enable && vpn_type='shadowsocks' || vpn_type='vpn'
+#        has_ssr_enable && vpn_type='shadowsocks' || vpn_type='vpn'
         ready "Добавление гостевого интерфейса ${guest_bridge_id} завершено"
 
         has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p')
@@ -996,9 +996,11 @@ vpn_on() {
 			curl -s -d '{"up":"true"}' "${INFACE_PART_REQUEST}/${inface_cli}" &> /dev/null
 		fi
 		sleep 2
-		connected=$(get_value_interface_field "${inface_cli}" connected)
+#		connected=$(get_value_interface_field "${inface_cli}" connected)
+		connected=$(get_value_interface_field "${inface_cli}" state)
 
-		if [ "${connected}" = 'no' ]; then
+#		if [ "${connected}" = 'no' ]; then
+		if [ "${connected}" = 'down' ]; then
 
 			when_bad "С ОШИБКАМИ"
 			error "Возникла ошибка при подключении интерфейса ${inface_entware}!"
@@ -1198,7 +1200,7 @@ shadowsocks_off() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_shadowsocks_local_port_change() {
-	if cmd_vpn_status | grep -iq 'shadowsocks' ; then
+	if has_ssr_enable ; then
 
 		port_new=${1}; cmd=${2:-restart}
 		if [ -n "${port_new}" ]	; then
@@ -1396,12 +1398,13 @@ get_current_vpn_interface() {
 # ------------------------------------------------------------------------------------------
 is_vpn_interface_connected() {
 	cli_inface="${1}"
-	if has_ssr_enable; then
+	if [ "${cli_inface}" = shadowsocks ] ; then
 		/opt/etc/init.d/S22shadowsocks status | grep -q 'alive' &> /dev/null
 		if [ $? = 0 ]; then connected="on"; else connected="off"; fi
 	else
-		status=$(get_value_interface_field "${cli_inface}" connected)
-		if [ "${status}" = 'yes' ]; then connected="on"; else connected="off"; fi
+#		status=$(get_value_interface_field "${cli_inface}" connected)
+		status=$(get_value_interface_field "${cli_inface}" state)
+		if [ "${status}" = 'up' ]; then connected="on"; else connected="off"; fi
 	fi
 	echo "${connected}"
 }
@@ -1534,6 +1537,7 @@ select_vpn_interface() {
 				echo -e "1. ${GREEN}no opkg dns-override ${NOCL}       - вновь подключаем DNS провайдера,"
 				echo -e "2. ${GREEN}system configuration save ${NOCL}  - сохраняем изменения,"
 				echo -e "3. ${GREEN}system reboot ${NOCL}              - перегружаем роутер."
+				print_line
 				exit 1
 			else
 				print_line
@@ -2063,7 +2067,7 @@ cmd_import_hosts() {
 			if [ "${num_to_add_ubl}" -eq 0 ]; then
 				warning "Новых записей добавлено не было!"
 			else
-				warning "В список разблокировки было добавлено ${YELLOW}${num_to_add_ubl}${GREEN} новых доменов:"
+				warning "В список разблокировки было добавлено ${YELLOW}${num_to_add_ubl}${GREEN} новых домена/ов:"
 				print_line
 				if [ "${num_to_add_ubl}" -gt 0 ]; then
 					warning "${tab}Список добавленных доменов:"
@@ -2298,7 +2302,7 @@ vpn_add_guest_network() {
 # ------------------------------------------------------------------------------------------
 vpn_del_guest_network() {
 
-	if cmd_vpn_status | grep -iq 'shadowsocks' ; then
+	if has_ssr_enable; then
 		error "Сейчас используется shadowsocks соединение."
 		error "Удаление гостевой сети для vpn пока не доступно."
 	else
@@ -2316,7 +2320,7 @@ vpn_del_guest_network() {
 
 cmd_vpn_guest_network() {
 
-	if ! cmd_vpn_status | grep -iq 'shadowsocks' ; then
+	if ! has_ssr_enable ; then
 		cmd="${1}"
 		if [ -n "${cmd}" ]; then
 			[ "${cmd}" = del ] && vpn_del_guest_network || vpn_add_guest_network "${cmd}"

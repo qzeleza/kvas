@@ -64,7 +64,7 @@ INFACE_PART_REQUEST="${LOCALHOST_IP}:79/rci/interface"
 SSR_ENTWARE_TEMPL=ezcfg
 
 
-has_ssr_enable() ([ ! -f "/opt/etc/ndm/netfilter.d/100-vpn-mark" ])
+has_ssr_enable() ([ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ])
 
 # ------------------------------------------------------------------------------------------
 #

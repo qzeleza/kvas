@@ -22,14 +22,14 @@ when_err() (echo -e "${RED}ОШИБКА${NOCL}" )
 package_url=$(curl -sH "Accept: application/vnd.github.v3+json" https://api.github.com/repos/qzeleza/kvas/releases/latest | sed -n 's/.*browser_download_url\": "\(.*\)\"/\1/p;'| tr -d ' ' |  sed '/^$/d')
 package_name=$(echo "${package_url}" | sed 's/.*\/\(.*ipk\)$/\1/')
 list_backup=/opt/etc/hosts.list.backup
-host_list=/opt/etc/hosts.list
+kvas_conf=/opt/etc/kvas.conf
 rm_type="${1}"
 
 clear
 print_line
-echo -e "${GREEN}Начинаем установку пакета КВАС${NOCL}"
+echo -e "${GREEN}Установка пакета КВАС${NOCL}"
 
-mkdir -p /opt/packages || {
+cd /opt && mkdir -p /opt/packages || {
 	echo "Невозможно создать папку /opt/packages";
 	exit 1
 }
@@ -57,13 +57,16 @@ ready 'Загружаем пакет...'
 }
 
 if [ -f /opt/bin/kvas ] && kvas | grep -q 'Настройка пакета не завершена' ; then
-	ready 'Удаляем незавершенную ранее установку пакета...'
+	ready 'Удаляем незавершенную ранее установку пакета ...'
 	kvas rm "${rm_type}" yes &>/dev/null && when_ready || when_err
 else
 	ready 'Сохраняем список разблокировки в архив...'
 	kvas import "${list_backup}" &>/dev/null && when_ready || when_err
 	[ -f /opt/bin/kvas ] && {
-		ready 'Удаляем предыдущую версию пакета...'
+
+		ver=$(grep "APP_VERSION=" "${kvas_conf}" | cut -d'=' -f2)
+		rel=$(grep "APP_RELEASE=" "${kvas_conf}" | cut -d'=' -f2)
+		ready "Удаляем предыдущую версию пакета [${ver} ${rel}]..."
 		kvas rm "${rm_type}" yes &>/dev/null && when_ready || when_err
 
 	}
@@ -88,15 +91,17 @@ else
 	sleep 1
 
 	clear
-	kvas setup update
+	kvas setup update && {
+		[ -f "${list_backup}" ] && {
+			ready 'Восстанавливаем список разблокировки из архива...'
+			kvas import "${list_backup}" &>/dev/null && when_ready || when_err
+		}
 
-	[ -f "${list_backup}" ] && {
-		ready 'Восстанавливаем список разблокировки из архива...'
-		kvas import "${list_backup}" &>/dev/null && when_ready || when_err
+		echo 'Тестируем настройки...'
+		kvas test
 	}
 
-	echo 'Тестируем настройки...'
-	kvas test
+
 fi
 
 rm -f ./update.sh

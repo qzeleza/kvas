@@ -61,10 +61,12 @@ dns_override_check() {
 	#	print_line
 		echo -e "${RED}Для корректной работы dnsmasq необходимо исключить влияние провайдера на Ваши DNS запросы!"
 		echo -e "С этой целью зайдите в админ панель роутера по адресу: ${GREEN}${cli}"
-		echo -e "${RED}и введите в поле Command следующую команду ${GREEN}opkg dns-override ${RED}, затем нажмите ENTER."
-		echo -e "далее в том же поле введите команду ${GREEN}system configuration save ${RED}, затем нажмите ENTER."
-		echo -e "И третьим шагом необходимо перегрузить роутер, для этого в том же поле"
-		echo -e "введите команду ${GREEN}system reboot ${RED}, затем нажмите ENTER.${NOCL}"
+		echo "и выполните последовательно три следующих команды: "
+		print_line
+		echo -e "1. ${GREEN}opkg dns-override ${NOCL} 			- отключаем использование DNS провайдера,"
+		echo -e "2. ${GREEN}system configuration save ${NOCL}  	- сохраняем изменения,"
+		echo -e "3. ${GREEN}system reboot ${NOCL} 				- перегружаем роутер."
+		print_line
 		exit 1
 	fi
 }
