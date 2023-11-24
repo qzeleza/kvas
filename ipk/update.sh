@@ -97,9 +97,6 @@ else
 
 	echo 'Тестируем настройки...'
 	kvas test
-
-	print_line
-	sleep 2
 fi
 
 rm -f ./update.sh
