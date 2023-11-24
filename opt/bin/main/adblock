@@ -143,16 +143,16 @@ remove_white_hosts(){
 
 	nlines_amount=$(cat < "${ADS_HOSTS_FILE}" | wc -l)
 	if [ -f "${UNBLOCK_LIST_FILE}" ] && [ "$(cat < "${UNBLOCK_LIST_FILE}" | wc -l )" -ge 1 ]; then
-		exclude_com=".$(cat < "${UNBLOCK_LIST_FILE}" | sed ':a;N;$!ba;s/\n/$| /g')$"
+		exclude_com=".*.$(cat < "${UNBLOCK_LIST_FILE}" | tr -d '*' | sed ':a;N;$!ba;s/\n/$|.*./g')$"
 		ready "Удаляем хосты, находящиеся в списке разблокировки"
 		cat < "${TMP_FILE}" | grep -vE "${exclude_com}" > "${ADS_HOSTS_FILE}"
 		when_ok "ГОТОВО"
-		rm "${TMP_FILE}"
 		nlines_excluded_wl=$(cat < "${ADS_HOSTS_FILE}" | wc -l)
+		rm "${TMP_FILE}"
 
 	else
 		mv "${TMP_FILE}" "${ADS_HOSTS_FILE}"
-		nlines_excluded_wl="${nlines_amount}"
+		nlines_excluded_wl="${nlines_sorted}"
 	fi
 }
 
@@ -213,6 +213,8 @@ result_show(){
 	nlines_exc_wl=$((nlines_sorted - nlines_excluded_wl))
 	nlines_exc_ex=$((nlines_excluded_wl - nlines_excluded_ex))
 
+	print_line
+
 	mess="Скачено хостов для блокировки рекламы"
 	nlines_all_txt=$(dig_frm "${nlines_all}")
 	ready "${mess}"; when_alert "${nlines_all_txt}"
@@ -233,7 +235,9 @@ result_show(){
 	ready "${mess}"; when_alert "${nlines_exc_txt_ex}"
 	logger "${mess} ${nlines_exc_txt_ex}"
 
-	mess="Добавлено всего хостов для блокировки рекламы"
+	print_line
+
+	mess="ИТОГО ДОБАВЛЕНО ХОСТОВ ДЛЯ БЛОКИРОВКИ РЕКЛАМЫ"
 	nlines_add_txt=$(dig_frm "${nlines_excluded_ex}")
 	ready "${mess}"; when_alert "${nlines_add_txt}"
 	logger "${mess} ${nlines_add_txt}"

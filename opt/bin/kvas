@@ -150,7 +150,7 @@ case "${1}" in
 		;;
 	upgrade)				upgrade
 		;;
-	version | ver)			version
+	version | ver)			version | tr '-' ' '
 		;;
 	help|-h|--h ) 			cmd_help
 		;;

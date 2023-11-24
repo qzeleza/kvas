@@ -23,6 +23,7 @@ package_url=$(curl -sH "Accept: application/vnd.github.v3+json" https://api.gith
 package_name=$(echo "${package_url}" | sed 's/.*\/\(.*ipk\)$/\1/')
 list_backup=/opt/etc/hosts.list.backup
 host_list=/opt/etc/hosts.list
+rm_type="${1}"
 
 clear
 print_line
@@ -33,7 +34,7 @@ mkdir -p /opt/packages || {
 	exit 1
 }
 print_line
-ready 'Обновляем opkg...'
+ready 'Обновляем библиотеку пакетов opkg...'
 {
 	opkg update && opkg upgrade && opkg install curl iptables
 } &>/dev/null && when_ready || when_err
@@ -43,7 +44,7 @@ ready 'Загружаем пакет...'
 {
 
 	cd /opt/packages
-	rm -f "./${package_name}"
+	rm -f "/opt/packages/${package_name}"
 	curl -sOL "${package_url}"
 
 } &>/dev/null && when_ready || when_err
@@ -55,41 +56,50 @@ ready 'Загружаем пакет...'
 	exit 1
 }
 
-[ -f "${host_list}" ] && [ -f /opt/bin/kvas ] && {
+if [ -f /opt/bin/kvas ] && kvas | grep -q 'Настройка пакета не завершена' ; then
+	ready 'Удаляем незавершенную ранее установку пакета...'
+	kvas rm "${rm_type}" yes &>/dev/null && when_ready || when_err
+else
 	ready 'Сохраняем список разблокировки в архив...'
 	kvas import "${list_backup}" &>/dev/null && when_ready || when_err
-}
+	[ -f /opt/bin/kvas ] && {
+		ready 'Удаляем предыдущую версию пакета...'
+		kvas rm "${rm_type}" yes &>/dev/null && when_ready || when_err
 
-[ -f /opt/bin/kvas ] && {
-	ready 'Удаляем предыдущую версию пакета...'
-	rm_type="${1}"
-	kvas rm "${rm_type}" yes && &>/dev/null && when_ready || when_err
+	}
+fi
 
-}
-
-ready 'Устанавливаем новую версию пакета...'
+ver=$(echo "${package_name}" | sed 's/kvas_\(.*\)_all.*/\1/; s/-/ /g; s/_/-/' )
+ready "Устанавливаем новую версию пакета [${ver}]..."
 {
-	opkg install "./${package_name}"
+	opkg install "/opt/packages/${package_name}"
 
 } &>/dev/null && when_ready || when_err
 
 print_line
 
-[ ! -f /opt/bin/kvas ] && {
+if [ ! -f /opt/bin/kvas ] ; then
 	echo -e "${RED}Пакет установлен некорректно - отсутствуют исполняемые файлы!${NOCL}"
-	echo -e "${GREEN}Попробуйте установить пакет вручную командой ${BLUE}'opkg install ./${package_name}'${NOCL}"
+	echo -e "${GREEN}Попробуйте установить пакет вручную командой "
+	echo -e "${BLUE}'opkg install /opt/packages/${package_name}'${NOCL}"
+	print_line
 	exit 1
-}
-sleep 1
+else
+	sleep 1
 
-clear
-kvas setup update
+	clear
+	kvas setup update
 
-[ -f "${list_backup}" ] && {
-	ready 'Восстанавливаем список разблокировки из архива...'
-	kvas import "${list_backup}" &>/dev/null && when_ready || when_err
-}
+	[ -f "${list_backup}" ] && {
+		ready 'Восстанавливаем список разблокировки из архива...'
+		kvas import "${list_backup}" &>/dev/null && when_ready || when_err
+	}
 
-print_line
-sleep 2
+	echo 'Тестируем настройки...'
+	kvas test
+
+	print_line
+	sleep 2
+fi
+
 rm -f ./update.sh

@@ -69,12 +69,11 @@ cmd_kvas_init(){
 	ready "${prefix}Синхронизируем дату роутера с сервером времени."
 	date_update &>/dev/null && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 
-	! [ "${stage}" = update ] || has_ssr_enable && {
+	if ! [ "${stage}" = update ] || ! has_ssr_enable ; then
 		ready "${prefix}Производим перезапуск подключения к интернету"
 		reset_ISP_connection && when_ok "ГОТОВО" || when_bad "ОШИБКА"
-	}
-
-	iptables_reset
+		iptables_reset
+	fi
 
 	log_alert "${prefix}Сброс пакета КВАС в исходное состояние ЗАВЕРШЕН!"
 
@@ -1078,6 +1077,7 @@ shadowsocks_backup() {
 
 	#	Проверяем на наличие запуска сервиса shadowsocks
 		if /opt/etc/init.d/S22shadowsocks status | grep -q alive ; then
+			print_line
 			ready "Останавливаем сервис shadowsocks..."
 			if /opt/etc/init.d/S22shadowsocks stop &>/dev/null; then
 				when_ok "ГОТОВО"
@@ -1087,17 +1087,14 @@ shadowsocks_backup() {
 				exit 1
 			fi
 		fi
-		if [ -f "${SHADOWSOCKS_CONF}.kvas" ] ; then
-
-			if [ -f "${SHADOWSOCKS_CONF}" ] && ! grep -qE '""|@' "${SHADOWSOCKS_CONF}" && ! grep -qE '127.0.0.1|barfoo!' "${SHADOWSOCKS_CONF}"; then
-					active_backup_config
-			else
-				active_backup_config
-			fi
-
-
+		if [ -f "${SHADOWSOCKS_CONF}" ] ; then
+			grep -qE '""|@' "${SHADOWSOCKS_CONF}" && grep -qE '127.0.0.1|barfoo!' "${SHADOWSOCKS_CONF}" && shadowsocks_read_config
 		else
-			[ -f "${SHADOWSOCKS_CONF}" ] || shadowsocks_read_data
+			if [ -f "${SHADOWSOCKS_CONF}.kvas" ] ; then
+				active_backup_config
+			else
+				shadowsocks_read_data
+			fi
 		fi
 	else
 		error "Shadowsocks сервис не установлен. Дальнейшая установка невозможна."
@@ -1282,23 +1279,33 @@ shadowsocks_on() {
 
 	cmd_shadowsocks_iptable_reset  &> /dev/null
 	#   настройка S22shadowsocks конфигурации
-	if [ -f "${SHADOWSOCKS_CONF_BACKUP}" ] ; then
-	   	ready "Используем данные"
-		cp "${SHADOWSOCKS_CONF_BACKUP}" "${SHADOWSOCKS_CONF}"
-		when_alert "ИЗ АРХИВА"
-	elif [ -f "${SHADOWSOCKS_CONF}" ] && grep -qE '""|@' "${SHADOWSOCKS_CONF}" || grep -qE '127.0.0.1|barfoo!' "${SHADOWSOCKS_CONF}"; then
-		print_line
-		shadowsocks_read_data
+	if [ -f "${SHADOWSOCKS_CONF}" ] ; then
+		if grep -qE '""|@' "${SHADOWSOCKS_CONF}" || grep -qE '127.0.0.1|barfoo!' "${SHADOWSOCKS_CONF}"; then
+			print_line
+			shadowsocks_read_data
+		fi
 	else
-		print_line
-		shadowsocks_read_data
-	fi
+		if [ -f "${SHADOWSOCKS_CONF_BACKUP}" ] ; then
+			if grep -qE '""|@' "${SHADOWSOCKS_CONF_BACKUP}" || grep -qE '127.0.0.1|barfoo!' "${SHADOWSOCKS_CONF_BACKUP}"; then
+				error "Архивный файл содержит некорректные данные!"
+				print_line
+				shadowsocks_read_data
+			else
+				ready "Используем данные"
+				cp "${SHADOWSOCKS_CONF_BACKUP}" "${SHADOWSOCKS_CONF}"
+				when_alert "ИЗ АРХИВА"
+			fi
 
+		else
+			print_line
+			shadowsocks_read_data
+		fi
+	fi
 
 	# меняем данные в файлах shadowsocks
 	sed -i 's/ss-local/ss-redir/g' "/opt/etc/init.d/S22shadowsocks"
 	#	включаем shadowsocks службу
-
+	print_line
 	ready "Запускаем сервис shadowsocks..."
 	/opt/etc/init.d/S22shadowsocks restart &> /dev/null
 	/opt/etc/init.d/S22shadowsocks status &> /dev/null
@@ -1534,7 +1541,6 @@ select_vpn_interface() {
 			error "Введите цифру от 1 до ${total} или S - сканирование, Q - выход."
 		else
 			if echo "${num_vpn_inface}" | grep -qiE "[1-${total}]"; then
-				print_line
 	#			Меняем интерфейс в файле ndm
 				inface_entware=$(get_vpn_interface_by_num "${num_vpn_inface}")
 				cli_inface=$(echo "${INFACE_NAMES_FILE}" | grep "${inface_entware}" | cut -d"|" -f1)
@@ -1563,7 +1569,6 @@ select_vpn_interface() {
 				echo -e "1. ${GREEN}no opkg dns-override ${NOCL}       - вновь подключаем DNS провайдера,"
 				echo -e "2. ${GREEN}system configuration save ${NOCL}  - сохраняем изменения,"
 				echo -e "3. ${GREEN}system reboot ${NOCL}              - перегружаем роутер."
-				print_line
 				exit 1
 			else
 				print_line
@@ -1886,7 +1891,7 @@ host_add() {
 	echo "${_host}" >> "${UNBLOCK_LIST_FILE}"
 #	если включен блокировщик рекламы
 	if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
-		ads_del_white_list_hosts &> /dev/null
+		ads_list_hosts_update &> /dev/null
 	fi
 	[ "${reset}" = 'yes' ] && iptables_reset &> /dev/null
 
@@ -1962,6 +1967,13 @@ cmd_del_one_host() {
 #		cmd_kvas_init  "no"  &> /dev/null
 		iptables_reset &> /dev/null
 		[ $? = 0 ] && when_ok "УДАЛЕН" || when_bad "НЕ УДАЛЕН"
+		#	если включен блокировщик рекламы
+		if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
+			ready "Удаляем ${YELLOW}${host_}${NOCL} из списка блокировки рекламы..."
+			/opt/apps/kvas/bin/main/adblock &> /dev/null
+			[ $? = 0 ] && when_ok "УДАЛЕН" || when_bad "НЕ УДАЛЕН"
+		fi
+
 	else
 		error "Такая запись отсутствует в списке разблокировки!"
 	fi
@@ -2067,7 +2079,7 @@ cmd_import_hosts() {
 
 			#	если включен блокировщик рекламы
 			if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
-				ads_del_white_list_hosts &> /dev/null
+				ads_list_hosts_update &> /dev/null
 			fi
 
 #			cmd_kvas_init  "no" &> /dev/null

@@ -454,8 +454,7 @@ ipset_site_visit_check() {
 	/opt/apps/kvas/bin/main/update &> /dev/null
 	print_line
 	ready "Таблица ipset"
-	res=$(ipset list unblock | grep -vEi '^[a-z]' )
-	if [ -n "${res}" ]; then
+	if ipset list unblock | grep -vqEi '^[a-z]'; then
 		when_ok "ЗАПОЛНЕНА"
 	else
 		when_bad "ПУСТА"

@@ -190,6 +190,7 @@ rm_package_files(){
 
 	rm -rf /opt/bin/kvas
 	rm -fr /opt/tmp/*kvas*
+	rm -fr /opt/etc/adblock
 	rm -fr /opt/tmp/host*
 	rm -f /opt/lib/opkg/info/kvas*
 	rm -fr /opt/apps/kvas
