@@ -70,7 +70,7 @@ cmd_ads_protect_on() {
 			sed -i '/addn-hosts=\/opt\/tmp\/adblock/d' '/opt/etc/dnsmasq.conf'
 			sed -i 's/\(^ADS_BLOCKER_ON=.*\)/\11/' '/opt/apps/kvas/bin/main/update'
 			echo "addn-hosts=${ADS_HOSTS_FILE}" >> '/opt/etc/dnsmasq.conf'
-			OFF="ОТКЛЮЧЕНА.\nПроизошла не предвиденная ошибка."
+			OFF="ОТКЛЮЧЕНА.\nПроизошла непредвиденная ошибка."
 			[ $? = 0 ] && when_ok "ВКЛЮЧЕНА" || when_bad "${OFF}"
 			ads_request_to_upload "${perform_to_aks}"
 		fi
@@ -141,7 +141,7 @@ ads_request_to_upload() {
 get_separated_host_list() {
 	list_file="${1}"
 	clear_file_content "${list_file}"
-	exclude_com=".*$(cat < "${list_file}" | tr -d '*' | sed ':a;N;$!ba;s/\n/$\\|.*./g')$"
+	exclude_com=".*.$(cat < "${list_file}" | tr -d '*' | sed ':a;N;$!ba;s/\n/$|.*./g')$"
 	echo "${exclude_com}"
 }
 
@@ -209,16 +209,50 @@ cmd_ads_del_from_skip_list(){
 }
 
 
+#--------------------------------------------------------------
+#
+# 	Удаляем все доменные имена, которые у нас имеются
+# 	в списке разблокировки (белый список)
+#
+#--------------------------------------------------------------
+ads_remove_white_hosts(){
+
+	if [ -f "${UNBLOCK_LIST_FILE}" ] && [ "$(cat < "${UNBLOCK_LIST_FILE}" | wc -l )" -ge 1 ]; then
+		exclude_com=".*.$(cat < "${UNBLOCK_LIST_FILE}" | tr -d '*' | sed ':a;N;$!ba;s/\n/$|.*./g')$"
+		ready "Удаляем хосты, находящиеся в списке разблокировки"
+		TMP_FILE="/opt/tmp/hosts.tmp"
+		cat < "${ADS_HOSTS_FILE}" | grep -vE "${exclude_com}" > "${TMP_FILE}"
+		mv -f "${TMP_FILE}" "${ADS_HOSTS_FILE}"
+		when_ok "ГОТОВО"
+	fi
+}
+
+#--------------------------------------------------------------
+#
+# 	Удаляем все доменные имена, которые у нас имеются
+# 	в списке исключений (белый список)
+#
+#--------------------------------------------------------------
+ads_remove_exception_hosts(){
+
+	if [ -f "${ADBLOCK_LIST_EXCEPTION}" ] && [ "$(cat < "${ADBLOCK_LIST_EXCEPTION}" | wc -l )" -ge 1 ]; then
+		ready "Удаляем хосты, находящиеся в списке исключений"
+		exclude_all="$(get_separated_host_list "${ADBLOCK_LIST_EXCEPTION}")"
+		sed -i "/${exclude_all}/d" "${ADS_HOSTS_FILE}"
+		when_ok "ГОТОВО"
+	fi
+}
+
 # ------------------------------------------------------------------------------------------
 #
 #	Удаляем из /opt/tmp/adsblock/hosts переданное доменное имя
 #	$1 - список доменных имен разделенных '|'
 #
 # ------------------------------------------------------------------------------------------
-ads_del_white_list_hosts() {
-	exclude_all=$(get_separated_host_list "${UNBLOCK_LIST_FILE}")
-	tmp_file="/opt/tmp/hosts.tmp"
-	ready "Исключаем из списка блокировки хосты из белого списка"
-	grep -vE "${exclude_all}" "${ADS_HOSTS_FILE}"
-	when_ok "ГОТОВО"
+ads_list_hosts_update() {
+	# Удаляем все доменные имена, которые у нас имеются в списке разблокировки (белый список)
+	# и в списке исключений
+	ads_remove_white_hosts
+	ads_remove_exception_hosts
 }
+

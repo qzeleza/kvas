@@ -1886,7 +1886,7 @@ host_add() {
 	echo "${_host}" >> "${UNBLOCK_LIST_FILE}"
 #	если включен блокировщик рекламы
 	if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
-		ads_del_white_list_hosts &> /dev/null
+		ads_list_hosts_update &> /dev/null
 	fi
 	[ "${reset}" = 'yes' ] && iptables_reset &> /dev/null
 
@@ -1962,6 +1962,13 @@ cmd_del_one_host() {
 #		cmd_kvas_init  "no"  &> /dev/null
 		iptables_reset &> /dev/null
 		[ $? = 0 ] && when_ok "УДАЛЕН" || when_bad "НЕ УДАЛЕН"
+		#	если включен блокировщик рекламы
+		if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
+			ready "Удаляем ${YELLOW}${host_}${NOCL} из списка блокировки рекламы..."
+			/opt/apps/kvas/bin/main/adblock &> /dev/null
+			[ $? = 0 ] && when_ok "УДАЛЕН" || when_bad "НЕ УДАЛЕН"
+		fi
+
 	else
 		error "Такая запись отсутствует в списке разблокировки!"
 	fi
@@ -2067,7 +2074,7 @@ cmd_import_hosts() {
 
 			#	если включен блокировщик рекламы
 			if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
-				ads_del_white_list_hosts &> /dev/null
+				ads_list_hosts_update &> /dev/null
 			fi
 
 #			cmd_kvas_init  "no" &> /dev/null
