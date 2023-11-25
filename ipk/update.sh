@@ -22,12 +22,14 @@ when_err() (echo -e "${RED}ОШИБКА${NOCL}" )
 package_url=$(curl -sH "Accept: application/vnd.github.v3+json" https://api.github.com/repos/qzeleza/kvas/releases/latest | sed -n 's/.*browser_download_url\": "\(.*\)\"/\1/p;'| tr -d ' ' |  sed '/^$/d')
 package_name=$(echo "${package_url}" | sed 's/.*\/\(.*ipk\)$/\1/')
 list_backup=/opt/etc/hosts.list.backup
+hosts_list=/opt/etc/hosts.list
 kvas_conf=/opt/etc/kvas.conf
 rm_type="${1}"
+version=$(echo "${package_name}" | sed 's/kvas_\(.*\)_all.*/\1/; s/-/ /g; s/_/-/' )
 
 clear
 print_line
-echo -e "${GREEN}Установка пакета КВАС${NOCL}"
+echo -e "${GREEN}Установка пакета КВАС версии ${version}${NOCL}"
 
 cd /opt && mkdir -p /opt/packages || {
 	echo "Невозможно создать папку /opt/packages";
@@ -60,20 +62,18 @@ if [ -f /opt/bin/kvas ] && kvas | grep -q 'Настройка пакета не 
 	ready 'Удаляем незавершенную ранее установку пакета ...'
 	kvas rm "${rm_type}" yes &>/dev/null && when_ready || when_err
 else
-	ready 'Сохраняем список разблокировки в архив...'
-	kvas import "${list_backup}" &>/dev/null && when_ready || when_err
-	[ -f /opt/bin/kvas ] && {
-
-		ver=$(grep "APP_VERSION=" "${kvas_conf}" | cut -d'=' -f2)
+	if [ -f "${list_backup}" ] && [ -f /opt/bin/kvas ]; then
+		ready 'Сохраняем список разблокировки в архив...'
+		cp "${hosts_list}" "${list_backup}" &>/dev/null && when_ready || when_err
+	 	ver=$(grep "APP_VERSION=" "${kvas_conf}" | cut -d'=' -f2)
 		rel=$(grep "APP_RELEASE=" "${kvas_conf}" | cut -d'=' -f2)
 		ready "Удаляем предыдущую версию пакета [${ver} ${rel}]..."
 		kvas rm "${rm_type}" yes &>/dev/null && when_ready || when_err
-
-	}
+	fi
 fi
 
-ver=$(echo "${package_name}" | sed 's/kvas_\(.*\)_all.*/\1/; s/-/ /g; s/_/-/' )
-ready "Устанавливаем новую версию пакета [${ver}]..."
+
+ready "Устанавливаем новую версию пакета [${version}]..."
 {
 	opkg install "/opt/packages/${package_name}"
 
@@ -94,7 +94,8 @@ else
 	kvas setup update && {
 		[ -f "${list_backup}" ] && {
 			ready 'Восстанавливаем список разблокировки из архива...'
-			kvas import "${list_backup}" &>/dev/null && when_ready || when_err
+			cp "${list_backup}" "${hosts_list}" && \
+			mv "${list_backup}" "/opt/etc/.kvas/backup" &>/dev/null && when_ready || when_err
 		}
 
 		echo 'Тестируем настройки...'

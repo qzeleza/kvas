@@ -1503,7 +1503,7 @@ select_vpn_interface() {
 	total=$(cat < "${INFACE_NAMES_FILE}" | wc -l)
 	while true; do
 		print_line
-		ready "${BLUE}Выберите номер варианта VPN соединения 1/${total} | S-скан. | Q-выход:${NOCL}"
+		ready "${BLUE}Выберите номер варианта VPN соединения 1 - ${total} | S-скан. | Q-выход:${NOCL}"
 		read -r num_vpn_inface
 		if ! echo "${num_vpn_inface}" | grep -qiE "[1-${total}qs]"; then
 			error "Введите цифру 1/${total} или S - сканирование, Q - выход."
@@ -1846,11 +1846,18 @@ test_host() {
 # ------------------------------------------------------------------------------------------
 
 host_add() {
-	reset="${2}"
 	clear_host=$(echo "${1}" | sed 's/\*//')
+	reset="${2}"
+	mode="${3}"
 	_host="${clear_host}"
 
-	answer=''; read_ynq "Добавить хост с поддоменами wildcard [Y] или нет [N]?" answer
+	if [ "${mode}" = import ]; then
+#		в режиме импорта задавать вопросы не нужно - добавляем хост как есть.
+		answer=n
+	else
+		answer=''; read_ynq "Добавить хост с поддоменами wildcard [Y] или нет [N]?" answer
+	fi
+
 
 	if [ "${answer}" = y ]; then
 		_host="*${clear_host}"
@@ -1879,6 +1886,7 @@ host_add() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_add_one_host() {
+	mode="${4}"
 	test="${3}"
 	reset="${2:-yes}"
 	host=$(echo "${1}" | sed 's|http[s]\{,1\}://||;')
@@ -1888,7 +1896,7 @@ cmd_add_one_host() {
 	if echo "${host}" | grep -q '\.' ; then
 		if echo "${clear_host}" | grep -qE "${ip_filter}*" ; then
 			if echo "${clear_host}" | grep -qE "^${ip_filter}/[0-9]{1,2}$|^${ip_filter}$|^${ip_filter}-${ip_filter}$"; then
-				host_add "${host}" "${reset}"
+				host_add "${host}" "${reset}" "${mode}"
 			else
 				echo -e "${RED}Введенный IP адрес или диапазон IP-адресов имеет некорректный формат.${NOCL}"
 			fi
@@ -1899,13 +1907,13 @@ cmd_add_one_host() {
 					warning "Производим замену ${clear_host} на ${host}"
 					print_line
 					sed -i "/^${clear_host}$/d" "${UNBLOCK_LIST_FILE}"
-					host_add "${host}" "${reset}"
+					host_add "${host}" "${reset}" "${mode}"
 				else
 					echo 1
 				fi
 			else
 				if [ -z "${test}" ]; then
-					host_add "${host}" "${reset}"
+					host_add "${host}" "${reset}" "${mode}"
 				else
 					echo +
 				fi
@@ -2034,7 +2042,7 @@ cmd_import_hosts() {
 				#  пропускаем строки с комментариями
 				[ "${host:0:1}" = "#" ] && continue
 
-				case "$(cmd_add_one_host "${host}" "test" "no")" in
+				case "$(cmd_add_one_host "${host}" "test" "no" "import")" in
 				0) hosts_not_added="${hosts_not_added}${host}\n" ;;
 				1) hosts_repeated_bl="${hosts_repeated_bl}${host}\n" ;;
 				+) hosts_to_add_ubl="${hosts_to_add_ubl}${host}\n" ;;

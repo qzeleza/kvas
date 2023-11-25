@@ -63,7 +63,7 @@ PACKAGE_NAME=$(get_package_name)
 APP_PKG_FILE="/apps/entware/bin/targets/mipsel-3.4/generic-glibc/packages/${PACKAGE_NAME}"
 rm -f "${APP_PKG_FILE}"
 
-#change_version_in_package
+change_version_in_package
 /apps/"${APP_NAME}"/build/Makefile.build
 
 #    make menuconfig
