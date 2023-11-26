@@ -157,7 +157,9 @@ case "${1}" in
 	uninstall|remove|rm ) 	cmd_uninstall  "${2}" "${3}"
 		;;
 
-	*)						cmd_show_list
+	*)						error "Команда '${1}' не известна, список доступных команд:"
+							print_line
+							cmd_help
 		;;
 esac
 

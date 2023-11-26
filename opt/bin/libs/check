@@ -56,11 +56,11 @@ dns_override_check() {
 	# Проверяем отключено ли использование DNS провайдера
 	dns_prov=$(curl -s "${LOCALHOST_IP}"':79/rci/opkg/dns-override')
 
-	if [ ! "${dns_prov}" = true ]; then
+	if ! [ "${dns_prov}" = true ]; then
 	  	cli="$(get_router_host)/a"
 	#	print_line
-		echo -e "${RED}Для корректной работы dnsmasq необходимо исключить влияние провайдера на Ваши DNS запросы!"
-		echo -e "С этой целью зайдите в админ панель роутера по адресу: ${GREEN}${cli}"
+		echo -e "${RED}Для корректной работы DNS сервера необходимо отключить использование DNS провайдера!${NOCL}"
+		echo -e "С этой целью зайдите в админ панель роутера по адресу: ${GREEN}${cli}${NOCL}"
 		echo "и выполните последовательно три следующих команды: "
 		print_line
 		echo -e "1. ${GREEN}opkg dns-override ${NOCL} 			- отключаем использование DNS провайдера,"
@@ -148,6 +148,8 @@ vpn_check(){
 		else
 			when_bad "ОСТАНОВЛЕНО"
 			ready "Перезапускаем еще раз vpn соединение ${vpn_cli_desc}"
+			curl -s -d '{"up":"false"}' "${LOCALHOST_IP}:79/rci/interface/${vpn_cli}" &>/dev/null
+			sleep 1
 			status=$(curl -s -d '{"up":"true"}' "${LOCALHOST_IP}:79/rci/interface/${vpn_cli}")
 			if [ -n "$(echo "${status}" | grep 'interface is up.' )" ]; then
 				when_ok "ПОДКЮЧЕНО"

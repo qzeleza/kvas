@@ -26,6 +26,7 @@ hosts_list=/opt/etc/hosts.list
 kvas_conf=/opt/etc/kvas.conf
 rm_type="${1}"
 version=$(echo "${package_name}" | sed 's/kvas_\(.*\)_all.*/\1/; s/-/ /g; s/_/-/' )
+prev_path=$(pwd)
 
 clear
 print_line
@@ -51,7 +52,7 @@ ready 'Загружаем пакет...'
 
 } &>/dev/null && when_ready || when_err
 
-[ ! -f "${package_name}" ] && {
+! [ -f "${package_name}" ] && {
 	echo -e "${RED}Файл пакета не сохранен!${NOCL}"
 	echo -e "${RED}Проверьте свое интернет соединение!${NOCL}"
 	print_line
@@ -81,7 +82,7 @@ ready "Устанавливаем новую версию пакета [${versio
 
 print_line
 
-if [ ! -f /opt/bin/kvas ] ; then
+if ! [ -f /opt/bin/kvas ] ; then
 	echo -e "${RED}Пакет установлен некорректно - отсутствуют исполняемые файлы!${NOCL}"
 	echo -e "${GREEN}Попробуйте установить пакет вручную командой "
 	echo -e "${BLUE}'opkg install /opt/packages/${package_name}'${NOCL}"
@@ -105,4 +106,4 @@ else
 
 fi
 
-rm -f ./update.sh
+cd "${prev_path}" && rm -f "${prev_path}/update.sh"

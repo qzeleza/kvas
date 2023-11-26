@@ -23,19 +23,12 @@ LOCALHOST_IP=127.0.0.1
 DNS_IP_PORT="${LOCALHOST_IP}#${MAIN_DNS_PORT}"
 CMD_LIST="address prefix name-servers"
 
-
 # ------------------------------------------------------------------------------------------
 #
-# 	Производим инициализацию пакета КВАС
+# Обновляем таблицу iptable и правила в ней
 #
 # ------------------------------------------------------------------------------------------
-cmd_kvas_init(){
-	stage="${1:-no}"
-	prefix=''
-	mess="${prefix}Производим сброс пакета КВАС в исходное состояние."
-	warning "${mess}";
-#	log_alert "${mess}"
-	print_line
+update_iptables(){
 
 	recreate_ip4tables
 
@@ -45,6 +38,15 @@ cmd_kvas_init(){
 	else
 		recreate_vpn_rules
 	fi
+}
+
+# ------------------------------------------------------------------------------------------
+#
+# Обновляем правила ipset
+#
+# ------------------------------------------------------------------------------------------
+update_ipset(){
+	stage="${1}"
 
 	ready "${prefix}Заполняем ipset таблицу данными из списка разблокировки."
 	/opt/apps/kvas/bin/main/ipset &> /dev/null &
@@ -59,21 +61,89 @@ cmd_kvas_init(){
 			/opt/etc/init.d/S99adguardhome restart &>/dev/null && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 		}
 	fi
+}
 
-	. /opt/apps/kvas/bin/libs/adblock
-	if cmd_ads_status | grep -q 'ВКЛЮЧЕНА' ; then
-		ready "${prefix}Обновляем данные списка блокировки рекламы."
-		/opt/apps/kvas/bin/main/adblock &>/dev/null && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+# ------------------------------------------------------------------------------------------
+#
+# Обновляем правила adblock если этот режим включен
+#
+# ------------------------------------------------------------------------------------------
+update_adblock(){
+
+	if [ -f '/opt/etc/init.d/S56dnsmasq' ]; then
+			if cat < '/opt/etc/dnsmasq.conf' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep -q "${ADS_HOSTS_FILE}" &> /dev/null; then
+				ready "${prefix}Обновляем данные списка блокировки рекламы."
+				/opt/apps/kvas/bin/main/adblock &>/dev/null && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+			fi
 	fi
+}
 
+# ------------------------------------------------------------------------------------------
+#
+# Обновляем дату роутера с сервером времени
+#
+# ------------------------------------------------------------------------------------------
+update_time(){
 	ready "${prefix}Синхронизируем дату роутера с сервером времени."
 	date_update &>/dev/null && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+}
 
-	if ! [ "${stage}" = update ] || ! has_ssr_enable ; then
-		ready "${prefix}Производим перезапуск подключения к интернету"
-		reset_ISP_connection && when_ok "ГОТОВО" || when_bad "ОШИБКА"
-		iptables_reset
-	fi
+# ------------------------------------------------------------------------------------------
+#
+# Производим перезапуск подключения к интернету
+#
+# ------------------------------------------------------------------------------------------
+current_cli_vpn_interface() {
+        inface_entware=$(get_config_value INFACE_ENT)
+        inface=$(grep "${inface_entware}" "${INFACE_NAMES_FILE}"  | cut -d'|' -f1)
+        echo "${inface}"
+}
+
+reset_all_connection(){
+
+	ready "${prefix}Перезапускаем VPN и ISP соединения..."
+	{
+		if has_ssr_enable ; then
+			/opt/etc/init.d/S22shadowsocks stop &>/dev/null
+			reset_ISP_connection
+			/opt/etc/init.d/S22shadowsocks start &>/dev/null
+		else
+			inface=$(current_cli_vpn_interface)
+			cli_request="localhost:79/rci/interface/${inface}"
+			curl -s -d '{"down":"true"}' "${cli_request}"  &>/dev/null
+			reset_ISP_connection
+			curl -s -d '{"up":"true"}' "${cli_request}"  &>/dev/null
+		fi
+	} && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+
+}
+
+# ------------------------------------------------------------------------------------------
+#
+# 	Производим инициализацию пакета КВАС
+# 	$1 	- режим запуска функции имеет следующие значения:
+#		update 		- режим обновления при выполнении kvas update
+#		refresh 	- режим обновления списка доменов при командах add/del/import
+# ------------------------------------------------------------------------------------------
+cmd_kvas_init(){
+
+	stage="${1:-no}"
+	prefix=''
+	mess="${prefix}Производим сброс пакета КВАС в исходное состояние."
+	warning "${mess}"
+	print_line
+
+#	Производим перезапуск подключения к интернету
+#	если не режим update и если текущее подключение не ssr
+	if [ "${stage}" != update ] || ! has_ssr_enable ; then  reset_all_connection; fi
+
+	iptables_reset
+	update_iptables
+	update_ipset "${stage}"
+	update_adblock
+
+	[ "${stage}" = initd ] && update_time
+
 
 	log_alert "${prefix}Сброс пакета КВАС в исходное состояние ЗАВЕРШЕН!"
 
@@ -324,8 +394,9 @@ adguardhome_setup() {
 #	меняем номер порта в файле конфигурации adguard
 	sed -i "s/\( port:\) .*/\1 ${port}/" "${ADGUARDHOME_CONFIG}"
 #	если файл сервис adguard в наличии то архивируем файл конфигурации
-	if [ -f "${ADGUARDHOME_DEMON}" ]; then
-		cp /opt/etc/AdGuardHome/AdGuardHome.yaml "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml
+	if [ -f "${ADGUARDHOME_DEMON}" ] && [ -f /opt/bin/AdGuardHome.yaml ]; then
+		cp /opt/bin/AdGuardHome.yaml "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml
+		cp /opt/bin/AdGuardHome.yaml "${ADGUARDHOME_CONFIG}"
 	fi
 #	и копируем подготовленный файл сервиса adguard в папку запуска сервисов
 #	проверяем файл на оригинальность (без переделок ли он под квас)
@@ -411,8 +482,8 @@ adguardhome_check_config() {
 			ip=$(get_router_ip)
 			port=$(cat < "${ADGUARDHOME_CONFIG}" | grep '^bind_port: ' | cut -d':' -f2 | tr -d ' \n')
 			[ -z "${port}" ] && port="$(cat "${ADGUARDHOME_CONFIG}" | grep 'address:' | cut -d':' -f3)"
-			echo -e "Был обнаружен и восстановлен архивный файл конфигурации AdGuard Home."
-			echo -e "Панель управления находится по адресу: ${BLUE}http://${ip}:${port}${NOCL}"
+			warning "Был обнаружен и восстановлен архивный файл конфигурации AdGuard Home."
+			warning "Панель управления находится по адресу: ${BLUE}http://${ip}:${port}${NOCL}"
 			print_line
 		else
 			[ -f /opt/etc/init.d/S56dnsmasq ] && /opt/etc/init.d/S56dnsmasq stop &> /dev/null
@@ -427,16 +498,34 @@ adguardhome_check_config() {
 				fi
 
 				cp /opt/apps/kvas/etc/init.d/S99adguard  /opt/etc/init.d/S99adguardhome
-				mv /opt/bin/AdGuardHome.yaml /opt/etc/AdGuardHome/AdGuardHome.yaml
-				"${ADGUARDHOME_DEMON}" restart  &> /dev/null
-			else
-				echo "Следуйте инструкциям на экране ниже..."
-				echo "После всех произведенных настроек нажмите Ctrl-C"
-#				echo -e "И затем снова запустите ${BLUE}kvas adguard on${NOCL}"
-				print_line
-				/opt/bin/AdGuardHome
-				cmd_adguardhome_on
+				cp /opt/bin/AdGuardHome.yaml /opt/etc/AdGuardHome/AdGuardHome.yaml
+#				"${ADGUARDHOME_DEMON}" restart  &> /dev/null
 			fi
+			warning "Сейчас, перейдите на клиентское устройство в своем браузере "
+			warning "и зайдите на страницу http://$(get_router_ip):3000 для настройки AdGuardHome"
+			print_line
+			warning "В поле 'Веб-интерфейс администрирования' выберите IP своего роутера выше"
+			warning "В поле 'DNS-сервер' выберите пункт 'Все интерфейсы' и на следующем шаге"
+			warning "введите имя и дважды пароль для входа в интерфейс AdGuardHome"
+			warning "Далее, на следующей странице, нажмите на 'Открыть Панель Управления'."
+			warning "После чего, установка AdGuard на роутере завершится автоматически."
+			print_line
+
+			tmp_conf=/opt/tmp/adguard.conf
+			log_file=/opt/tmp/adguard.log
+			rm -f "${log_file}" "${tmp_conf}"
+			/opt/bin/AdGuardHome -c "${tmp_conf}" -l "${log_file}" &
+
+			sleep 1
+			while true; do
+				if cat < "${log_file}" | grep 'go to http' | grep -qv ':3000'; then
+					killall AdGuardHome
+					adguardhome_setup
+					exit 0
+				fi
+				sleep 1  # Пауза в секундах между проверками
+			done
+#				auth: user "adguard" successfully logged in from ip 10.1.2.9
 		fi
 }
 # ------------------------------------------------------------------------------------------
@@ -1941,8 +2030,7 @@ cmd_del_one_host() {
 		ready "Удаляем ${YELLOW}${host_}${NOCL} из списка разблокировки..."
 		sed -i "/${host_////\\/}/d" "${UNBLOCK_LIST_FILE}"
 		[ -f /opt/bin/AdGuardHome ] && sed -i "/${host_////\\/}/d" "${ADGUARD_IPSET_FILE}"
-#		cmd_kvas_init  "no"  &> /dev/null
-		iptables_reset &> /dev/null
+		cmd_kvas_init  "refresh"  &> /dev/null
 		[ $? = 0 ] && when_ok "УДАЛЕН" || when_bad "НЕ УДАЛЕН"
 		#	если включен блокировщик рекламы
 		if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
@@ -1975,8 +2063,7 @@ cmd_clear_list() {
 					mv -f "${UNBLOCK_LIST_FILE}" "${KVAS_BACKUP_LIST_FILE}"
 					rm -f "${ADGUARD_IPSET_FILE}"
 					touch "${UNBLOCK_LIST_FILE}"
-#					cmd_kvas_init  "no" &> /dev/null
-					iptables_reset &> /dev/null
+					cmd_kvas_init  "update" &> /dev/null
 					[ $? = 0 ] && when_ok "ОЧИЩЕН" || when_bad "ОШИБКА"
 					print_line
 					warning "Предыдущий список разблокировки был сохранен в файл ${KVAS_BACKUP_LIST_FILE}"
@@ -2059,9 +2146,7 @@ cmd_import_hosts() {
 				ads_list_hosts_update &> /dev/null
 			fi
 
-#			cmd_kvas_init  "no" &> /dev/null
-#			сброс всех правил
-			iptables_reset &> /dev/null
+			cmd_kvas_init  "update" &> /dev/null
 
 			[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 
