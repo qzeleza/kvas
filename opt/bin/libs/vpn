@@ -448,16 +448,10 @@ cmd_adguardhome_status() {
 	# Проверяем наличие исполняемого файла AdGuardHome
 	if [ -f /opt/bin/AdGuardHome ] ; then
 #		Проверяем наличие файла конфигурации AdGuardHome
-		if [ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ]; then
+		if [ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ] && grep -q 'kvas.ipset' /opt/etc/AdGuardHome/AdGuardHome.yaml; then
 #			Проверяем наличие сервиса AdGuardHome
 			if [ -f "${ADGUARDHOME_DEMON}" ] ; then
-				DNS_IP_PORT=$(get_adguardhome_ip_port)
-				adguard_is_dns_default=$(get_config_value 'DNS_DEFAULT' | grep "${DNS_IP_PORT}")
-				adguard_is_alive=$("${ADGUARDHOME_DEMON}" status | grep alive)
-
-				if [ -n "${adguard_is_dns_default}" ] && [ -n "${adguard_is_alive}" ];
-				then when_ok "ВКЛЮЧЕН";
-				else when_bad "ОТКЛЮЧЕН"; fi
+				if "${ADGUARDHOME_DEMON}" status | grep -q alive; then when_ok "ВКЛЮЧЕН"; else when_bad "ОТКЛЮЧЕН"; fi
 			else
 				when_bad "НУЖНО ПЕРЕУСТАНОВИТЬ"
 			fi
