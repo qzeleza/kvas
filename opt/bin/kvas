@@ -87,7 +87,7 @@ case "${1}" in
 		case "${2}" in
 			set) 			cmd_interface_change ask ;;
 			reset) 			cmd_vpn_iptable_reset ;;
-			guest)
+			net | guest)
 				case "${3}" in
 					add ) 			cmd_bridge_vpn_access_add ;;
 					del ) 			cmd_bridge_vpn_access_del ;;
@@ -95,8 +95,8 @@ case "${1}" in
 				esac
 				;;
 
-			del|rm) 	    cmd_vpn_del_guest_network ;;
-			rescan|scan)	cmd_scan_interface_list ;;
+			del | rm) 	    cmd_vpn_del_guest_network ;;
+			rescan | scan)	cmd_scan_interface_list ;;
 			status | *) 	cmd_vpn_status ;;
 		esac
 		;;
@@ -142,11 +142,11 @@ case "${1}" in
 		;;
 	period)
 		case "${2}" in
-			del|clear) 		del_period_update ;;
+			del | clear) 		del_period_update ;;
 			*) 				cmd_set_period_update "${2}" ;;
 		esac
 		;;
-	update|reset|init)		cmd_kvas_init
+	update | reset | init)		cmd_kvas_init
 		;;
 	upgrade)				upgrade
 		;;
@@ -154,7 +154,7 @@ case "${1}" in
 		;;
 	help|-h|--h ) 			cmd_help
 		;;
-	uninstall|remove|rm ) 	cmd_uninstall  "${2}" "${3}"
+	uninstall | remove | rm ) 	cmd_uninstall  "${2}" "${3}"
 		;;
 
 	*)						error "Команда '${1}' не известна, список доступных команд:"
