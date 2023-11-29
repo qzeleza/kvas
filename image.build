@@ -23,6 +23,15 @@ GID=$(get_remove_value "G_ID")
 DEBUG=${DEBUG}
 EOF
 
+new_release(){
+	release=$(cat < ./build/version | sed -n 's/RELEASE=\(.*\)/\1/p')
+	if [ -z "${release}" ] ; then next_release=1; else next_release=$((release+1)); fi
+	sed -i '' 's/\(RELEASE=\).*/\1'"${next_release}"'/' ./build/version
+	find ./ipk/ -maxdepth 1 -type f -iregex '.*kvas.*' -exec mv {} ./ipk/old \;
+}
+
+new_release
+
 # удаляем старые контейнеры
 docker container prune -f
 

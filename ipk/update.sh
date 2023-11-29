@@ -62,14 +62,16 @@ ready 'Загружаем пакет...'
 if [ -f /opt/bin/kvas ] && kvas | grep -q 'Настройка пакета не завершена' ; then
 	ready 'Удаляем незавершенную ранее установку пакета ...'
 	kvas rm "${rm_type}" yes &>/dev/null && when_ready || when_err
+	find / | grep -E '/tmp|/.Trashes'  | grep -v "${package_name}" | grep kvas | xargs rm -rf
 else
-	if [ -f "${list_backup}" ] && [ -f /opt/bin/kvas ]; then
+	if [ -f /opt/bin/kvas ]; then
 		ready 'Сохраняем список разблокировки в архив...'
 		cp "${hosts_list}" "${list_backup}" &>/dev/null && when_ready || when_err
 	 	ver=$(grep "APP_VERSION=" "${kvas_conf}" | cut -d'=' -f2)
 		rel=$(grep "APP_RELEASE=" "${kvas_conf}" | cut -d'=' -f2)
 		ready "Удаляем предыдущую версию пакета [${ver} ${rel}]..."
 		kvas rm "${rm_type}" yes &>/dev/null && when_ready || when_err
+		find / | grep -E '/tmp|/.Trashes' | grep -v "${package_name}" | grep kvas | xargs rm -rf
 	fi
 fi
 

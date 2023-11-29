@@ -668,12 +668,12 @@ cmd_bridge_vpn_access_list() {
         if cat < "${KVAS_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -qi ikev2; then
                 if [ -z "${mode}" ] || [ "${mode}" = del ]; then
                         ikev2_include_to_list
-                        num=1
+                        [ "${mode}" = del ] && num=1
                 fi
         else
                 if [ -z "${mode}" ] || [ "${mode}" = add ]; then
                         ikev2_include_to_list
-                        num=1
+                        [ "${mode}" = add ] && num=1
                 fi
         fi
 
@@ -1619,7 +1619,8 @@ is_vpn_interface_connected() {
 		if [ $? = 0 ]; then connected="on"; else connected="off"; fi
 	else
 #		status=$(get_value_interface_field "${cli_inface}" connected)
-		status=$(get_value_interface_field "${cli_inface}" state)
+		status=$(curl -s "${INFACE_REQUEST}" | jq -r '.[] | select(.id=="'"${cli_inface}"'" and .link=="up" and .connected=="yes" and .state=="up") | .state')
+#		status=$(get_value_interface_field "${cli_inface}" state)
 		if [ "${status}" = 'up' ]; then connected="on"; else connected="off"; fi
 	fi
 	echo "${connected}"
