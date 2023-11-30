@@ -3,7 +3,6 @@
 . /opt/apps/kvas/bin/libs/check
 . /opt/apps/kvas/bin/libs/update
 . /opt/apps/kvas/bin/main/setup
-. /opt/apps/kvas/bin/main/upgrade
 
 #------------------------------------------------------------------------------
 #
@@ -142,13 +141,13 @@ case "${1}" in
 		;;
 	period)
 		case "${2}" in
-			del | clear) 		del_period_update ;;
+			del | clear) 	del_period_update ;;
 			*) 				cmd_set_period_update "${2}" ;;
 		esac
 		;;
-	update | reset | init)		cmd_kvas_init
+	update | reset | init)	cmd_kvas_init
 		;;
-	upgrade)				upgrade
+	upgrade)				/opt/apps/kvas/bin/main/upgrade "${2}" "${3}"
 		;;
 	version | ver)			version | tr '-' ' '
 		;;

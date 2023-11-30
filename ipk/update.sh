@@ -1,5 +1,10 @@
 #!/bin/sh
 
+# Режим обновления имеет значения
+# пустое значение - обычный режим проверки версии обновления
+# full 			  - режим с полным удалением пакета и принудительным обновлением, даже если версии одинаковые
+update_mode="${1}"
+
 RED="\033[1;31m";
 GREEN="\033[1;32m";
 BLUE="\033[36m";
@@ -24,7 +29,7 @@ package_name=$(echo "${package_url}" | sed 's/.*\/\(.*ipk\)$/\1/')
 list_backup=/opt/etc/hosts.list.backup
 hosts_list=/opt/etc/hosts.list
 kvas_conf=/opt/etc/kvas.conf
-rm_type="${1}"
+
 version=$(echo "${package_name}" | sed 's/kvas_\(.*\)_all.*/\1/; s/-/ /g; s/_/-/' )
 prev_path=$(pwd)
 
@@ -41,6 +46,17 @@ ready 'Обновляем библиотеку пакетов opkg...'
 {
 	opkg update && opkg upgrade && opkg install curl iptables
 } &>/dev/null && when_ready || when_err
+
+[ "${update_mode}" = full ] || {
+	if [ -f /opt/bin/kvas ] && [ -f /opt/etc/kvas.conf ]; then
+	prev_ver=$(cat < /opt/etc/kvas.conf | grep -E 'VERSION|RELEASE' | tr -d '\n' | tr '-' '_' | sed 's/^APP_VERSION=\(.*\)APP_RELEASE=\(.*\)/\1-\2\n/')
+	next_ver=$(echo "${package_name}" |  sed 's/kvas_\(.*\)_all.*/\1/')
+	if [ "${prev_ver}" = "${next_ver}" ] ; then
+		ready "Квас все еще свеж, обновлений" && when_ready "НЕ ТРЕБУЕТСЯ"
+		exit 1
+	fi
+fi
+}
 
 
 ready 'Загружаем пакет...'
@@ -61,7 +77,7 @@ ready 'Загружаем пакет...'
 
 if [ -f /opt/bin/kvas ] && kvas | grep -q 'Настройка пакета не завершена' ; then
 	ready 'Удаляем незавершенную ранее установку пакета ...'
-	kvas rm "${rm_type}" yes &>/dev/null && when_ready || when_err
+	kvas rm "${update_mode}" yes &>/dev/null && when_ready || when_err
 	find / | grep -E '/tmp|/.Trashes'  | grep -v "${package_name}" | grep kvas | xargs rm -rf
 else
 	if [ -f /opt/bin/kvas ]; then
@@ -70,7 +86,7 @@ else
 	 	ver=$(grep "APP_VERSION=" "${kvas_conf}" | cut -d'=' -f2)
 		rel=$(grep "APP_RELEASE=" "${kvas_conf}" | cut -d'=' -f2)
 		ready "Удаляем предыдущую версию пакета [${ver} ${rel}]..."
-		kvas rm "${rm_type}" yes &>/dev/null && when_ready || when_err
+		kvas rm "${update_mode}" yes &>/dev/null && when_ready || when_err
 		find / | grep -E '/tmp|/.Trashes' | grep -v "${package_name}" | grep kvas | xargs rm -rf
 	fi
 fi
