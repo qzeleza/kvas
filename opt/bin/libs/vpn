@@ -124,6 +124,7 @@ reset_all_connection(){
 # 	$1 	- режим запуска функции имеет следующие значения:
 #		update 		- режим обновления при выполнении kvas update
 #		refresh 	- режим обновления списка доменов при командах add/del/import
+#	    initd		- обновить время при установке пакета
 # ------------------------------------------------------------------------------------------
 cmd_kvas_init(){
 
@@ -135,7 +136,7 @@ cmd_kvas_init(){
 
 #	Производим перезапуск подключения к интернету
 #	если не режим update и если текущее подключение не ssr
-	if [ "${stage}" != update ] || ! has_ssr_enable ; then  reset_all_connection; fi
+	if [ "${stage}" = refresh ] || ! has_ssr_enable ; then  reset_all_connection; fi
 
 	iptables_reset
 	update_iptables
@@ -667,28 +668,35 @@ cmd_bridge_vpn_access_list() {
         #        Подключаем IKEv2 VPN-сервер
         if cat < "${KVAS_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -qi ikev2; then
                 if [ -z "${mode}" ] || [ "${mode}" = del ]; then
-                        ikev2_include_to_list
-                        [ "${mode}" = del ] && num=1
+                        ikev2_item=$(ikev2_include_to_list)
+                        [ "${mode}" = del ] && [ -n "${ikev2_item}" ] && {
+                        	echo "${ikev2_item}"
+                        	num=1
+                        }
                 fi
         else
                 if [ -z "${mode}" ] || [ "${mode}" = add ]; then
-                        ikev2_include_to_list
-                        [ "${mode}" = add ] && num=1
+                        ikev2_item=$(ikev2_include_to_list)
+                        [ "${mode}" = add ] && [ -n "${ikev2_item}" ] && {
+                        	echo "${ikev2_item}"
+                        	num=1
+                        }
                 fi
         fi
 
         printf '%s\n' "${interfaces_list}" |
         while IFS= read -r desc_ip ; do
-                num=$((num + 1))
                 net_ip=$(echo "${desc_ip}" | sed 's/.*\[\(.*\)\].*/\1/')
                 ent_inf=$(ip a | grep global | grep "${net_ip}" | sed 's/.* \(.*\)$/\1/')
                 if cat < "${KVAS_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -qi "${ent_inf}"; then
                         if [ -z "${mode}" ] || [ "${mode}" = del ]; then
-                                guest_include_to_list "${num}" "${desc_ip}"
+                        	num=$((num + 1))
+							guest_include_to_list "${num}" "${desc_ip}"
                         fi
                 else
                         if [ -z "${mode}" ] || [ "${mode}" = add ]; then
-                                guest_include_to_list "${num}" "${desc_ip}"
+                        	num=$((num + 1))
+							guest_include_to_list "${num}" "${desc_ip}"
                         fi
                 fi
         done
@@ -2086,7 +2094,8 @@ host_add() {
 	if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
 		ads_list_hosts_update &> /dev/null
 	fi
-	[ "${reset}" = 'yes' ] && iptables_reset &> /dev/null
+#	[ "${reset}" = 'yes' ] && iptables_reset &> /dev/null
+	[ "${reset}" = 'yes' ] && cmd_kvas_init "refresh" &> /dev/null
 
 	[ $? = 0 ] && when_ok "ДОБАВЛЕН" || when_bad "НЕ ДОБАВЛЕН"
 

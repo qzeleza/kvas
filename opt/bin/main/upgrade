@@ -53,7 +53,7 @@ if [ -f /opt/bin/kvas ] && [ -f /opt/etc/kvas.conf ]; then
 	prev_ver=$(cat < /opt/etc/kvas.conf | grep -E 'VERSION|RELEASE' | tr -d '\n' | tr '-' '_' | sed 's/^APP_VERSION=\(.*\)APP_RELEASE=\(.*\)/\1-\2\n/')
 	next_ver=$(echo "${package_name}" |  sed 's/kvas_\(.*\)_all.*/\1/')
 	if [ "${prev_ver}" = "${next_ver}" ] ; then
-		ready "Квас все еще свеж, обновлений" && when_ready "НЕ ТРЕБУЕТСЯ"
+		ready "Квас все еще свеж, обновлений" && echo -e "${GREEN}НЕ ТРЕБУЕТСЯ${NOCL}"
 		exit 1
 	fi
 fi
