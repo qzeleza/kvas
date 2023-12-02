@@ -2089,13 +2089,29 @@ host_add() {
 	fi
 	print_line
 	ready "Добавляем ${YELLOW}${_host}${NOCL} в список разблокировки..."
+
+#   AdGuardHome обработка
 	echo "${_host}" >> "${UNBLOCK_LIST_FILE}"
+	[ -f "${ADGUARD_IPSET_FILE}" ] && echo "${_host}" >> "${ADGUARD_IPSET_FILE}"
+	if echo "${host}" | grep -q '\*' ; then
+  		echo "ipset=/:.*${clear_host}:/unblock" >> "${DNSMASQ_IPSET_HOSTS}"
+  	else
+    	echo "ipset=/${clear_host}/unblock" >> "${DNSMASQ_IPSET_HOSTS}"
+  	fi
+
+	# если строка начинается с IP, то проводим обработку по IP
+	if echo "${clear_host}" | grep -qoE "${IP_FILTER}|${IP_FILTER}-${IP_FILTER}|${IP_FILTER}/[0-9]{1,2}"; then
+		ipset -exist add "${table_name}" "${clear_host}" &>/dev/null
+	else
+		add_host_by_iplist_to_ipset "${clear_host}"
+	fi
+
 #	если включен блокировщик рекламы
 	if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
 		ads_list_hosts_update &> /dev/null
 	fi
-#	[ "${reset}" = 'yes' ] && iptables_reset &> /dev/null
-	[ "${reset}" = 'yes' ] && cmd_kvas_init "refresh" &> /dev/null
+
+#	[ "${reset}" = 'yes' ] && cmd_kvas_init "refresh" &> /dev/null
 
 	[ $? = 0 ] && when_ok "ДОБАВЛЕН" || when_bad "НЕ ДОБАВЛЕН"
 
