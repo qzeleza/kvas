@@ -55,7 +55,7 @@ cat <<EOF > "${TMP_ADS_FILE}"
 0.0.0.0 ipgrabber.ru
 0.0.0.0 ipgraber.ru
 0.0.0.0 iplis.ru
-0.0.0.0 02ip.ru
+0.0.0.0 myip2.ru
 EOF
 }
 

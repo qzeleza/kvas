@@ -783,30 +783,40 @@ add_ikev2_net_to_config(){
 
 ikev2_net_access_del(){
 
-        ikev2=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
-        net_pool=$(echo "${ikev2}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+	ikev2=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
+	net_pool=$(echo "${ikev2}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
 
-        ready "Удаление интерфейса \"VPN-сервер IKEv2\" завершено" && {
+	ready "Удаление интерфейса \"VPN-сервер IKEv2\" завершено" && {
 
-			ikev2_dns=$(get_external_ip)
-			curl -s -d '{"nat": false, "dns-server": "'"${ikev2_dns}"'"},' "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2" &> /dev/null
-			sleep 1
-			net_pool=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/')
-			if has_ssr_enable ;then
-				   port=$(get_config_value SSR_DNS_PORT)
-				   iptables-save | grep PREROUTING | grep "${net_pool}" | grep eth3 | grep unblock | grep REDIRECT | grep -q "${port}" && {
-						   iptab -D PREROUTING -t nat -s ${net_pool} -p tcp -i eth3 -m set --match-set unblock dst -j REDIRECT --to-port ${port}
-						   iptab -D PREROUTING -t nat -s ${net_pool} -p udp -i eth3 -m set --match-set unblock dst -j REDIRECT --to-port ${port}
-				   }
-			else
-				   iptables-save | grep PREROUTING | grep "${net_pool}" | grep eth3 | grep ${MARK_NUM} | grep -q MASQUERADE && {
-						   iptab -D POSTROUTING -t nat -s "${net_pool}" -o eth3 -j MASQUERADE && del_ikev2_net_from_config
-				   }
-			fi
+		ikev2_dns=$(get_external_ip)
+		curl -s -d '{"nat": false, "dns-server": "'"${ikev2_dns}"'"},' "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2" &> /dev/null
+		sleep 1
+		net_ip=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.1/')
+		net_pool=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/')
 
-			del_ikev2_net_from_config
+		if has_ssr_enable ;then
 
-        } && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+			iptables-save | grep PREROUTING | grep "${net_ip}" | grep eth3 | grep DNAT | grep -q ":53" && {
+
+				iptab -D PREROUTING -t nat -i eth3 -p tcp -j DNAT --to "$(net_ip):53"
+				iptab -D PREROUTING -t nat -i eth3 -p udp -j DNAT --to "$(net_ip):53"
+			}
+
+		   port=$(get_config_value SSR_DNS_PORT)
+		   iptables-save | grep PREROUTING | grep "${net_pool}" | grep eth3 | grep unblock | grep REDIRECT | grep -q "${port}" && {
+
+				iptab -D PREROUTING -t nat -s ${net_pool} -p tcp -i eth3 -m set --match-set unblock dst -j REDIRECT --to-port ${port}
+				iptab -D PREROUTING -t nat -s ${net_pool} -p udp -i eth3 -m set --match-set unblock dst -j REDIRECT --to-port ${port}
+		   }
+		else
+		   iptables-save | grep PREROUTING | grep "${net_pool}" | grep eth3 | grep ${MARK_NUM} | grep -q MASQUERADE && {
+				   iptab -D POSTROUTING -t nat -s "${net_pool}" -o eth3 -j MASQUERADE && del_ikev2_net_from_config
+		   }
+		fi
+
+		del_ikev2_net_from_config
+
+	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 }
 
 ikev2_net_access_add(){
@@ -819,18 +829,28 @@ ikev2_net_access_add(){
 			ikev2_dns=$(get_router_ip)
 			curl -s -d '{"enable": true, "nat": true, "dns-server": "'"${ikev2_dns}"'"}' "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2" &> /dev/null
         	sleep 1
+        	net_ip=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.1/')
 			net_pool=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/')
+
 			if has_ssr_enable ;then
-				   port=$(get_config_value SSR_DNS_PORT)
-				   if ! iptables-save | grep PREROUTING | grep "${net_pool}" | grep eth3 | grep unblock | grep REDIRECT | grep -q "${port}" ; then
-						   iptables -A PREROUTING -t nat -s ${net_pool} -i eth3 -p tcp -m set --match-set unblock dst -j REDIRECT --to-port ${port}
-						   iptables -A PREROUTING -t nat -s ${net_pool} -i eth3 -p udp -m set --match-set unblock dst -j REDIRECT --to-port ${port}
-				   fi
+
+				iptables-save | grep PREROUTING | grep "${net_ip}" | grep eth3 | grep DNAT | grep -q ":53" && {
+
+					iptables -A PREROUTING -t nat -i eth3 -p tcp -j DNAT --to "$(net_ip):53"
+					iptables -A PREROUTING -t nat -i eth3 -p udp -j DNAT --to "$(net_ip):53"
+				}
+
+			   port=$(get_config_value SSR_DNS_PORT)
+			   if ! iptables-save | grep PREROUTING | grep "${net_pool}" | grep eth3 | grep unblock | grep REDIRECT | grep -q "${port}" ; then
+				   iptables -A PREROUTING -t nat -s ${net_pool} -i eth3 -p tcp -m set --match-set unblock dst -j REDIRECT --to-port ${port}
+				   iptables -A PREROUTING -t nat -s ${net_pool} -i eth3 -p udp -m set --match-set unblock dst -j REDIRECT --to-port ${port}
+			   fi
 			else
-				   if ! iptables-save | grep PREROUTING | grep "${net_pool}" | grep eth3 | grep ${MARK_NUM} | grep -q MASQUERADE ; then
-						   iptables -A POSTROUTING -t nat -s "${net_pool}" -o eth3 -m ndmmark --ndmmark ${MARK_NUM} -j MASQUERADE && add_ikev2_net_to_config
-				   fi
+			   if ! iptables-save | grep PREROUTING | grep "${net_pool}" | grep eth3 | grep ${MARK_NUM} | grep -q MASQUERADE ; then
+				   iptables -A POSTROUTING -t nat -s "${net_pool}" -o eth3 -m ndmmark --ndmmark ${MARK_NUM} -j MASQUERADE && add_ikev2_net_to_config
+			   fi
 			fi
+
 			add_ikev2_net_to_config
 
         } && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
@@ -1733,6 +1753,7 @@ select_vpn_interface() {
 		if ! echo "${num_vpn_inface}" | grep -qiE "[1-${total}qs]"; then
 			error "Введите цифру 1/${total} или S - сканирование, Q - выход."
 		else
+			print_line
 			if echo "${num_vpn_inface}" | grep -qiE "[1-${total}]"; then
 	#			Меняем интерфейс в файле ndm
 				inface_entware=$(get_vpn_interface_by_num "${num_vpn_inface}")
@@ -1751,7 +1772,6 @@ select_vpn_interface() {
 
 			elif echo "${num_vpn_inface}" | grep -qi "q"; then
 				cli="$(get_router_host)/a"
-				print_line
 				echo -e "${RED}Процедура настройки прервана пользователем!${NOCL}"
 				print_line
 				/opt/etc/init.d/S56dnsmasq stop  &> /dev/null
@@ -1765,7 +1785,6 @@ select_vpn_interface() {
 				print_line
 				exit 1
 			else
-				print_line
 				cmd_interface_change "no" "${is_install_stage}"
 			fi
 
@@ -2062,6 +2081,29 @@ test_host() {
 	echo "${ret}"
 
 }
+
+add_host_to_adguard(){
+	#   AdGuardHome обработка
+	echo "${_host}" >> "${UNBLOCK_LIST_FILE}"
+	[ -f "${ADGUARD_IPSET_FILE}" ] && echo "${_host}" >> "${ADGUARD_IPSET_FILE}"
+	if echo "${host}" | grep -q '\*' ; then
+  		echo "ipset=/:.*${clear_host}:/unblock" >> "${DNSMASQ_IPSET_HOSTS}"
+  	else
+    	echo "ipset=/${clear_host}/unblock" >> "${DNSMASQ_IPSET_HOSTS}"
+  	fi
+}
+
+add_host_to_ipset(){
+	#
+#	# если строка начинается с IP, то проводим обработку по IP
+	if echo "${clear_host}" | grep -qoE "${IP_FILTER}|${IP_FILTER}-${IP_FILTER}|${IP_FILTER}/[0-9]{1,2}"; then
+		ipset -exist add "${table_name}" "${clear_host}" &>/dev/null
+	else
+		add_host_by_iplist_to_ipset "${clear_host}"
+	fi
+
+}
+
 # ------------------------------------------------------------------------------------------
 #
 # 	Добавляем один хост
@@ -2069,7 +2111,6 @@ test_host() {
 # 	$2 - делаем ли сброс таблиц или нет (нужно отключать при импорте множества доемнных имен)
 #
 # ------------------------------------------------------------------------------------------
-
 host_add() {
 	clear_host=$(echo "${1}" | sed 's/\*//')
 	reset="${2}"
@@ -2090,28 +2131,17 @@ host_add() {
 	print_line
 	ready "Добавляем ${YELLOW}${_host}${NOCL} в список разблокировки..."
 
-#   AdGuardHome обработка
-	echo "${_host}" >> "${UNBLOCK_LIST_FILE}"
-	[ -f "${ADGUARD_IPSET_FILE}" ] && echo "${_host}" >> "${ADGUARD_IPSET_FILE}"
-	if echo "${host}" | grep -q '\*' ; then
-  		echo "ipset=/:.*${clear_host}:/unblock" >> "${DNSMASQ_IPSET_HOSTS}"
-  	else
-    	echo "ipset=/${clear_host}/unblock" >> "${DNSMASQ_IPSET_HOSTS}"
-  	fi
 
-	# если строка начинается с IP, то проводим обработку по IP
-	if echo "${clear_host}" | grep -qoE "${IP_FILTER}|${IP_FILTER}-${IP_FILTER}|${IP_FILTER}/[0-9]{1,2}"; then
-		ipset -exist add "${table_name}" "${clear_host}" &>/dev/null
-	else
-		add_host_by_iplist_to_ipset "${clear_host}"
-	fi
+
 
 #	если включен блокировщик рекламы
 	if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
 		ads_list_hosts_update &> /dev/null
 	fi
 
-#	[ "${reset}" = 'yes' ] && cmd_kvas_init "refresh" &> /dev/null
+	[ "${reset}" = 'yes' ] && cmd_kvas_init "refresh" &> /dev/null
+	add_host_to_adguard
+	add_host_to_ipset
 
 	[ $? = 0 ] && when_ok "ДОБАВЛЕН" || when_bad "НЕ ДОБАВЛЕН"
 

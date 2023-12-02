@@ -65,6 +65,35 @@ INFACE_PART_REQUEST="${LOCALHOST_IP}:79/rci/interface"
 SSR_ENTWARE_TEMPL=ezcfg
 
 
+get_ip_list(){
+#	{1} - исследуемый домен
+#	{2} - DNS сервер для опроса
+    dig "${1}" @"${2}" | grep -E '[0-9.]' | grep '^'"${1}" | sed -n 's/^.*A.*\([0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\)/\1/p'
+}
+
+#
+# 	Проверка хоста на то, доступен ли он через туннель или через провайдера
+#	ВНИМАНИЕ! Доступна не для всех доменов
+#
+is_inside_tunnel(){
+	host_to_check=${1}
+	tunnel_dns=${2}
+	provider_dns=${3:-9.9.9.9}
+
+	[ -z "${tunnel_dns}" ] && tunnel_dns=$(get_router_ip)
+	grep_cmd=""
+
+	for _ip in $(get_ip_list "${host_to_check}" "${provider_dns}")
+	do
+			grep_cmd=${grep_cmd}" | grep ${_ip}"
+	done
+	tunn_ip_list=$(get_ip_list "${host_to_check}" "${tunnel_dns}" | tr '\n' ' ')
+	grep_cmd=$(echo "echo ${tunn_ip_list} ${grep_cmd}" | sed 's/\(.*grep \)\([0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\)$/\1 -q \2/' | tr -s ' ')
+
+	eval "! ${grep_cmd}"
+}
+
+
 has_ssr_enable() ([ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ])
 
 # ------------------------------------------------------------------------------------------

@@ -17,6 +17,25 @@
 NOT_IN_TABLE=false
 IPSET=$(which ipset)
 
+check_tunnel(){
+
+	dns_prov='9.9.9.9'
+	dns_tunnel=$(get_router_ip)
+	echo ''
+	for host in kinozal.tv netflix.com oaistatic.com openai.com
+	do
+		host=$(echo "$host" | sed 's/^\*//g' | tr -s ' ')
+		[ -n "${host}" ] && {
+			ready "${host}     " && is_inside_tunnel "${host}" "${dns_prov}" && when_ok 'ТУННЕЛЬ' || when_bad 'ПРОВАЙДЕР'
+			print_line
+			echo "IP провайдера [$(get_ip_list "${host}" "${dns_prov}" | tr '\n' '|' | sed 's/[|]$//' | sed 's/|$//') ]"
+			echo "IP через туннель [$(get_ip_list "${host}" "${dns_tunnel}" | tr '\n' '|' | sed 's/[|]$//' | sed 's/|$//') ]"
+			echo ''
+		}
+	done
+}
+
+
 # ------------------------------------------------------------------------------------------
 #
 #	 Проверяем прошел ли домен проверку
@@ -427,9 +446,9 @@ internet_check() {
 hosts_list_check(){
 	{ ! [ -f "${UNBLOCK_LIST_FILE}" ] || [ "$(cat < "${UNBLOCK_LIST_FILE}" | wc -l)" = 0 ];} && {
 		warning "Файл списка разблокировки не существует"
-		warning "Создаем новый, но c одним хостом для проверки: 2ip.ru"
+		warning "Создаем новый, но c одним хостом для проверки: myip2.ru"
 		print_line
-		kvas add 2ip.ru
+		kvas add myip2.ru
 	}
 }
 # ------------------------------------------------------------------------------------------
@@ -451,7 +470,7 @@ ipset_site_visit_check() {
 	warning "Проверка заполнения ipset таблицы при посещении сайта."
 	print_line
 	echo "Далее, для проверки заполнения, откройте на компьютере браузер"
-	echo "Затем зайдите на сайт https://2ip.ru"
+	echo "Затем зайдите на сайт https://myip2.ru"
 	echo "На странице должен появиться IP Вашего VDS/VPN провайдера."
 	echo -n "После чего вновь перейдите сюда и нажмите на любую клавишу."
 	pause
@@ -527,6 +546,8 @@ cmd_state_checker() {
 	fi
 	print_line
 	ipset_site_visit_check
+#	print_line
+#	check_tunnel
 
 }
 # ------------------------------------------------------------------------------------------

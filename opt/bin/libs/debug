@@ -328,7 +328,7 @@ syslog_debug() {
 # ------------------------------------------------------------------------------------------
 ping_debug() {
 	#  host=$(cat < '"${UNBLOCK_LIST_FILE}"' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | tr -s '\n' | head -1)
-	host='2ip.ru'
+	host='myip2.ru'
 	result=$(ping -c3 "${host}")
 	echo_debug "Прозвон ${host}" "${result}"
 }
