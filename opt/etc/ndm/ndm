@@ -202,7 +202,7 @@ ip4_add_selected_guest_to_vpn_network(){
 			# Маркируем трафик гостевой сети
 			{
 					log_warning "Подключаем правила маркировки гостевого трафика для VPN."
-					ip4tables POSTROUTING -t nat -s "$(get_guest_net "${guest_inface}")" -o "${guest_inface}" -m ndmmark --ndmmark ${MARK_NUM} -j MASQUERADE
+					ip4tables POSTROUTING -t nat -s "$(get_guest_net "${guest_inface}")" -o "${guest_inface}" -j MASQUERADE
 #					Под вопросом ?
 #					ip4tables POSTROUTING -t nat -s "$(get_guest_net "${guest_inface}")" -o "${guest_inface}" -m ndmmark --ndmmark ${MARK_NUM} -j SNAT --to-source $(inface_guest_gw4 "${guest_inface}")
 
@@ -567,6 +567,7 @@ ip4_firewall_rm_selected_guest_net(){
 
 # для всех гостевых интерфейсов
 ip4_firewall_flush_vpn_rules() {
+
 	if fastnet_enabled ; then
 #		Если программное и аппаратное ускорение ПОДКЛЮЧЕНО
 		ip4_firewall_fastnet_vpn_prune &>/dev/null
@@ -739,8 +740,14 @@ recreate_ip4tables(){
 #
 # ------------------------------------------------------------------------------------------
 recreate_vpn_rules(){
-	ready "${prefix}Очищаем все ранее созданные iptables правила для VPN."
-	ip4_firewall_flush_vpn_rules  &>/dev/null
+
+	if has_ssr_enable ; then
+		ready "${prefix}Очищаем все ранее созданные iptables правила для SHADOWSOCKS."
+		ip4_firewall_ssr_prune  &>/dev/null
+	else
+		ready "${prefix}Очищаем все ранее созданные iptables правила для VPN."
+		ip4_firewall_flush_all_rules  &>/dev/null
+	fi
 	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 
 	ready "${prefix}Обнуляем приоритет таблицы ID#${TABLE_ID}"

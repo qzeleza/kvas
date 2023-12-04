@@ -48,8 +48,9 @@ setup_adguard(){
 
 	if cmd_adguardhome_status | grep -qE "(ВКЛЮЧЕН|ОТКЛЮЧЕН)" ; then
 		warning "На роутере обнаружен AdGuard Home "
-		read_ynq "Установить AdGuard Home, как основной DNS сервер" ANSWER_AGH
-		if [ "${ANSWER_AGH}" = y ]; then
+		read_ynq_timer "Установить AdGuard Home, как основной DNS сервер" ANSWER_AGH Y 10
+		if [ "${ANSWER_AGH}" = q ] ; then exit_q; exit 1; fi
+		if echo "${ANSWER_AGH}" | grep -qi y; then
 			cmd_adguardhome_on
 			log_in_file "AdGuard Home НАСТРОЕН, как основной DNS сервер"
 		else
@@ -387,10 +388,11 @@ cmd_uninstall() {
 		answer=y; sure=y
 	else
 		print_line
-		answer=''; read_ynq "Вы уверены в удалении пакета ?" answer
+		answer=''; read_ynq_timer "Вы уверены в удалении пакета ?" answer N 12
+		if [ "${answer}" = q ] ; then exit_q; exit 1; fi
 	fi
 
-	if [ "${answer}" = y ]; then
+	if echo "${answer}" | grep -qi y ; then
 
 		[ -z "${rm_type}" ] && mess="Удаляем все архивные данные, зависимые пакеты оставляем."
 		if [ "${rm_type}" = full ]; then

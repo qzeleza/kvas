@@ -433,8 +433,9 @@ internet_check() {
 		reset_ISP_connection
 		if is_not_internet_connected; then
 			when_bad "К сожалению, перезапуск соединения не помог."
-			answer=''; read_ynq "Рекомендуется сделать перезагрузку роутера. Перегрузить?" answer
-			[ "${answer}" = y ] && reboot
+			answer=''; read_ynq_timer "Рекомендуется сделать перезагрузку роутера. Перегрузить?" answer N 6
+			if [ "${answer}" = q ] ; then exit_q; exit 1; fi
+			echo "${answer}" | grep -qi y && reboot
 		fi
 	fi
 }

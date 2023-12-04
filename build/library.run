@@ -70,6 +70,8 @@ read_ynq() {
 	done
 }
 
+
+
 # Получаем путь до ключа
 get_key_file(){
 	key_name=id_rsa
@@ -143,7 +145,7 @@ run_reinstalation_on_router(){
 run_tests(){
 	echo -n "Запустить тесты? [Y/N]: "; ynq=''
 	read -r ynq
-	if [ "${ynq}" = y ] || [ "${ynq}" = Y ]; then
+	if echo "${ynq}" | grep -qi y ; then
 		cd "${APPS_ROOT}/${APP_NAME}/tests"
 		./tests.run
 	fi

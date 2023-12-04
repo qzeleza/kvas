@@ -160,21 +160,27 @@ SUFF=">> "
 # ------------------------------------------------------------------------------------------
 exit_when_adguard_on(){
 	if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
-		echo -e "${SUFF}${BLUE}Сейчас функции DNS сервера, шифрования DNS трафика и функции блокировки рекламы ${NOCL}"
-		echo -e "${SUFF}${BLUE}исполняет AdGuard Home, заменяющий связку [dnsmasq + dnscrypt_proxy2 + adblock].${NOCL}"
-		echo -e "${SUFF}${BLUE}Единовременно Квас может работать только с одной из этих связок.${NOCL}"
-		echo -e "${SUFF}${BLUE}Для перехода на связку с dnsmasq запустите команду ${GREEN}kvas adguard off${NOCL}"
-        eval "${1}=1"; else
+		[ -z "${2}" ] && {
+			echo -e "${SUFF}${BLUE}Сейчас функции DNS сервера, шифрования DNS трафика и функции блокировки рекламы ${NOCL}"
+			echo -e "${SUFF}${BLUE}исполняет AdGuard Home, заменяющий связку [dnsmasq + dnscrypt_proxy2 + adblock].${NOCL}"
+			echo -e "${SUFF}${BLUE}Единовременно Квас может работать только с одной из этих связок.${NOCL}"
+			echo -e "${SUFF}${BLUE}Для перехода на связку с dnsmasq запустите команду ${GREEN}kvas adguard off${NOCL}"
+		}
+        eval "${1}=1";
+    else
         eval "${1}=0";
     fi
 }
 exit_when_dnsmasq_on(){
 	if ! cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
-		echo -e "${SUFF}${BLUE}Сейчас функции DNS сервера, шифрования DNS трафика и функции блокировки рекламы${NOCL}"
-		echo -e "${SUFF}${BLUE}исполняет связка [dnsmasq + dnscrypt_proxy2 + adblock], заменяющая AdGuard Home.${NOCL}"
-		echo -e "${SUFF}${BLUE}Единовременно Квас может работать только с одной из этих связок.${NOCL}"
-		echo -e "${SUFF}${BLUE}Для перехода на AdGuard Home запустите команду ${GREEN}kvas adguard on${NOCL}"
-        eval "${1}=1"; else
+		[ -z "${2}" ] && {
+			echo -e "${SUFF}${BLUE}Сейчас функции DNS сервера, шифрования DNS трафика и функции блокировки рекламы${NOCL}"
+			echo -e "${SUFF}${BLUE}исполняет связка [dnsmasq + dnscrypt_proxy2 + adblock], заменяющая AdGuard Home.${NOCL}"
+			echo -e "${SUFF}${BLUE}Единовременно Квас может работать только с одной из этих связок.${NOCL}"
+			echo -e "${SUFF}${BLUE}Для перехода на AdGuard Home запустите команду ${GREEN}kvas adguard on${NOCL}"
+		}
+        eval "${1}=1";
+    else
         eval "${1}=0";
     fi
 }
@@ -497,6 +503,9 @@ adguardhome_check_config() {
 				cp /opt/bin/AdGuardHome.yaml /opt/etc/AdGuardHome/AdGuardHome.yaml
 #				"${ADGUARDHOME_DEMON}" restart  &> /dev/null
 			fi
+			error "Проверьте, что сеть WIFI/Ethernet, с которой Вы заходите на роутер - "
+			error "та же самая, что и сеть с которой Вы открываете страницу браузера."
+			print_line
 			warning "Сейчас, перейдите на клиентское устройство в своем браузере "
 			warning "и зайдите на страницу http://$(get_router_ip):3000 для настройки AdGuardHome"
 			print_line
@@ -506,6 +515,7 @@ adguardhome_check_config() {
 			warning "Далее, на следующей странице, нажмите на 'Открыть Панель Управления'."
 			warning "После чего, установка AdGuard на роутере завершится автоматически."
 			print_line
+
 
 			tmp_conf=/opt/tmp/adguard.conf
 			log_file=/opt/tmp/adguard.log
@@ -558,10 +568,11 @@ cmd_adguardhome_on() {
 
 	status=$(cmd_adguardhome_status)
 	if echo "${status}" | grep -q "НЕ УСТАНОВЛЕН" ; then
-		error "Пакет AdGuard Home не установлен на роутере."
+		error "Пакет AdGuard Home не установлен на роутере." no_newline
 		print_line
-		answer=''; read_ynq "Установить его на роутер [Y] или отказаться [N]?" answer
-		if [ "${answer}" = y ]; then
+		answer=''; read_ynq_timer "Установить его на роутер [Y] или отказаться [N]?" answer y 10
+		if [ "${answer}" = q ] ; then exit_q; exit 1; fi
+		if echo "${answer}" | grep -qi y ; then
 			print_line
 			adguardhome_install_locally
 		fi
@@ -669,7 +680,7 @@ cmd_bridge_vpn_access_list() {
         if cat < "${KVAS_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -qi ikev2; then
                 if [ -z "${mode}" ] || [ "${mode}" = del ]; then
                         ikev2_item=$(ikev2_include_to_list)
-                        [ "${mode}" = del ] && [ -n "${ikev2_item}" ] && {
+                        [ -n "${ikev2_item}" ] && {
                         	echo "${ikev2_item}"
                         	num=1
                         }
@@ -677,7 +688,7 @@ cmd_bridge_vpn_access_list() {
         else
                 if [ -z "${mode}" ] || [ "${mode}" = add ]; then
                         ikev2_item=$(ikev2_include_to_list)
-                        [ "${mode}" = add ] && [ -n "${ikev2_item}" ] && {
+                        [ -n "${ikev2_item}" ] && {
                         	echo "${ikev2_item}"
                         	num=1
                         }
@@ -689,6 +700,7 @@ cmd_bridge_vpn_access_list() {
                 net_ip=$(echo "${desc_ip}" | sed 's/.*\[\(.*\)\].*/\1/')
                 ent_inf=$(ip a | grep global | grep "${net_ip}" | sed 's/.* \(.*\)$/\1/')
                 if cat < "${KVAS_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -qi "${ent_inf}"; then
+
                         if [ -z "${mode}" ] || [ "${mode}" = del ]; then
                         	num=$((num + 1))
 							guest_include_to_list "${num}" "${desc_ip}"
@@ -796,24 +808,24 @@ ikev2_net_access_del(){
 
 		if has_ssr_enable ;then
 
-			iptables-save | grep PREROUTING | grep "${net_ip}" | grep eth3 | grep DNAT | grep -q ":53" && {
+			if iptables-save | grep PREROUTING | grep "${net_ip}" | grep eth3 | grep DNAT | grep -q ":53" ; then
 
-				iptab -D PREROUTING -t nat -i eth3 -p tcp -j DNAT --to "$(net_ip):53"
-				iptab -D PREROUTING -t nat -i eth3 -p udp -j DNAT --to "$(net_ip):53"
-			}
+				iptab -D PREROUTING -t nat -i eth3 -p tcp -j DNAT --to "${net_ip}:53"
+				iptab -D PREROUTING -t nat -i eth3 -p udp -j DNAT --to "${net_ip}:53"
+			fi
 
 		   port=$(get_config_value SSR_DNS_PORT)
-		   iptables-save | grep PREROUTING | grep "${net_pool}" | grep eth3 | grep unblock | grep REDIRECT | grep -q "${port}" && {
+		   if iptables-save | grep PREROUTING | grep "${net_pool}" | grep eth3 | grep unblock | grep REDIRECT | grep -q "${port}" ; then
 
 				iptab -D PREROUTING -t nat -s ${net_pool} -p tcp -i eth3 -m set --match-set unblock dst -j REDIRECT --to-port ${port}
 				iptab -D PREROUTING -t nat -s ${net_pool} -p udp -i eth3 -m set --match-set unblock dst -j REDIRECT --to-port ${port}
-		   }
-		else
-		   iptables-save | grep PREROUTING | grep "${net_pool}" | grep eth3 | grep ${MARK_NUM} | grep -q MASQUERADE && {
-				   iptab -D POSTROUTING -t nat -s "${net_pool}" -o eth3 -j MASQUERADE && del_ikev2_net_from_config
-		   }
-		fi
 
+		   fi
+		else
+		   if iptables-save | grep POSTROUTING | grep "${net_pool}" | grep eth3 | grep -q MASQUERADE ; then
+				   iptab -D POSTROUTING -t nat -s "${net_pool}" -o eth3 -j MASQUERADE
+		   fi
+		fi
 		del_ikev2_net_from_config
 
 	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
@@ -834,24 +846,24 @@ ikev2_net_access_add(){
 
 			if has_ssr_enable ;then
 
-				iptables-save | grep PREROUTING | grep "${net_ip}" | grep eth3 | grep DNAT | grep -q ":53" && {
+				if ! iptables-save | grep PREROUTING | grep "${net_ip}" | grep eth3 | grep DNAT | grep -q ":53" ; then
 
-					iptables -A PREROUTING -t nat -i eth3 -p tcp -j DNAT --to "$(net_ip):53"
-					iptables -A PREROUTING -t nat -i eth3 -p udp -j DNAT --to "$(net_ip):53"
-				}
+					iptables -A PREROUTING -t nat -i eth3 -p tcp -j DNAT --to "${net_ip}:53"
+					iptables -A PREROUTING -t nat -i eth3 -p udp -j DNAT --to "${net_ip}:53"
+				fi
 
 			   port=$(get_config_value SSR_DNS_PORT)
 			   if ! iptables-save | grep PREROUTING | grep "${net_pool}" | grep eth3 | grep unblock | grep REDIRECT | grep -q "${port}" ; then
 				   iptables -A PREROUTING -t nat -s ${net_pool} -i eth3 -p tcp -m set --match-set unblock dst -j REDIRECT --to-port ${port}
 				   iptables -A PREROUTING -t nat -s ${net_pool} -i eth3 -p udp -m set --match-set unblock dst -j REDIRECT --to-port ${port}
+				   add_ikev2_net_to_config
 			   fi
 			else
-			   if ! iptables-save | grep PREROUTING | grep "${net_pool}" | grep eth3 | grep ${MARK_NUM} | grep -q MASQUERADE ; then
-				   iptables -A POSTROUTING -t nat -s "${net_pool}" -o eth3 -m ndmmark --ndmmark ${MARK_NUM} -j MASQUERADE && add_ikev2_net_to_config
-			   fi
+				if ! iptables-save | grep POSTROUTING | grep "${net_pool}" | grep eth3 | grep -q MASQUERADE ; then
+					iptables -A POSTROUTING -t nat -s "${net_pool}" -o eth3 -j MASQUERADE
+					add_ikev2_net_to_config
+				fi
 			fi
-
-			add_ikev2_net_to_config
 
         } && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 #set +x
@@ -1261,8 +1273,9 @@ vpn_on() {
 
 active_backup_config(){
 	echo "Обнаружен архивный файл конфигурации shadowsocks."
-	answer=''; read_ynq "Удалить его и создать новый" answer
-	if [ "${answer}" = y ]; then
+	answer=''; read_ynq_timer "Удалить его и создать новый" answer N 6
+	if [ "${answer}" = q ] ; then exit_q; exit 1; fi
+	if echo "${answer}" | grep -qi y ; then
 		ready "Удаляем архивный файл конфигурации shadowsocks..."
 		rm -f "${SHADOWSOCKS_CONF}.kvas"
 		[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
@@ -1466,8 +1479,9 @@ cmd_shadowsocks_local_port_change() {
 	else
 		answer=''
 		error "shadowsocks клиент не выбран в настройках"
-		read_ynq "Включить его вместо текущего соединения" answer
-		[ "${answer}" = y ] && shadowsocks_on; cmd_shadowsocks_local_port_change "${port_new}"
+		read_ynq_timer "Включить его вместо текущего соединения" answer Y 6
+		if [ "${answer}" = q ] ; then exit_q; exit 1; fi
+		echo "${answer}" | grep -qi y && shadowsocks_on; cmd_shadowsocks_local_port_change "${port_new}"
 	fi
 }
 
@@ -1697,9 +1711,10 @@ show_interface_name_list_process(){
 
 	if [ -f "${INFACE_NAMES_FILE}" ]; then
 		if [ "${answer}" = ask ] ; then
-			read_ynq "Обновить список интерфейсов" answer
+			read_ynq_timer "Обновить список интерфейсов" answer N
+			if [ "${answer}" = q ] ; then exit_q; exit 1; fi
 			print_line
-			if [ "${answer}" = y ]; then
+			if echo "${answer}" | grep -qi y ; then
 				update_interface_name_list
 			fi
 		elif [ "${answer}" = no ] ; then
@@ -1770,20 +1785,47 @@ select_vpn_interface() {
 				fi
 				[ "${is_install_stage}" = no ] && cmd_kvas_init "no" &> /dev/null
 
+				#			Проверяем подключены ли гостевые сети
+				guest_net_list=$(get_config_value INFACE_GUEST_ENT | tr ' ' ',')
+				if [ -n "${guest_net_list}" ] ; then
+					print_line
+					echo -e "${RED}ВНИМАНИЕ!${NOCL}"
+					echo "Обнаружены гостевые сети: ${guest_net_list}, которые были добавлены для "
+					echo "предыдущего VPN соединения. Для подключения клиентов этих сетей "
+					echo "к выбранному VPN соединению необходимо их удалить и снова добавить."
+					echo "С этой целью воспользуйтесь следующими командами:"
+					echo -e "1. ${GREEN}kvas vpn net del${NOCL}"
+					echo -e "2. ${GREEN}kvas vpn net add${NOCL}"
+					print_line
+				fi
+
 			elif echo "${num_vpn_inface}" | grep -qi "q"; then
 				cli="$(get_router_host)/a"
 				echo -e "${RED}Процедура настройки прервана пользователем!${NOCL}"
 				print_line
-				/opt/etc/init.d/S56dnsmasq stop  &> /dev/null
-				echo "В случае, если сейчас у Вас пропал интернет, то для восстановления подключения"
-				echo -e "необходимо зайти в админ панель роутера по адресу: ${GREEN}${cli}${NOCL}"
-				echo "и выполнить последовательно три следующих команды: "
-				print_line
-				echo -e "1. ${GREEN}no opkg dns-override ${NOCL}       - вновь подключаем DNS провайдера,"
-				echo -e "2. ${GREEN}system configuration save ${NOCL}  - сохраняем изменения,"
-				echo -e "3. ${GREEN}system reboot ${NOCL}              - перегружаем роутер."
-				print_line
-				exit 1
+
+#				если интернет отключен, то выдаем сообщение
+				if curl -s "http://localhost:79/rci/show/interface" | ё
+					jq -r '.[] | select(.id=="'"$(get_defaultgw_id)"'" and .state=="up" and .link=="up") | .connected' | grep -qv 'yes' ; then
+
+					if cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then
+						/opt/etc/init.d/S56dnsmasq stop  &> /dev/null
+					else
+						"${ADGUARDHOME_DEMON}" stop &> /dev/null
+					fi
+					echo -e "${RED}К сожалению, у Вас пропал интернет. ${NOCL}"
+					echo -e "${RED}Проверьте основное подключение к провайдеру. ${NOCL}"
+					print_line
+					echo "Если ничего не помогает, то для восстановления подключения"
+					echo -e "необходимо зайти в админ панель роутера по адресу: ${GREEN}${cli}${NOCL}"
+					echo "и выполнить последовательно три следующих команды: "
+					print_line
+					echo -e "1. ${GREEN}no opkg dns-override ${NOCL}       - вновь подключаем DNS провайдера,"
+					echo -e "2. ${GREEN}system configuration save ${NOCL}  - сохраняем изменения,"
+					echo -e "3. ${GREEN}system reboot ${NOCL}              - перегружаем роутер."
+					print_line
+					exit 1
+				fi
 			else
 				cmd_interface_change "no" "${is_install_stage}"
 			fi
@@ -2121,11 +2163,13 @@ host_add() {
 #		в режиме импорта задавать вопросы не нужно - добавляем хост как есть.
 		answer=n
 	else
-		answer=''; read_ynq "Добавить хост с поддоменами wildcard [Y] или нет [N]?" answer
+		answer='';
+		read_ynq_timer "Добавить хост с поддоменами wildcard [Y] или нет [N]?" answer Y
+		if [ "${answer}" = q ] ; then exit_q; exit 1; fi
 	fi
 
 
-	if [ "${answer}" = y ]; then
+	if echo "${answer}" | grep -qi y ; then
 		_host="*${clear_host}"
 	fi
 	print_line
@@ -2176,7 +2220,7 @@ cmd_add_one_host() {
 			if cat < "${UNBLOCK_LIST_FILE}" | grep -qe "${clear_host}"; then
 				if [ -z "${test}" ]; then
 					warning "Такой домен уже есть в списке разблокировки!"
-					warning "Производим замену ${clear_host} на ${host}"
+					[ "${clear_host}" != "${host}" ] && warning "Производим замену ${clear_host} на ${host}"
 					print_line
 					sed -i "/^${clear_host}$/d" "${UNBLOCK_LIST_FILE}"
 					host_add "${host}" "${reset}" "${mode}"
@@ -2409,8 +2453,9 @@ cmd_show_list() {
 			if [ -f "${KVAS_BACKUP_LIST_FILE}" ] ; then
 				print_line
 				warning "Обнаружена архивная копия списка разблокировки!"
-				answer=''; read_ynq "Восстановить данные из архива или нет [Y/N]?" answer
-				if [ "${answer}" = y ]; then
+				answer=''; read_ynq_timer "Восстановить данные из архива или нет [Y/N]?" answer Y 10
+				if [ "${answer}" = q ] ; then exit_q; exit 1; fi
+				if echo "${answer}" | grep -qi y ; then
 					cp "${KVAS_BACKUP_LIST_FILE}" "${UNBLOCK_LIST_FILE}"
 					warning "Список разблокировки восстановлен из архивной копии."
 					print_line
@@ -2430,8 +2475,9 @@ cmd_show_list() {
 #		Если список хостов не существует, то проверяем, есть ли архивная копия
 		if [ -f "${KVAS_BACKUP_LIST_FILE}" ] ; then
 			warning "Обнаружена архивная копия списка разблокировки!"
-				answer=''; read_ynq "Восстановить данные из архива (Y) или нет (N)?" answer
-				if [ "${answer}" = y ]; then
+				answer=''; read_ynq_timer "Восстановить данные из архива (Y) или нет (N)?" answer Y 10
+				if [ "${answer}" = q ] ; then exit_q; exit 1; fi
+				if echo "${answer}" | grep -qi y ; then
 					cp "${KVAS_BACKUP_LIST_FILE}" "${UNBLOCK_LIST_FILE}"
 					warning "Список разблокировки восстановлен из архивной копии."
 					print_line

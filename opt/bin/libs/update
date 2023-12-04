@@ -10,7 +10,7 @@
 #
 cmd_adguard_update(){
 
-	exit_when_dnsmasq_on status; [ "${status}" = 0 ] && {
+	exit_when_dnsmasq_on status no_warring; [ "${status}" = 0 ] && {
 		bin_path=/opt/bin
 		full_adguard_name=AdGuardHome
 

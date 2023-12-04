@@ -118,8 +118,9 @@ ads_request_to_upload() {
 	else
 		if [ -f "${ADS_SOURCES_LIST}.kvas" ]; then
 			warning "Обнаружен архивный файл с источниками обновления рекламы."
-			[ "${answer}" = ask ] && read_ynq "Восстановить данный файл" answer
-			if [ "${answer}" = y ]; then
+			[ "${answer}" = ask ] && read_ynq_timer "Восстановить данный файл" answer Y 12
+			if [ "${answer}" = q ] ; then exit_q; exit 1; fi
+			if echo "${answer}" | grep -qi y ; then
 				ready "Восстановление архива с источниками рекламы завершено"
 				mv -f "${ADS_SOURCES_LIST}.kvas" "${ADS_SOURCES_LIST}"
 				[ $? = 0 ] && when_ok "УДАЧНО" || when_bad "С ОШИБКОЙ"
@@ -134,8 +135,9 @@ ads_request_to_upload() {
 		fi
 	fi
 	if [ -f "${ADS_HOSTS_FILE}" ]; then
-		[ "${answer}" = ask ] && read_ynq "Обновить списки блокировки рекламы" answer
-		[ "${answer}" = y ] && /opt/apps/kvas/bin/main/adblock
+		[ "${answer}" = ask ] && read_ynq_timer "Обновить списки блокировки рекламы" answer N 6
+		if [ "${answer}" = q ] ; then exit_q; exit 1; fi
+		echo "${answer}" | grep -qi y && /opt/apps/kvas/bin/main/adblock
 	else
 		/opt/apps/kvas/bin/main/adblock
 	fi

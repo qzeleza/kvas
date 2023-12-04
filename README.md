@@ -41,7 +41,6 @@
 2. Далее, следуйте инструкциям на экране.
 
 ## Используемые в проекте продукты
-- Разработка проекта уже **НЕ ведется** на **IDE** от компании [JetBrains](https://www.jetbrains.com/ru-ru/). Компания JetBrains отказала в лицензии, сославшись на санкции.
 - Для проведения тестов, в проекте используется пакет [BATS](https://github.com/bats-core/bats-core/blob/master/LICENSE.md) от нескольких [АВТОРОВ](https://github.com/bats-core/bats-core/blob/master/AUTHORS).
 
 ## Помощь проекту
