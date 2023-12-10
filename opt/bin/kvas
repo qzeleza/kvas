@@ -121,8 +121,8 @@ case "${1}" in
 
 	debug)
 		case "${2}" in
-			nofiles) 		cmd_print_debug "${2}" ;;
-			*) 				cmd_print_debug '' ;;
+			nofiles) 		cmd_print_debug "${2}" | sed 's/\[1;32m/-/g; s/\[36m/-/g; s/\[m/-/g' ;;
+			*) 				cmd_print_debug '' | sed 's/\[1;32m/-/g; s/\[36m/-/g; s/\[m/-/g' ;;
 		esac
 		;;
 	test | check)			cmd_state_checker

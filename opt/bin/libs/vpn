@@ -125,7 +125,7 @@ reset_all_connection(){
 #		update 		- режим обновления при выполнении kvas update
 #		refresh 	- режим обновления списка доменов при командах add/del/import
 #	    initd		- обновить время при установке пакета
-# ------------------------------------------------------------------------------------------
+# --------cmd_kvas_init----------------------------------------------------------------------------------
 cmd_kvas_init(){
 
 	stage="${1:-no}"
@@ -143,8 +143,12 @@ cmd_kvas_init(){
 	update_ipset "${stage}"
 	update_adblock
 
-	[ "${stage}" = initd ] && update_time
+	ready "${prefix}Создаем таблицу маршрутизации ID#${TABLE_ID} для '$(inface_cli)'."
+	#	Создаем таблицу IP адресов для  VPN подключения отличного от shadowsocks
 
+	ip4_add_route_table &> /dev/null && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+
+	[ "${stage}" = initd ] && update_time
 
 	log_alert "${prefix}Сброс пакета КВАС в исходное состояние ЗАВЕРШЕН!"
 
@@ -479,7 +483,7 @@ cmd_adguardhome_status() {
 adguardhome_check_config() {
 		# Проверяем наличие	архивной копии AdGuardHome
 		if [ -f "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml ]; then
-			cp "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml /opt/etc/AdGuardHome/AdGuardHome.yaml
+			cp "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml "${ADGUARDHOME_CONFIG}"
 			"${ADGUARDHOME_DEMON}" restart  &> /dev/null
 			ip=$(get_router_ip)
 			port=$(cat < "${ADGUARDHOME_CONFIG}" | grep '^bind_port: ' | cut -d':' -f2 | tr -d ' \n')
@@ -500,11 +504,11 @@ adguardhome_check_config() {
 				fi
 
 				cp /opt/apps/kvas/etc/init.d/S99adguard  /opt/etc/init.d/S99adguardhome
-				cp /opt/bin/AdGuardHome.yaml /opt/etc/AdGuardHome/AdGuardHome.yaml
+				cp /opt/bin/AdGuardHome.yaml "${ADGUARDHOME_CONFIG}"
 #				"${ADGUARDHOME_DEMON}" restart  &> /dev/null
 			fi
-			error "Проверьте, что сеть WIFI/Ethernet, с которой Вы заходите на роутер - "
-			error "та же самая, что и сеть с которой Вы открываете страницу браузера."
+			error "Проверьте, что сеть WIFI/Ethernet, с которой Вы заходите на роутер - " no_nln
+			error "та же самая, что и сеть с которой Вы открываете страницу браузера." no_nln
 			print_line
 			warning "Сейчас, перейдите на клиентское устройство в своем браузере "
 			warning "и зайдите на страницу http://$(get_router_ip):3000 для настройки AdGuardHome"
@@ -516,22 +520,26 @@ adguardhome_check_config() {
 			warning "После чего, установка AdGuard на роутере завершится автоматически."
 			print_line
 
-
+#			Совершенно новая установка пакета и его настройка
+			[ -f "${ADGUARDHOME_CONFIG}" ] && rm -f "${ADGUARDHOME_CONFIG}"
 			tmp_conf=/opt/tmp/adguard.conf
 			log_file=/opt/tmp/adguard.log
 			rm -f "${log_file}" "${tmp_conf}"
-			/opt/bin/AdGuardHome -c "${tmp_conf}" -l "${log_file}" &
 
+			/opt/bin/AdGuardHome -c "${tmp_conf}" -l "${log_file}" &
 			sleep 1
+
 			while true; do
 				if cat < "${log_file}" | grep 'go to http' | grep -qv ':3000'; then
 					killall AdGuardHome
+					mv "${tmp_conf}" "${ADGUARDHOME_CONFIG}"
 					adguardhome_setup
 					exit 0
 				fi
 				sleep 1  # Пауза в секундах между проверками
 			done
 #				auth: user "adguard" successfully logged in from ip 10.1.2.9
+
 		fi
 }
 # ------------------------------------------------------------------------------------------
@@ -796,50 +804,69 @@ add_ikev2_net_to_config(){
 ikev2_net_access_del(){
 
 	ikev2=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
-	net_pool=$(echo "${ikev2}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+	ikev2_dns=$(get_external_ip)
+	dns_server=$(echo "${ikev2}" | grep dns-server | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+	if [ "${dns_server}" != "${ikev2_dns}" ]; then
 
-	ready "Удаление интерфейса \"VPN-сервер IKEv2\" завершено" && {
+		net_pool=$(echo "${ikev2}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+		poll_size=$(echo "${ikev2}" | grep pool-size | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+		multi_login=$(echo "${ikev2}" | grep multi-login | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+		sa_compat=$(echo "${ikev2}" | grep sa-compat | cut -d':' -f2 | sed 's/[\,\" ]//g;')
 
-		ikev2_dns=$(get_external_ip)
-		curl -s -d '{"nat": false, "dns-server": "'"${ikev2_dns}"'"},' "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2" &> /dev/null
-		sleep 1
-		net_ip=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.1/')
-		net_pool=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/')
 
-		if has_ssr_enable ;then
+		ready "Удаление интерфейса \"VPN-сервер IKEv2\" завершено" && {
 
-			if iptables-save | grep PREROUTING | grep "${net_ip}" | grep eth3 | grep DNAT | grep -q ":53" ; then
 
-				iptab -D PREROUTING -t nat -i eth3 -p tcp -j DNAT --to "${net_ip}:53"
-				iptab -D PREROUTING -t nat -i eth3 -p udp -j DNAT --to "${net_ip}:53"
+			curl -s -d '{"nat": false, "dns-server": "'"${ikev2_dns}"'" "poll-size": "'"${poll_size}"'" "multi-login": "'"${multi_login}"'" "sa-compat": "'"${sa_compat}"'"}' \
+				"${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2" &> /dev/null
+			sleep 1
+			net_ip=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.1/')
+			net_pool=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/')
+
+			if has_ssr_enable ;then
+
+				if iptables-save | grep PREROUTING | grep "${net_ip}" | grep eth3 | grep DNAT | grep -q ":53" ; then
+
+					iptab -D PREROUTING -t nat -i eth3 -p tcp -j DNAT --to "${net_ip}:53"
+					iptab -D PREROUTING -t nat -i eth3 -p udp -j DNAT --to "${net_ip}:53"
+				fi
+
+			   port=$(get_config_value SSR_DNS_PORT)
+			   if iptables-save | grep PREROUTING | grep "${net_pool}" | grep eth3 | grep unblock | grep REDIRECT | grep -q "${port}" ; then
+
+					iptab -D PREROUTING -t nat -s ${net_pool} -p tcp -i eth3 -m set --match-set unblock dst -j REDIRECT --to-port ${port}
+					iptab -D PREROUTING -t nat -s ${net_pool} -p udp -i eth3 -m set --match-set unblock dst -j REDIRECT --to-port ${port}
+
+			   fi
+			else
+			   if iptables-save | grep POSTROUTING | grep "${net_pool}" | grep eth3 | grep -q MASQUERADE ; then
+					   iptab -D POSTROUTING -t nat -s "${net_pool}" -o eth3 -j MASQUERADE
+			   fi
 			fi
+			del_ikev2_net_from_config
 
-		   port=$(get_config_value SSR_DNS_PORT)
-		   if iptables-save | grep PREROUTING | grep "${net_pool}" | grep eth3 | grep unblock | grep REDIRECT | grep -q "${port}" ; then
-
-				iptab -D PREROUTING -t nat -s ${net_pool} -p tcp -i eth3 -m set --match-set unblock dst -j REDIRECT --to-port ${port}
-				iptab -D PREROUTING -t nat -s ${net_pool} -p udp -i eth3 -m set --match-set unblock dst -j REDIRECT --to-port ${port}
-
-		   fi
-		else
-		   if iptables-save | grep POSTROUTING | grep "${net_pool}" | grep eth3 | grep -q MASQUERADE ; then
-				   iptab -D POSTROUTING -t nat -s "${net_pool}" -o eth3 -j MASQUERADE
-		   fi
-		fi
-		del_ikev2_net_from_config
-
-	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+		} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+	fi
 }
 
 ikev2_net_access_add(){
 #set -x
 
-        ikev2=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
+	ikev2=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
+	ikev2_dns=$(get_external_ip)
+	dns_server=$(echo "${ikev2}" | grep dns-server | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+	if [ "${dns_server}" != "${ikev2_dns}" ]; then
+
         net_pool=$(echo "${ikev2}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+        poll_size=$(echo "${ikev2}" | grep pool-size | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+        multi_login=$(echo "${ikev2}" | grep multi-login | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+        sa_compat=$(echo "${ikev2}" | grep sa-compat | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+
         ready "Добавление интерфейса \"VPN-сервер IKEv2\" [${net_pool}] завершено" && {
 
 			ikev2_dns=$(get_router_ip)
-			curl -s -d '{"enable": true, "nat": true, "dns-server": "'"${ikev2_dns}"'"}' "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2" &> /dev/null
+			curl -s -d '{"enable": true, "nat": true, "dns-server": "'"${ikev2_dns}"'" "poll-size": "'"${poll_size}"'" "multi-login": "'"${multi_login}"'" "sa-compat": "'"${sa_compat}"'"}' \
+			"${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2" &> /dev/null
         	sleep 1
         	net_ip=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.1/')
 			net_pool=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/')
@@ -866,6 +893,7 @@ ikev2_net_access_add(){
 			fi
 
         } && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+    fi
 #set +x
 }
 
@@ -2164,7 +2192,7 @@ host_add() {
 		answer=n
 	else
 		answer='';
-		read_ynq_timer "Добавить хост с поддоменами wildcard [Y] или нет [N]?" answer Y
+		read_ynq_timer "Добавить хост с поддоменами wildcard [Y] или нет [N]?" answer Y 6
 		if [ "${answer}" = q ] ; then exit_q; exit 1; fi
 	fi
 
@@ -2183,7 +2211,8 @@ host_add() {
 		ads_list_hosts_update &> /dev/null
 	fi
 
-	[ "${reset}" = 'yes' ] && cmd_kvas_init "refresh" &> /dev/null
+	[ "${reset}" = 'yes' ] && cmd_kvas_init  &> /dev/null
+#	[ "${reset}" = 'yes' ] && cmd_kvas_init "refresh" &> /dev/null
 	add_host_to_adguard
 	add_host_to_ipset
 
@@ -2257,7 +2286,8 @@ cmd_del_one_host() {
 		ready "Удаляем ${YELLOW}${host_}${NOCL} из списка разблокировки..."
 		sed -i "/${host_////\\/}/d" "${UNBLOCK_LIST_FILE}"
 		[ -f /opt/bin/AdGuardHome ] && sed -i "/${host_////\\/}/d" "${ADGUARD_IPSET_FILE}"
-		cmd_kvas_init  "refresh"  &> /dev/null
+		cmd_kvas_init  &> /dev/null
+#		cmd_kvas_init  "refresh"  &> /dev/null
 		[ $? = 0 ] && when_ok "УДАЛЕН" || when_bad "НЕ УДАЛЕН"
 		#	если включен блокировщик рекламы
 		if cmd_ads_status | grep -q ВКЛЮЧЕН ; then

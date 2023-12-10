@@ -643,24 +643,35 @@ ip4_add_route_table(){
 
 	route_del "${_inface_ent}"
 
-	if [ -z "$(ip4 route show table ${TABLE_ID} dev ${_inface_ent})"  ]; then
-		_inface_cli=$(inface_cli)
-		log_warning "IPv4::Создаем таблицу маршрутизации ID#${TABLE_ID} для '${_inface_cli}'."
+	_inface_cli=$(inface_cli)
+	log_warning "IPv4::Создаем таблицу маршрутизации ID#${TABLE_ID} для '${_inface_cli}'."
+
+	! ip4 route show table ${TABLE_ID} | grep -q default && {
 		ip4 route add table ${TABLE_ID} default via "$(inface_gw4)" dev ${_inface_ent} &>/dev/null
 		when_error "${?}" " ${IPv4} Возникла ошибка при создании таблицы маршрутизации ID#${TABLE_ID} для '${_inface_cli}' интерфейса"
+	}
 
-		log_warning "IPv4::Копируем записи таблицы main в таблицу ID#${TABLE_ID}."
-		ip4 route show table main | grep -Ev ^default | \
-		while read -r ROUTE; do
-#			Выделяем из строки ROUTE только первых три разряда сети, как пример: 10.0.124
-			_net=$(echo "${ROUTE}" | sed 's/^\([0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\).*/\1/')
-#			Если сеть доступна в роутере на текущий момент, то добавляем ее
-			ip4 a | grep -q "${_net}" && ip4 route add table ${TABLE_ID} ${ROUTE} &>/dev/null
-		done
+#	log_warning "IPv4::Копируем записи таблицы main в таблицу ID#${TABLE_ID}."
+#	ip4 route show table main | grep -Ev ^default | \
+#	while read -r ROUTE; do
+##		Если сеть доступна в роутере на текущий момент, то добавляем ее
+#		echo "${ROUTE}" | grep -q "${_inface_ent}" && ip4 route add table ${TABLE_ID} ${ROUTE} &>/dev/null
+#	done
+
+#	Добавляем сеть vpn соединения.
+	_ip_gw=$(ip a | grep global | grep "${_inface_ent}" | sed 's|.*inet \(.*\).*\/.* scope.*|\1|' )
+	[ -z "${_ip_gw}" ] && {
+		reset_connection "${_inface_cli}"
+		_ip_gw=$(ip a | grep global | grep "${_inface_ent}" | sed 's|.*inet \(.*\).*\/.* scope.*|\1|' )
+	}
+	_net="$(echo "${_ip_gw}" | cut -d'.' -f1-3).0/24"
+	ip route add "${_net}" via "${_ip_gw}" table ${TABLE_ID} 2> /dev/null
+
+
 #		Проверяем на число записей в таблице ${TABLE_ID} - их должно быть больше чем одна запись
-		test "$(ip4 route show table ${TABLE_ID} | grep -c dev)" -gt 1
-		when_error "${?}" "${IPv4} В таблицу с ID#${TABLE_ID} НЕ БЫЛИ скопированы записи из таблицы main!"
-	fi
+	test "$(ip4 route show table ${TABLE_ID} | grep -c dev)" -gt 1
+	when_error "${?}" "${IPv4} В таблицу с ID#${TABLE_ID} НЕ БЫЛИ скопированы записи из таблицы main!"
+
 }
 
 # ------------------------------------------------------------------------------------------
@@ -727,10 +738,10 @@ recreate_ip4tables(){
 	ip4set_create_table &>/dev/null
 	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 
-	ready "${prefix}Создаем таблицу маршрутизации ID#${TABLE_ID} для '$(inface_cli)'."
-	#	Создаем таблицу IP адресов для  VPN подключения отличного от shadowsocks
-	ip4_add_route_table &> /dev/null
-	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+#	ready "${prefix}Создаем таблицу маршрутизации ID#${TABLE_ID} для '$(inface_cli)'."
+#	#	Создаем таблицу IP адресов для  VPN подключения отличного от shadowsocks
+#	ip4_add_route_table &> /dev/null
+#	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 }
 
 
