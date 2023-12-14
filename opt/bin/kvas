@@ -94,7 +94,6 @@ case "${1}" in
 				esac
 				;;
 
-			del | rm) 	    cmd_vpn_del_guest_network ;;
 			rescan | scan)	cmd_scan_interface_list ;;
 			status | *) 	cmd_vpn_status ;;
 		esac

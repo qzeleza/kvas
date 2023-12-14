@@ -64,6 +64,11 @@ INFACE_REQUEST="${LOCALHOST_IP}:79/rci/show/interface"
 INFACE_PART_REQUEST="${LOCALHOST_IP}:79/rci/interface"
 SSR_ENTWARE_TEMPL=ezcfg
 
+get_entware_ikev2_inface(){
+#	net_inface_last=$(ip a| grep global | sed 's/.*\(eth[0-9]\{1,3\}\).*/\1/g' | sort | tail -n1)
+#	echo $((net_inface_last + 1))
+	echo eth3
+}
 
 get_ip_list(){
 #	{1} - исследуемый домен

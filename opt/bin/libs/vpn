@@ -784,21 +784,7 @@ bridge_access_add() {
         [ $? = 0 ] && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 }
 
-del_all_net_from_config(){
-        sed -i 's/\(INFACE_GUEST_ENT=\).*/\1/' "${KVAS_CONF_FILE}"
-}
 
-del_ikev2_net_from_config(){
-		has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p; s/[\,]//g')
-        [ -n "${has_guest_nets}" ] && point=',' || point=''
-        sed -i '/INFACE_GUEST_ENT=/,/^$/ s/ikev2[,]\{0,1\}//' "${KVAS_CONF_FILE}"
-}
-add_ikev2_net_to_config(){
-        has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p; s/[\,]//g')
-        [ -n "${has_guest_nets}" ] && point=',' || point=''
-        del_ikev2_net_from_config
-        sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}ikev2/g" "${KVAS_CONF_FILE}"
-}
 
 
 ikev2_net_access_del(){
@@ -806,47 +792,42 @@ ikev2_net_access_del(){
 	ikev2=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
 	ikev2_dns=$(get_external_ip)
 	dns_server=$(echo "${ikev2}" | grep dns-server | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+	net_pool=$(echo "${ikev2}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+
 	if [ "${dns_server}" != "${ikev2_dns}" ]; then
 
-		net_pool=$(echo "${ikev2}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-		poll_size=$(echo "${ikev2}" | grep pool-size | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+		pool_size=$(echo "${ikev2}" | grep pool-size | cut -d':' -f2 | sed 's/[\,\" ]//g;')
 		multi_login=$(echo "${ikev2}" | grep multi-login | cut -d':' -f2 | sed 's/[\,\" ]//g;')
 		sa_compat=$(echo "${ikev2}" | grep sa-compat | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-
-
-		ready "Удаление интерфейса \"VPN-сервер IKEv2\" завершено" && {
-
-
-			curl -s -d '{"nat": false, "dns-server": "'"${ikev2_dns}"'" "poll-size": "'"${poll_size}"'" "multi-login": "'"${multi_login}"'" "sa-compat": "'"${sa_compat}"'"}' \
-				"${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2" &> /dev/null
-			sleep 1
-			net_ip=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.1/')
-			net_pool=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/')
-
-			if has_ssr_enable ;then
-
-				if iptables-save | grep PREROUTING | grep "${net_ip}" | grep eth3 | grep DNAT | grep -q ":53" ; then
-
-					iptab -D PREROUTING -t nat -i eth3 -p tcp -j DNAT --to "${net_ip}:53"
-					iptab -D PREROUTING -t nat -i eth3 -p udp -j DNAT --to "${net_ip}:53"
-				fi
-
-			   port=$(get_config_value SSR_DNS_PORT)
-			   if iptables-save | grep PREROUTING | grep "${net_pool}" | grep eth3 | grep unblock | grep REDIRECT | grep -q "${port}" ; then
-
-					iptab -D PREROUTING -t nat -s ${net_pool} -p tcp -i eth3 -m set --match-set unblock dst -j REDIRECT --to-port ${port}
-					iptab -D PREROUTING -t nat -s ${net_pool} -p udp -i eth3 -m set --match-set unblock dst -j REDIRECT --to-port ${port}
-
-			   fi
-			else
-			   if iptables-save | grep POSTROUTING | grep "${net_pool}" | grep eth3 | grep -q MASQUERADE ; then
-					   iptab -D POSTROUTING -t nat -s "${net_pool}" -o eth3 -j MASQUERADE
-			   fi
-			fi
-			del_ikev2_net_from_config
-
-		} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+		curl -s -d '{"nat": false, "dns-server": "'"${ikev2_dns}"'", "pool-size": "'"${pool_size}"'", "multi-login": "'"${multi_login}"'", "sa-compat": "'"${sa_compat}"'"}' \
+			"${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2" &> /dev/null
+		sleep 1
 	fi
+
+	ready "Удаление интерфейса \"VPN-сервер IKEv2\" завершено" && {
+
+		net_ip=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.1/')
+		net_pool=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/')
+
+		if has_ssr_enable ;then
+
+		   port=$(get_config_value SSR_DNS_PORT)
+		   net_inface=$(get_entware_ikev2_inface)
+		   if iptables-save | grep PREROUTING | grep "${net_pool}" | grep "${net_inface}" | grep unblock | grep REDIRECT | grep -q "${port}" ; then
+
+				iptab -D PREROUTING -t nat -s ${net_pool} -p tcp -i ${net_inface} -m set --match-set unblock dst -j REDIRECT --to-port ${port}
+				iptab -D PREROUTING -t nat -s ${net_pool} -p udp -i ${net_inface} -m set --match-set unblock dst -j REDIRECT --to-port ${port}
+
+		   fi
+		else
+		   if iptables-save | grep POSTROUTING | grep "${net_pool}" | grep eth3 | grep -q MASQUERADE ; then
+				   iptab -D POSTROUTING -t nat -s "${net_pool}" -o eth3 -j MASQUERADE
+		   fi
+		fi
+		del_ikev2_net_from_config
+
+	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+
 }
 
 ikev2_net_access_add(){
@@ -855,45 +836,38 @@ ikev2_net_access_add(){
 	ikev2=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
 	ikev2_dns=$(get_external_ip)
 	dns_server=$(echo "${ikev2}" | grep dns-server | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-	if [ "${dns_server}" != "${ikev2_dns}" ]; then
+	net_pool=$(echo "${ikev2}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+	enable=$(echo "${ikev2}" | grep enable | cut -d':' -f2 | sed 's/[\,\" ]//g;')
 
-        net_pool=$(echo "${ikev2}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-        poll_size=$(echo "${ikev2}" | grep pool-size | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+
+	if [ "${dns_server}" != "${ikev2_dns}" ] || [ "${enable}" != true ] ; then
+	#	Если DNS отличен от IP роутера или интерфейс отключен
+        pool_size=$(echo "${ikev2}" | grep pool-size | cut -d':' -f2 | sed 's/[\,\" ]//g;')
         multi_login=$(echo "${ikev2}" | grep multi-login | cut -d':' -f2 | sed 's/[\,\" ]//g;')
         sa_compat=$(echo "${ikev2}" | grep sa-compat | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+		ikev2_dns=$(get_router_ip)
+		curl -s -d '{"enable": true, "nat": true, "dns-server": "'"${ikev2_dns}"'", "pool-size": "'"${pool_size}"'", "multi-login": "'"${multi_login}"'", "sa-compat": "'"${sa_compat}"'"}' \
+		"${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2" &> /dev/null
+		sleep 1
+	fi
 
-        ready "Добавление интерфейса \"VPN-сервер IKEv2\" [${net_pool}] завершено" && {
+	ready "Добавление интерфейса \"VPN-сервер IKEv2\" [${net_pool}] завершено" && {
 
-			ikev2_dns=$(get_router_ip)
-			curl -s -d '{"enable": true, "nat": true, "dns-server": "'"${ikev2_dns}"'" "poll-size": "'"${poll_size}"'" "multi-login": "'"${multi_login}"'" "sa-compat": "'"${sa_compat}"'"}' \
-			"${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2" &> /dev/null
-        	sleep 1
-        	net_ip=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.1/')
-			net_pool=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/')
+		net_ip=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.1/')
+		net_pool=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/')
 
-			if has_ssr_enable ;then
+		if has_ssr_enable ;then
+			ip4_add_selected_guest_to_ssr_network ikev2 "${net_pool}"
 
-				if ! iptables-save | grep PREROUTING | grep "${net_ip}" | grep eth3 | grep DNAT | grep -q ":53" ; then
-
-					iptables -A PREROUTING -t nat -i eth3 -p tcp -j DNAT --to "${net_ip}:53"
-					iptables -A PREROUTING -t nat -i eth3 -p udp -j DNAT --to "${net_ip}:53"
-				fi
-
-			   port=$(get_config_value SSR_DNS_PORT)
-			   if ! iptables-save | grep PREROUTING | grep "${net_pool}" | grep eth3 | grep unblock | grep REDIRECT | grep -q "${port}" ; then
-				   iptables -A PREROUTING -t nat -s ${net_pool} -i eth3 -p tcp -m set --match-set unblock dst -j REDIRECT --to-port ${port}
-				   iptables -A PREROUTING -t nat -s ${net_pool} -i eth3 -p udp -m set --match-set unblock dst -j REDIRECT --to-port ${port}
-				   add_ikev2_net_to_config
-			   fi
-			else
-				if ! iptables-save | grep POSTROUTING | grep "${net_pool}" | grep eth3 | grep -q MASQUERADE ; then
-					iptables -A POSTROUTING -t nat -s "${net_pool}" -o eth3 -j MASQUERADE
-					add_ikev2_net_to_config
-				fi
+		else
+			if ! iptables-save | grep POSTROUTING | grep "${net_pool}" | grep eth3 | grep -q MASQUERADE ; then
+				iptables -A POSTROUTING -t nat -s "${net_pool}" -o eth3 -j MASQUERADE
+				add_ikev2_net_to_config
 			fi
+		fi
 
-        } && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
-    fi
+	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+
 #set +x
 }
 
@@ -1833,7 +1807,7 @@ select_vpn_interface() {
 				print_line
 
 #				если интернет отключен, то выдаем сообщение
-				if curl -s "http://localhost:79/rci/show/interface" | ё
+				if curl -s "http://localhost:79/rci/show/interface" | \
 					jq -r '.[] | select(.id=="'"$(get_defaultgw_id)"'" and .state=="up" and .link=="up") | .connected' | grep -qv 'yes' ; then
 
 					if cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then
@@ -2620,73 +2594,3 @@ del_period_update(){
 	warning "Для установки периода обновления запустите 'kvas period'."
 }
 
-# ------------------------------------------------------------------------------------------
-#
-#	 Добавляет указанную гостевую сеть в список маркировки трафика
-#	 $1 - тип гостевой сети в терминах entware, например br2
-#
-# ------------------------------------------------------------------------------------------
-vpn_add_guest_network() {
-
-	if ip4 a | grep -qe " ${1}:" ; then
-		guest_network_ent="${1}"
-		ip_net=$(ip addr show "${guest_network_ent}" | grep -Po "(?<=inet ).*(?=brd)")
-		ready "Правила для маркировки гостевой сети ${guest_network_ent} -> ${ip_net} добавлены"
-		if has_ssr_enable ; then
-			ip4_add_guest_to_ssr_network
-		else
-			ip4_add_guest_to_vpn_network
-		fi
-		[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "С ОШИБКОЙ"
-	else
-		error "Такой сети '${1}' не существует. "
-		error "Проверьте правильность ее написания."
-	fi
-
-
-}
-
-# ------------------------------------------------------------------------------------------
-#
-#	 Добавляет указанную гостевую сеть в список маркировки трафика
-#	 $1 - тип гостевой сети в терминах entware
-#
-# ------------------------------------------------------------------------------------------
-vpn_del_guest_network() {
-
-	if has_ssr_enable; then
-		error "Сейчас используется shadowsocks соединение."
-		error "Удаление гостевой сети для vpn пока не доступно."
-	else
-		guest_network_ent=$(cat /opt/apps/kvas/bin/libs/ndm | grep INFACE_GUEST_ENT | head -1 | cut -d'=' -f2)
-		if [ -n "${guest_network_ent}" ]; then
-			ip_net=$(ip addr show "${guest_network_ent}" | grep -Po "(?<=inet ).*(?=brd)")
-			ready "Правила для маркировки гостевой сети ${guest_network_ent} -> ${ip_net} удалены"
-			ip4_del_guest_to_vpn_network
-			[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "С ОШИБКОЙ"
-		else
-			error "Нечего удалять, гостевой сети не существует."
-		fi
-	fi
-}
-
-cmd_vpn_guest_network() {
-
-	if ! has_ssr_enable ; then
-		cmd="${1}"
-		if [ -n "${cmd}" ]; then
-			[ "${cmd}" = del ] && vpn_del_guest_network || vpn_add_guest_network "${cmd}"
-		else
-			guest_network_ent=$(cat /opt/apps/kvas/bin/libs/ndm | grep INFACE_GUEST_ENT | head -1 | cut -d'=' -f2)
-			if [ -n "${guest_network_ent}" ]; then
-				ip_net=$(ip addr show "${guest_network_ent}" | grep -Po "(?<=inet ).*(?=brd)")
-				warning "Текущая гостевая сеть ${guest_network_ent} -> ${ip_net}"
-			else
-				error "Гостевая сеть НЕ задана!"
-			fi
-		fi
-	else
-		error "Сейчас используется shadowsocks соединение."
-		error "Добавление гостевой сети для vpn пока не доступно."
-	fi
-}

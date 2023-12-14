@@ -3,6 +3,7 @@
 
 DEBUG=YES										# флаг отладки процесса сборки образа
 env_file=.env
+GIT_FORCE=0											# флаг для запуска перезаписи данных в git
 #------------------------------------------------------------
 user=$(get_remove_value "USER_NAME")
 group=$(get_remove_value "USER_GROUP")
@@ -23,14 +24,36 @@ GID=$(get_remove_value "G_ID")
 DEBUG=${DEBUG}
 EOF
 
+
+run_docker_on_macos(){
+#	Запускаем Docker на MacOS
+	[ -f "${HOME}.docker/run/docker.sock" ] || {
+		uname | grep -q Darwin && {
+			open -a Docker | grep -q 'Unable to find application' && {
+				echo "Для дальнейшей работы установите Docker на Вашей Mac OS."
+				echo "https://docs.docker.com/desktop/install/mac-install/"
+			}
+			sleep 3
+		}
+	}
+}
+
 new_release(){
+# Меняем версию сборки в зависимости от значения в файле ./build/version
 	release=$(cat < ./build/version | sed -n 's/RELEASE=\(.*\)/\1/p')
 	if [ -z "${release}" ] ; then next_release=1; else next_release=$((release+1)); fi
 	sed -i '' 's/\(RELEASE=\).*/\1'"${next_release}"'/' ./build/version
 	find ./ipk/ -maxdepth 1 -type f -iregex '.*kvas.*' -exec mv {} ./ipk/old \;
 }
 
-new_release
+# если версия сборки задана через аргумент запуска в виде цифры до двух знаков
+echo "${1}" | grep -qE '[0-9]{1,2}' && {
+	sed -i '' 's/\(RELEASE=\).*/\1'"${1}"'/' ./build/version
+	GIT_FORCE=1
+} || new_release
+
+# Проверяем Docker и при необходимости запускаем его
+run_docker_on_macos
 
 # удаляем старые контейнеры
 docker container prune -f
@@ -49,7 +72,16 @@ if [ "${?}" = 0 ]; then
 	id_dc=$(docker ps -aq -f ancestor="${image_name}")
 	docker exec --user "${user}:${group}" -it "${id_dc}" \
 			"${APPS_ROOT}/${APP_NAME}/build/package.build" \
-			/bin/bash
+			/bin/bash && {
+				[ "${GIT_FORCE}" = 1 ] && {
+#					Так как номер релиза в ручную задается только когда нужно что-то срокчно исправить
+#					то форсируем передачу данных в git
+
+					git add .
+					git commit --amend --no-edit
+					git push origin main --force
+				}
+			}
 else
 	show_line; echo "Docker-образ собран с ошибками!"
 	exit 1

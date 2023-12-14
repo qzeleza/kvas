@@ -64,6 +64,23 @@ fast_hw_enabled()(! curl -s localhost:79/rci/show/rc/ppe | grep hardware -C1 | g
 fast_sw_enabled()(! curl -s localhost:79/rci/show/rc/ppe | grep software -C1 | grep -q false)
 fastnet_enabled()(fast_hw_enabled || fast_sw_enabled)
 
+
+del_all_net_from_config(){
+        sed -i 's/\(INFACE_GUEST_ENT=\).*/\1/' "${KVAS_CONF_FILE}"
+}
+
+del_ikev2_net_from_config(){
+		has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p; s/[\,]//g')
+        [ -n "${has_guest_nets}" ] && point=',' || point=''
+        sed -i '/INFACE_GUEST_ENT=/,/^$/ s/ikev2[,]\{0,1\}//' "${KVAS_CONF_FILE}"
+}
+add_ikev2_net_to_config(){
+        has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p; s/[\,]//g')
+        [ -n "${has_guest_nets}" ] && point=',' || point=''
+        del_ikev2_net_from_config
+        sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}ikev2/g" "${KVAS_CONF_FILE}"
+}
+
 # ------------------------------------------------------------------------------------------
 # Производим очистку кэша маршрутизации
 # ------------------------------------------------------------------------------------------
@@ -227,30 +244,30 @@ ip4_add_guest_to_vpn_network(){
 #
 # ------------------------------------------------------------------------------------------
 ip4_add_selected_guest_to_ssr_network(){
-	guest_inface="${1}"
-	ssr_port=$(get_config_value "SSR_DNS_PORT")
-#	rules_block=$(ip4save | grep " ${guest_inface} " | grep "${table_name}" | grep "REDIRECT" | grep "${ssr_port}")
-	rules_block=$(ip4save | grep PREROUTING | grep "${interface}" | grep "${table_name}" | grep REDIRECT | grep "${ssr_port}")
-	rules_dns=$(ip4save | grep " ${guest_inface} " | grep DNAT | grep 53)
-	if [ -z "${rules_block}" ] || [ -z "${rules_dns}" ]; then
-			# Маркируем трафик гостевой сети
-			{
-				log_warning "Подключаем правила маркировки гостевого трафика для SHADOWSOCKS."
-				# DNS
-				ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p tcp -j DNAT --to "$(inface_gw4):53"
-				ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p udp -j DNAT --to "$(inface_gw4):53"
-				# Выборочные IP в Shadowsocks
-				ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p tcp -m set --match-set unblock dst -j REDIRECT --to-port "${ssr_port}"
-				ip4tables PREROUTING -w -t nat -i "${guest_inface}" -p udp -m set --match-set unblock dst -j REDIRECT --to-port "${ssr_port}"
 
-			} &>/dev/null
+	net_inface=${1}
+	net_pool=${2}
 
-			rules_block=$(ip4save | grep PREROUTING | grep " ${guest_inface} " | grep "${table_name}" | grep "REDIRECT" | grep "${ssr_port}")
-			rules_dns=$(ip4save | grep " ${guest_inface} " | grep DNAT | grep 53)
-			if [ -z "${rules_block}" ] || [ -z "${rules_dns}" ]; then
-				error "${IPv4} Возникла ошибка при маркировке гостевого трафика ${guest_inface} [$(guest_net "${guest_inface}")]  для SHADOWSOCKS"
-			fi
+	if [ "${net_inface}" = ikev2 ] ; then
+		net_inface=$(get_entware_ikev2_inface)
+	else
+		net_pool=$(ip a | grep global | grep "${net_inface}" | sed 's/inet \(.*\/[0-9]\{1,3\}\) scope.*/\1/; s/[ ]//g; s/\(.*\)\.[0-9]\{1,3\}\/\([0-9]\{1,3\}\)$/\1.0\/\2/')
 	fi
+
+	[ -z "${net_inface}" ] || [ -z "${net_pool}" ] && {
+		error "Отсутствует один из параметров: сетевой интерфейс или сетевой пул."
+		 exit 1
+	}
+
+	port=$(get_config_value SSR_DNS_PORT)
+	if ! iptables-save | grep PREROUTING | grep "${net_pool}" | grep "${net_inface}" | grep unblock | grep REDIRECT | grep -q "${port}" ; then
+		log_warning "Подключаем правила маркировки гостевого трафика для SHADOWSOCKS."
+	   	iptables -A PREROUTING -t nat -s ${net_pool} -i ${net_inface} -p tcp -m set --match-set unblock dst -j REDIRECT --to-port ${port}
+	   	iptables -A PREROUTING -t nat -s ${net_pool} -i ${net_inface} -p udp -m set --match-set unblock dst -j REDIRECT --to-port ${port}
+	   	add_ikev2_net_to_config
+	fi
+
+
 }
 
 ip4_add_guest_to_ssr_network(){
