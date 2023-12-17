@@ -38,7 +38,7 @@ case ${1} in
                 cmd_kvas_init initd
                 ready "Перезапускаем AdGuardHome"
                 . /opt/etc/init.d/rc.func &>/dev/null
-                if [ $? = 0 ]; then when_ok "ГОТОВО"; else when_bad "ОШИБКА"; fi
+                if [ $? = 0 ]; then when_ok "УСПЕШНО"; else when_bad "ОШИБКА"; fi
                 print_line
         ;;
 

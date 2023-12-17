@@ -57,9 +57,13 @@ DNSMASQ_IPSET_HOSTS=/opt/etc/kvas.dnsmasq
 # из обращений к VPN или SHADOWSOCKS подключениям
 EXCLUDED_NET_FILE=/opt/apps/kvas/etc/conf/excluded.net
 
+IP_FILTER='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'
+
 ERROR_LOG_FILE=/opt/tmp/kvas.err.log
 APP_NAME_DESC=КВАС
 
+MAIN_DNS_PORT=53
+LOCALHOST_IP=127.0.0.1
 INFACE_REQUEST="${LOCALHOST_IP}:79/rci/show/interface"
 INFACE_PART_REQUEST="${LOCALHOST_IP}:79/rci/interface"
 SSR_ENTWARE_TEMPL=ezcfg
@@ -132,6 +136,15 @@ reset_connection() {
 	inface_cli=${1}
 	# получаем текущее состояние инф-са для возвращения его к исходному состоянию
 	state=$(curl -s "${INFACE_REQUEST}" | jq -r '.[] | select(.id=="'"${inface_cli}"'") | .state')
+	isp_state=$(curl -s "${INFACE_REQUEST}" | jq -r '.[] | select(.defaultgw==true and .global==true) | .state')
+	if echo "${isp_state}" | grep -q down ; then
+		reset_ISP_connection || {
+			error "Проверьте соединение с провайдером и/или настройки DNS."
+			exit 1
+		}
+	fi
+
+
 	# в зависимости от состояния - включаем и выключаем или выключаем и включаем интерфейс
 	# для того, чтобы сработал наш хук в файле /opt/etc/ndm/ifstatechanged.d/100-save-inface_entware
 	if [ "${state}" = 'up' ]; then
@@ -162,7 +175,8 @@ APP_VERSION=$(get_config_value APP_VERSION)
 APP_RELEASE=$(get_config_value APP_RELEASE)
 
 version(){
-	[ -n "${APP_RELEASE}" ] && APP_RELEASE="-${APP_RELEASE}"
+	[ -n "${APP_RELEASE}" ] && APP_RELEASE=" ${APP_RELEASE}"
+	APP_VERSION=$(echo "${APP_VERSION}" | tr '-' ' ')
 	warning "Версия пакета ${APP_VERSION}${APP_RELEASE}"
 }
 
@@ -592,10 +606,10 @@ print_error(){
 		warning "${error_mess}"; print_line
 
 #           Вывод сообщения в лог роутера
-		while read -r line || [ -n "${line}" ]; do
-			[ -z "${line}" ] && continue
-			logger -p err -t "${APP_NAME_DESC}" "${err_signal}${line}"
-		done < "${ERROR_LOG_FILE}"
+#		while read -r line || [ -n "${line}" ]; do
+#			[ -z "${line}" ] && continue
+#			logger -p err -t "${APP_NAME_DESC}" "${err_signal}${line}"
+#		done < "${ERROR_LOG_FILE}"
 	}
 
 

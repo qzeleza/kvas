@@ -173,8 +173,8 @@ dnscrypt_proxy_debug() {
 # ------------------------------------------------------------------------------------------
 kvas_list_debug() {
 
-	result=$(cat < "${UNBLOCK_LIST_FILE}" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | tail -20)
-	echo_debug "Список разблокировки /opt/etc/hosts.list (20 записей)" "${result}"
+	result=$(cat < "${UNBLOCK_LIST_FILE}" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
+	echo_debug "Список разблокировки /opt/etc/hosts.list (все записи)" "${result}"
 }
 
 # ------------------------------------------------------------------------------------------
@@ -236,8 +236,8 @@ unblock_ipset_debug() {
 	echo_debug "DNS сервер, используемый в /opt/apps/kvas/bin/main/ipset" "${result}"
 #	/opt/apps/kvas/bin/main/ipset &>/dev/null
 	result_ipset=$(ipset list unblock | grep -vEi '^[a-z]' | sort)
-	result=$(echo "${result_ipset}" | tail -20)
-	echo_debug "Таблица ipset (20 записей)\nкоманда: 'ipset list unblock'" "${result}"
+	result=$(echo "${result_ipset}" )
+	echo_debug "Таблица ipset (все записи)\nкоманда: 'ipset list unblock'" "${result}"
 	print_line
 	unblock_list_ipset_check
 
@@ -252,8 +252,8 @@ unblock_dnsmasq_debug() {
 
 #	result=$(cat < "/opt/apps/kvas/bin/main/dnsmasq" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
 #	echo_debug "Скрипт заполнения списка разблокировки /opt/apps/kvas/bin/main/dnsmasq" "${result}"
-	result=$(cat < '/opt/etc/kvas.dnsmasq' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | tail -20)
-	echo_debug "Список разблокировки в /opt/etc/kvas.dnsmasq (20 записей)" "${result}"
+	result=$(cat < '/opt/etc/kvas.dnsmasq' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' )
+	echo_debug "Список разблокировки в /opt/etc/kvas.dnsmasq (все записи)" "${result}"
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -281,8 +281,8 @@ adblock_dnsmasq_debug() {
 	if [ -n "$(cat < '/opt/etc/dnsmasq.conf' | sed '/^$/d' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep "adblock.dnsmasq")" ]; then
 #		result=$(cat < "/opt/apps/kvas/bin/main/adblock")
 #		echo_debug "Скрипт заполнения списка блокировки рекламы/opt/apps/kvas/bin/main/adblock" "${result}"
-		result=$(cat < '/opt/etc/adblock.dnsmasq' | sed -e '/^#/d; /^$/d' | tail -20)
-		echo_debug "Список блокировки рекламы /opt/etc/adblock.dnsmasq (20 записей)" "${result}"
+		result=$(cat < '/opt/etc/adblock.dnsmasq' | sed -e '/^#/d; /^$/d' )
+		echo_debug "Список блокировки рекламы /opt/etc/adblock.dnsmasq (все записи)" "${result}"
 	fi
 }
 

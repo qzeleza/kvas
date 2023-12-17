@@ -59,7 +59,7 @@ setup_adguard(){
 				ready "Останавливаем сервис AdGuard Home..."
 				/opt/etc/init.d/S99adguardhome stop &> /dev/null
 				if /opt/etc/init.d/S99adguardhome status | grep -q dead; then
-					when_ok "ГОТОВО"
+					when_ok "УСПЕШНО"
 				else
 					when_bad "ОШИБКА"
 					mess="Невозможно остановить сервис AdGuard Home"
@@ -90,7 +90,7 @@ setup_restore_prev_conf(){
 		log_in_file "УСТАНОВЛЕН список разблокировки ПО УМОЛЧАНИЮ."
 		ready "Копируем файл со списком разблокировки по умолчанию"
 		if cp /opt/apps/kvas/etc/conf/hosts.list "${UNBLOCK_LIST_FILE}" &>/dev/null ; then
-			when_ok "УСПЕШНО"
+			when_ok "ГОТОВО"
 		else
 			when_bad "ОШИБКА"
 			log_in_file "ОШИБКА: при копировании списка разблокировки по умолчанию"

@@ -118,11 +118,8 @@ case "${1}" in
 		esac
 		;;
 
-	debug)
-		case "${2}" in
-			nofiles) 		cmd_print_debug "${2}" | sed 's/\[1;32m/-/g; s/\[36m/-/g; s/\[m/-/g' ;;
-			*) 				cmd_print_debug '' | sed 's/\[1;32m/-/g; s/\[36m/-/g; s/\[m/-/g' ;;
-		esac
+	debug)					REP='_'
+							cmd_print_debug '' | sed 's/\[1;32m/'"${REP}"'/g; s/\[36m/'"${REP}"'/g; s/\[m/'"${REP}"'/g'
 		;;
 	test | check)			cmd_state_checker
 		;;
@@ -148,7 +145,7 @@ case "${1}" in
 		;;
 	upgrade)				/opt/apps/kvas/bin/main/upgrade "${2}" "${3}"
 		;;
-	version | ver)			version | tr '-' ' '
+	version | ver)			version
 		;;
 	help|-h|--h ) 			cmd_help
 		;;

@@ -17,9 +17,6 @@
 #	Основные переменные для работы скрипта
 # ------------------------------------------------------------------------------------------
 
-MAIN_DNS_PORT=53
-LOCALHOST_IP=127.0.0.1
-
 DNS_IP_PORT="${LOCALHOST_IP}#${MAIN_DNS_PORT}"
 CMD_LIST="address prefix name-servers"
 
@@ -50,7 +47,7 @@ update_ipset(){
 
 	ready "${prefix}Заполняем ipset таблицу данными из списка разблокировки."
 	/opt/apps/kvas/bin/main/ipset &> /dev/null &
-	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
 	if [ -f /opt/etc/init.d/S56dnsmasq ] ; then
 		refresh_dnsmasq_ipset_table
@@ -58,7 +55,7 @@ update_ipset(){
 		refresh_adguard_ipset_table
 		[ "${stage}" = initd ] || {
 			ready "${prefix}Перезапускаем сервис AdGuard Home"
-			/opt/etc/init.d/S99adguardhome restart &>/dev/null && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+			/opt/etc/init.d/S99adguardhome restart &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 		}
 	fi
 }
@@ -105,16 +102,16 @@ reset_all_connection(){
 	{
 		if has_ssr_enable ; then
 			/opt/etc/init.d/S22shadowsocks stop &>/dev/null
-			reset_ISP_connection
+			# reset_ISP_connection
 			/opt/etc/init.d/S22shadowsocks start &>/dev/null
 		else
 			inface=$(current_cli_vpn_interface)
 			cli_request="localhost:79/rci/interface/${inface}"
-			curl -s -d '{"down":"true"}' "${cli_request}"  &>/dev/null
-			reset_ISP_connection
+#			curl -s -d '{"down":"true"}' "${cli_request}"  &>/dev/null
+#			reset_ISP_connection
 			curl -s -d '{"up":"true"}' "${cli_request}"  &>/dev/null
 		fi
-	} && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+	} && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
 }
 
@@ -136,17 +133,21 @@ cmd_kvas_init(){
 
 #	Производим перезапуск подключения к интернету
 #	если не режим update и если текущее подключение не ssr
-	if [ "${stage}" = refresh ] || ! has_ssr_enable ; then  reset_all_connection; fi
+	if [ "${stage}" = refresh ] || ! has_ssr_enable ; then
+			reset_all_connection
+	fi
 
 	iptables_reset
 	update_iptables
 	update_ipset "${stage}"
 	update_adblock
 
-	ready "${prefix}Создаем таблицу маршрутизации ID#${TABLE_ID} для '$(inface_cli)'."
-	#	Создаем таблицу IP адресов для  VPN подключения отличного от shadowsocks
+	ip4_add_route_table
 
-	ip4_add_route_table &> /dev/null && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+#	ready "${prefix}Создаем таблицу маршрутизации ID#${TABLE_ID} для '$(inface_cli)'."
+#	#	Создаем таблицу IP адресов для  VPN подключения отличного от shadowsocks
+#
+#	ip4_add_route_table &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
 	[ "${stage}" = initd ] && update_time
 
@@ -785,92 +786,28 @@ bridge_access_add() {
 }
 
 
+ikev2_setup(){
 
+	ikev2_data="${1}"; enable=${2:-true}
 
-ikev2_net_access_del(){
-
-	ikev2=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
 	ikev2_dns=$(get_external_ip)
-	dns_server=$(echo "${ikev2}" | grep dns-server | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-	net_pool=$(echo "${ikev2}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+	dns_server=$(echo "${ikev2_data}" | grep dns-server | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+	enable=$(echo "${ikev2_data}" | grep enable | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+	nat=$(echo "${ikev2_data}" | grep nat | cut -d':' -f2 | sed 's/[\,\" ]//g;')
 
-	if [ "${dns_server}" != "${ikev2_dns}" ]; then
-
-		pool_size=$(echo "${ikev2}" | grep pool-size | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-		multi_login=$(echo "${ikev2}" | grep multi-login | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-		sa_compat=$(echo "${ikev2}" | grep sa-compat | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-		curl -s -d '{"nat": false, "dns-server": "'"${ikev2_dns}"'", "pool-size": "'"${pool_size}"'", "multi-login": "'"${multi_login}"'", "sa-compat": "'"${sa_compat}"'"}' \
-			"${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2" &> /dev/null
-		sleep 1
-	fi
-
-	ready "Удаление интерфейса \"VPN-сервер IKEv2\" завершено" && {
-
-		net_ip=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.1/')
-		net_pool=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/')
-
-		if has_ssr_enable ;then
-
-		   port=$(get_config_value SSR_DNS_PORT)
-		   net_inface=$(get_entware_ikev2_inface)
-		   if iptables-save | grep PREROUTING | grep "${net_pool}" | grep "${net_inface}" | grep unblock | grep REDIRECT | grep -q "${port}" ; then
-
-				iptab -D PREROUTING -t nat -s ${net_pool} -p tcp -i ${net_inface} -m set --match-set unblock dst -j REDIRECT --to-port ${port}
-				iptab -D PREROUTING -t nat -s ${net_pool} -p udp -i ${net_inface} -m set --match-set unblock dst -j REDIRECT --to-port ${port}
-
-		   fi
-		else
-		   if iptables-save | grep POSTROUTING | grep "${net_pool}" | grep eth3 | grep -q MASQUERADE ; then
-				   iptab -D POSTROUTING -t nat -s "${net_pool}" -o eth3 -j MASQUERADE
-		   fi
-		fi
-		del_ikev2_net_from_config
-
-	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
-
-}
-
-ikev2_net_access_add(){
-#set -x
-
-	ikev2=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
-	ikev2_dns=$(get_external_ip)
-	dns_server=$(echo "${ikev2}" | grep dns-server | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-	net_pool=$(echo "${ikev2}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-	enable=$(echo "${ikev2}" | grep enable | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-
-
-	if [ "${dns_server}" != "${ikev2_dns}" ] || [ "${enable}" != true ] ; then
+	if [ "${dns_server}" != "${ikev2_dns}" ] || [ "${enable}" != true ] || [ "${nat}" != true ] ;then
 	#	Если DNS отличен от IP роутера или интерфейс отключен
-        pool_size=$(echo "${ikev2}" | grep pool-size | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-        multi_login=$(echo "${ikev2}" | grep multi-login | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-        sa_compat=$(echo "${ikev2}" | grep sa-compat | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+        pool_size=$(echo "${ikev2_data}" | grep pool-size | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+        pool_start=$(echo "${ikev2_data}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+        multi_login=$(echo "${ikev2_data}" | grep multi-login | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+        sa_compat=$(echo "${ikev2_data}" | grep sa-compat | cut -d':' -f2 | sed 's/[\,\" ]//g;')
 		ikev2_dns=$(get_router_ip)
-		curl -s -d '{"enable": true, "nat": true, "dns-server": "'"${ikev2_dns}"'", "pool-size": "'"${pool_size}"'", "multi-login": "'"${multi_login}"'", "sa-compat": "'"${sa_compat}"'"}' \
+		curl -s -d '{"enable": '"${enable}"', "nat": true, "dns-server": "'"${ikev2_dns}"'", "pool-size": "'"${pool_size}"'", "pool-start": "'"${pool_start}"'", "multi-login": "'"${multi_login}"'", "sa-compat": "'"${sa_compat}"'"}' \
 		"${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2" &> /dev/null
 		sleep 1
 	fi
 
-	ready "Добавление интерфейса \"VPN-сервер IKEv2\" [${net_pool}] завершено" && {
-
-		net_ip=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.1/')
-		net_pool=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/')
-
-		if has_ssr_enable ;then
-			ip4_add_selected_guest_to_ssr_network ikev2 "${net_pool}"
-
-		else
-			if ! iptables-save | grep POSTROUTING | grep "${net_pool}" | grep eth3 | grep -q MASQUERADE ; then
-				iptables -A POSTROUTING -t nat -s "${net_pool}" -o eth3 -j MASQUERADE
-				add_ikev2_net_to_config
-			fi
-		fi
-
-	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
-
-#set +x
 }
-
 
 # ------------------------------------------------------------------------------------------
 #
@@ -1177,8 +1114,14 @@ cmd_vpn_iptable_reset() {
 	if [ -f /opt/etc/ndm/fs.d/100-vpn ] ; then
 		ready "Переустановка iptables для vpn завершена"
 		cmd_vpn_iptable_flush  &> /dev/null
-		/opt/etc/ndm/fs.d/100-vpn start &> /dev/null
-		[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "C ОШИБКАМИ"
+
+		ip4_add_route_table &> /dev/null
+	#	Устанавливаем приоритет таблицы
+		ip4_rule_set_priority &> /dev/null
+	#	Создаем правила iptables
+		ip4_mark_vpn_network &> /dev/null
+
+		[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
 	else
 		warning "VPN соединение не активно!"
 	fi
@@ -1280,12 +1223,12 @@ active_backup_config(){
 	if echo "${answer}" | grep -qi y ; then
 		ready "Удаляем архивный файл конфигурации shadowsocks..."
 		rm -f "${SHADOWSOCKS_CONF}.kvas"
-		[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+		[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 	else
 		ready "Восстанавливаем файл конфигурации shadowsocks из архива   "
 		mv -f "${SHADOWSOCKS_CONF}.kvas" "${SHADOWSOCKS_CONF}"  &>/dev/null
 		if [ ${?} = 0 ]; then
-			when_ok "ГОТОВО";
+			when_ok "УСПЕШНО";
 		else
 			when_bad "ОШИБКА" && exit 1
 		fi
@@ -1307,7 +1250,7 @@ shadowsocks_backup() {
 			print_line
 			ready "Останавливаем сервис shadowsocks..."
 			if /opt/etc/init.d/S22shadowsocks stop &>/dev/null; then
-				when_ok "ГОТОВО"
+				when_ok "УСПЕШНО"
 			else
 				when_bad "ОШИБКА"
 				error "Невозможно остановить сервис shadowsocks"
@@ -1538,7 +1481,7 @@ shadowsocks_on() {
 	/opt/etc/init.d/S22shadowsocks restart &> /dev/null
 	/opt/etc/init.d/S22shadowsocks status &> /dev/null
 	if [ $? = 0 ]; then
-		when_ok "ГОТОВО"
+		when_ok "УСПЕШНО"
 	else
 		when_bad "ОШИБКА"
 		error "Возникла ошибка при подключении shadowsocks интерфейса!"
@@ -1846,7 +1789,7 @@ select_vpn_interface() {
 cmd_update_list() {
 	ready "Обновляем маршруты и таблицы ipset..."
 	"${UPDATE_BIN_FILE}" miss_ads &> /dev/null
-	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -1902,22 +1845,22 @@ refresh_dnsmasq_ipset_table(){
 
 		ready "${prefix}Заполняем dnsmasq таблицу данными из списка разблокировки."
 		if /opt/apps/kvas/bin/main/dnsmasq  ; then #&>/dev/null
-			when_ok "ГОТОВО"
+			when_ok "УСПЕШНО"
 		else
 			if /opt/apps/kvas/bin/main/dnsmasq  ; then
-				when_ok "ГОТОВО"
+				when_ok "УСПЕШНО"
 			else
 				when_bad "ОШИБКА"
 			fi
 		fi
 		ready "${prefix}Перезапускаем сервис dnsmasq"
 		/opt/etc/init.d/S56dnsmasq restart &>/dev/null
-		[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+		[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
 		if get_dns_crypt_status | grep -q on ; then
 			ready "${prefix}Перезапускаем сервис dns_crypt"
 			dns_crypt_install '' &>/dev/null
-			[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+			[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 		fi
 }
 
@@ -2127,6 +2070,7 @@ test_host() {
 }
 
 add_host_to_adguard(){
+	clear_host="${1}"
 	#   AdGuardHome обработка
 	echo "${_host}" >> "${UNBLOCK_LIST_FILE}"
 	[ -f "${ADGUARD_IPSET_FILE}" ] && echo "${_host}" >> "${ADGUARD_IPSET_FILE}"
@@ -2138,14 +2082,11 @@ add_host_to_adguard(){
 }
 
 add_host_to_ipset(){
+	clear_host="${1}"
+	. /opt/apps/kvas/bin/libs/ipset
 	#
 #	# если строка начинается с IP, то проводим обработку по IP
-	if echo "${clear_host}" | grep -qoE "${IP_FILTER}|${IP_FILTER}-${IP_FILTER}|${IP_FILTER}/[0-9]{1,2}"; then
-		ipset -exist add "${table_name}" "${clear_host}" &>/dev/null
-	else
-		add_host_by_iplist_to_ipset "${clear_host}"
-	fi
-
+		add_host_by_iplist_to_ipset "${clear_host}" &> /dev/null
 }
 
 # ------------------------------------------------------------------------------------------
@@ -2176,9 +2117,7 @@ host_add() {
 	fi
 	print_line
 	ready "Добавляем ${YELLOW}${_host}${NOCL} в список разблокировки..."
-
-
-
+	echo "${_host}" >> "${UNBLOCK_LIST_FILE}"
 
 #	если включен блокировщик рекламы
 	if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
@@ -2187,8 +2126,8 @@ host_add() {
 
 	[ "${reset}" = 'yes' ] && cmd_kvas_init  &> /dev/null
 #	[ "${reset}" = 'yes' ] && cmd_kvas_init "refresh" &> /dev/null
-	add_host_to_adguard
-	add_host_to_ipset
+	cmd_adguardhome_status | grep -q ВКЛЮЧЕН && add_host_to_adguard "${clear_host}" &> /dev/null
+	add_host_to_ipset "${clear_host}" &> /dev/null
 
 	[ $? = 0 ] && when_ok "ДОБАВЛЕН" || when_bad "НЕ ДОБАВЛЕН"
 
@@ -2240,7 +2179,7 @@ cmd_add_one_host() {
 		fi
 	else
 		if [ -z "${test}" ]; then
-			error "Некорректно указано имя домена - ${1}."
+			error "Некорректно указано имя домена - ${1}." no_nln
 		else
 			echo 0
 		fi
@@ -2259,7 +2198,8 @@ cmd_del_one_host() {
 	if cat < "${UNBLOCK_LIST_FILE}" | grep -qe "${host_}$" ; then
 		ready "Удаляем ${YELLOW}${host_}${NOCL} из списка разблокировки..."
 		sed -i "/${host_////\\/}/d" "${UNBLOCK_LIST_FILE}"
-		[ -f /opt/bin/AdGuardHome ] && sed -i "/${host_////\\/}/d" "${ADGUARD_IPSET_FILE}"
+
+		cmd_adguardhome_status | grep -q ВКЛЮЧЕН && sed -i "/${host_////\\/}/d" "${ADGUARD_IPSET_FILE}"
 		cmd_kvas_init  &> /dev/null
 #		cmd_kvas_init  "refresh"  &> /dev/null
 		[ $? = 0 ] && when_ok "УДАЛЕН" || when_bad "НЕ УДАЛЕН"
@@ -2271,7 +2211,7 @@ cmd_del_one_host() {
 		fi
 
 	else
-		error "Такая запись отсутствует в списке разблокировки!"
+		error "Такая запись отсутствует в списке разблокировки!" no_nln
 	fi
 }
 # ------------------------------------------------------------------------------------------
@@ -2379,7 +2319,7 @@ cmd_import_hosts() {
 
 			cmd_kvas_init  "update" &> /dev/null
 
-			[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+			[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
 			num_not_added=$(rec_in_var "${hosts_not_added}")
 			num_repeated_ubl=$(rec_in_var "${hosts_repeated_ubl}")
