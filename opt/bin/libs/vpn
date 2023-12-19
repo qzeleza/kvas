@@ -405,6 +405,8 @@ adguardhome_setup() {
 	set_config_value DNS_DEFAULT "${ip}#${port}"
 #	меняем номер порта в файле конфигурации adguard
 	sed -i "s/\( port:\) .*/\1 ${port}/" "${ADGUARDHOME_CONFIG}"
+#	обязательно добавляем localhost в прослушку
+	sed -n '/bind_hosts:/,/port:/ p;' "${ADGUARDHOME_CONFIG}" | grep -qE '127.0.0.1|localhost' || sed -i '/bind_hosts:/,/port:/ s/\(port:\)/  \- 127.0.0.1\n  \1/' "${ADGUARDHOME_CONFIG}"
 #	если файл сервис adguard в наличии то архивируем файл конфигурации
 	if [ -f "${ADGUARDHOME_DEMON}" ] && [ -f /opt/bin/AdGuardHome.yaml ]; then
 		cp /opt/bin/AdGuardHome.yaml "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml
@@ -537,9 +539,9 @@ adguardhome_check_config() {
 					adguardhome_setup
 					exit 0
 				fi
-				sleep 1  # Пауза в секундах между проверками
+				# Пауза в секундах между проверками
+				sleep 1
 			done
-#				auth: user "adguard" successfully logged in from ip 10.1.2.9
 
 		fi
 }

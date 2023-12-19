@@ -395,6 +395,15 @@ show_interfaces_debug() {
 # ------------------------------------------------------------------------------------------
 cmd_print_debug() {
 
+	if [ -z "${1}" ] ; then
+		print_debug
+	else
+		REP='_'
+		print_debug | sed 's/\[1;32m/'"${REP}"'/g; s/\[36m/'"${REP}"'/g; s/\[m/'"${REP}"'/g' > "${1}"
+	fi
+}
+
+print_debug() {
 	internet_check
 	dns_override_check
 	date_info
@@ -425,5 +434,6 @@ cmd_print_debug() {
 	iptables_debug
 	kvas_list_debug
 	unblock_ipset_debug
+
 
 }

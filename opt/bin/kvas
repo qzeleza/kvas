@@ -118,8 +118,8 @@ case "${1}" in
 		esac
 		;;
 
-	debug)					REP='_'
-							cmd_print_debug '' | sed 's/\[1;32m/'"${REP}"'/g; s/\[36m/'"${REP}"'/g; s/\[m/'"${REP}"'/g'
+	debug)
+							cmd_print_debug "${2}"
 		;;
 	test | check)			cmd_state_checker
 		;;

@@ -33,7 +33,7 @@ run_docker_on_macos(){
 				echo "Для дальнейшей работы установите Docker на Вашей Mac OS."
 				echo "https://docs.docker.com/desktop/install/mac-install/"
 			}
-			sleep 3
+			sleep 5
 		}
 	}
 }
