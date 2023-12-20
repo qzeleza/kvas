@@ -71,6 +71,9 @@ case "${1}" in
 			off) 			cmd_adguardhome_off ;;
 			test)			cmd_adguard_check ;;
 			update)			cmd_adguard_update ;;
+			restart)		/opt/etc/init.d/S99adguardhome restart
+				exit 0
+				;;
 			*) 				cmd_adguardhome_status ;;
 		esac
 		;;

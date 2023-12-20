@@ -386,6 +386,7 @@ adguardhome_setup() {
 
 	ip=$(adguardhome_change_and_get_config_ip)
 	port=${MAIN_DNS_PORT}
+	localhost="127.0.0.1"
 
 	ready "AdGuard Home установлен в качестве основного DNS сервера"
 
@@ -402,11 +403,11 @@ adguardhome_setup() {
 #   останавливаем adg сервис, если он запущен
 	${ADGUARDHOME_DEMON} stop &> /dev/null
 #	устанавливаем DNS по умолчанию на ADGUARD
-	set_config_value DNS_DEFAULT "${ip}#${port}"
+	set_config_value DNS_DEFAULT "${localhost}#${port}"
 #	меняем номер порта в файле конфигурации adguard
 	sed -i "s/\( port:\) .*/\1 ${port}/" "${ADGUARDHOME_CONFIG}"
 #	обязательно добавляем localhost в прослушку
-	sed -n '/bind_hosts:/,/port:/ p;' "${ADGUARDHOME_CONFIG}" | grep -qE '127.0.0.1|localhost' || sed -i '/bind_hosts:/,/port:/ s/\(port:\)/  \- 127.0.0.1\n  \1/' "${ADGUARDHOME_CONFIG}"
+	sed -n '/bind_hosts:/,/port:/ p;' "${ADGUARDHOME_CONFIG}" | grep -qE "${localhost}"'|localhost' || sed -i '/bind_hosts:/,/port:/ s/\(port:\)/  \- '"${localhost}"'\n  \1/' "${ADGUARDHOME_CONFIG}"
 #	если файл сервис adguard в наличии то архивируем файл конфигурации
 	if [ -f "${ADGUARDHOME_DEMON}" ] && [ -f /opt/bin/AdGuardHome.yaml ]; then
 		cp /opt/bin/AdGuardHome.yaml "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml
@@ -422,7 +423,7 @@ adguardhome_setup() {
 #	удаляем сервис запуска квас так как его теперь будет заменять файл сервиса adguard
 	rm -f "${KVAS_START_FILE}"
 #	меняем dns в настройках ipset
-	ipset_dns_change "${ip}#${port}"
+	ipset_dns_change "${localhost}#${port}"
 #	теперь просто запускаем сервис adguard
 #	ndm_interface_change
 
