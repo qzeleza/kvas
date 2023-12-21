@@ -538,6 +538,7 @@ adguardhome_check_config() {
 					killall AdGuardHome
 					mv "${tmp_conf}" "${ADGUARDHOME_CONFIG}"
 					adguardhome_setup
+					print_line
 					exit 0
 				fi
 				# Пауза в секундах между проверками

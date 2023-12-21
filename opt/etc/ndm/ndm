@@ -251,8 +251,8 @@ ip4_add_selected_guest_to_ssr_network(){
 	if [ "${net_inface}" = ikev2 ] ; then
 		net_inface=$(get_entware_ikev2_inface)
 		[ -z "${net_pool}" ] && {
-			# здесь добавить код по заполнению переменной net_pool из API
-			net_pool=$(ip a | grep global | grep "${net_inface}" | sed 's/inet \(.*\/[0-9]\{1,3\}\) scope.*/\1/; s/[ ]//g; s/\(.*\)\.[0-9]\{1,3\}\/\([0-9]\{1,3\}\)$/\1.0\/\2/')
+			ikev2_settings=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
+			net_pool=$(echo "${ikev2_settings}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
 		}
 	else
 		net_pool=$(ip a | grep global | grep "${net_inface}" | sed 's/inet \(.*\/[0-9]\{1,3\}\) scope.*/\1/; s/[ ]//g; s/\(.*\)\.[0-9]\{1,3\}\/\([0-9]\{1,3\}\)$/\1.0\/\2/')
@@ -269,7 +269,6 @@ ip4_add_selected_guest_to_ssr_network(){
 		log_warning "Подключаем правила маркировки гостевого трафика для SHADOWSOCKS."
 	   	iptables -A PREROUTING -t nat -s ${net_pool} -i ${net_inface} -p tcp -m set --match-set unblock dst -j REDIRECT --to-port ${port}
 	   	iptables -A PREROUTING -t nat -s ${net_pool} -i ${net_inface} -p udp -m set --match-set unblock dst -j REDIRECT --to-port ${port}
-	   	add_ikev2_net_to_config
 	fi
 
 
