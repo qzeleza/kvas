@@ -252,7 +252,8 @@ ip4_add_selected_guest_to_ssr_network(){
 		net_inface=$(get_entware_ikev2_inface)
 		[ -z "${net_pool}" ] && {
 			ikev2_settings=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
-			net_pool=$(echo "${ikev2_settings}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+			pool_start=$(echo "${ikev2_settings}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+			net_pool=$(echo "${pool_start}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/')
 		}
 	else
 		net_pool=$(ip a | grep global | grep "${net_inface}" | sed 's/inet \(.*\/[0-9]\{1,3\}\) scope.*/\1/; s/[ ]//g; s/\(.*\)\.[0-9]\{1,3\}\/\([0-9]\{1,3\}\)$/\1.0\/\2/')
@@ -537,7 +538,7 @@ ikev2_net_access_del(){
 				   iptab -D POSTROUTING -t nat -s "${net_pool}" -o eth3 -j MASQUERADE
 		   fi
 		fi
-		[ -n "${1}" ] && del_ikev2_net_from_config
+		[ -z "${1}" ] && del_ikev2_net_from_config
 
 	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 

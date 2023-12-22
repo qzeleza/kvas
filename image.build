@@ -38,6 +38,18 @@ run_docker_on_macos(){
 	}
 }
 
+stop_docker_on_macos(){
+#	Запускаем Docker на MacOS
+	[ -f "${HOME}.docker/run/docker.sock" ] && {
+		uname | grep -q Darwin && {
+			pkill -x Docker
+		}
+	}
+}
+
+
+
+
 new_release(){
 # Меняем версию сборки в зависимости от значения в файле ./build/version
 	release=$(cat < ./build/version | sed -n 's/RELEASE=\(.*\)/\1/p')
@@ -87,3 +99,4 @@ else
 	exit 1
 fi
 show_line
+stop_docker_on_macos

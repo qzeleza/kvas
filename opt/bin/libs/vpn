@@ -794,7 +794,7 @@ ikev2_setup(){
 
 	ikev2_data="${1}"; enable=${2:-true}
 
-	ikev2_dns=$(get_external_ip)
+	ikev2_dns=$(get_router_ip)
 	dns_server=$(echo "${ikev2_data}" | grep dns-server | cut -d':' -f2 | sed 's/[\,\" ]//g;')
 	enable=$(echo "${ikev2_data}" | grep enable | cut -d':' -f2 | sed 's/[\,\" ]//g;')
 	nat=$(echo "${ikev2_data}" | grep nat | cut -d':' -f2 | sed 's/[\,\" ]//g;')
