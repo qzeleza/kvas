@@ -529,12 +529,17 @@ adguardhome_check_config() {
 			tmp_conf=/opt/tmp/adguard.conf
 			log_file=/opt/tmp/adguard.log
 			rm -f "${log_file}" "${tmp_conf}"
+			touch "${log_file}" "${tmp_conf}"
 
+#			Если случайно был уже запущен какой либо экземпляр процесса AdGuardHome, то удаляем его из памяти
+			pid_to_kill=$(ps -w | grep 'AdGuardHome -l /opt/var/log/AdGuardHome.log' | grep -v 'grep' | cut -d' ' -f1)
+			[ -n "${pid_to_kill}" ] && kill -9 "${pid_to_kill}"
+#			Запускаем новую чистую настройку AdGuardHome
 			/opt/bin/AdGuardHome -c "${tmp_conf}" -l "${log_file}" &
 			sleep 1
 
 			while true; do
-				if cat < "${log_file}" | grep 'go to http' | grep -qv ':3000'; then
+				if cat < "${log_file}" | grep 'go to http' | grep -qv ':3000' || cat < "${log_file}" | grep -q ' listen tcp 0.0.0.0:3000: bind: address already in use' ; then
 					killall AdGuardHome
 					mv "${tmp_conf}" "${ADGUARDHOME_CONFIG}"
 					adguardhome_setup
@@ -560,11 +565,12 @@ adguardhome_install_locally() {
 		echo "и следуйте рекомендациям на экране, после настройки AdGuard Home"
 		echo "запустите команду ${GREEN}kvas adguard on${NOCL}."
 	else
+
 		[ -f /opt/etc/init.d/S56dnsmasq ] && /opt/etc/init.d/S56dnsmasq stop &> /dev/null
 		[ -f /opt/etc/init.d/S09dnscrypt-proxy2 ] && /opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
 		rm -f /opt/var/log/AdGuardHome.log
-		opkg remove adguardhome-go &> /dev/null
-		opkg install adguardhome-go &> /dev/null
+		opkg remove adguardhome-go --force-depends &> /dev/null
+		opkg install adguardhome-go --force-maintainer  &> /dev/null
 		. /opt/apps/kvas/bin/libs/update
 		cmd_adguard_update
 		adguardhome_check_config
@@ -583,12 +589,12 @@ cmd_adguardhome_on() {
 	if echo "${status}" | grep -q "НЕ УСТАНОВЛЕН" ; then
 		error "Пакет AdGuard Home не установлен на роутере." no_newline
 		print_line
-		answer=''; read_ynq_timer "Установить его на роутер [Y] или отказаться [N]?" answer y 10
-		if [ "${answer}" = q ] ; then exit_q; exit 1; fi
-		if echo "${answer}" | grep -qi y ; then
-			print_line
-			adguardhome_install_locally
-		fi
+#		answer=''; read_ynq_timer "Установить его на роутер [Y] или отказаться [N]?" answer y 10
+#		if [ "${answer}" = q ] ; then exit_q; exit 1; fi
+#		if echo "${answer}" | grep -qi y ; then
+#		print_line
+		adguardhome_install_locally
+#		fi
 	elif echo "${status}" | grep -q "НЕ НАСТРОЕН" ; then
 		adguardhome_check_config
 		adguardhome_setup
@@ -941,8 +947,8 @@ dnsmasq_install(){
 			ready "Устанавливаем пакет dnsmasq..."
 			if ! [ -f /opt/etc/init.d/S56dnsmasq ]; then
 #				то в этом случае можем попытаться удалять или устанавливать пакеты
-				opkg remove dnsmasq-full 1> /dev/null 2> "${ERROR_LOG_FILE}"
-				opkg install dnsmasq-full 1> /dev/null 2> "${ERROR_LOG_FILE}"
+				opkg remove dnsmasq-full --force-depends 1> /dev/null 2> "${ERROR_LOG_FILE}"
+				opkg install dnsmasq-full --force-maintainer 1> /dev/null 2> "${ERROR_LOG_FILE}"
 				when_error "${?}" "Ошибка при установке пакета dnsmasq"
 			fi
 		fi
@@ -1909,8 +1915,8 @@ dns_crypt_install() {
 		#		при его отсутствии - устанавливаем пакет
 				if ! [ -f /opt/etc/init.d/S09dnscrypt-proxy2 ]; then
 					ready "Устанавливаем пакет dnscrypt-proxy2..."
-					opkg remove dnscrypt-proxy2 1> /dev/null 2> "${ERROR_LOG_FILE}"
-					opkg install dnscrypt-proxy2 1> /dev/null 2> "${ERROR_LOG_FILE}"
+					opkg remove dnscrypt-proxy2 --force-depends 1> /dev/null 2> "${ERROR_LOG_FILE}"
+					opkg install dnscrypt-proxy2 --force-maintainer 1> /dev/null 2> "${ERROR_LOG_FILE}"
 					when_error "${?}" "Ошибка при установке пакета dnsmasq"
 				fi
 			else

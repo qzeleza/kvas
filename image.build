@@ -53,7 +53,8 @@ stop_docker_on_macos(){
 new_release(){
 # Меняем версию сборки в зависимости от значения в файле ./build/version
 	release=$(cat < ./build/version | sed -n 's/RELEASE=\(.*\)/\1/p')
-	if [ -z "${release}" ] ; then next_release=1; else next_release=$((release+1)); fi
+#	Если релиз пустой, то так его пустым и оставляем, если есть цифра, но увеличиваем на 1
+	[ -n "${release}" ] && next_release=$((release+1))
 	sed -i '' 's/\(RELEASE=\).*/\1'"${next_release}"'/' ./build/version
 	find ./ipk/ -maxdepth 1 -type f -iregex '.*kvas.*' -exec mv {} ./ipk/old \;
 }
