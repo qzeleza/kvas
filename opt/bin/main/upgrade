@@ -99,7 +99,7 @@ rm_tmp_cache(){
 
 if [ -f /opt/bin/kvas ] && kvas | grep -q 'Настройка пакета не завершена' ; then
 	ready 'Удаляем незавершенную ранее установку пакета ...'
-	kvas rm "${remove_mode}" yes &>/dev/null && when_ready || when_err
+	kvas uninstall "${remove_mode}" yes &>/dev/null && when_ready || when_err
 	rm_tmp_cache
 else
 	if [ -f /opt/bin/kvas ]; then
@@ -108,7 +108,7 @@ else
 		ver=$(grep "APP_VERSION=" "${kvas_conf}" | cut -d'=' -f2)
 		rel=$(grep "APP_RELEASE=" "${kvas_conf}" | cut -d'=' -f2)
 		ready "Удаляем предыдущую версию пакета  [${ver} ${rel}]..."
-		kvas rm "${remove_mode}" yes &>/dev/null && when_ready || when_err
+		kvas uninstall "${remove_mode}" yes &>/dev/null && when_ready || when_err
 		rm_tmp_cache
 	fi
 fi
@@ -140,7 +140,7 @@ else
 		}
 
 		echo 'Тестируем настройки...'
-		kvas test
+		kvas test upgrade
 	}
 
 

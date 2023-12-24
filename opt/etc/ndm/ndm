@@ -736,7 +736,7 @@ ip4_add_route_table(){
 		# rm -f "${ERROR_LOG_FILE}"
 		 route_del "${_inface_ent}"
 
-		_ip_gw=$(ip a | grep global | grep "${_inface_ent}" | sed 's|.*inet \(.*\).*\/.* scope.*|\1|')
+		_ip_gw=$(ip a | grep global | grep "${_inface_ent}" | sed 's|.*inet \(.*\).*\/.* scope.*|\1|' | cut -d' ' -f1)
 
 		[ -z "${_ip_gw}" ] && {
 				error "Не удалось определить IP шлюза для соединения ${_inface_ent}" no_lnl

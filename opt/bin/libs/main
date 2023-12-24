@@ -639,7 +639,7 @@ ready_status(){
         if [ "${operation_result}" = 1 ] || [ "$(cat < "${ERROR_LOG_FILE}" | wc -l)" -gt 0 ] ; then
 			print_error "${error_desc}"
         else
-        	[ "${errors_only}" = 1 ] && when_ok "${ok_mess}"
+        	[ "${errors_only}" = 1 ] && when_ok "${ok_mess}" || when_ok "ГОТОВО"
             rm -f "${ERROR_LOG_FILE}"
         fi
 }

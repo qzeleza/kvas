@@ -125,6 +125,7 @@ case "${1}" in
 							cmd_print_debug "${2}"
 		;;
 	test | check)			cmd_state_checker
+							[ -n "${2}" ] && exit 0
 		;;
 	add | new)				cmd_add_one_host "${2}"
 		;;
