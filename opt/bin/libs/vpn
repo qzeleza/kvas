@@ -2083,7 +2083,8 @@ add_host_to_adguard(){
 	clear_host="${1}"
 	#   AdGuardHome обработка
 	echo "${_host}" >> "${UNBLOCK_LIST_FILE}"
-	[ -f "${ADGUARD_IPSET_FILE}" ] && echo "${_host}" >> "${ADGUARD_IPSET_FILE}"
+	[ -f "${ADGUARD_IPSET_FILE}" ] && cat < "${ADGUARD_IPSET_FILE}" | grep -q "${clear_host}" \
+	 		|| echo "${clear_host}/unblock" >> "${ADGUARD_IPSET_FILE}"
 	if echo "${host}" | grep -q '\*' ; then
   		echo "ipset=/:.*${clear_host}:/unblock" >> "${DNSMASQ_IPSET_HOSTS}"
   	else

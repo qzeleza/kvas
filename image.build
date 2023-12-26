@@ -29,7 +29,7 @@ run_docker_on_macos(){
 #	Запускаем Docker на MacOS
 	[ -f "${HOME}.docker/run/docker.sock" ] || {
 		uname | grep -q Darwin && {
-			open -a Docker | grep -q 'Unable to find application' && {
+			open -a Docker --background | grep -q 'Unable to find application' && {
 				echo "Для дальнейшей работы установите Docker на Вашей Mac OS."
 				echo "https://docs.docker.com/desktop/install/mac-install/"
 			}
@@ -41,9 +41,7 @@ run_docker_on_macos(){
 stop_docker_on_macos(){
 #	Запускаем Docker на MacOS
 	[ -f "${HOME}.docker/run/docker.sock" ] && {
-		uname | grep -q Darwin && {
-			pkill -x Docker
-		}
+		uname | grep -q Darwin && pkill Docker
 	}
 }
 
