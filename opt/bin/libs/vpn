@@ -2108,25 +2108,42 @@ add_host_to_ipset(){
 #
 # ------------------------------------------------------------------------------------------
 host_add() {
-	clear_host=$(echo "${1}" | sed 's/\*//')
+	if echo "${1}" | grep -qE "${IP_FILTER}|${NET_FILTER}" ; then
+		clear_host="${1}"
+	else
+		clear_host=$(echo "${1}" | sed 's/\*//;' | sed -n -E 's|^(http(s)?://)?([^/]+).*|\3|p')
+	fi
 	reset="${2}"
 	mode="${3}"
 	_host="${clear_host}"
 
-	if [ "${mode}" = import ]; then
+	if echo "${mode}" | grep -qiE 'import|no|n' ; then
 #		в режиме импорта задавать вопросы не нужно - добавляем хост как есть.
 		answer=n
 	else
-		answer='';
-		read_ynq_timer "Добавить хост с поддоменами wildcard [Y] или нет [N]?" answer Y 6
-		if [ "${answer}" = q ] ; then exit_q; exit 1; fi
+#		Если адрес или сеть, то пропускаем вопрос
+		if echo "${clear_host}" | grep -qE "${IP_FILTER}|${NET_FILTER}" ; then
+			answer=n
+		else
+#			Если третий параметр был задан как 'yes|y|wild' то, добавляем * без вопросов
+			if echo "${mode}" | grep -qiE 'yes|y|wild' ; then
+				answer=y
+			else
+				answer='';
+#				Задаем вопрос о необходимости поддержки режима wildcard и ждем 6 сек на ответ
+# 				если ответа не поступило, то по умолчанию ответ 'Y'
+				read_ynq_timer "Добавить хост с поддоменами wildcard [Y] или нет [N]?" answer Y 6
+				if [ "${answer}" = q ] ; then exit_q; exit 1; fi
+				print_line
+			fi
+		fi
 	fi
 
-
-	if echo "${answer}" | grep -qi y ; then
+#	Проверяем на необходимость поддержки wildcard
+	if echo "${answer}" | grep -qiE 'y|yes' ; then
 		_host="*${clear_host}"
 	fi
-	print_line
+
 	ready "Добавляем ${YELLOW}${_host}${NOCL} в список разблокировки..."
 	echo "${_host}" >> "${UNBLOCK_LIST_FILE}"
 
@@ -2156,7 +2173,7 @@ host_add() {
 # ------------------------------------------------------------------------------------------
 cmd_add_one_host() {
 	mode="${4}"
-	test="${3}"
+	test="${3:-no}"
 	reset="${2:-yes}"
 	host=$(echo "${1}" | sed 's|http[s]\{,1\}://||;')
 	clear_host=$(echo "${host}" | sed 's/\*//')
@@ -2171,7 +2188,7 @@ cmd_add_one_host() {
 			fi
 		else
 			if cat < "${UNBLOCK_LIST_FILE}" | grep -qe "${clear_host}"; then
-				if [ -z "${test}" ]; then
+				if [ "${test}" = no ]; then
 					warning "Такой домен уже есть в списке разблокировки!"
 					[ "${clear_host}" != "${host}" ] && warning "Производим замену ${clear_host} на ${host}"
 					print_line
@@ -2181,7 +2198,7 @@ cmd_add_one_host() {
 					echo 1
 				fi
 			else
-				if [ -z "${test}" ]; then
+				if [ "${test}" = no ]; then
 					host_add "${host}" "${reset}" "${mode}"
 				else
 					echo +
@@ -2189,7 +2206,7 @@ cmd_add_one_host() {
 			fi
 		fi
 	else
-		if [ -z "${test}" ]; then
+		if [ "${test}" = no ]; then
 			error "Некорректно указано имя домена - ${1}." no_nln
 		else
 			echo 0

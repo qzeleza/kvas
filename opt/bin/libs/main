@@ -58,6 +58,7 @@ DNSMASQ_IPSET_HOSTS=/opt/etc/kvas.dnsmasq
 EXCLUDED_NET_FILE=/opt/apps/kvas/etc/conf/excluded.net
 
 IP_FILTER='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'
+NET_FILTER='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{1,3}'
 
 ERROR_LOG_FILE=/opt/tmp/kvas.err.log
 APP_NAME_DESC=КВАС

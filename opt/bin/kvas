@@ -127,7 +127,7 @@ case "${1}" in
 	test | check)			cmd_state_checker
 							[ -n "${2}" ] && exit 0
 		;;
-	add | new)				cmd_add_one_host "${2}"
+	add | new)				cmd_add_one_host "${2}" "yes" "no" "${3}"
 		;;
 	import)					cmd_import_hosts "${2}"
 		;;
