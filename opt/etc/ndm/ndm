@@ -745,7 +745,7 @@ ip4_add_route_table(){
 
 		! ip4 route show table ${TABLE_ID} | grep -q default && {
 			ip4 route add table ${TABLE_ID} default via ${_ip_gw} dev ${_inface_ent} &>/dev/null
-			log_error "${?}" " ${IPv4} Возникла ошибка при создании таблицы маршрутизации ID#${TABLE_ID} для '${_inface_cli}' интерфейса"
+			log_error "${IPv4} Возникла ошибка при создании таблицы маршрутизации ID#${TABLE_ID} для '${_inface_cli}' интерфейса"
 		}
 
 	#	Добавляем сеть vpn соединения.
@@ -755,7 +755,7 @@ ip4_add_route_table(){
 
 	#		Проверяем на число записей в таблице ${TABLE_ID} - их должно быть больше чем одна запись
 		test "$(ip4 route show table ${TABLE_ID} | grep -c dev)" -gt 1
-		log_error "${?}" "${IPv4} В таблицу с ID#${TABLE_ID} НЕ БЫЛИ скопированы записи из таблицы main!"
+		log_error "${IPv4} В таблицу с ID#${TABLE_ID} НЕ БЫЛИ скопированы записи из таблицы main!"
 
 	} && when_ok "УСПЕШНО" || when_bad "С ОШИБКАМИ"
 }

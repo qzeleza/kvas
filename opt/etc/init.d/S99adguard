@@ -19,10 +19,11 @@
 #	Лицензия: Apache License 2.0
 # ------------------------------------------------------------------------------
 
+PIDFILE="/opt/var/run/AdGuardHome.pid"
 CNF="-c /opt/etc/AdGuardHome/AdGuardHome.yaml"
 DIR="-w /opt/etc/AdGuardHome"
 LOG="-l /opt/var/log/AdGuardHome.log"
-PID="--pidfile /opt/var/run/AdGuardHome.pid"
+PID="--pidfile ${PIDFILE}"
 UPD="--no-check-update"
 OPT="${DIR} ${LOG} ${PID} ${UPD} ${CNF}"
 
@@ -38,8 +39,19 @@ case ${1} in
                 cmd_kvas_init initd
                 ready "Перезапускаем AdGuardHome"
                 . /opt/etc/init.d/rc.func &>/dev/null
-                if [ $? = 0 ]; then when_ok "УСПЕШНО"; else when_bad "ОШИБКА"; fi
-                print_line
+				if [ -f "${PIDFILE}" ]; then
+                        when_ok "УСПЕШНО"
+                        print_line
+                else
+                        when_bad "ОШИБКА"
+                        print_line
+                        error 'Возникли проблемы при запуске AdGuardHome.' nol
+                        error 'Смотрите журнал запуска ниже.' nol
+                        print_line
+                        sleep 3
+                        cat < "${ADGUARDHOME_LOG}" | tail | grep error
+                fi
+
         ;;
 
         *)
