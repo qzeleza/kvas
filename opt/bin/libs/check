@@ -63,7 +63,7 @@ host_vpn_pass_check() {
 		grep -q "${domain}" /opt/etc/AdGuardHome/AdGuardHome.yaml && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 	else
 		ready "Домен в файл конфигурации dnsmasq добавлен "
-		grep -q "${domain}" /opt/etc/kvas.dnsmasq && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+		grep -q "${domain}" "${DNSMASQ_IPSET_HOSTS}" && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 	fi
 }
 # ------------------------------------------------------------------------------------------
@@ -96,7 +96,7 @@ dns_override_check() {
 # ------------------------------------------------------------------------------------------
 dnsmasq_check() {
 
-	! [ -f /opt/etc/kvas.dnsmasq ] && /opt/apps/kvas/bin/main/dnsmasq &> /dev/null
+	! [ -f "${DNSMASQ_IPSET_HOSTS}" ] && /opt/apps/kvas/bin/main/dnsmasq &> /dev/null
 	ready "Состояние службы dnsmasq"
 	if /opt/etc/init.d/S56dnsmasq status | grep -q alive ; then
 		when_ok "ЗАПУЩЕНА"
@@ -327,13 +327,13 @@ ipset_check() {
 # ------------------------------------------------------------------------------------------
 unblock_dnsmasq_check() {
 	ready "Список правил ipset для dnsmasq"
-	if [ "$(cat < /opt/etc/kvas.dnsmasq | wc -l)" -gt 0 ]; then
+	if [ "$(cat < "${DNSMASQ_IPSET_HOSTS}" | wc -l)" -gt 0 ]; then
 		when_ok "ЗАПОЛНЕН"
 	else
 		when_bad "ПУСТ"
 		/opt/apps/kvas/bin/main/dnsmasq
 		ready "Повторная проверка заполнения списка правил ipset для dnsmasq"
-		if [ "$(cat </opt/etc/kvas.dnsmasq | wc -l)" -gt 0 ]; then
+		if [ "$(cat < "${DNSMASQ_IPSET_HOSTS}" | wc -l)" -gt 0 ]; then
 			when_ok "ПРОЙДЕНА"
 		else
 			when_bad "ОШИБКА"

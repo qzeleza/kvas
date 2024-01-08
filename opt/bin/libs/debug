@@ -257,8 +257,8 @@ unblock_dnsmasq_debug() {
 
 #	result=$(cat < "/opt/apps/kvas/bin/main/dnsmasq" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
 #	echo_debug "Скрипт заполнения списка разблокировки /opt/apps/kvas/bin/main/dnsmasq" "${result}"
-	result=$(cat < '/opt/etc/kvas.dnsmasq' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' )
-	echo_debug "Список разблокировки в /opt/etc/kvas.dnsmasq (все записи)" "${result}"
+	result=$(cat < "${DNSMASQ_IPSET_HOSTS}" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' )
+	echo_debug "Список разблокировки в ${DNSMASQ_IPSET_HOSTS} (все записи)" "${result}"
 }
 # ------------------------------------------------------------------------------------------
 #

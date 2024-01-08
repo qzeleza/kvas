@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=kvas
 PKG_VERSION:=1.1.6
-PKG_RELEASE:=stable_4
+PKG_RELEASE:=stable_6
 PKG_BUILD_DIR:=$(BUILD_DIR)/${FULL_PACKAGE_NAME}_
 
 include $(INCLUDE_DIR)/package.mk
@@ -70,7 +70,7 @@ ln -sf /opt/apps/kvas/bin/kvas /opt/bin/kvas
 
 cp -f /opt/apps/kvas/etc/conf/kvas.conf /opt/etc/kvas.conf
 [ -f /opt/etc/hosts.list ] || cp -f /opt/apps/kvas/etc/conf/hosts.list /opt/etc/hosts.list
-mkdir -p /opt/etc/adblock
+mkdir -p /opt/etc/adblock /opt/etc/dnsmasq.d
 cp -f /opt/apps/kvas/etc/conf/adblock.sources /opt/etc/adblock/sources.list
 cp -f /opt/apps/kvas/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
 

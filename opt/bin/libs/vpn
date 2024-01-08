@@ -532,14 +532,15 @@ adguardhome_check_config() {
 			tmp_conf=/opt/tmp/adguard.conf
 			log_file=/opt/tmp/adguard.log
 			rm -f "${log_file}" "${tmp_conf}"
-			touch "${log_file}" "${tmp_conf}"
+			touch "${log_file}"
+
 
 #			Если случайно был уже запущен какой либо экземпляр процесса AdGuardHome, то удаляем его из памяти
 			pid_to_kill=$(ps -w | grep 'AdGuardHome -l /opt/var/log/AdGuardHome.log' | grep -v 'grep' | cut -d' ' -f1)
 			[ -n "${pid_to_kill}" ] && kill -9 "${pid_to_kill}"
 #			Запускаем новую чистую настройку AdGuardHome
 			/opt/bin/AdGuardHome -c "${tmp_conf}" -l "${log_file}" &
-			sleep 1
+			sleep 2
 
 			while true; do
 				if cat < "${log_file}" | grep 'go to http' | grep -qv ':3000' || cat < "${log_file}" | grep -q ' listen tcp 0.0.0.0:3000: bind: address already in use' ; then
@@ -2003,7 +2004,7 @@ cmd_dns_crypt_off() {
 			sed -i "s/\(^server=\)${LOCALHOST_IP}#${crypt_port}/\1${static_dns}/" /opt/etc/dnsmasq.conf
 			sed -i '/server/d' '/opt/apps/kvas/bin/main/dnsmasq'
 
-			rm '/opt/etc/kvas.dnsmasq'
+			rm "${DNSMASQ_IPSET_HOSTS}"
 			_dns=$(cat < "${DNSMASQ_CONFIG}" | sed -n 's/^server=\(.*\)$/\1/p')
 			set_config_value DNS_DEFAULT "${_dns}#${MAIN_DNS_PORT}"
 			set_config_value DNS_CRYPT_PORT "${crypt_port}"

@@ -221,7 +221,7 @@ adblock_src_file_copy=/opt/apps/kvas/etc/conf/adblock.sources
 
 @test "Проверка работы генерации ipset блока в файле конфигурации dnsmasq [/kvas/bin/main/dnsmasq]" {
 	adh_file=/opt/apps/kvas/bin/main/dnsmasq
-	run on_server "${adh_file} && cat /opt/etc/kvas.dnsmasq"
+	run on_server "${adh_file} && cat /opt/etc//kvas.dnsmasq"
 # 	в случае ошибок в тесте - будет вывод основных критериев работы
 	print_on_error "${status}" "${output}"
 	[ "${status}" -eq 0 ]
