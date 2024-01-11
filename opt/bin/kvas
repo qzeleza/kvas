@@ -30,7 +30,7 @@ if  echo "${1}" | grep -qvEi 'uninstall|remove|rm' && [ -z "$(get_config_value "
 		error "Настройка пакета не завершена, запускаем настройку пакета" "1"
 	}
 	print_line
-	cmd_install
+	cmd_install "${3}"
 	print_line
 	exit 0
 fi
@@ -138,12 +138,6 @@ case "${1}" in
 	purge | clear)			cmd_clear_list "${2}"
 		;;
 	show | list)			cmd_show_list
-		;;
-	period)
-		case "${2}" in
-			del | clear) 	del_period_update ;;
-			*) 				cmd_set_period_update "${2}" ;;
-		esac
 		;;
 	update | reset | init)	cmd_kvas_init
 		;;

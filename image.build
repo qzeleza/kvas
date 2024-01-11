@@ -57,10 +57,16 @@ new_release(){
 	find ./ipk/ -maxdepth 1 -type f -iregex '.*kvas.*' -exec mv {} ./ipk/old \;
 }
 
+
+
 # если версия сборки задана через аргумент запуска в виде цифры до двух знаков
 echo "${1}" | grep -qE '[0-9]{1,2}' && {
+
 	sed -i '' 's/\(RELEASE=\).*/\1'"${1}"'/' ./build/version
-	GIT_FORCE=1
+#	если не задан второй параметр то обновляем git, если задан то не обновляем
+	if [ -z "${2}" ] ; then
+		GIT_FORCE=1
+	fi
 } || new_release
 
 # Проверяем Docker и при необходимости запускаем его

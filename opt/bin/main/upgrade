@@ -25,21 +25,24 @@ when_err() (echo -e "${RED}ОШИБКА${NOCL}" )
 
 package_url=$(curl -sH "Accept: application/vnd.github.v3+json" https://api.github.com/repos/qzeleza/kvas/releases/latest | sed -n 's/.*browser_download_url\": "\(.*\)\"/\1/p;'| tr -d ' ' |  sed '/^$/d')
 package_name=$(echo "${package_url}" | sed 's/.*\/\(.*ipk\)$/\1/')
-list_backup=/opt/etc/hosts.list.backup
+list_backup=/opt/etc/hosts.list.kvas
 hosts_list=/opt/etc/hosts.list
 kvas_conf=/opt/etc/kvas.conf
 
+# по умолчанию включаем режим обновления Кваса
+UPDATE_MODE=true
 #--------------------------------------------------------------------------------------------------------------
 # Режим обновления имеет значения
 # пусто - обычный режим проверки версии обновления
 # force  - режим с полным удалением пакета и принудительным обновлением, даже если версии одинаковые
 #--------------------------------------------------------------------------------------------------------------
-update_mode="${1}"
+install_mode="${1}"
 # Режим удаления пакета: пусто - оставляем все файлы конфигурации,
 # full - полное удаление пакета со всеми файлами конфигурации
-if [ "${update_mode}" = full ] ; then
+if [ "${install_mode}" = full ] ; then
 	remove_mode=full
-	update_mode=''
+	install_mode=''
+	UPDATE_MODE=false
 else
 	remove_mode="${2}"
 fi
@@ -48,17 +51,24 @@ clear
 print_line
 
 #	Проверяем - следует ли обновляться ?
-[ "${update_mode}" = force ] || {
-if [ -f /opt/bin/kvas ] && [ -f /opt/etc/kvas.conf ]; then
-	prev_ver=$(cat < /opt/etc/kvas.conf | grep -E 'VERSION|RELEASE' | tr -d '\n' | tr '-' '_' | sed 's/^APP_VERSION=\(.*\)APP_RELEASE=\(.*\)/\1-\2\n/')
-	next_ver=$(echo "${package_name}" |  sed 's/kvas_\(.*\)_all.*/\1/')
-	if [ "${prev_ver}" = "${next_ver}" ] ; then
-		ready "Квас все еще свеж! Обновлений" && echo -e "${GREEN}НЕ ТРЕБУЕТСЯ${NOCL}"
-		print_line
-		exit 1
+if [ "${install_mode}" = force ] ; then
+#	при форсированной установке флаг меняем - Новая установка Кваса
+	UPDATE_MODE=false
+else
+	if [ -f /opt/bin/kvas ] && [ -f /opt/etc/kvas.conf ]; then
+	#	Обновление Кваса
+		prev_ver=$(cat < /opt/etc/kvas.conf | grep -E 'VERSION|RELEASE' | tr -d '\n' | tr '-' '_' | sed 's/^APP_VERSION=\(.*\)APP_RELEASE=\(.*\)/\1-\2\n/')
+		next_ver=$(echo "${package_name}" |  sed 's/kvas_\(.*\)_all.*/\1/')
+		if [ "${prev_ver}" = "${next_ver}" ] ; then
+			ready "Квас все еще свеж! Обновлений" && echo -e "${GREEN}НЕ ТРЕБУЕТСЯ${NOCL}"
+			print_line
+			exit 1
+		fi
+	else
+	#	Новая установка Кваса если нет основных файлов Кваса
+		UPDATE_MODE=false
 	fi
 fi
-}
 
 version=$(echo "${package_name}" | sed 's/kvas_\(.*\)_all.*/\1/; s/-/ /g; s/_/-/' )
 #	prev_path=$(pwd)
@@ -71,7 +81,7 @@ cd /opt && mkdir -p /opt/packages || {
 print_line
 ready 'Обновляем библиотеку пакетов opkg...'
 {
-	opkg update && opkg upgrade && opkg install curl iptables
+	opkg install && opkg upgrade && opkg install curl iptables
 } &>/dev/null && when_ready || when_err
 
 
@@ -132,7 +142,7 @@ else
 	sleep 1
 
 	clear
-	kvas setup update && {
+	kvas setup install "${UPDATE_MODE}" && {
 		[ -f "${list_backup}" ] && {
 			ready 'Восстанавливаем список разблокировки из архива...'
 			cp "${list_backup}" "${hosts_list}" && \

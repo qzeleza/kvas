@@ -1695,12 +1695,45 @@ cmd_interface_change() {
 	answer="${1}"
 	is_install_stage="${2:-no}"
 
-	show_interface_name_list_process "${answer}"
+#	пропускаем запрос о сканировании если параметр skeep
+	[ "${answer}" = skeep ] || show_interface_name_list_process "${answer}"
 
 
 #	Отображаем список текущих интерфейсов с номерами по порядку и данными об их доступности
 	select_vpn_interface "${is_install_stage}"
 
+}
+
+switch_vpn_on(){
+#	entware интерфейс
+	inface_entware=${1}
+	cli_inface=${2}
+#	Меняем интерфейс в файле ndm
+	ndm_interface_change "${inface_entware}" "${cli_inface}"
+
+	if [[ "${inface_entware}" =~ ${SSR_ENTWARE_TEMPL} ]]; then
+		vpn_off &> /dev/null
+		shadowsocks_backup
+		shadowsocks_on
+	else
+		shadowsocks_off &> /dev/null
+		vpn_on "${inface_entware}"
+	fi
+	[ "${is_install_stage}" = no ] && cmd_kvas_init "no" &> /dev/null
+
+	#	Проверяем подключены ли гостевые сети
+	guest_net_list=$(get_config_value INFACE_GUEST_ENT | tr ' ' ',')
+	if [ -n "${guest_net_list}" ] ; then
+		print_line
+		echo -e "${RED}ВНИМАНИЕ!${NOCL}"
+		echo "Обнаружены гостевые сети: ${guest_net_list}, которые были добавлены для "
+		echo "предыдущего VPN соединения. Для подключения клиентов этих сетей "
+		echo "к выбранному VPN соединению необходимо их удалить и снова добавить."
+		echo "С этой целью воспользуйтесь следующими командами:"
+		echo -e "1. ${GREEN}kvas vpn net del${NOCL}"
+		echo -e "2. ${GREEN}kvas vpn net add${NOCL}"
+		print_line
+	fi
 }
 
 # ------------------------------------------------------------------------------------------
@@ -1729,36 +1762,14 @@ select_vpn_interface() {
 		else
 			print_line
 			if echo "${num_vpn_inface}" | grep -qiE "[1-${total}]"; then
+#				Если выбрали уже интерфейс
 	#			Меняем интерфейс в файле ndm
 				inface_entware=$(get_vpn_interface_by_num "${num_vpn_inface}")
 				cli_inface=$(echo "${INFACE_NAMES_FILE}" | grep "${inface_entware}" | cut -d"|" -f1)
-				ndm_interface_change "${inface_entware}" "${cli_inface}"
-
-				if [[ "${inface_entware}" =~ ${SSR_ENTWARE_TEMPL} ]]; then
-					vpn_off &> /dev/null
-					shadowsocks_backup
-					shadowsocks_on
-				else
-					shadowsocks_off &> /dev/null
-					vpn_on "${inface_entware}"
-				fi
-				[ "${is_install_stage}" = no ] && cmd_kvas_init "no" &> /dev/null
-
-				#			Проверяем подключены ли гостевые сети
-				guest_net_list=$(get_config_value INFACE_GUEST_ENT | tr ' ' ',')
-				if [ -n "${guest_net_list}" ] ; then
-					print_line
-					echo -e "${RED}ВНИМАНИЕ!${NOCL}"
-					echo "Обнаружены гостевые сети: ${guest_net_list}, которые были добавлены для "
-					echo "предыдущего VPN соединения. Для подключения клиентов этих сетей "
-					echo "к выбранному VPN соединению необходимо их удалить и снова добавить."
-					echo "С этой целью воспользуйтесь следующими командами:"
-					echo -e "1. ${GREEN}kvas vpn net del${NOCL}"
-					echo -e "2. ${GREEN}kvas vpn net add${NOCL}"
-					print_line
-				fi
+				switch_vpn_on "${inface_entware}" "${cli_inface}"
 
 			elif echo "${num_vpn_inface}" | grep -qi "q"; then
+#				Если нажали на q
 				cli="$(get_router_host)/a"
 				echo -e "${RED}Процедура настройки прервана пользователем!${NOCL}"
 				print_line
@@ -2465,104 +2476,5 @@ cmd_show_list() {
 		fi
 	fi
 }
-# ------------------------------------------------------------------------------------------
-#
-#	Устанавливаем частоту обновления списка ip адресов в кроне
-#
-#	$1 - Период обновления в формате
-#		 2h - обновляем каждые два часа
-#		 2m - каждые две минуты"
-#
-# ------------------------------------------------------------------------------------------
-get_time() {
-	cat < "${CRONTAB_FILE}" | grep -E "root ${UPDATE_BIN_FILE} update" | cut -d' ' -f"${1}" | cut -d'/' -f2 | sed 's/[a-zA-Z\*]//g'
-}
-get_period_update() {
-	mm=$(get_time 1)
-	hh=$(get_time 2)
-	dd=$(get_time 3)
-	ww=$(get_time 4)
-	nn=$(get_time 5)
-	echo -en "${YELLOW}Периодичность обновления "
-	if [ -n "${mm}" ] && [ "${mm}" -gt 0 ]; then
-		echo -e "каждые ${mm} мин.${NOCL}"
-	elif [ -n "${hh}" ] && [ "${hh}" -gt 0 ]; then
-		echo -e "каждые ${hh} ч. ${NOCL}"
-	elif [ -n "${dd}" ] && [ "${dd}" -gt 0 ]; then
-		echo -e "каждые ${dd} дн. ${NOCL}"
-	elif [ -n "${ww}" ] && [ "${ww}" -gt 0 ]; then
-		echo -e "каждые ${ww} нед. ${NOCL}"
-	elif [ -n "${nn}" ] && [ "${nn}" -gt 0 ]; then
-		echo -e "каждые ${nn} мес. ${NOCL}"
-	else
-		error "не задана!"
-		echo "Поэтому, устанавливаем его по умолчанию."
-		cmd_set_period_update "12h"
-	fi
-}
-# ------------------------------------------------------------------------------------------
-#
-#	Устанавливаем частоту обновления списка ip адресов в кроне
-#
-#	$1 - Период обновления в формате
-#		 2h - обновляем каждые два часа
-#		 2m - каждые две минуты"
-#
-# ------------------------------------------------------------------------------------------
-get_period() {
-	echo "${1}" | grep "${2}" | cut -d"${2}" -f1
-}
-cmd_set_period_update() {
-	if [ -z "${1}" ]; then
-		#		если аргумент не задан, то просто
-		#		отображаем заданный период обновления
-		get_period_update
-	elif ! echo "${1}" | grep -q '[m,h,d,w,M]' ; then
-		error "Указан не верный формат периода."
-		print_line
-		warning "Период должно указать в форматах: m,h,d,w,M"
-		warning "2m - обновляем каждые две минуты"
-		warning "2h - обновляем каждые два часа"
-		warning "3d - обновляем каждые три дня"
-		warning "4w - обновляем каждые четыре недели"
-		warning "2M - обновляем каждые два месяц"
-	else
-		_mins=$(get_period "${1}" "m")
-		_hours=$(get_period "${1}" "h")
-		_days=$(get_period "${1}" "d")
-		_weeks=$(get_period "${1}" "w")
-		_months=$(get_period "${1}" "M")
-		# shellcheck disable=SC2039
-		if [[ "${_mins}" && "${_hours}" ]]; then
-			error "Период задать возможно только в одном из форматов:"
-			error "в минутах(m), часах(h), днях(d), неделях(w), месяцах(M)."
-		else
-			del_period_update &>/dev/null
-			echo -n "Период обновления "
-			if [ -n "${_mins}" ]; then
-				echo "0/${_mins} * * * * root ${UPDATE_BIN_FILE} update" >> ${CRONTAB_FILE}
-				echo -e "установлен на каждые ${YELLOW}${_mins} мин.${NOCL}"
-			elif [ -n "${_hours}" ]; then
-				echo "0 */${_hours} * * * root ${UPDATE_BIN_FILE} update" >> ${CRONTAB_FILE}
-				echo -e "установлен на каждые ${YELLOW}${_hours} ч.${NOCL}"
-			elif [ -n "${_days}" ]; then
-				echo "0 * */${_days} * * root ${UPDATE_BIN_FILE} update" >> ${CRONTAB_FILE}
-				echo -e "установлен на каждые ${YELLOW}${_days} дн.${NOCL}"
-			elif [ -n "${_weeks}" ]; then
-				echo "0 * * */${_weeks} * root ${UPDATE_BIN_FILE} update" >> ${CRONTAB_FILE}
-				echo -e "установлен на каждые ${YELLOW}${_weeks} нед.${NOCL}"
-			elif [ -n "${_months}" ]; then
-				echo "0 * * * */${_months} root ${UPDATE_BIN_FILE} update" >> ${CRONTAB_FILE}
-				echo -e "установлен на каждые ${YELLOW}${_months} мес.${NOCL}"
-			fi
-		fi
-	fi
-}
 
-del_period_update(){
-	file_name_sed=$(echo "${UPDATE_BIN_FILE}" | sed 's|/|\\/|g')
-	sed -i "/root ${file_name_sed} update/d" "${CRONTAB_FILE}"
-	warning "Обновление данных пакета КВАС остановлено."
-	warning "Для установки периода обновления запустите 'kvas period'."
-}
 

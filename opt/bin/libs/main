@@ -21,13 +21,15 @@ DATE_FORMAT='+%d/%m/%Y %H:%M:%S'
 # ------------------------------------------------------------------------------------------
 LENGTH=68
 PROGRESS_BAR_WIDTH=$((LENGTH-5))  # progress bar length in characters
+KVAS_BACKUP_PATH=/opt/etc/.kvas/backup
 KVAS_CONF_FILE=/opt/etc/kvas.conf
+KVAS_CONFIG_BACKUP=${KVAS_BACKUP_PATH}/kvas.conf
 ADGUARDHOME_CONFIG=/opt/etc/AdGuardHome/AdGuardHome.yaml
 ADGUARDHOME_LOG=/opt/var/log/AdGuardHome.log
 ADGUARDHOME_DEMON=/opt/etc/init.d/S99adguardhome
 DNSMASQ_DEMON=/opt/etc/init.d/S56dnsmasq
 HOME_PATH=/opt/apps/kvas
-KVAS_BACKUP_PATH=/opt/etc/.kvas/backup
+
 
 ADS_MAIN_SCRIPT=/opt/apps/kvas/bin/main/adblock
 ADBLOCK_LIST_EXCEPTION=/opt/etc/adblock/exception.list

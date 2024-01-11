@@ -9,7 +9,7 @@
 
 kvas {add|new|del|rm} [*][хост]
 kvas {setup|uninstall|remove|update|show|list|purge|clear|import|version}
-kvas {dns|vpn|crypt|adguard|adblock|export|period|ssr|dnsmasq|help}
+kvas {dns|vpn|crypt|adguard|adblock|export|ssr|dnsmasq|help}
 ---------------------------------------------------------------------------------
 setup             - настройка пакета после его установки через 'opkg install'.
 uninstall <full>  - удаление пакета, при наличии опции full удаляем ПОЛНОСТЬЮ со всем

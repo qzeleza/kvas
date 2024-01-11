@@ -39,7 +39,8 @@ case ${1} in
                 cmd_kvas_init initd
                 ready "Перезапускаем AdGuardHome"
                 . /opt/etc/init.d/rc.func &>/dev/null
-				if [ -f "${PIDFILE}" ]; then
+                sleep 1
+		if [ -f "${PIDFILE}" ]; then
                         when_ok "УСПЕШНО"
                         print_line
                 else
