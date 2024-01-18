@@ -573,6 +573,9 @@ adguardhome_install_locally() {
 		[ -f /opt/etc/init.d/S56dnsmasq ] && /opt/etc/init.d/S56dnsmasq stop &> /dev/null
 		[ -f /opt/etc/init.d/S09dnscrypt-proxy2 ] && /opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
 		rm -f /opt/var/log/AdGuardHome.log
+
+		[ -f /opt/etc/hosts ] && cp /opt/etc/hosts "${KVAS_BACKUP_PATH}/hosts"
+
 		opkg remove adguardhome-go --force-depends &> /dev/null
 		opkg install adguardhome-go --force-maintainer  &> /dev/null
 		. /opt/apps/kvas/bin/libs/update
@@ -593,10 +596,6 @@ cmd_adguardhome_on() {
 	if echo "${status}" | grep -q "НЕ УСТАНОВЛЕН" ; then
 		error "Пакет AdGuard Home не установлен на роутере." no_newline
 		print_line
-#		answer=''; read_ynq_timer "Установить его на роутер [Y] или отказаться [N]?" answer y 10
-#		if [ "${answer}" = q ] ; then exit_q; exit 1; fi
-#		if echo "${answer}" | grep -qi y ; then
-#		print_line
 		adguardhome_install_locally
 #		fi
 	elif echo "${status}" | grep -q "НЕ НАСТРОЕН" ; then
@@ -607,6 +606,8 @@ cmd_adguardhome_on() {
 	else
 		adguardhome_setup
 	fi
+#	восстанавливаем /opt/etc/hosts
+	[ -f "${KVAS_BACKUP_PATH}/hosts" ] &&  cp -f "${KVAS_BACKUP_PATH}/hosts" /opt/etc/hosts
 }
 # ------------------------------------------------------------------------------------------
 #

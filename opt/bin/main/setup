@@ -201,7 +201,6 @@ rm_package_files(){
 	rm -f /opt/lib/opkg/info/kvas*
 	rm -fr /opt/apps/kvas
 
-	del_period_update &>/dev/null
 }
 
 set_previous_condition(){
@@ -264,6 +263,12 @@ cmd_install(){
 	cat /dev/null > "${INSTALL_LOG}"
 
 	ln -sf /opt/apps/kvas/bin/main/ipset /opt/etc/cron.5mins/ipset.kvas
+
+	hook_dir=$(get_hook_dir); home_dir=/opt/apps/kvas
+	ln -sf "${home_dir}/etc/ndm/${hook_dir}/100-unblock-vpn" "/opt/etc/ndm/${hook_dir}/100-unblock-vpn"
+	ln -sf "${home_dir}/etc/ndm/iflayerchanged.d/kvas-ips-reset" "/opt/etc/ndm/iflayerchanged.d/kvas-ips-reset"
+	ln -sf "${home_dir}/etc/ndm/ifcreated.d/kvas-iface-add" "/opt/etc/ndm/ifcreated.d/kvas-iface-add"
+	ln -sf "${home_dir}/etc/ndm/ifdestroyed.d/kvas-iface-del" "/opt/etc/ndm/ifdestroyed.d/kvas-iface-del"
 
 	setup_test_provider_dns
 

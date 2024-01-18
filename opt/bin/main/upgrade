@@ -81,7 +81,7 @@ cd /opt && mkdir -p /opt/packages || {
 print_line
 ready 'Обновляем библиотеку пакетов opkg...'
 {
-	opkg install && opkg upgrade && opkg install curl iptables
+	opkg update && opkg upgrade && opkg install curl iptables
 } &>/dev/null && when_ready || when_err
 
 

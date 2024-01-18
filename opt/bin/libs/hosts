@@ -19,33 +19,32 @@
 cmd_hosts_list(){
     warning "Список доменных имен в файле ${GREEN}/opt/etc/hosts${NOCL}:"
 	print_line
-    cat < /opt/etc/hosts | grep -vE '^#'
+    cat < /opt/etc/hosts | grep -vE '^#|^$'
 }
 
+dns_server_restart(){
+	host="${1}"
+	[ -n "${host}" ] && kdig "${host}" @localhost &> /dev/null
+	if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
+		mess="Перезапуск службы AdGuardHome..."
+		service=/opt/etc/init.d/S99adguardhome
+	else
+		mess="Перезапуск службы dnsmasq..."
+		service=/opt/etc/init.d/S56dnsmasq
+	fi
+	ready "${mess}"
+	${service} restart &> /dev/null
+	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+}
 #
 # Редактируем список доменных имен в файле /opt/etc/hosts
 #
 cmd_hosts_edit(){
     nano /opt/etc/hosts && {
-    	if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
-    	    mess="Перезапуск службы AdGuardHome..."
-    	    service=/opt/etc/init.d/S56dnsmasq
-    	else
-    		mess="Перезапуск службы dnsmasq..."
-    		service=/opt/etc/init.d/S56dnsmasq
-    	fi
-    	ready "${mess}"
-		${service} restart &> /dev/null
-		if [ $? = 0 ] ; then
-			when_ok "УСПЕШНО"
-			res=0
-		else
-			when_bad "ОШИБКА"
-			res=1
-		fi
 		ready "Файл /opt/etc/hosts обновлен..."
-		[ "${res}" = 1 ] && when_ok "УСПЕШНО" || when_bad "С ОШИБКОЙ"
-    }
+		when_ok "УСПЕШНО"
+		dns_server_restart ""
+    } || error "Возникли ошибки при сохранении или обновлении данных" nl
 }
 
 #
@@ -66,7 +65,11 @@ cmd_hosts_one_add(){
 		exit 0
 	fi
 	ready "Доменное имя ${host} c ${ip} добавлено..."
-	printf "%s\t%s\n" "${ip}" "${host}" >>  /opt/etc/hosts
-	dig "${host}" @localhost &> /dev/null
-	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+	printf "%s\t%s\n" "${ip}" "${host}" >> /opt/etc/hosts
+
+	[ $? = 0 ] && {
+		when_ok "УСПЕШНО"
+		dns_server_restart "${host}"
+	} || when_bad "ОШИБКА"
+
 }
