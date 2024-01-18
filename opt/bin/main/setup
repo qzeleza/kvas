@@ -187,6 +187,11 @@ rm_package_files(){
 	[ -f /opt/etc/ndm/netfilter.d/100-proxy-redirect ] && rm -f /opt/etc/ndm/netfilter.d/100-proxy-redirect
 	[ -f /opt/etc/ndm/netfilter.d/100-dns-local ] && rm -f /opt/etc/ndm/netfilter.d/100-dns-local
 
+	[ -f /opt/etc/ndm/iflayerchanged.d/100-unblock-vpn ] && rm -f /opt/etc/ndm/iflayerchanged.d/100-unblock-vpn
+	[ -f /opt/etc/ndm/iflayerchanged.d/kvas-ips-reset ] && rm -f /opt/etc/ndm/iflayerchanged.d/kvas-ips-reset
+	[ -f /opt/etc/ndm/ifcreated.d/kvas-iface-add ] && rm -f /opt/etc/ndm/ifcreated.d/kvas-iface-add
+	[ -f /opt/etc/ndm/ifdestroyed.d/kvas-iface-del ] && rm -f /opt/etc/ndm/ifdestroyed.d/kvas-iface-del
+
 	[ -f /opt/etc/ndm/wan.d/internet-up ] && rm -f /opt/etc/ndm/wan.d/internet-up
 
 	rm -rf /opt/bin/kvas
@@ -288,7 +293,7 @@ cmd_install(){
 
 #		Проверяем были ли внесены изменения в файл конфигурации
 		if [ -z "${inface_entware}" ] || [ -z "${cli_inface}" ] ; then
-			echo -e "${RED}Файл конфигурации КВАСа™ был модифицирован и не содержит данных о текущих интерфейсах!${NOCL}"
+			echo -e "${RED}Файл конфигурации КВАСа™ был изменен и сейчас не содержит данных о текущих интерфейсах!${NOCL}"
 			echo -e "${GREEN}Инициируем процедуру выбора интерфейсов...${NOCL}"
 			print_line
 			#	запрашиваем выбор интерфейса

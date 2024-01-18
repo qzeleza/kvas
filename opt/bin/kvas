@@ -2,6 +2,7 @@
 . /opt/apps/kvas/bin/libs/vpn
 . /opt/apps/kvas/bin/libs/check
 . /opt/apps/kvas/bin/libs/update
+. /opt/apps/kvas/bin/libs/hosts
 . /opt/apps/kvas/bin/main/setup
 
 #------------------------------------------------------------------------------
@@ -81,6 +82,13 @@ case "${1}" in
 	dns)
 		case "${2}" in
 			test) 			cmd_dns_test "${3}";;
+			hosts)
+				case "${3}" in
+					add ) 			cmd_hosts_one_add "${4}" "${5}" ;;
+					edit ) 			cmd_hosts_edit ;;
+					*) 				cmd_hosts_list ;;
+				esac
+				;;
 			*) 				cmd_dnsmasq_dns_change "${2}" ;;
 		esac
 		;;

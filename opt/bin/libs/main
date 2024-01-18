@@ -43,7 +43,6 @@ CRONTAB_FILE=/opt/etc/crontab
 UPDATE_BIN_FILE=/opt/apps/kvas/bin/main/update
 DNS_LOCAL_DEMON_FILE=/opt/etc/ndm/netfilter.d/100-dns-local
 IPSET_REDIRECT_DEMON_FILE=/opt/etc/ndm/netfilter.d/100-proxy-redirect
-HOOK_INFACE_FILE=/opt/etc/ndm/ifstatechanged.d/100-save-inface_entware
 INFACE_NAMES_FILE=/opt/etc/inface_equals
 SHADOWSOCKS_CONF=/opt/etc/shadowsocks.json
 SHADOWSOCKS_CONF_BACKUP=${KVAS_BACKUP_PATH}/shadowsocks.json
@@ -70,6 +69,17 @@ LOCALHOST_IP=127.0.0.1
 INFACE_REQUEST="${LOCALHOST_IP}:79/rci/show/interface"
 INFACE_PART_REQUEST="${LOCALHOST_IP}:79/rci/interface"
 SSR_ENTWARE_TEMPL=ezcfg
+MINUS=9
+
+get_firmware_version(){
+#	номер версии фирменной Keenetic ОС
+	curl -s localhost:79/rci/show/version | jq '.title' | sed 's/[" ]//g'
+}
+
+get_hook_dir(){
+#	Получаем директорию текущего механизма обработки состояний подключений
+	get_firmware_version | grep -q '4.' && echo "ifstatechanged.d" || echo "iflayerchanged.d"
+}
 
 get_entware_ikev2_inface(){
 #	net_inface_last=$(ip a| grep global | sed 's/.*\(eth[0-9]\{1,3\}\).*/\1/g' | sort | tail -n1)
@@ -366,9 +376,16 @@ echo_debug() {
 	fi
 }
 diff_len() {
+	len=${2:-${LENGTH}}			# максим длинна строки
 	charlen=$(echo "${1}" | sed -r "s/[\]033\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g")
 	charlen=${#charlen}
-	echo $(( LENGTH - charlen ))
+	echo $(( len - charlen ))
+}
+
+join_ready() {
+        size=$(diff_len "${1}" "${3}")
+        printf "%b%-${size}s%b" "${1}"
+        printf "%b%s%b" "${4}${2}${NOCL}"
 }
 ready() {
 	size=$(diff_len "${1}")
@@ -521,6 +538,11 @@ exit_q(){
 	print_line
 	error "Процедура прервана пользователем!"
 }
+clean(){
+	printf "%b%s%b" "\033c"
+}
+
+
 # ------------------------------------------------------------------------------------------
 #
 #	 Читаем значение переменной из ввода данных в цикле

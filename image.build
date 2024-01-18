@@ -80,7 +80,8 @@ if [ "${1}" = build ] || [ -z "$(docker ps -a -f 'status=running' | grep "${APP_
 #	если не создан образ, то запускаем сборку образа
 	show_line; echo "Запускаем сборку образа ${image_name}"
 	show_line
-	docker-compose up --build -d
+	docker image ls | grep -q "${image_name}" && build='' || build='--build'
+	docker-compose up "${build}" -d
 fi
 
 if [ "${?}" = 0 ]; then
