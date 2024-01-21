@@ -61,7 +61,7 @@ case "${1}" in
 		case "${2}" in
 			new)			cmd_shadowsocks_read_new_data ;;
 			port) 			cmd_shadowsocks_local_port_change "${3}" ;;
-			reset) 			cmd_shadowsocks_iptable_reset ;;
+			reset) 			cmd_shadowsocks_iptable_reset && all_services_restart;;
 			status | *) 	cmd_vpn_status ;;
 		esac
 		;;
@@ -96,7 +96,7 @@ case "${1}" in
 	vpn)
 		case "${2}" in
 			set) 			cmd_interface_change ask ;;
-			reset) 			cmd_vpn_iptable_reset ;;
+			reset) 			cmd_vpn_iptable_reset && all_services_restart;;
 			net | guest)
 				case "${3}" in
 					add ) 			cmd_bridge_vpn_access_add ;;
@@ -153,7 +153,7 @@ case "${1}" in
 		;;
 	version | ver)			version
 		;;
-	help|-h|--h ) 			cmd_help
+	help|-h|--h ) 			[ -n "${2}" ] && cmd_help | grep "${2}" || cmd_help
 		;;
 	uninstall | remove | rm ) 	cmd_uninstall  "${2}" "${3}"
 		;;

@@ -117,6 +117,7 @@ is_inside_tunnel(){
 
 
 has_ssr_enable() ([ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ])
+has_adguard_enable() ([ -f "${ADGUARDHOME_DEMON}" ] && "${ADGUARDHOME_DEMON}" status | grep -q alive;)
 
 # ------------------------------------------------------------------------------------------
 #
@@ -400,7 +401,7 @@ error() {
 	[ -z "${2}" ] && nn='\n' || nn=''
 	_error="${RED}${1}${NOCL}"
 	size=$(diff_len "${_error}")
-	printf "${nn}%b%-${size}s%b\n" "${_error}"
+	printf "${nn}%b%-${size}s%b\n" "${_error}" 2>&1
 }
 warning() {
 	_error="${GREEN}${1}${NOCL}"
@@ -575,10 +576,11 @@ read_value() {
 				echo -e "${RED}Введенные данные должны быть цифрами!"
 				echo -e "${GREEN}Попробуйте ввести значение снова...${NOCL}"
 				print_line
-		elif [ "${type}" = 'password' ] && ! echo "${value}" | grep -qE '^[[:graph:]]{8,1024}$' ; then
+		elif [ "${type}" = 'password' ] && ! echo "${value}" | grep -qE '^[a-zA-Z0-9]{8,1024}$' ; then
 				echo
 				print_line
-				echo -e "${GREEN}Пароль должен содержать минимум 8 знаков."
+				echo -e "${GREEN}Пароль должен содержать минимум 8 знаков и"
+				echo -e "${GREEN}ТОЛЬКО буквы и ЦИФРЫ, ${RED}без каких-либо спец символов!${NOCL}"
 				echo -e "${RED}Попробуйте ввести его снова...${NOCL}"
 				print_line
 		else

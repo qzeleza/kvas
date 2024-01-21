@@ -151,9 +151,41 @@ cmd_kvas_init(){
 
 	[ "${stage}" = initd ] && update_time
 
+	all_services_restart
+
 	log_alert "${prefix}Сброс пакета КВАС в исходное состояние ЗАВЕРШЕН!"
 
 }
+
+
+service_restart(){
+	srv_name=${1}
+	srv_initd=${2}
+	ready "Перезапускаем ${srv_name}"
+	if /opt/etc/init.d/${srv_initd} restart &> /dev/null; then
+		when_ok "УСПЕШНО"
+	else
+		when_bad "ОШИБКА"
+		error "Запустите диагностику командой kvas debug"
+		exit 1
+	fi
+}
+
+all_services_restart(){
+	has_ssr_enable && service_restart  shadowsocks S22shadowsocks
+
+	if has_adguard_enable; then
+		service_restart AdGuardHome S99adguardhome
+	else
+		service_restart dnsmasq S56dnsmasq
+		if [ "$(get_dns_crypt_status)" = on ]; then
+			service_restart dnscrypt-proxy2 S09dnscrypt-proxy2
+		fi
+	fi
+
+}
+
+
 
 SUFF=">> "
 # ------------------------------------------------------------------------------------------
@@ -1369,12 +1401,33 @@ shadowsocks_read_config(){
 	[ "${SSR_SERVER_PASSWD}" = q ] && exit 1
 	echo
 
-	sed -i "s/\(\"server\":\).*/\1 \"${SSR_SERVER_IP}\",/; 			\
-			s/\(\"server_port\":\).*/\1 ${SSR_SERVER_PORT},/; 		\
-			s/\(\"local_port\":\).*/\1 $(get_config_value SSR_DNS_PORT),/; 		\
-			s/\(\"password\":\).*/\1 \"${SSR_SERVER_PASSWD}\",/; 	\
-			s/\(\"method\":\).*/\1 \"${SSR_SERVER_CRYPT}\",/;" 		\
-		"${SHADOWSOCKS_CONF}"
+	if [ -f "${SHADOWSOCKS_CONF}" ] ; then
+		sed -i "s/\(\"server\":\).*/\1 \"${SSR_SERVER_IP}\",/; 			\
+				s/\(\"server_port\":\).*/\1 ${SSR_SERVER_PORT},/; 		\
+				s/\(\"local_port\":\).*/\1 $(get_config_value SSR_DNS_PORT),/; 		\
+				s/\(\"password\":\).*/\1 \"${SSR_SERVER_PASSWD}\",/; 	\
+				s/\(\"method\":\).*/\1 \"${SSR_SERVER_CRYPT}\",/;" 		\
+			"${SHADOWSOCKS_CONF}"
+	else
+		print_line
+		error "Не обнаружен файл ${SHADOWSOCKS_CONF}." nl
+		print_line
+		exit 0
+	fi
+}
+
+shadowsocks_config_check(){
+	ss-redir  -c "${SHADOWSOCKS_CONF}" 2>/dev/null &
+	id=$(ps -w | grep 'ss-redir -c '"${SHADOWSOCKS_CONF}" | grep -v grep | cut -d' ' -f1)
+	if [ -n "${id}" ] ; then
+		kill -9 "${id}"
+	else
+		error "Обнаружены ошибки в файле конфигурации ${SHADOWSOCKS_CONF}" nl
+		print_line
+		ss-redir  -c "${SHADOWSOCKS_CONF}"
+		print_line
+		exit 0
+	fi
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -1389,18 +1442,22 @@ cmd_shadowsocks_read_new_data() {
 	echo -e "${BLUE}Пожалуйста, последовательно введите эти данные ниже.${NOCL}"
 	print_line
 
-	shadowsocks_read_config
-	ready "Перезапускаем shadowsocks интерфейс"
-	/opt/etc/init.d/S22shadowsocks restart &> /dev/null
-	/opt/etc/init.d/S22shadowsocks status &> /dev/null
-	if [ $? = 0 ]; then
-		when_ok "УСПЕШНО"
-	else
-		when_bad "ОШИБКА"
-		error "Возникла ошибка при подключении shadowsocks интерфейса!"
-		error "Проверьте доступность сервера и настройки клиента!"
-		exit 1
-	fi
+	shadowsocks_read_data
+	shadowsocks_config_check &>/dev/null
+
+	service_restart  shadowsocks S22shadowsocks
+
+#	ready "Перезапускаем shadowsocks интерфейс"
+#	/opt/etc/init.d/S22shadowsocks restart &> /dev/null
+#	/opt/etc/init.d/S22shadowsocks status &> /dev/null
+#	if [ $? = 0 ]; then
+#		when_ok "УСПЕШНО"
+#	else
+#		when_bad "ОШИБКА"
+#		error "Возникла ошибка при подключении shadowsocks интерфейса!"
+#		error "Проверьте доступность сервера и настройки клиента!"
+#		exit 1
+#	fi
 
 }
 # ------------------------------------------------------------------------------------------
@@ -1417,7 +1474,7 @@ shadowsocks_read_data() {
 	print_line
 
 	#	устанавливаем новую конфигурацию shadowsocks
-	cp "/opt/apps/${APP_NAME}/etc/conf/shadowsocks.json" "${SHADOWSOCKS_CONF}"
+	cp -f "/opt/apps/${APP_NAME}/etc/conf/shadowsocks.json" "${SHADOWSOCKS_CONF}"
 
 	# читаем данные и Производим замену в библиотеке ndm основных значения интерфейсов
 	shadowsocks_read_config && 	ndm_interface_change "$(get_ssr_entware_interface)" "shadowsocks"
@@ -1734,22 +1791,23 @@ show_vpn_list() {
 # ------------------------------------------------------------------------------------------
 show_interface_name_list_process(){
 
-	answer="${1}"
-
-	if [ -f "${INFACE_NAMES_FILE}" ]; then
-		if [ "${answer}" = ask ] ; then
-			read_ynq_timer "Обновить список интерфейсов" answer N
-			if [ "${answer}" = q ] ; then exit_q; exit 1; fi
-			print_line
-			if echo "${answer}" | grep -qi y ; then
-				update_interface_name_list
-			fi
-		elif [ "${answer}" = no ] ; then
-			update_interface_name_list
-		fi
-	else
-		update_interface_name_list
-	fi
+	[ -f "${INFACE_NAMES_FILE}" ] || update_interface_name_list
+#	answer="${1}"
+#
+#	if [ -f "${INFACE_NAMES_FILE}" ]; then
+		#if [ "${answer}" = ask ] ; then
+			#read_ynq_timer "Обновить список интерфейсов" answer N
+			#if [ "${answer}" = q ] ; then exit_q; exit 1; fi
+			#print_line
+			#if echo "${answer}" | grep -qi y ; then
+			#	update_interface_name_list
+			#fi
+		#elif [ "${answer}" = no ] ; then
+#		update_interface_name_list
+		#fi
+#	else
+#		update_interface_name_list
+#	fi
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -1840,7 +1898,6 @@ select_vpn_interface() {
 #				Если нажали на q
 				cli="$(get_router_host)/a"
 				echo -e "${RED}Процедура настройки прервана пользователем!${NOCL}"
-				print_line
 
 #				если интернет отключен, то выдаем сообщение
 				if curl -s "http://localhost:79/rci/show/interface" | \
@@ -1946,15 +2003,15 @@ refresh_dnsmasq_ipset_table(){
 				when_bad "ОШИБКА"
 			fi
 		fi
-		ready "${prefix}Перезапускаем сервис dnsmasq"
-		/opt/etc/init.d/S56dnsmasq restart &>/dev/null
-		[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-
-		if get_dns_crypt_status | grep -q on ; then
-			ready "${prefix}Перезапускаем сервис dns_crypt"
-			dns_crypt_install '' &>/dev/null
-			[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-		fi
+#		ready "${prefix}Перезапускаем сервис dnsmasq"
+#		/opt/etc/init.d/S56dnsmasq restart &>/dev/null
+#		[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+#
+#		if get_dns_crypt_status | grep -q on ; then
+#			ready "${prefix}Перезапускаем сервис dns_crypt"
+#			dns_crypt_install '' &>/dev/null
+#			[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+#		fi
 }
 
 
