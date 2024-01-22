@@ -70,12 +70,12 @@ del_all_net_from_config(){
 }
 
 del_ikev2_net_from_config(){
-		has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p; s/[\,]//g')
+		has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;'| sed 's/[ ]//g; s/^\,//')
         [ -n "${has_guest_nets}" ] && point=',' || point=''
         sed -i '/INFACE_GUEST_ENT=/,/^$/ s/ikev2[,]\{0,1\}//' "${KVAS_CONF_FILE}"
 }
 add_ikev2_net_to_config(){
-        has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p; s/[\,]//g')
+        has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;'| sed 's/[ ]//g; s/^\,//')
         [ -n "${has_guest_nets}" ] && point=',' || point=''
         del_ikev2_net_from_config
         sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}ikev2/g" "${KVAS_CONF_FILE}"

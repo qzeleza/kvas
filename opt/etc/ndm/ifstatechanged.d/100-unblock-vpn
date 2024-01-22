@@ -22,11 +22,11 @@ if [ "${1}" = "hook" ] && [ "${change}" = "link" ] ; then
 	. /opt/apps/kvas/bin/libs/ndm
 	if [ "${id}" = "$(inface_cli)" ]; then
 #		logger -t "КВАС"  "Запущен файл ${0} [${id}-${change}-${connected}-${link}-${up}]"
-		case "${id}-${change}-${connected}-${link}-${up}" in
-			"${id}-link-no-down-down" )
+		case "${connected}-${link}-${up}" in
+			"no-down-down" )
 				link_reboot &> /dev/null
 			;;
-			"${id}-link-yes-up-up" )
+			"yes-up-up" )
 				link_up &> /dev/null
 			;;
 		esac

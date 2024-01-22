@@ -149,9 +149,7 @@ cmd_kvas_init(){
 #
 #	ip4_add_route_table &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
-	[ "${stage}" = initd ] && update_time
-
-	all_services_restart
+	[ "${stage}" = initd ] && update_time || all_services_restart
 
 	log_alert "${prefix}Сброс пакета КВАС в исходное состояние ЗАВЕРШЕН!"
 
@@ -755,17 +753,17 @@ warning_info(){
 }
 cmd_bridge_vpn_access_list() {
 
-	[ "${2}" = skeep ] || {
+	[ "${2}" = skip ] || {
 		warning_info
 		echo "Полный список подключенных гостевых сетей:"
 		print_line
 	}
 
-        mode="${1}"
-        selected_vpn=$(get_config_value INFACE_CLI)
+	mode="${1}"
+	selected_vpn=$(get_config_value INFACE_CLI)
 #       Список интерфейсов которые доступны в формате '"vps" [OpenVPN] -> 192.168.255.14 ВКЛ.'
 #       или если адреса нет, то в формате '"Моя сеть" [SSTP] откл.'
-        interfaces_json=$(curl -s "${INFACE_REQUEST}" )
+	interfaces_json=$(curl -s "${INFACE_REQUEST}" )
 #       Убираем основной мост Bridge0, все сети GigabitEthernet | Port | AccessPoint | WifiMaster | WifiStation
 	interfaces_list=$(echo "${interfaces_json}" | jq -r '.[]
 					| select(
@@ -953,7 +951,7 @@ cmd_bridge_vpn_access_add() {
 # ------------------------------------------------------------------------------------------
 bridge_inface_select() {
     action="${2}"
-    entware_list=$(cmd_bridge_vpn_access_list "${action}" skeep)
+    entware_list=$(cmd_bridge_vpn_access_list "${action}" skip)
     if [ -n "${entware_list}" ]; then
 #        echo "Выберите гостевую сеть для добавления:"
 #       print_line
@@ -1122,9 +1120,9 @@ cmd_dnsmasq_dns_change() {
 # ------------------------------------------------------------------------------------------
 cmd_dnsmasq_listen_show() {
 	exit_when_adguard_on status; [ "${status}" = 0 ] && {
-		ready "DNSMASQ слушает адрес"
+		ready "DNSMASQ слушает адрес:порт"
 		ip=$(get_config_value DNSMASQ_LISTEN_IP)
-		when_alert "${ip}"
+		when_alert "${ip}:$(cmd_adguardhome_status)"
 	}
 }
 
@@ -1640,14 +1638,13 @@ update_interface_name_list() {
 	print_line
 
 	HOOK_INFACE_FILE=/opt/etc/ndm/$(get_hook_dir)/100-save-inface_entware
-
+	rm -f "${INFACE_NAMES_FILE}"
+	touch "${INFACE_NAMES_FILE}"
 	# если нет файла по отлавливанию хука
 	if ! [ -f "${HOOK_INFACE_FILE}" ]; then
 		#	создаем файл
 		cat <<EOF >"${HOOK_INFACE_FILE}"
 #!/bin/sh
-if ! [ -f "${INFACE_NAMES_FILE}" ]; then touch "${INFACE_NAMES_FILE}"; fi
-
 if [ -z "\$(grep "\${id}" "${INFACE_NAMES_FILE}")" ]; then
 	echo "\${id}|\${system_name}" >> "${INFACE_NAMES_FILE}"
 fi
@@ -1665,18 +1662,22 @@ EOF
 	inface_list=$(
 		curl -s "${INFACE_REQUEST}" \
 			| jq -r '.[] | select([.type]| inside(['"${types_inface}"'])) | select(.defaultgw!=true) | .id' \
-			| tr '\n' ' ' \
+			| tr '\n' ' ' | sed 's/[ ]$//g' \
 	)
 	# проходимся по каждому интерфейсу
 	# ВНИМАНИЕ! inface_list - все маленькими буквами!!!
+	count=1
+	list_len=$(echo "${inface_list}" | wc -w)
 	for inface_cli in ${inface_list}; do
 #		переподключаем текущее соединение
-		reset_connection "${inface_cli}"
+		[ "${list_len}" = "${count}" ] && delay=4 || delay=2
+		reset_connection "${inface_cli}" "${delay}"
 		# получаем описание интерфейса
 		description=$(get_value_interface_field "${inface_cli}" description | sed 's|\/|\\/|g')
 		# вставляем описание в файл /opt/etc/inface_equals
 		[ -n "${description}" ] && \
 			sed -i 's/\('"${inface_cli}"'.*\)/\1|'"${description}"'/' "${INFACE_NAMES_FILE}"
+		count=$((count + 1))
 	done
 	rm -f "${HOOK_INFACE_FILE}"
 }
@@ -1774,7 +1775,7 @@ show_vpn_list() {
 		sleep 1
 		connected=$(is_vpn_interface_connected "${cli_inface}")
 
-		if [ -n "${is_current_vpn}" ]; then
+		if [ -n "${inface_entware}" ] && [ -n "${is_current_vpn}" ]; then
 			mess="${BLUE}${mess} текущий${NOCL}"
 		fi
 
@@ -1791,23 +1792,23 @@ show_vpn_list() {
 # ------------------------------------------------------------------------------------------
 show_interface_name_list_process(){
 
-	[ -f "${INFACE_NAMES_FILE}" ] || update_interface_name_list
-#	answer="${1}"
-#
-#	if [ -f "${INFACE_NAMES_FILE}" ]; then
-		#if [ "${answer}" = ask ] ; then
-			#read_ynq_timer "Обновить список интерфейсов" answer N
-			#if [ "${answer}" = q ] ; then exit_q; exit 1; fi
-			#print_line
-			#if echo "${answer}" | grep -qi y ; then
-			#	update_interface_name_list
-			#fi
-		#elif [ "${answer}" = no ] ; then
-#		update_interface_name_list
-		#fi
-#	else
-#		update_interface_name_list
-#	fi
+#	[ -f "${INFACE_NAMES_FILE}" ] || update_interface_name_list
+	answer="${1}"
+
+	if [ -f "${INFACE_NAMES_FILE}" ]; then
+		if [ "${answer}" = ask ] ; then
+			read_ynq_timer "Обновить список интерфейсов" answer N
+			if [ "${answer}" = q ] ; then exit_q; exit 1; fi
+			print_line
+			if echo "${answer}" | grep -qi y ; then
+				update_interface_name_list
+			fi
+		elif [ "${answer}" = no ] ; then
+			update_interface_name_list
+		fi
+	else
+		update_interface_name_list
+	fi
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -1821,8 +1822,8 @@ cmd_interface_change() {
 	answer="${1}"
 	is_install_stage="${2:-no}"
 
-#	пропускаем запрос о сканировании если параметр skeep
-	[ "${answer}" = skeep ] || show_interface_name_list_process "${answer}"
+#	пропускаем запрос о сканировании если параметр skip
+	[ "${answer}" = skip ] || show_interface_name_list_process "${answer}"
 
 
 #	Отображаем список текущих интерфейсов с номерами по порядку и данными об их доступности
@@ -1896,9 +1897,8 @@ select_vpn_interface() {
 
 			elif echo "${num_vpn_inface}" | grep -qi "q"; then
 #				Если нажали на q
-				cli="$(get_router_host)/a"
 				echo -e "${RED}Процедура настройки прервана пользователем!${NOCL}"
-
+				print_line
 #				если интернет отключен, то выдаем сообщение
 				if curl -s "http://localhost:79/rci/show/interface" | \
 					jq -r '.[] | select(.id=="'"$(get_defaultgw_id)"'" and .state=="up" and .link=="up") | .connected' | grep -qv 'yes' ; then
@@ -1908,6 +1908,7 @@ select_vpn_interface() {
 					else
 						"${ADGUARDHOME_DEMON}" stop &> /dev/null
 					fi
+					cli="$(get_router_host)/a"
 					echo -e "${RED}К сожалению, у Вас пропал интернет. ${NOCL}"
 					echo -e "${RED}Проверьте основное подключение к провайдеру. ${NOCL}"
 					print_line
@@ -1921,6 +1922,7 @@ select_vpn_interface() {
 					print_line
 					exit 1
 				fi
+				exit
 			else
 				cmd_interface_change "no" "${is_install_stage}"
 			fi

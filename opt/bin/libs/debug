@@ -393,6 +393,27 @@ show_interfaces_debug() {
 	fi
 }
 
+show_guest_nets(){
+	list=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;'| sed 's/[ ]//g; s/^\,//')
+	[ -n "${list}" ] && {
+		ready "Список гостевых сетей"
+		when_ok "${list}"
+	}
+}
+
+show_services_status(){
+	. /opt/apps/kvas/bin/libs/vpn
+	cmd_vpn_status
+	cmd_ads_status
+	if cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then
+		cmd_adguardhome_status
+	else
+		cmd_dns_crypt_status_show
+		cmd_dnsmasq_dns_change
+	fi
+	show_guest_nets
+
+}
 # ------------------------------------------------------------------------------------------
 #
 #	 Формируем лог отладочной информации
@@ -416,6 +437,7 @@ print_debug() {
 	router_info
 #	ping_debug
 	show_install_log
+	show_services_status
 	print_line
 	syslog_debug
 	show_interfaces_debug

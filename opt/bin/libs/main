@@ -73,12 +73,12 @@ MINUS=9
 
 get_firmware_version(){
 #	номер версии фирменной Keenetic ОС
-	curl -s localhost:79/rci/show/version | jq '.title' | sed 's/[" ]//g'
+	curl -s localhost:79/rci/show/version | jq '.title' | sed 's/["a-zA-Z]//g'
 }
 
 get_hook_dir(){
 #	Получаем директорию текущего механизма обработки состояний подключений
-	get_firmware_version | grep -q '4.' && echo "ifstatechanged.d" || echo "iflayerchanged.d"
+	get_firmware_version | grep -q '4.' && echo "iflayerchanged.d" ||  echo "ifstatechanged.d"
 }
 
 get_entware_ikev2_inface(){
@@ -148,6 +148,7 @@ get_guest_inface_list_from_config(){
 # ------------------------------------------------------------------------------------------
 reset_connection() {
 	inface_cli=${1}
+	time_delay=${2}
 	# получаем текущее состояние инф-са для возвращения его к исходному состоянию
 	state=$(curl -s "${INFACE_REQUEST}" | jq -r '.[] | select(.id=="'"${inface_cli}"'") | .state')
 	isp_state=$(curl -s "${INFACE_REQUEST}" | jq -r '.[] | select(.defaultgw==true and .global==true) | .state')
@@ -164,10 +165,20 @@ reset_connection() {
 	if [ "${state}" = 'up' ]; then
 		curl -s -d '{"down":"true"}' "${INFACE_PART_REQUEST}/${inface_cli}" &> /dev/null
 	else
-		curl -s -d '{"up":"true"}' "${INFACE_PART_REQUEST}/${inface_cli}" &> /dev/null
+		error_mess=$(curl -s -d '{"up":"true"}' "${INFACE_PART_REQUEST}/${inface_cli}" \
+		 |  jq '.[] | .status | .[] | select(.status == "error") | .message' | tr '\"' '"')
+		echo "${error_mess}" | grep -q '[a-zA-Z]' && {
+			error "Обнаружена ошибка при переключении '${inface_cli}' сети. " nl
+			error "Прежде чем продолжить - устраните ее." nl
+			print_line
+			error "${error_mess}" nl
+			print_line
+			exit 0
+		}
 	fi
-	sleep 3
+	sleep "${time_delay}"
 	curl -s -d "{\"${state}\":\"true\"}" "${INFACE_PART_REQUEST}/${inface_cli}" &> /dev/null
+	sleep 1
 }
 
 
@@ -326,7 +337,7 @@ get_router_protocol() {
 #
 # ------------------------------------------------------------------------------------------
 get_router_wui_port() {
-	curl -s "localhost:79/rci/ip/http/port" | tr -d '" '
+	curl -s "localhost:79/rci/ip/http/port" | tr -d '" ' | sed 's/[{}]//g'
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -337,7 +348,9 @@ get_router_host() {
 	port=$(get_router_wui_port)
 	ip=$(get_router_ip)
 	protocol=$(get_router_protocol)
-	! [ "${port}" -eq 80 ] && ip="${ip}:${port}"
+	[ -z "${port}" ] && ip="${ip}" || {
+		[ "${port}" -eq 80 ] || ip="${ip}:${port}"
+	}
 #	echo "${protocol}${ip}"
 	echo "http://${ip}"
 }

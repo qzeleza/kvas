@@ -53,7 +53,6 @@ case "${1}" in
 			status | *) 	exit_when_adguard_on status;
 							[ "${status}" = 0 ] && {
 								cmd_dnsmasq_listen_show;
-								cmd_dnsmasq_port_show
 							} ;;
 		esac
 		;;
@@ -79,23 +78,24 @@ case "${1}" in
 		esac
 		;;
 
+	hosts)
+		case "${3}" in
+			add ) 			cmd_hosts_one_add "${4}" "${5}" ;;
+			edit ) 			cmd_hosts_edit ;;
+			*) 				cmd_hosts_list ;;
+		esac
+		;;
+
 	dns)
 		case "${2}" in
 			test) 			cmd_dns_test "${3}";;
-			hosts)
-				case "${3}" in
-					add ) 			cmd_hosts_one_add "${4}" "${5}" ;;
-					edit ) 			cmd_hosts_edit ;;
-					*) 				cmd_hosts_list ;;
-				esac
-				;;
 			*) 				cmd_dnsmasq_dns_change "${2}" ;;
 		esac
 		;;
 
 	vpn)
 		case "${2}" in
-			set) 			cmd_interface_change ask ;;
+			set) 			cmd_interface_change skip ;;
 			reset) 			cmd_vpn_iptable_reset && all_services_restart;;
 			net | guest)
 				case "${3}" in

@@ -77,6 +77,7 @@ setup_adguard(){
 setup_restore_prev_conf(){
 	if [ -f "${UNBLOCK_LIST_FILE}.kvas" ]; then
 		warning "Обнаружен список разблокировки от предыдущей установки"
+		print_line
 		log_in_file "Список разблокировки ВОССТАНОВЛЕН из архива."
 		ready "Список разблокировки восстановлен"
 		if mv -f "${UNBLOCK_LIST_FILE}.kvas" "${UNBLOCK_LIST_FILE}" ; then
@@ -275,6 +276,8 @@ cmd_install(){
 	[ -f "${KVAS_START_FILE}" ] || cp -f /opt/apps/kvas/etc/init.d/S96kvas "${KVAS_START_FILE}"
 	chmod +x "${KVAS_START_FILE}"
 
+
+
 	#------------------------------------------------------
 	# Отключаем IPv6
 	#------------------------------------------------------
@@ -290,8 +293,20 @@ cmd_install(){
 	# Сейчас необходимо выбрать VPN интерфейс для работы пакета
 	#------------------------------------------------------
 	if [ "${update_mode}" ] && [ -f "${KVAS_CONFIG_BACKUP}" ]; then
-#		восстанавливаем файл конфигурации
+
+
+		#------------------------------------------------------
+		# меняем номер старой версии пакета на новый
+		#------------------------------------------------------
+		new_ver=$(get_config_value APP_VERSION)
+		new_rel=$(get_config_value APP_RELEASE)
+
+		# восстанавливаем файл конфигурации
 		cp -f "${KVAS_CONFIG_BACKUP}" "${KVAS_CONF_FILE}"
+
+		set_config_value APP_VERSION "${new_ver}"
+		set_config_value APP_RELEASE "${new_rel}"
+		#------------------------------------------------------
 
 		inface_entware=$(get_config_value INFACE_ENT)
 		cli_inface=$(get_config_value INFACE_CLI)
@@ -302,7 +317,7 @@ cmd_install(){
 			echo -e "${GREEN}Инициируем процедуру выбора интерфейсов...${NOCL}"
 			print_line
 			#	запрашиваем выбор интерфейса
-			cmd_interface_change no install
+			cmd_interface_change skip install
 		else
 #			Если изменений не было, то восстанавливаем соединение
 			switch_vpn_on "${inface_entware}" "${cli_inface}"
