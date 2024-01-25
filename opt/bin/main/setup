@@ -376,11 +376,14 @@ cmd_install(){
 	#------------------------------------------------------
 	# Если есть подключенные гостевые сети
 	#------------------------------------------------------
-	[ -n "$(get_guest_inface_list_from_config)" ] && {
+	interfaces_list=$(get_guest_inface_list_from_config)
+	[ -n "${interfaces_list}" ] && {
 
-		ready "Подключаем гостевые сети к выбранному VPN подключению..."
-		set_guest_nets_rules && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-
+		printf '%s\n' "${interfaces_list}" |
+        while IFS= read -r iface ; do
+			ready "Подключаем гостевые сети к выбранному VPN подключению..."
+			bridge_vpn_access_add "${iface}" &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+		done
 	}
 
 	[ -f /opt/etc/cron.5mins/check_vpn ] || {

@@ -64,6 +64,39 @@ fast_hw_enabled()(! curl -s localhost:79/rci/show/rc/ppe | grep hardware -C1 | g
 fast_sw_enabled()(! curl -s localhost:79/rci/show/rc/ppe | grep software -C1 | grep -q false)
 fastnet_enabled()(fast_hw_enabled || fast_sw_enabled)
 
+# ------------------------------------------------------------------------------------------
+#
+#	Чистим и заполняем таблицу правил iptables для vpn подключений
+#
+# ------------------------------------------------------------------------------------------
+cmd_vpn_iptable_reset() {
+	if [ -f /opt/etc/ndm/fs.d/100-vpn ] ; then
+		ready "Переустановка iptables для vpn завершена"
+		cmd_vpn_iptable_flush  &> /dev/null
+
+		ip4_add_route_table &> /dev/null
+	#	Устанавливаем приоритет таблицы
+		ip4_rule_set_priority &> /dev/null
+	#	Создаем правила iptables
+		ip4_mark_vpn_network &> /dev/null
+
+		[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
+	else
+		warning "VPN соединение не активно!"
+	fi
+}
+
+# ------------------------------------------------------------------------------------------
+#
+#	Чистим таблицу правил iptables для vpn подключений
+#
+# ------------------------------------------------------------------------------------------
+cmd_vpn_iptable_flush() {
+	ready "Очистка iptables для vpn завершена"
+	ip4_firewall_flush_vpn_rules
+	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
+}
+
 
 del_all_net_from_config(){
         sed -i 's/\(INFACE_GUEST_ENT=\).*/\1/' "${KVAS_CONF_FILE}"

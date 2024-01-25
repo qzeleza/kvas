@@ -303,6 +303,7 @@ iptables_debug() {
 		result=$(/opt/sbin/iptables-save 2>/dev/null | grep -E 'unblock|SHADOWSOCKS')
 	else
 		print_line
+		. /opt/apps/kvas/bin/libs/ndm
 		cmd_vpn_iptable_reset
 		result=$(/opt/sbin/iptables-save | grep -E 'VPNREDIR|unblock' )
 	fi
@@ -437,7 +438,7 @@ print_debug() {
 	router_info
 #	ping_debug
 	show_install_log
-	show_services_status
+#	 show_services_status
 	print_line
 	syslog_debug
 	show_interfaces_debug

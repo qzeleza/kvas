@@ -2,7 +2,7 @@
 . /opt/apps/kvas/bin/libs/debug
 . /opt/apps/kvas/bin/libs/ndm
 . /opt/apps/kvas/bin/libs/adblock
-. /opt/apps/kvas/bin/libs/main
+
 # ------------------------------------------------------------------------------------------
 #
 # 	Добавляет хосты в белый список, доступ к сайтам которого
@@ -723,7 +723,7 @@ join_ready() {
 }
 
 guest_include_to_list(){
-        num=${1}
+	num=${1}
 	desc_full=${2}
 	ent_inf=${3}
 
@@ -742,8 +742,9 @@ warning_info(){
 	error "ВНИМАНИЕ!"
 	print_line
 	warning "Касается всех типов интерфейсов, кроме ${BLUE}IKEv2${NOCL} ${GREEN}и${NOCL} ${BLUE}WIFI${NOCL} ${GREEN}сетей.${NOCL}"
-	warning "Прежде чем продолжить, подключите их в командной оболочке роутера!"
-	warning "В противном случае, они не будут отображаться в списке сетей."
+	warning "Прежде чем продолжить, подключите, каждый из них, в панели управления роутером!"
+	error "Интерфейс должен быть подключен к серверу и иметь свой IP!" ln
+	warning "В противном случае, он не будет отображаться в списке сетей."
 	print_line
 	echo "Если все сделали, нажмите любую клавишу."
 	read -s -n 1
@@ -759,7 +760,7 @@ cmd_bridge_vpn_access_list() {
 		print_line
 	}
 
-	mode="${1}"
+	wild="${1}"
 	selected_vpn=$(get_config_value INFACE_CLI)
 #       Список интерфейсов которые доступны в формате '"vps" [OpenVPN] -> 192.168.255.14 ВКЛ.'
 #       или если адреса нет, то в формате '"Моя сеть" [SSTP] откл.'
@@ -784,7 +785,7 @@ cmd_bridge_vpn_access_list() {
         num=0
         #        Подключаем IKEv2 VPN-сервер
         if cat < "${KVAS_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -qi ikev2; then
-                if [ -z "${mode}" ] || [ "${mode}" = del ]; then
+                if [ -z "${wild}" ] || [ "${wild}" = del ]; then
                         ikev2_item=$(ikev2_include_to_list)
                         [ -n "${ikev2_item}" ] && {
                         	echo "${ikev2_item}"
@@ -792,7 +793,7 @@ cmd_bridge_vpn_access_list() {
                         }
                 fi
         else
-                if [ -z "${mode}" ] || [ "${mode}" = add ]; then
+                if [ -z "${wild}" ] || [ "${wild}" = add ]; then
                         ikev2_item=$(ikev2_include_to_list)
 
                         [ -n "${ikev2_item}" ] && {
@@ -805,24 +806,23 @@ cmd_bridge_vpn_access_list() {
         while IFS= read -r desc_full ; do
 		if echo "${desc_full}" | grep -q Bridge ; then
 			net_ip=$(echo "${desc_full}" | sed 's/.*\[\([0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\)\].*/\1/')
-                	ent_inf=$(ip a | grep global | grep "${net_ip}" | sed 's/.* \(.*\)$/\1/')
+			ent_inf=$(ip a | grep global | grep "${net_ip}" | sed 's/.* \(.*\)$/\1/')
 		else
 			desc=$(echo "${desc_full}" | sed 's|\"\(.*\)\".*|\1|')
 			ent_inf=$(cat /opt/etc/inface_equals | grep "${desc}" | cut -d'|' -f2)
 		fi
-                if cat < "${KVAS_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -qi "${ent_inf}"; then
+			if cat < "${KVAS_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -qi "${ent_inf}"; then
 
-                        if [ -z "${mode}" ] || [ "${mode}" = del ]; then
-                        	num=$((num + 1))
-
-			guest_include_to_list "${num}" "${desc_full}" "${ent_inf}"
-                        fi
-                else
-                        if [ -z "${mode}" ] || [ "${mode}" = add ]; then
-                        	num=$((num + 1))
-				guest_include_to_list "${num}" "${desc_full}" "${ent_inf}"
-                        fi
-                fi
+				if [ -z "${wild}" ] || [ "${wild}" = del ]; then
+					num=$((num + 1))
+					guest_include_to_list "${num}" "${desc_full}" "${ent_inf}"
+				fi
+			else
+				if [ -z "${wild}" ] || [ "${wild}" = add ]; then
+					num=$((num + 1))
+					guest_include_to_list "${num}" "${desc_full}" "${ent_inf}"
+				fi
+			fi
         done
 
 }
@@ -866,23 +866,28 @@ cmd_bridge_vpn_access_del() {
 #
 # ------------------------------------------------------------------------------------------
 bridge_access_add() {
-        guest_bridge_id=${1}; ip=${2};
+
+        guest_bridge_id=${1};
 
 #        has_ssr_enable && vpn_type='shadowsocks' || vpn_type='vpn'
         ready "Добавление гостевого интерфейса ${guest_bridge_id} завершено"
-
-        has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p')
-        [ -n "${has_guest_nets}" ] && point=',' || point=''
-        sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}${guest_bridge_id}/g" "${KVAS_CONF_FILE}"
+#		если сеть уже есть в списке, то пропускаем добавление
+		cat <  "${KVAS_CONF_FILE}" | grep INFACE_GUEST_ENT | grep -q "${has_guest_nets}" || {
+			has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p')
+			[ -n "${has_guest_nets}" ] && point=',' || point=''
+			sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}${guest_bridge_id}/g" "${KVAS_CONF_FILE}"
+		}
 
 #       Слушаем 53 порт гостевого интерфейса
         guest_net_ip=$(ip a | grep global | grep -E ' '"${guest_bridge_id}" | sed 's/inet \(.*\)\/.*/\1/' | tr -d ' ')
         if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
 #           Если доступен ADGUARDHOME
-			sed -i '/bind_hosts/,/port/ s/.*\(port.*\)/    - '"${guest_net_ip}"'\n\1/1' "${ADGUARDHOME_CONFIG}"
+			cat < "${ADGUARDHOME_CONFIG}" | grep -q '- '"${guest_net_ip}" || \
+				sed -i '/bind_hosts/,/port/ s/.*\(port.*\)/    - '"${guest_net_ip}"'\n\1/1' "${ADGUARDHOME_CONFIG}"
         else
 #           Если сейчас работает только dnsmasq
-			sed -i '/listen-address/,/port/ s/.*\(port.*\)/listen-address='"${guest_net_ip}"'\n\1/' "${DNSMASQ_CONFIG}"
+			cat < "${DNSMASQ_CONFIG}" | grep -q "listen-address=${guest_net_ip}" ||
+				sed -i '/listen-address/,/port/ s/.*\(port.*\)/listen-address='"${guest_net_ip}"'\n\1/' "${DNSMASQ_CONFIG}"
 
         fi
         [ $? = 0 ] && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
@@ -912,6 +917,21 @@ ikev2_setup(){
 
 }
 
+bridge_vpn_access_add(){
+
+	guest_bridge_id=${1}
+
+	if [ -n "${guest_bridge_id}" ]; then
+		if echo "${guest_bridge_id}" | grep -iq ikev2 ; then
+			ikev2_net_access_add
+		else
+			bridge_access_add "${guest_bridge_id}"
+		fi
+	fi
+
+
+}
+
 # ------------------------------------------------------------------------------------------
 #
 #       Обертка вокруг функции добавления гостевых сетей к активному vpn
@@ -923,22 +943,15 @@ cmd_bridge_vpn_access_add() {
     print_line
 #       Если добавляем конкретный интерфейс
 	guest_bridge_id=''; bridge_inface_select guest_bridge_id add
-	ip=$(get_router_ip)
 
-	if [ -n "${guest_bridge_id}" ]; then
-		if echo "${guest_bridge_id}" | grep -iq ikev2 ; then
-			ikev2_net_access_add
-		else
-			bridge_access_add "${guest_bridge_id}" "${ip}"
-		fi
-	fi
+	bridge_vpn_access_add "${guest_bridge_id}"
+
 #       перезапускаем DNS сервер новыми IP для прослушки на 53 порту
     if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
         /opt/etc/init.d/S99adguardhome restart &> /dev/null
     else
         /opt/etc/init.d/S56dnsmasq restart &> /dev/null
     fi
-
 }
 
 
@@ -978,7 +991,7 @@ bridge_inface_select() {
     	done
     else
         echo "${action}" | grep -q "add" && act="добавления" || act="удаления"
-        echo "Гостевые интерфейсы для ${act} отсутствуют!"
+        warning "Гостевые интерфейсы для ${act} отсутствуют!"
     fi
 }
 
@@ -1200,37 +1213,7 @@ dns_show() {
 	ready "${mess}"; when_alert "${dns}"
 }
 
-# ------------------------------------------------------------------------------------------
-#
-#	Чистим таблицу правил iptables для vpn подключений
-#
-# ------------------------------------------------------------------------------------------
-cmd_vpn_iptable_flush() {
-	ready "Очистка iptables для vpn завершена"
-	ip4_firewall_flush_vpn_rules
-	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
-}
-# ------------------------------------------------------------------------------------------
-#
-#	Чистим и заполняем таблицу правил iptables для vpn подключений
-#
-# ------------------------------------------------------------------------------------------
-cmd_vpn_iptable_reset() {
-	if [ -f /opt/etc/ndm/fs.d/100-vpn ] ; then
-		ready "Переустановка iptables для vpn завершена"
-		cmd_vpn_iptable_flush  &> /dev/null
 
-		ip4_add_route_table &> /dev/null
-	#	Устанавливаем приоритет таблицы
-		ip4_rule_set_priority &> /dev/null
-	#	Создаем правила iptables
-		ip4_mark_vpn_network &> /dev/null
-
-		[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
-	else
-		warning "VPN соединение не активно!"
-	fi
-}
 # ------------------------------------------------------------------------------------------
 #
 #	ВКЛючаем VPN клиента
@@ -2247,6 +2230,7 @@ add_host_to_ipset(){
 # 	Добавляем один хост
 # 	$1 - имя домена
 # 	$2 - делаем ли сброс таблиц или нет (нужно отключать при импорте множества доемнных имен)
+#	$3 - если  параметр был задан как 'yes|y|wild' то, добавляем * без вопросов
 #
 # ------------------------------------------------------------------------------------------
 host_add() {
@@ -2256,10 +2240,11 @@ host_add() {
 		clear_host=$(echo "${1}" | sed 's/\*//;' | sed -n -E 's|^(http(s)?://)?([^/]+).*|\3|p')
 	fi
 	reset="${2}"
-	mode="${3}"
-	_host="${clear_host}"
+	wild="${3}"
+#	в режиме импорта хост не трогаем - оставляем как есть
+	[ "${wild}" = import ] || _host="${clear_host}"
 
-	if echo "${mode}" | grep -qiE 'import|no|n' ; then
+	if echo "${wild}" | grep -qiE 'import|no|n' ; then
 #		в режиме импорта задавать вопросы не нужно - добавляем хост как есть.
 		answer=n
 	else
@@ -2268,7 +2253,7 @@ host_add() {
 			answer=n
 		else
 #			Если третий параметр был задан как 'yes|y|wild' то, добавляем * без вопросов
-			if echo "${mode}" | grep -qiE 'yes|y|wild' ; then
+			if echo "${wild}" | grep -qiE 'yes|y|wild' ; then
 				answer=y
 			else
 				answer='';
@@ -2295,7 +2280,7 @@ host_add() {
 	fi
 
 	[ "${reset}" = 'yes' ] && cmd_kvas_init  &> /dev/null
-#	[ "${reset}" = 'yes' ] && cmd_kvas_init "refresh" &> /dev/null
+
 	cmd_adguardhome_status | grep -q ВКЛЮЧЕН && add_host_to_adguard "${clear_host}" &> /dev/null
 	add_host_to_ipset "${clear_host}" &> /dev/null
 
@@ -2308,50 +2293,67 @@ host_add() {
 #
 #	Добавляем в белый список одно доменное имя, точнее список его IP адресов
 #	$1 - доменное имя, для которого необходимо получить IP
-#	$2 -
+# 	$2 - делаем ли сброс таблиц или нет (нужно отключать при импорте множества доемнных имен)
 # 	$3 - режим тестирования домена, если не пусто, проводим тестирование,
 # 		 если равно, test то выдаем данные о добавлении для команды import
 #
 # ------------------------------------------------------------------------------------------
 cmd_add_one_host() {
-	mode="${4}"
-	test="${3:-no}"
-	reset="${2:-yes}"
+
 	host=$(echo "${1}" | sed 's|http[s]\{,1\}://||;')
+	reset="${2:-yes}"
+	wild="${3}"
+
 	clear_host=$(echo "${host}" | sed 's/\*//')
 	ip_filter='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'
 	#	формальная проверка на наличие точки в имени домена
 	if echo "${host}" | grep -q '\.' ; then
 		if echo "${clear_host}" | grep -qE "${ip_filter}*" ; then
 			if echo "${clear_host}" | grep -qE "^${ip_filter}/[0-9]{1,2}$|^${ip_filter}$|^${ip_filter}-${ip_filter}$"; then
-				host_add "${host}" "${reset}" "${mode}"
+				res=$(host_add "${host}" "${reset}" "${wild}")
+				if [ "${wild}" = import ]; then
+					echo "${res}" | grep -q "ДОБАВЛЕН" && echo +
+				else
+					echo "${res}"
+				fi
 			else
-				echo -e "${RED}Введенный IP адрес или диапазон IP-адресов имеет некорректный формат.${NOCL}"
+				if [ "${wild}" = import ]; then
+					echo 2
+				else
+					error "Введенный IP адрес или диапазон IP-адресов имеет некорректный формат." nl
+				fi
 			fi
 		else
 			if cat < "${UNBLOCK_LIST_FILE}" | grep -qe "${clear_host}"; then
-				if [ "${test}" = no ]; then
-					warning "Такой домен уже есть в списке разблокировки!"
-					[ "${clear_host}" != "${host}" ] && warning "Производим замену ${clear_host} на ${host}"
+				[ "${wild}" = import ] || warning "Такой домен уже есть в списке разблокировки!"
+				if [ "${clear_host}" != "${host}" ] ; then
+					warning "Производим замену ${clear_host} на ${host}"
 					print_line
 					sed -i "/^${clear_host}$/d" "${UNBLOCK_LIST_FILE}"
-					host_add "${host}" "${reset}" "${mode}"
+					res=$(host_add "${host}" "${reset}" "${wild}")
+					if [ "${wild}" = import ]; then
+						echo "${res}" | grep -q "ДОБАВЛЕН" && echo 1
+					else
+						echo "${res}"
+					fi
 				else
-					echo 1
+					[ "${wild}" = import ] && echo -
 				fi
+
 			else
-				if [ "${test}" = no ]; then
-					host_add "${host}" "${reset}" "${mode}"
+				res=$(host_add "${host}" "${reset}" "${wild}")
+				if [ "${wild}" = import ]; then
+					echo "${res}" | grep -q "ДОБАВЛЕН" && echo +
 				else
-					echo +
+					echo "${res}"
 				fi
 			fi
 		fi
 	else
-		if [ "${test}" = no ]; then
-			error "Некорректно указано имя домена - ${1}." no_nln
+		if [ "${wild}" = import ]; then
+			echo 2
 		else
-			echo 0
+			error "Некорректно указано имя домена - ${1}." no_nln
 		fi
 	fi
 }
@@ -2461,6 +2463,7 @@ cmd_import_hosts() {
 			hosts_to_add_ubl=''
 			hosts_repeated_ubl=''
 			hosts_not_added=''
+			hosts_errors=''
 
 			while read -r line || [ -n "${line}" ]; do
 				# удаляем из строки комментарии - все что встречается после символа # и сам символ
@@ -2470,10 +2473,11 @@ cmd_import_hosts() {
 				#  пропускаем строки с комментариями
 				[ "${host:0:1}" = "#" ] && continue
 
-				case "$(cmd_add_one_host "${host}" "test" "no" "import")" in
+				case "$(cmd_add_one_host "${host}" "no" "import")" in
 				0) hosts_not_added="${hosts_not_added}${host}\n" ;;
 				1) hosts_repeated_bl="${hosts_repeated_bl}${host}\n" ;;
 				+) hosts_to_add_ubl="${hosts_to_add_ubl}${host}\n" ;;
+				2) hosts_errors="${hosts_errors}${host}\n";;
 				*) ;;
 				esac
 			done < "${host_list}"
@@ -2494,8 +2498,9 @@ cmd_import_hosts() {
 			num_not_added=$(rec_in_var "${hosts_not_added}")
 			num_repeated_ubl=$(rec_in_var "${hosts_repeated_ubl}")
 			num_to_add_ubl=$(rec_in_var "${hosts_to_add_ubl}")
+			num_errors=$(rec_in_var "${hosts_errors}")
 
-			num_errors=$((num_not_added + num_repeated_ubl))
+			num_errors=$((num_not_added + num_repeated_ubl + num_errors))
 			tab="    "
 			print_line
 			if [ "${num_to_add_ubl}" -eq 0 ]; then
