@@ -429,12 +429,12 @@ cmd_install(){
 cmd_uninstall() {
 
 	rm_type=${1}; auto=''; sure="${2}"
-
+	answer_yes='y|Y|Yes|yes|YES|да|Да|ДА'
 	[ -n "${APP_RELEASE}" ] && rel="-${APP_RELEASE}" || rel=''
 	echo -e "Удаление пакета ${GREEN}КВАС™${NOCL} версия ${GREEN}${APP_VERSION}${rel}${NOCL}..."
 
 
-	if echo "${rm_type}" | grep -qEi 'y|Yes|да' || echo "${sure}" | grep -qEi 'y|Yes|да' ; then
+	if [[ ${rm_type} =~ "${answer_yes}" ]] || [[ ${sure} =~ "${answer_yes}" ]] ; then
 		answer=y; sure=y
 	else
 		print_line
