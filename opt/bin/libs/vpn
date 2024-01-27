@@ -845,7 +845,7 @@ cmd_bridge_vpn_access_del() {
 				ikev2_net_access_del
 			else
 				bridge_vpn_access_del "${guest_bridge_id}"
-				sed -i '/INFACE_GUEST_ENT=/,/^$/ s/'"${guest_bridge_id}"'[,]\{0,1\}//' "${KVAS_CONF_FILE}"
+				sed -i '/INFACE_GUEST_ENT=/,/^$/ s/'"${guest_bridge_id}"'[,]\{0,1\}//; s/[ ,]//g' "${KVAS_CONF_FILE}"
 			fi
 		fi
 
@@ -875,7 +875,7 @@ bridge_access_add() {
 		cat <  "${KVAS_CONF_FILE}" | grep INFACE_GUEST_ENT | grep -q "${has_guest_nets}" || {
 			has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p')
 			[ -n "${has_guest_nets}" ] && point=',' || point=''
-			sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}${guest_bridge_id}/g" "${KVAS_CONF_FILE}"
+			sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}${guest_bridge_id}/g; s/[ ]//g" "${KVAS_CONF_FILE}"
 		}
 
 #       Слушаем 53 порт гостевого интерфейса
@@ -893,29 +893,6 @@ bridge_access_add() {
         [ $? = 0 ] && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 }
 
-
-ikev2_setup(){
-
-	ikev2_data="${1}"; enable=${2:-true}
-
-	ikev2_dns=$(get_router_ip)
-	dns_server=$(echo "${ikev2_data}" | grep dns-server | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-	enable=$(echo "${ikev2_data}" | grep enable | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-	nat=$(echo "${ikev2_data}" | grep nat | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-
-	if [ "${dns_server}" != "${ikev2_dns}" ] || [ "${enable}" != true ] || [ "${nat}" != true ] ;then
-	#	Если DNS отличен от IP роутера или интерфейс отключен
-        pool_size=$(echo "${ikev2_data}" | grep pool-size | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-        pool_start=$(echo "${ikev2_data}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-        multi_login=$(echo "${ikev2_data}" | grep multi-login | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-        sa_compat=$(echo "${ikev2_data}" | grep sa-compat | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-		ikev2_dns=$(get_router_ip)
-		curl -s -d '{"enable": '"${enable}"', "nat": true, "dns-server": "'"${ikev2_dns}"'", "pool-size": "'"${pool_size}"'", "pool-start": "'"${pool_start}"'", "multi-login": "'"${multi_login}"'", "sa-compat": "'"${sa_compat}"'"}' \
-		"${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2" &> /dev/null
-		sleep 1
-	fi
-
-}
 
 bridge_vpn_access_add(){
 
@@ -986,7 +963,7 @@ bridge_inface_select() {
 						eval "${1}=$(get_inface_by_ip ${net_ip})" ;
 					fi
 					break ;;
-				* ) error "Введите цифру от 1 до ${total}." ;;
+				* ) print_line; error "Введите цифру от 1 до ${total}." nl ;;
 			esac
     	done
     else
@@ -1831,19 +1808,37 @@ switch_vpn_on(){
 	fi
 	[ "${is_install_stage}" = no ] && cmd_kvas_init "no" &> /dev/null
 
+	#------------------------------------------------------
+	# Если есть подключенные гостевые сети
+	#------------------------------------------------------
+	interfaces_list=$(get_guest_inface_list_from_config)
+	[ -n "${interfaces_list}" ] && {
+
+		printf '%s\n' "${interfaces_list}" |
+        while IFS= read -r iface ; do
+#			ready "Подключаем гостевые сети к выбранному VPN подключению..."
+			bridge_vpn_access_add "${iface}" #&>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+		done
+	}
+
+	[ -f /opt/etc/cron.5mins/check_vpn ] || {
+		ready "Устанавливаем проверку зависания VPN соединения в cron."
+		ln -s /opt/apps/kvas/bin/main/check_vpn /opt/etc/cron.5mins/check_vpn && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+	}
+
 	#	Проверяем подключены ли гостевые сети
-	guest_net_list=$(get_config_value INFACE_GUEST_ENT | tr ' ' ',')
-	if [ -n "${guest_net_list}" ] ; then
-		print_line
-		echo -e "${RED}ВНИМАНИЕ!${NOCL}"
-		echo "Обнаружены гостевые сети: ${guest_net_list}, которые были добавлены для "
-		echo "предыдущего VPN соединения. Для подключения клиентов этих сетей "
-		echo "к выбранному VPN соединению необходимо их удалить и снова добавить."
-		echo "С этой целью воспользуйтесь следующими командами:"
-		echo -e "1. ${GREEN}kvas vpn net del${NOCL}"
-		echo -e "2. ${GREEN}kvas vpn net add${NOCL}"
-		print_line
-	fi
+#	guest_net_list=$(get_config_value INFACE_GUEST_ENT | tr ' ' ',')
+#	if [ -n "${guest_net_list}" ] ; then
+#		print_line
+#		echo -e "${RED}ВНИМАНИЕ!${NOCL}"
+#		echo "Обнаружены гостевые сети: ${guest_net_list}, которые были добавлены для "
+#		echo "предыдущего VPN соединения. Для подключения клиентов этих сетей "
+#		echo "к выбранному VPN соединению необходимо их удалить и снова добавить."
+#		echo "С этой целью воспользуйтесь следующими командами:"
+#		echo -e "1. ${GREEN}kvas vpn net del${NOCL}"
+#		echo -e "2. ${GREEN}kvas vpn net add${NOCL}"
+#		print_line
+#	fi
 }
 
 # ------------------------------------------------------------------------------------------

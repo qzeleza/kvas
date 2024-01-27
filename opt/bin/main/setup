@@ -78,7 +78,7 @@ setup_adguard(){
 #	Функция восстановления архивных файлов конфигурации пакета
 #	$1 - архивный файл конфигурации
 #	$2 - файл в который необходимо восстановить (назначение)
-#	$3 - описание файла в именительном падеже, например, "список разблокировки"
+#	$3 - описание файла в родительном падеже при склонении слова файл - "чего"?, например, "списка разблокировки"
 #
 restore_backup(){
 
@@ -88,8 +88,7 @@ restore_backup(){
 
 #	Проверяем сохраняли ли ранее файлы конфигурации в архивную папку?
 	if [ -f "${backup_file}" ]; then
-		warning "Обнаружен архивный ${description}..."
-		print_line
+#		warning "Обнаружен архивный файл ${description}..."
 		log_in_file "Файл ${description} ВОССТАНОВЛЕН из архива."
 		ready "Файл ${description} восстановлен"
 		if mv -f "${backup_file}" "${dest_file}" ; then
@@ -99,6 +98,7 @@ restore_backup(){
 			log_in_file "ОШИБКА: ${description} не восстановлен."
 			exit 1
 		fi
+#		print_line
 	else
 #		Если нет архивной копии файла, то в случае наличия файла
 #		по умолчанию в настройках пакета - восстанавливаем его
@@ -106,16 +106,17 @@ restore_backup(){
 		kvas_config_path=/opt/apps/kvas/etc/conf
 
 		if [ -f "${kvas_config_path}/${file_name}" ]; then
-
-			log_in_file "УСТАНОВЛЕН ${description} ПО УМОЛЧАНИЮ."
-			ready "Копируем ${description} по умолчанию"
+#			warning "Архивный файл ${description} не обнаружен."
+			ready "Копируем файл ${description} по умолчанию"
 			if cp -f "${kvas_config_path}/${file_name}" "${dest_file}" &>/dev/null ; then
-				when_ok "ГОТОВО"
+				log_in_file "УСТАНОВЛЕН файл ${description} ПО УМОЛЧАНИЮ."
+				when_ok "УСПЕШНО"
 			else
 				when_bad "ОШИБКА"
-				log_in_file "ОШИБКА: ${description} по умолчанию не восстановлен."
+				log_in_file "ОШИБКА: файл ${description} по умолчанию не восстановлен."
 				exit 1
 			fi
+#			print_line
 		fi
 	fi
 
@@ -154,7 +155,7 @@ stop_dnsmasq(){
 		/opt/etc/init.d/S56dnsmasq stop &> /dev/null
 		[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 	fi
-	ready "Архивируем файл конфигурации службы dnsmasq"
+	ready "Архивируем файл службы S56dnsmasq"
 	mv /opt/etc/init.d/S56dnsmasq /opt/etc/init.d/K56dnsmasq
 	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 	print_line
@@ -173,7 +174,7 @@ stop_crypt(){
 		[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 	fi
 
-	ready "Архивируем файл конфигурации службы dnscrypt-proxy2"
+	ready "Архивируем файл службы S09dnscrypt-proxy2"
 	mv /opt/etc/init.d/S09dnscrypt-proxy2 /opt/etc/init.d/K09dnscrypt-proxy2
 	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 	print_line
@@ -258,21 +259,21 @@ set_previous_condition(){
 
 # восставившем архивные копии файлов конфигурации
 restore_backups(){
-	restore_backup "${KVAS_LIST_FILE_BACKUP}" "${UNBLOCK_LIST_FILE}" "список разблокировки"
-	restore_backup "${KVAS_CONFIG_BACKUP}" "${KVAS_CONF_FILE}" "конфигурация пакета Квас"
+	restore_backup "${KVAS_LIST_FILE_BACKUP}" "${UNBLOCK_LIST_FILE}" "списка разблокировки"
+	restore_backup "${KVAS_CONFIG_BACKUP}" "${KVAS_CONF_FILE}" "конфигурации пакета Квас"
 
-	restore_backup "${ADGUARDHOME_CONFIG_BACKUP}" "${ADGUARDHOME_CONFIG}" "конфигурация AdGuardHome"
-	restore_backup "${ADGUARD_IPSET_FILE_BACKUP}" "${ADGUARD_IPSET_FILE}" "список ipset для AdGuardHome"
+	restore_backup "${ADGUARDHOME_CONFIG_BACKUP}" "${ADGUARDHOME_CONFIG}" "конфигурации AdGuardHome"
+	restore_backup "${ADGUARD_IPSET_FILE_BACKUP}" "${ADGUARD_IPSET_FILE}" "списка ipset для AdGuardHome"
 
-	restore_backup "${SHADOWSOCKS_CONF_BACKUP}" "${SHADOWSOCKS_CONF}" "конфигурация Shadowsocks"
+	restore_backup "${SHADOWSOCKS_CONF_BACKUP}" "${SHADOWSOCKS_CONF}" "конфигурации Shadowsocks"
 
-	restore_backup "${DNSMASQ_CONFIG_BACKUP}" "${DNSMASQ_CONFIG}" "конфигурация dnsmasq"
-	restore_backup "${DNSMASQ_IPSET_HOSTS_BACKUP}" "${DNSMASQ_IPSET_HOSTS}" "список ipset для dnsmasq"
+	restore_backup "${DNSMASQ_CONFIG_BACKUP}" "${DNSMASQ_CONFIG}" "конфигурации dnsmasq"
+	restore_backup "${DNSMASQ_IPSET_HOSTS_BACKUP}" "${DNSMASQ_IPSET_HOSTS}" "списка ipset для dnsmasq"
 
-	restore_backup "${DNSCRYPT_CONFIG_BACKUP}" "${DNSCRYPT_CONFIG}" "конфигурация dnscrypt_proxy2"
-	restore_backup "${ADBLOCK_LIST_EXCEPTION_BACKUP}" "${ADBLOCK_LIST_EXCEPTION}" "список хостов-исключений для блокировки рекламы"
-	restore_backup "${ADBLOCK_HOSTS_FILE_BACKUP}" "${ADBLOCK_HOSTS_FILE}" "список хостов для блокировки рекламы"
-	restore_backup "${ADBLOCK_SOURCES_LIST_BACKUP}" "${ADBLOCK_SOURCES_LIST}" "список источников хостов для блокировки рекламы"
+	restore_backup "${DNSCRYPT_CONFIG_BACKUP}" "${DNSCRYPT_CONFIG}" "конфигурации dnscrypt_proxy2"
+	restore_backup "${ADBLOCK_LIST_EXCEPTION_BACKUP}" "${ADBLOCK_LIST_EXCEPTION}" "списка хостов-исключений для блокировки рекламы"
+	restore_backup "${ADBLOCK_HOSTS_FILE_BACKUP}" "${ADBLOCK_HOSTS_FILE}" "списка хостов для блокировки рекламы"
+	restore_backup "${ADBLOCK_SOURCES_LIST_BACKUP}" "${ADBLOCK_SOURCES_LIST}" "списка источников хостов для блокировки рекламы"
 #	restore_backup "${}" "${}" ""
 }
 
@@ -368,6 +369,7 @@ cmd_install(){
 		# ВОССТАНАВЛИВАЕМ ФАЙЛ СО СПИСКОМ РАЗБЛОКИРОВКИ
 		#------------------------------------------------------
 		restore_backups
+		print_line
 
 		set_config_value APP_VERSION "${new_ver}"
 		set_config_value APP_RELEASE "${new_rel}"
@@ -433,24 +435,6 @@ cmd_install(){
 	fi
 
 
-	#------------------------------------------------------
-	# Если есть подключенные гостевые сети
-	#------------------------------------------------------
-	interfaces_list=$(get_guest_inface_list_from_config)
-	[ -n "${interfaces_list}" ] && {
-
-		printf '%s\n' "${interfaces_list}" |
-        while IFS= read -r iface ; do
-			ready "Подключаем гостевые сети к выбранному VPN подключению..."
-			bridge_vpn_access_add "${iface}" &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-		done
-	}
-
-	[ -f /opt/etc/cron.5mins/check_vpn ] || {
-		ready "Устанавливаем проверку зависания VPN соединения в cron."
-		ln -s /opt/apps/kvas/bin/main/check_vpn /opt/etc/cron.5mins/check_vpn && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-	}
-
 
 	#------------------------------------------------------
 	# 	Запускаем КВАС в работу
@@ -491,7 +475,7 @@ cmd_uninstall() {
 	rm_type=${1}; auto=''; sure="${2}"
 	answer_yes='y|Y|Yes|yes|YES|да|Да|ДА'
 	[ -n "${APP_RELEASE}" ] && rel="-${APP_RELEASE}" || rel=''
-	echo -e "Удаление пакета ${GREEN}КВАС™${NOCL} версия ${GREEN}${APP_VERSION}${rel}${NOCL}..."
+	echo -e "Удаление пакета ${GREEN}КВАС™${NOCL} версии ${GREEN}${APP_VERSION}${rel}${NOCL}..."
 
 
 	if [[ ${rm_type} =~ "${answer_yes}" ]] || [[ ${sure} =~ "${answer_yes}" ]] ; then
@@ -504,7 +488,6 @@ cmd_uninstall() {
 
 	if echo "${answer}" | grep -qi y ; then
 
-		[ -z "${rm_type}" ] && mess="Удаляем все архивные данные, зависимые пакеты оставляем."
 		if [ "${rm_type}" = full ]; then
 			mess="Удаляем все архивные данные и все зависимые пакеты..."
 			auto='--autoremove'
@@ -513,6 +496,7 @@ cmd_uninstall() {
 		else
 #			Сохраняем значимые файлы конфигурации
 			save_backups
+			mess="Удаляем все архивные данные, зависимые пакеты оставляем."
 		fi
 		[ -z "${sure}" ] && print_line
 		echo "${mess}"

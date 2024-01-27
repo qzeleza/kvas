@@ -138,7 +138,8 @@ else
 	sleep 1
 
 	clear
-	kvas setup install "${UPDATE_MODE}" && {
+	[ "${UPDATE_MODE}" ] && mode=upgrade
+	kvas setup "${mode}" && {
 		echo 'Тестируем настройки...'
 		kvas test upgrade
 	}

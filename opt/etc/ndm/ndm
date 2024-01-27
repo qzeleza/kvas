@@ -99,19 +99,19 @@ cmd_vpn_iptable_flush() {
 
 
 del_all_net_from_config(){
-        sed -i 's/\(INFACE_GUEST_ENT=\).*/\1/' "${KVAS_CONF_FILE}"
+        sed -i 's/\(INFACE_GUEST_ENT=\).*/\1/; s/[ ,]//g' "${KVAS_CONF_FILE}"
 }
 
 del_ikev2_net_from_config(){
-		has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;'| sed 's/[ ]//g; s/^\,//')
+		has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;'| sed 's/[ ,]//g')
         [ -n "${has_guest_nets}" ] && point=',' || point=''
-        sed -i '/INFACE_GUEST_ENT=/,/^$/ s/ikev2[,]\{0,1\}//' "${KVAS_CONF_FILE}"
+        sed -i '/INFACE_GUEST_ENT=/,/^$/ s/ikev2[,]\{0,1\}//; s/[ ]//g' "${KVAS_CONF_FILE}"
 }
 add_ikev2_net_to_config(){
-        has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;'| sed 's/[ ]//g; s/^\,//')
+        has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;'| sed 's/[ ]//g')
         [ -n "${has_guest_nets}" ] && point=',' || point=''
         del_ikev2_net_from_config
-        sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}ikev2/g" "${KVAS_CONF_FILE}"
+        sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}ikev2/g; s/[ ]//g" "${KVAS_CONF_FILE}"
 }
 
 # ------------------------------------------------------------------------------------------
@@ -578,6 +578,31 @@ ikev2_net_access_del(){
 }
 
 
+ikev2_setup(){
+
+	ikev2_data="${1}"; enable=${2:-true}
+
+	ikev2_dns=$(get_router_ip)
+	dns_server=$(echo "${ikev2_data}" | grep dns-server | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+	enable=$(echo "${ikev2_data}" | grep enable | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+	nat=$(echo "${ikev2_data}" | grep nat | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+
+	if [ "${dns_server}" != "${ikev2_dns}" ] || [ "${enable}" != true ] || [ "${nat}" != true ] ;then
+	#	Если DNS отличен от IP роутера или интерфейс отключен
+        pool_size=$(echo "${ikev2_data}" | grep pool-size | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+        pool_start=$(echo "${ikev2_data}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+        multi_login=$(echo "${ikev2_data}" | grep multi-login | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+        sa_compat=$(echo "${ikev2_data}" | grep sa-compat | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+		ikev2_dns=$(get_router_ip)
+		curl -s -d '{"enable": '"${enable}"', "nat": true, "dns-server": "'"${ikev2_dns}"'", "pool-size": "'"${pool_size}"'", "pool-start": "'"${pool_start}"'", "multi-login": "'"${multi_login}"'", "sa-compat": "'"${sa_compat}"'"}' \
+		"${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2" &> /dev/null
+		sleep 1
+	fi
+
+}
+
+
+
 
 ikev2_net_access_add(){
 #set -x
@@ -587,7 +612,7 @@ ikev2_net_access_add(){
 
 	ikev2_setup "${ikev2}"
 
-	ready "Добавление интерфейса \"VPN-сервер IKEv2\" [${net_pool}] завершено" && {
+	ready "Добавление гостевого интерфейса \"VPN-сервер IKEv2\" [${net_pool}] завершено" && {
 
 		net_ip=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.1/')
 		net_pool=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/')
