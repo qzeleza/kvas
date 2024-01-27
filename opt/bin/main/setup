@@ -74,32 +74,53 @@ setup_adguard(){
 	fi
 }
 
-setup_restore_prev_conf(){
-	if [ -f "${UNBLOCK_LIST_FILE}.kvas" ]; then
-		warning "Обнаружен список разблокировки от предыдущей установки"
+#
+#	Функция восстановления архивных файлов конфигурации пакета
+#	$1 - архивный файл конфигурации
+#	$2 - файл в который необходимо восстановить (назначение)
+#	$3 - описание файла в именительном падеже, например, "список разблокировки"
+#
+restore_backup(){
+
+	backup_file="${1}"
+	dest_file="${2}"
+	description="${3}"
+
+#	Проверяем сохраняли ли ранее файлы конфигурации в архивную папку?
+	if [ -f "${backup_file}" ]; then
+		warning "Обнаружен архивный ${description}..."
 		print_line
-		log_in_file "Список разблокировки ВОССТАНОВЛЕН из архива."
-		ready "Список разблокировки восстановлен"
-		if mv -f "${UNBLOCK_LIST_FILE}.kvas" "${UNBLOCK_LIST_FILE}" ; then
+		log_in_file "Файл ${description} ВОССТАНОВЛЕН из архива."
+		ready "Файл ${description} восстановлен"
+		if mv -f "${backup_file}" "${dest_file}" ; then
 			when_ok "УСПЕШНО"
 		else
 			when_bad "ОШИБКА"
-			log_in_file "ОШИБКА: при восстановлении списка разблокировки"
+			log_in_file "ОШИБКА: ${description} не восстановлен."
 			exit 1
 		fi
 	else
-		log_in_file "УСТАНОВЛЕН список разблокировки ПО УМОЛЧАНИЮ."
-		ready "Копируем файл со списком разблокировки по умолчанию"
-		if cp /opt/apps/kvas/etc/conf/hosts.list "${UNBLOCK_LIST_FILE}" &>/dev/null ; then
-			when_ok "ГОТОВО"
-		else
-			when_bad "ОШИБКА"
-			log_in_file "ОШИБКА: при копировании списка разблокировки по умолчанию"
-			exit 1
+#		Если нет архивной копии файла, то в случае наличия файла
+#		по умолчанию в настройках пакета - восстанавливаем его
+		file_name=$(basename "${dest_file}")
+		kvas_config_path=/opt/apps/kvas/etc/conf
+
+		if [ -f "${kvas_config_path}/${file_name}" ]; then
+
+			log_in_file "УСТАНОВЛЕН ${description} ПО УМОЛЧАНИЮ."
+			ready "Копируем ${description} по умолчанию"
+			if cp -f "${kvas_config_path}/${file_name}" "${dest_file}" &>/dev/null ; then
+				when_ok "ГОТОВО"
+			else
+				when_bad "ОШИБКА"
+				log_in_file "ОШИБКА: ${description} по умолчанию не восстановлен."
+				exit 1
+			fi
 		fi
 	fi
 
 }
+
 
 #------------------------------------------------------
 # 	ВОССТАНАВЛИВАЕМ СОСТОЯНИЕ AdGuardHome,
@@ -168,15 +189,14 @@ rm_package_files(){
 	ready "Удаляем все файлы пакета Квас вместе с архивами"
 
 	if [ "${full}" = full ] ; then
-		[ -f /opt/etc/hosts.list ] && mv -f /opt/etc/hosts.list /opt/etc/hosts.list.kvas
+		[ -f /opt/etc/hosts.list ] && mv -f /opt/etc/hosts.list /opt/etc/hosts.list
 		[ -d /opt/tmp/adblock ] && rm -rf /opt/tmp/adblock
 		rm -fr /opt/etc/kvas*
 		rm -fr /opt/etc/hosts.list
 		rm -fr /opt/etc/ads_exception.list
 		rm -f /opt/etc/inface_equals
-		rm -f /opt/etc/cron.5mins/ipset.kvas
-		rm -rf /opt/etc/.kvas /opt/etc/shadowsocks.json.kvas
-		rm -f /opt/etc/hosts.list.kvas /opt/etc/adblock.sources.kvas
+		rm -f /opt/etc/cron.5mins/ipset.kvas /opt/etc/shadowsocks.json
+		rm -rf /opt/etc/.kvas
 	fi
 
 	[ -f /opt/etc/ndm/fs.d/100-vpn ] && rm -f /opt/etc/ndm/fs.d/100-vpn
@@ -236,6 +256,48 @@ set_previous_condition(){
 
 }
 
+# восставившем архивные копии файлов конфигурации
+restore_backups(){
+	restore_backup "${KVAS_LIST_FILE_BACKUP}" "${UNBLOCK_LIST_FILE}" "список разблокировки"
+	restore_backup "${KVAS_CONFIG_BACKUP}" "${KVAS_CONF_FILE}" "конфигурация пакета Квас"
+
+	restore_backup "${ADGUARDHOME_CONFIG_BACKUP}" "${ADGUARDHOME_CONFIG}" "конфигурация AdGuardHome"
+	restore_backup "${ADGUARD_IPSET_FILE_BACKUP}" "${ADGUARD_IPSET_FILE}" "список ipset для AdGuardHome"
+
+	restore_backup "${SHADOWSOCKS_CONF_BACKUP}" "${SHADOWSOCKS_CONF}" "конфигурация Shadowsocks"
+
+	restore_backup "${DNSMASQ_CONFIG_BACKUP}" "${DNSMASQ_CONFIG}" "конфигурация dnsmasq"
+	restore_backup "${DNSMASQ_IPSET_HOSTS_BACKUP}" "${DNSMASQ_IPSET_HOSTS}" "список ipset для dnsmasq"
+
+	restore_backup "${DNSCRYPT_CONFIG_BACKUP}" "${DNSCRYPT_CONFIG}" "конфигурация dnscrypt_proxy2"
+	restore_backup "${ADBLOCK_LIST_EXCEPTION_BACKUP}" "${ADBLOCK_LIST_EXCEPTION}" "список хостов-исключений для блокировки рекламы"
+	restore_backup "${ADBLOCK_HOSTS_FILE_BACKUP}" "${ADBLOCK_HOSTS_FILE}" "список хостов для блокировки рекламы"
+	restore_backup "${ADBLOCK_SOURCES_LIST_BACKUP}" "${ADBLOCK_SOURCES_LIST}" "список источников хостов для блокировки рекламы"
+#	restore_backup "${}" "${}" ""
+}
+
+
+# Сохраняем все значимые файлы конфигурации пакета Квас
+save_backups(){
+	backup_copy "${KVAS_CONF_FILE}" "${KVAS_CONFIG_BACKUP}"
+	backup_copy "${UNBLOCK_LIST_FILE}" "${KVAS_LIST_FILE_BACKUP}"
+
+	backup_copy "${ADGUARDHOME_CONFIG}" "${ADGUARDHOME_CONFIG_BACKUP}"
+	backup_copy "${ADGUARD_IPSET_FILE}" "${ADGUARD_IPSET_FILE_BACKUP}"
+
+	backup_copy "${SHADOWSOCKS_CONF}" "${SHADOWSOCKS_CONF_BACKUP}"
+
+	backup_copy "${DNSMASQ_CONFIG}" "${DNSMASQ_CONFIG_BACKUP}"
+	backup_copy "${DNSMASQ_IPSET_HOSTS}" "${DNSMASQ_IPSET_HOSTS_BACKUP}"
+
+	backup_copy "${DNSCRYPT_CONFIG}" "${DNSCRYPT_CONFIG_BACKUP}"
+
+	backup_copy "${ADBLOCK_HOSTS_FILE}" "${ADBLOCK_HOSTS_FILE_BACKUP}"
+	backup_copy "${ADBLOCK_SOURCES_LIST}" "${ADBLOCK_SOURCES_LIST_BACKUP}"
+	backup_copy "${ADBLOCK_LIST_EXCEPTION}" "${ADBLOCK_LIST_EXCEPTION_BACKUP}"
+
+#	backup_copy "${}" "${}"
+}
 
 
 setup_print_finish(){
@@ -248,7 +310,8 @@ setup_print_finish(){
 
 
 cmd_install(){
-#	Если режим обновления, то не спрашиваем про выбор соединения, а просто берем его из файла конфигурации Кваса
+#	Если режим обновления, то не спрашиваем про выбор соединения,
+#	а просто берем его из файла конфигурации Кваса
 	update_mode=${1:-false}
 
 	LOG_HEADER="PACKAGE INSTALLATION"
@@ -292,7 +355,7 @@ cmd_install(){
 	#------------------------------------------------------
 	# Сейчас необходимо выбрать VPN интерфейс для работы пакета
 	#------------------------------------------------------
-	if [ "${update_mode}" ] && [ -f "${KVAS_CONFIG_BACKUP}" ]; then
+	if [ "${update_mode}" ]; then
 
 
 		#------------------------------------------------------
@@ -301,8 +364,10 @@ cmd_install(){
 		new_ver=$(get_config_value APP_VERSION)
 		new_rel=$(get_config_value APP_RELEASE)
 
-		# восстанавливаем файл конфигурации
-		cp -f "${KVAS_CONFIG_BACKUP}" "${KVAS_CONF_FILE}"
+		#------------------------------------------------------
+		# ВОССТАНАВЛИВАЕМ ФАЙЛ СО СПИСКОМ РАЗБЛОКИРОВКИ
+		#------------------------------------------------------
+		restore_backups
 
 		set_config_value APP_VERSION "${new_ver}"
 		set_config_value APP_RELEASE "${new_rel}"
@@ -333,11 +398,6 @@ cmd_install(){
 	# AdGuard Home
 	#------------------------------------------------------
 	setup_adguard
-
-	#------------------------------------------------------
-	# ВОССТАНАВЛИВАЕМ ФАЙЛ СО СПИСКОМ РАЗБЛОКИРОВКИ
-	#------------------------------------------------------
-	setup_restore_prev_conf
 
 	#----------------------------------------------------------
 	#
@@ -451,8 +511,8 @@ cmd_uninstall() {
 			rm -f /opt/etc/init/K56dnsmasq  /opt/etc/init/K09dnscrypt-proxy2
 			! [ -f "${SHADOWSOCKS_CONF}" ] && touch "${SHADOWSOCKS_CONF}"
 		else
-			[ -f "${SHADOWSOCKS_CONF}" ] && cp "${SHADOWSOCKS_CONF}" "${SHADOWSOCKS_CONF_BACKUP}"
-			[ -f "${KVAS_CONF_FILE}" ] && cp "${KVAS_CONF_FILE}" "${KVAS_CONFIG_BACKUP}"
+#			Сохраняем значимые файлы конфигурации
+			save_backups
 		fi
 		[ -z "${sure}" ] && print_line
 		echo "${mess}"
@@ -463,3 +523,4 @@ cmd_uninstall() {
 		echo "Удаление КВАСа завершено."
 	fi
 }
+

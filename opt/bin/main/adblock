@@ -102,15 +102,15 @@ load_adblock_hosts(){
 			continue
 		fi
 
-		cat < "${TMP_FILE}" | grep -vE "${grepv}" >> "${ADS_HOSTS_FILE}"
+		cat < "${TMP_FILE}" | grep -vE "${grepv}" >> "${ADBLOCK_HOSTS_FILE}"
 		progress_bar "${score}" "${total}" ""
 
 	done < "${ADS_SOURCES_FILE}"
 	printf "\n"
 	print_line
 
-	cat "${TMP_ADS_FILE}" "${ADS_HOSTS_FILE}" > "${TMP_FILE}"
-	mv "${TMP_FILE}"  "${ADS_HOSTS_FILE}"
+	cat "${TMP_ADS_FILE}" "${ADBLOCK_HOSTS_FILE}" > "${TMP_FILE}"
+	mv "${TMP_FILE}"  "${ADBLOCK_HOSTS_FILE}"
 
 
 	if [ -f ${ERROR_SOURCE} ]; then
@@ -130,8 +130,8 @@ load_adblock_hosts(){
 #--------------------------------------------------------------
 remove_duplicates(){
 	ready "Сортировка и удаление дубликатов"
-	nlines_all=$(cat < "${ADS_HOSTS_FILE}" | wc -l)
-	cat < "${ADS_HOSTS_FILE}" | sort -u > ${TMP_FILE}
+	nlines_all=$(cat < "${ADBLOCK_HOSTS_FILE}" | wc -l)
+	cat < "${ADBLOCK_HOSTS_FILE}" | sort -u > ${TMP_FILE}
 	nlines_sorted=$(cat < "${TMP_FILE}" | wc -l)
 	when_ok "ГОТОВО"
 }
@@ -144,17 +144,17 @@ remove_duplicates(){
 #--------------------------------------------------------------
 remove_white_hosts(){
 
-	nlines_amount=$(cat < "${ADS_HOSTS_FILE}" | wc -l)
+	nlines_amount=$(cat < "${ADBLOCK_HOSTS_FILE}" | wc -l)
 	if [ -f "${UNBLOCK_LIST_FILE}" ] && [ "$(cat < "${UNBLOCK_LIST_FILE}" | wc -l )" -ge 1 ]; then
 		exclude_com=".*.$(cat < "${UNBLOCK_LIST_FILE}" | tr -d '*' | sed ':a;N;$!ba;s/\n/$|.*./g')$"
 		ready "Удаляем хосты, находящиеся в списке разблокировки"
-		cat < "${TMP_FILE}" | grep -vE "${exclude_com}" > "${ADS_HOSTS_FILE}"
+		cat < "${TMP_FILE}" | grep -vE "${exclude_com}" > "${ADBLOCK_HOSTS_FILE}"
 		when_ok "ГОТОВО"
-		nlines_excluded_wl=$(cat < "${ADS_HOSTS_FILE}" | wc -l)
+		nlines_excluded_wl=$(cat < "${ADBLOCK_HOSTS_FILE}" | wc -l)
 		rm "${TMP_FILE}"
 
 	else
-		mv "${TMP_FILE}" "${ADS_HOSTS_FILE}"
+		mv "${TMP_FILE}" "${ADBLOCK_HOSTS_FILE}"
 		nlines_excluded_wl="${nlines_sorted}"
 	fi
 }
@@ -167,13 +167,13 @@ remove_white_hosts(){
 #--------------------------------------------------------------
 remove_exception_hosts(){
 
-	nlines_amount=$(cat < "${ADS_HOSTS_FILE}" | wc -l)
+	nlines_amount=$(cat < "${ADBLOCK_HOSTS_FILE}" | wc -l)
 	if [ -f "${ADBLOCK_LIST_EXCEPTION}" ] && [ "$(cat < "${ADBLOCK_LIST_EXCEPTION}" | wc -l )" -ge 1 ]; then
 		ready "Удаляем хосты, находящиеся в списке исключений"
 		exclude_all="$(get_separated_host_list "${ADBLOCK_LIST_EXCEPTION}")"
-		sed -i "/${exclude_all}/d" "${ADS_HOSTS_FILE}"
+		sed -i "/${exclude_all}/d" "${ADBLOCK_HOSTS_FILE}"
 		when_ok "ГОТОВО"
-		nlines_excluded_ex=$(cat < "${ADS_HOSTS_FILE}" | wc -l)
+		nlines_excluded_ex=$(cat < "${ADBLOCK_HOSTS_FILE}" | wc -l)
 	else
 		nlines_excluded_ex="${nlines_amount}"
 	fi
@@ -197,7 +197,7 @@ dnsmasq_test(){
 				logger "Рекламных хостов для блокировки добавлено $(dig_frm ${hosts}) шт."
 			else
 				when_bad "ОШИБКИ"
-				mess="Проверьте файл ${ADS_HOSTS_FILE} на ошибки"
+				mess="Проверьте файл ${ADBLOCK_HOSTS_FILE} на ошибки"
 				error "${mess}"; logger "${mess}"
 			fi
 		fi

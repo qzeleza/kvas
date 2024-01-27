@@ -68,7 +68,7 @@ update_ipset(){
 update_adblock(){
 
 	if [ -f '/opt/etc/init.d/S56dnsmasq' ]; then
-			if cat < '/opt/etc/dnsmasq.conf' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep -q "${ADS_HOSTS_FILE}" &> /dev/null; then
+			if cat < '/opt/etc/dnsmasq.conf' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep -q "${ADBLOCK_HOSTS_FILE}" &> /dev/null; then
 				ready "${prefix}Обновляем данные списка блокировки рекламы."
 				/opt/apps/kvas/bin/main/adblock &>/dev/null && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 			fi
@@ -2403,13 +2403,13 @@ cmd_clear_list() {
 				[Yy]*)
 					print_line
 					ready "Очищаем список разблокировки ..."
-					mv -f "${UNBLOCK_LIST_FILE}" "${KVAS_BACKUP_LIST_FILE}"
+					mv -f "${UNBLOCK_LIST_FILE}" "${KVAS_LIST_FILE_BACKUP}"
 					rm -f "${ADGUARD_IPSET_FILE}"
 					touch "${UNBLOCK_LIST_FILE}"
 					cmd_kvas_init  "update" &> /dev/null
 					[ $? = 0 ] && when_ok "ОЧИЩЕН" || when_bad "ОШИБКА"
 					print_line
-					warning "Предыдущий список разблокировки был сохранен в файл ${KVAS_BACKUP_LIST_FILE}"
+					warning "Предыдущий список разблокировки был сохранен в файл ${KVAS_LIST_FILE_BACKUP}"
 					break
 					;;
 				[Nn]*)
@@ -2543,7 +2543,7 @@ cmd_export_hosts() {
 	backup_name=${1}
 	if [ -z "${backup_name}" ]; then
 		error "Так как не задано имя файла для экспорта, то"
-		error "Сохраняем архив в файл ${KVAS_BACKUP_LIST_FILE}"
+		error "Сохраняем архив в файл ${KVAS_LIST_FILE_BACKUP}"
 	else
 		mkdir -p "$(dirname "${backup_name}")" && touch "${backup_name}" &> /dev/null
 	fi
@@ -2569,13 +2569,13 @@ cmd_show_list() {
 		if [ "${num_plus}" -eq 0 ]; then
 			echo -e "${RED}Список разблокировки пуст!${NOCL}"
 #			Если список хостов пуст, то проверяем есть ли архивная копия
-			if [ -f "${KVAS_BACKUP_LIST_FILE}" ] ; then
+			if [ -f "${KVAS_LIST_FILE_BACKUP}" ] ; then
 				print_line
 				warning "Обнаружена архивная копия списка разблокировки!"
 				answer=''; read_ynq_timer "Восстановить данные из архива или нет [Y/N]?" answer Y 10
 				if [ "${answer}" = q ] ; then exit_q; exit 1; fi
 				if echo "${answer}" | grep -qi y ; then
-					cp "${KVAS_BACKUP_LIST_FILE}" "${UNBLOCK_LIST_FILE}"
+					cp "${KVAS_LIST_FILE_BACKUP}" "${UNBLOCK_LIST_FILE}"
 					warning "Список разблокировки восстановлен из архивной копии."
 					print_line
 					print_host_list
@@ -2592,12 +2592,12 @@ cmd_show_list() {
 		fi
 	else
 #		Если список хостов не существует, то проверяем, есть ли архивная копия
-		if [ -f "${KVAS_BACKUP_LIST_FILE}" ] ; then
+		if [ -f "${KVAS_LIST_FILE_BACKUP}" ] ; then
 			warning "Обнаружена архивная копия списка разблокировки!"
 				answer=''; read_ynq_timer "Восстановить данные из архива (Y) или нет (N)?" answer Y 10
 				if [ "${answer}" = q ] ; then exit_q; exit 1; fi
 				if echo "${answer}" | grep -qi y ; then
-					cp "${KVAS_BACKUP_LIST_FILE}" "${UNBLOCK_LIST_FILE}"
+					cp "${KVAS_LIST_FILE_BACKUP}" "${UNBLOCK_LIST_FILE}"
 					warning "Список разблокировки восстановлен из архивной копии."
 					print_line
 					print_host_list

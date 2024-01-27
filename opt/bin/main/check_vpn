@@ -80,7 +80,7 @@ test_ip(){
 test_connection(){
 
         if echo "${ENTWARE_INTERFACE}" | grep -q ezcfg ; then
-        	ssr_ip=$(cat < /opt/etc/shadowsocks.json.kvas | grep '"server"'| sed 's/.*:.*"\(.*\)".*/\1/')
+        	ssr_ip=$(cat < "${SHADOWSOCKS_CONF}" | grep '"server"'| sed 's/.*:.*"\(.*\)".*/\1/')
         	# если пинг на сервер ssr не проходит или статус сервиса отличен от alive, то перезапускаем сервис ssr
             if ! ping -c1 -A | "${ssr_ip}" | grep -q 'seq=' || /opt/etc/init.d/S22shadowsocks status | grep -vq alive ; then
                         reset_ssr_connection

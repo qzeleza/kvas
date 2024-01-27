@@ -25,8 +25,6 @@ when_err() (echo -e "${RED}ОШИБКА${NOCL}" )
 
 package_url=$(curl -sH "Accept: application/vnd.github.v3+json" https://api.github.com/repos/qzeleza/kvas/releases/latest | sed -n 's/.*browser_download_url\": "\(.*\)\"/\1/p;'| tr -d ' ' |  sed '/^$/d')
 package_name=$(echo "${package_url}" | sed 's/.*\/\(.*ipk\)$/\1/')
-list_backup=/opt/etc/hosts.list.kvas
-hosts_list=/opt/etc/hosts.list
 kvas_conf=/opt/etc/kvas.conf
 
 # по умолчанию включаем режим обновления Кваса
@@ -113,8 +111,6 @@ if [ -f /opt/bin/kvas ] && kvas | grep -q 'Настройка пакета не 
 	rm_tmp_cache
 else
 	if [ -f /opt/bin/kvas ]; then
-		ready 'Сохраняем список разблокировки в архив...'
-		cp "${hosts_list}" "${list_backup}" &>/dev/null && when_ready || when_err
 		ver=$(grep "APP_VERSION=" "${kvas_conf}" | cut -d'=' -f2)
 		rel=$(grep "APP_RELEASE=" "${kvas_conf}" | cut -d'=' -f2)
 		ready "Удаляем предыдущую версию пакета  [${ver} ${rel}]..."
@@ -143,12 +139,6 @@ else
 
 	clear
 	kvas setup install "${UPDATE_MODE}" && {
-		[ -f "${list_backup}" ] && {
-			ready 'Восстанавливаем список разблокировки из архива...'
-			cp "${list_backup}" "${hosts_list}" && \
-			mv "${list_backup}" "/opt/etc/.kvas/backup" &>/dev/null && when_ready || when_err
-		}
-
 		echo 'Тестируем настройки...'
 		kvas test upgrade
 	}

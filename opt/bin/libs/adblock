@@ -12,7 +12,7 @@
 # ------------------------------------------------------------------------------------------
 
 . /opt/apps/kvas/bin/libs/main
-FLASHED_HOST_FILE=$(echo "${ADS_HOSTS_FILE}" | sed 's/\//\\\//g')
+FLASHED_HOST_FILE=$(echo "${ADBLOCK_HOSTS_FILE}" | sed 's/\//\\\//g')
 # ------------------------------------------------------------------------------------------
 #
 #	 Редактируем файл источников блокировки рекламы и нежелательных сайтов
@@ -20,7 +20,7 @@ FLASHED_HOST_FILE=$(echo "${ADS_HOSTS_FILE}" | sed 's/\//\\\//g')
 # ------------------------------------------------------------------------------------------
 cmd_ads_edit() {
 	exit_when_adguard_on status; [ "${status}" = 0 ] && {
-		nano "${ADS_SOURCES_LIST}" &&
+		nano "${ADBLOCK_SOURCES_LIST}" &&
 			{
 				cmd_ads_protect_on ask
 			}
@@ -62,14 +62,14 @@ cmd_ads_protect_on() {
 #			chmod +x '/opt/apps/kvas/bin/main/adblock'
 #		fi
 
-		if cat < '/opt/etc/dnsmasq.conf' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep -q "${ADS_HOSTS_FILE}" ; then
+		if cat < '/opt/etc/dnsmasq.conf' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep -q "${ADBLOCK_HOSTS_FILE}" ; then
 			ready "Блокировка рекламы уже "
 			when_ok "ВКЛЮЧЕНА"
 		else
 			ready "Блокировка рекламы"
 			sed -i '/addn-hosts='"${FLASHED_HOST_FILE}"'/d' "${DNSMASQ_CONFIG}"
 #			sed -i 's/\(^ADS_BLOCKER_ON=.*\)/\11/' '/opt/apps/kvas/bin/main/update'
-			echo "addn-hosts=${ADS_HOSTS_FILE}" >> '/opt/etc/dnsmasq.conf'
+			echo "addn-hosts=${ADBLOCK_HOSTS_FILE}" >> '/opt/etc/dnsmasq.conf'
 			OFF="ОТКЛЮЧЕНА.\nПроизошла непредвиденная ошибка."
 			[ $? = 0 ] && when_ok "ВКЛЮЧЕНА" || when_bad "${OFF}"
 			ads_request_to_upload "${perform_to_aks}"
@@ -89,7 +89,7 @@ cmd_ads_status() {
 	if [ -f "${ADS_MAIN_SCRIPT}" ]; then
 		ready "Блокировка рекламы "
 		if [ -f '/opt/etc/init.d/S56dnsmasq' ]; then
-			cat < '/opt/etc/dnsmasq.conf' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep -q "${ADS_HOSTS_FILE}" &> /dev/null
+			cat < '/opt/etc/dnsmasq.conf' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep -q "${ADBLOCK_HOSTS_FILE}" &> /dev/null
 			[ $? = 0 ] && when_ok "ВКЛЮЧЕНА" || when_bad "ОТКЛЮЧЕНА"
 		else
 			when_bad "ОТКЛЮЧЕНА"
@@ -111,30 +111,30 @@ ads_request_to_upload() {
 
 	answer="${1}"
 	sources_name_file=adblock.sources
-	if [ -f "${ADS_SOURCES_LIST}" ]; then
+	if [ -f "${ADBLOCK_SOURCES_LIST}" ]; then
 		ready "Загрузка источников рекламы по умолчанию"
-		cp -f "/opt/apps/kvas/etc/conf/${sources_name_file}" "${ADS_SOURCES_LIST}"
+		cp -f "/opt/apps/kvas/etc/conf/${sources_name_file}" "${ADBLOCK_SOURCES_LIST}"
 		[ $? = 0 ] && when_ok "УДАЧНО" || when_bad "С ОШИБКОЙ"
 	else
-		if [ -f "${ADS_SOURCES_LIST}.kvas" ]; then
+		if [ -f "${ADBLOCK_SOURCES_LIST_BACKUP}" ]; then
 			warning "Обнаружен архивный файл с источниками обновления рекламы."
 			[ "${answer}" = ask ] && read_ynq_timer "Восстановить данный файл" answer Y 12
 			if [ "${answer}" = q ] ; then exit_q; exit 1; fi
 			if echo "${answer}" | grep -qi y ; then
 				ready "Восстановление архива с источниками рекламы завершено"
-				mv -f "${ADS_SOURCES_LIST}.kvas" "${ADS_SOURCES_LIST}"
+				mv -f "${ADBLOCK_SOURCES_LIST_BACKUP}" "${ADBLOCK_SOURCES_LIST}"
 				[ $? = 0 ] && when_ok "УДАЧНО" || when_bad "С ОШИБКОЙ"
 			else
 				ready "Загрузка источников рекламы по умолчанию"
-				cp -f "/opt/apps/kvas/etc/conf/${sources_name_file}" "${ADS_SOURCES_LIST}"
+				cp -f "/opt/apps/kvas/etc/conf/${sources_name_file}" "${ADBLOCK_SOURCES_LIST}"
 				[ $? = 0 ] && when_ok "УДАЧНО" || when_bad "С ОШИБКОЙ"
 			fi
 		else
-			mkdir -p "$(echo "${ADS_SOURCES_LIST}" | sed 's/^\(.*\)\/.*.list/\1/')"
-			cp -f /opt/apps/kvas/etc/conf/adblock.sources "${ADS_SOURCES_LIST}"
+			mkdir -p "$(echo "${ADBLOCK_SOURCES_LIST}" | sed 's/^\(.*\)\/.*.list/\1/')"
+			cp -f /opt/apps/kvas/etc/conf/adblock.sources "${ADBLOCK_SOURCES_LIST}"
 		fi
 	fi
-	if [ -f "${ADS_HOSTS_FILE}" ]; then
+	if [ -f "${ADBLOCK_HOSTS_FILE}" ]; then
 		[ "${answer}" = ask ] && read_ynq_timer "Обновить списки блокировки рекламы" answer N 6
 		if [ "${answer}" = q ] ; then exit_q; exit 1; fi
 		echo "${answer}" | grep -qi y && /opt/apps/kvas/bin/main/adblock
@@ -185,12 +185,12 @@ cmd_ads_add_host(){
 			warning "Данный домен уже был ранее удален из списка блокировки рекламы."
 		else
 			echo "${host}" >> "${ADBLOCK_LIST_EXCEPTION}"
-			nlines_amount=$(cat < "${ADS_HOSTS_FILE}" | wc -l)
+			nlines_amount=$(cat < "${ADBLOCK_HOSTS_FILE}" | wc -l)
 			ready "Доменное имя ${host} удалено из списка блокировки рекламы"
 			exclude_all="$(get_separated_host_list "${ADBLOCK_LIST_EXCEPTION}")"
-			sed -i "/.*.${host}$/d" "${ADS_HOSTS_FILE}" && \
+			sed -i "/.*.${host}$/d" "${ADBLOCK_HOSTS_FILE}" && \
 			when_ok "УСПЕШНО" || when_bad "С ОШИБКОЙ"
-			nlines_excluded=$(cat < "${ADS_HOSTS_FILE}" | wc -l)
+			nlines_excluded=$(cat < "${ADBLOCK_HOSTS_FILE}" | wc -l)
 			diff_count=$((nlines_amount-nlines_excluded))
 			ready "Всего из списка блокировки рекламы удалено хостов"
 			when_ok "${diff_count}"
@@ -210,7 +210,7 @@ cmd_ads_del_from_skip_list(){
 
 		if [ -f "${ADBLOCK_LIST_EXCEPTION}" ] ; then
 			ready "Доменное имя ${host} удалено из списка исключений"
-			sed -i "/.*${host}$/d" "${ADS_HOSTS_FILE}" && when_ok "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+			sed -i "/.*${host}$/d" "${ADBLOCK_HOSTS_FILE}" && when_ok "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 			restart_dns_service
 		else
 			warning "Списка исключений еще не существует. "
@@ -232,8 +232,8 @@ ads_remove_white_hosts(){
 		exclude_com=".*.$(cat < "${UNBLOCK_LIST_FILE}" | tr -d '*' | sed ':a;N;$!ba;s/\n/$|.*./g')$"
 		ready "Удаляем хосты, находящиеся в списке разблокировки"
 		TMP_FILE="/opt/tmp/hosts.tmp"
-		cat < "${ADS_HOSTS_FILE}" | grep -vE "${exclude_com}" > "${TMP_FILE}"
-		mv -f "${TMP_FILE}" "${ADS_HOSTS_FILE}"
+		cat < "${ADBLOCK_HOSTS_FILE}" | grep -vE "${exclude_com}" > "${TMP_FILE}"
+		mv -f "${TMP_FILE}" "${ADBLOCK_HOSTS_FILE}"
 		when_ok "УСПЕШНО"
 	fi
 }
@@ -249,7 +249,7 @@ ads_remove_exception_hosts(){
 	if [ -f "${ADBLOCK_LIST_EXCEPTION}" ] && [ "$(cat < "${ADBLOCK_LIST_EXCEPTION}" | wc -l )" -ge 1 ]; then
 		ready "Удаляем хосты, находящиеся в списке исключений"
 		exclude_all="$(get_separated_host_list "${ADBLOCK_LIST_EXCEPTION}")"
-		sed -i "/${exclude_all}/d" "${ADS_HOSTS_FILE}"
+		sed -i "/${exclude_all}/d" "${ADBLOCK_HOSTS_FILE}"
 		when_ok "УСПЕШНО"
 	fi
 }
