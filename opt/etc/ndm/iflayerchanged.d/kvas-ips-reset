@@ -13,16 +13,43 @@
 
 #	Подключаем библиотеку с функциями обработки ndm
 . /opt/apps/kvas/bin/libs/ndm_d
-. /opt/apps/kvas/bin/libs/ndm
 
-if [ "${1}" = "hook" ] && [[ ${id} =~ 'PPTP|L2TP' ]]; then
 
-		# Отслеживаем, когда подключается к провайдеру через соединения типа PPTP или L2TP
-		[ "${layer}-${level}" = "ctrl-running" ] && {
-			# В случае наличия глобального флага у текущего
-			# соединения - переустанавливаем ipset правила
-			is_cli_iface_global "${id}" && cmd_vpn_iptable_reset
-			logger -t "КВАС"  "Соединение ${id} успешно подключено."
-		}
+tmp_file=/opt/tmp/sub_connection
 
+if [ "${1}" = "hook" ]; then
+#	 Действия для подключений PPTP|L2TP, которое подключено к провайдеру
+	 if [[ ${id} =~ 'PPTP|L2TP' ]] && is_cli_iface_global "${id}"; then
+		#	В случае отключения PPTP|L2TP соединения через основной интерфейс
+		#	проще говоря, в случае если подключение к интернету осуществляется
+		#	через PPTP|L2TP соединение и оно прервалось	- ставим флаг, в виде создания файла
+		case "${layer}-${level}" in
+			"ctrl-disabled" )
+				touch "${tmp_file}"
+			;;
+			"ctrl-running" )
+				[ -f "${tmp_file}" ] && {
+					# После отключения PPTP|L2TP (которое используется для подключения к провайдеру)
+					# и при наличии файла tmp_file - переустанавливаем ipset правила для восстановления
+					cmd_vpn_iptable_reset
+					logger -t "КВАС"  "Соединение ${id} успешно подключено, правила восстановлены!"
+					rm -f "${tmp_file}"
+				}
+			;;
+		esac
+	fi
+
+#	Действия для всех остальных подключений
+	if [ "${id}" = "$(inface_cli)" ]; then
+		case "${layer}-${level}" in
+			"ctrl-disabled" )
+				link_reboot &> /dev/null
+				logger -t "КВАС"  "Соединение ${id} прервано. Правила и талицы очищены."
+			;;
+			"ctrl-running" )
+				link_up &> /dev/null
+				logger -t "КВАС"  "Соединение ${id} установлено. Правила и талицы пересозданы."
+			;;
+		esac
+	fi
 fi

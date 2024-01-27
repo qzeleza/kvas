@@ -1,33 +1,40 @@
 #!/bin/sh
 
-link_up(){
-	ip4set_create_table
-	ip4_add_route_table
-	ip4_rule_set_priority
-	ip4_mark_vpn_network
-}
-
-link_down(){
-	ip4_firewall_flush_vpn_rules
-	ip4_rule_del_priority
-	ip4_flush_all_tables
-}
-
-link_reboot(){
-	link_down
-	link_up
-}
+. /opt/apps/kvas/bin/libs/ndm_d
 
 if [ "${1}" = "hook" ] && [ "${change}" = "link" ] ; then
-	. /opt/apps/kvas/bin/libs/ndm
-	if [ "${id}" = "$(inface_cli)" ]; then
-#		logger -t "КВАС"  "Запущен файл ${0} [${id}-${change}-${connected}-${link}-${up}]"
+
+#	 Действия для подключений PPTP|L2TP, которое подключено к провайдеру
+	 if [[ ${id} =~ 'PPTP|L2TP' ]] && is_cli_iface_global "${id}"; then
+		#	В случае отключения PPTP|L2TP соединения через основной интерфейс
+		#	проще говоря, в случае если подключение к интернету осуществляется
+		#	через PPTP|L2TP соединение и оно прервалось	- ставим флаг, в виде создания файла
 		case "${connected}-${link}-${up}" in
 			"no-down-down" )
-				link_reboot &> /dev/null
+				touch "${tmp_file}"
 			;;
 			"yes-up-up" )
-				link_up &> /dev/null
+				[ -f "${tmp_file}" ] && {
+					# После отключения PPTP|L2TP (которое используется для подключения к провайдеру)
+					# и при наличии файла tmp_file - переустанавливаем ipset правила для восстановления
+					cmd_vpn_iptable_reset
+					logger -t "КВАС"  "Соединение ${id} успешно подключено, правила восстановлены!"
+					rm -f "${tmp_file}"
+				}
+			;;
+		esac
+	fi
+
+#	Действия для всех остальных подключений
+	if [ "${id}" = "$(inface_cli)" ]; then
+		case "${connected}-${link}-${up}" in
+			"no-down-down" )
+				link_down &> /dev/null
+				logger -t "КВАС"  "Соединение ${id} прервано. Правила и талицы очищены."
+			;;
+			"yes-up-up" )
+				link_reboot &> /dev/null
+				logger -t "КВАС"  "Соединение ${id} установлено. Правила и талицы пересозданы."
 			;;
 		esac
 	fi

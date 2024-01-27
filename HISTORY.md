@@ -1,3 +1,6 @@
+## 1.1.7 release 4
+- Доработан код файла kvas-ips-reset для решения #[issue 97](https://github.com/qzeleza/kvas/issues/97)
+
 ## 1.1.7 release 3
 - Исправлена ошибка при импорте доменных имен из файла #[issue 100](https://github.com/qzeleza/kvas/issues/100)
 - Добавлена возможность автоматического добавления гостевых сетей при обновлении пакета
