@@ -482,10 +482,12 @@ ip4tbl_flush_rm_match_set(){
 		ip4save | grep "${route}" | grep -q "${chain}" && {
 			if [ -n "${interface}" ] && [ -n "${proxy_port}" ] ; then
 #					Для shadowsocks
-				iptab -t "${table}" -i "${interface}" -D "${route}" -p "${prot}" -m set --match-set ${table_name} dst -j "${chain}" --to-port "${proxy_port}" &>/dev/null
+				iptab -t "${table}" -i "${interface}" -D "${route}" -m set --match-set ${table_name} dst -j "${chain}" --to-port "${proxy_port}" &>/dev/null
+#				iptab -t "${table}" -i "${interface}" -D "${route}" -p "${prot}" -m set --match-set ${table_name} dst -j "${chain}" --to-port "${proxy_port}" &>/dev/null
 			else
 #					Для VPN
-				iptab -t "${table}" -D "${route}" -p "${prot}" -m set --match-set ${table_name} dst -j "${chain}" &>/dev/null
+#				iptab -t "${table}" -D "${route}" -p "${prot}" -m set --match-set ${table_name} dst -j "${chain}" &>/dev/null
+				iptab -t "${table}" -D "${route}" -m set --match-set ${table_name} dst -j "${chain}" &>/dev/null
 			fi
 		}
 #		done

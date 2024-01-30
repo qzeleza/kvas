@@ -321,7 +321,8 @@ cmd_install(){
 
 #	обновляем itpables
 	opkg update &> /dev/null
-	opkg install iptables &> /dev/null
+	opkg list-installed | grep -q 'nano ' && opkg remove nano &> /dev/null
+	opkg install iptables nano-full &> /dev/null
 
 	setup_print_welcome
 	mkdir -p "${KVAS_BACKUP_PATH}"
