@@ -2092,8 +2092,11 @@ cmd_dns_crypt_on() {
 			dns_cache_enabled=$(get_config_value DNS_CACHE_ENABLED)
 			ready "Шифрование DNS"
 			{
-				sed -i "s/\(^cache.=.\).*$/\1${dns_cache_enabled}/g" '/opt/etc/dnscrypt-proxy.toml'
+#				sed -i "s/\(^cache.=.\).*$/\1${dns_cache_enabled}/g" '/opt/etc/dnscrypt-proxy.toml'
+#				оставляем кеш выключенным за счет работы механизма кеширвоания dnsmasq
+				sed -i "s/\(^cache.=.\).*$/\1fasle/g" '/opt/etc/dnscrypt-proxy.toml'
 				sed -i "s/\(^require_dnssec.=.\).*$/\1true/g" '/opt/etc/dnscrypt-proxy.toml'
+				sed -i "s/\(^cache_min_ttl.=.\).*$/\10/g" '/opt/etc/dnscrypt-proxy.toml'
 
 				sed -i "/proxy-dnssec/d" /opt/etc/dnsmasq.conf
 				echo "proxy-dnssec" >> /opt/etc/dnsmasq.conf
@@ -2306,11 +2309,11 @@ cmd_add_one_host() {
 	if echo "${host}" | grep -q '\.' ; then
 		if echo "${clear_host}" | grep -qE "${ip_filter}*" ; then
 			if echo "${clear_host}" | grep -qE "^${ip_filter}/[0-9]{1,2}$|^${ip_filter}$|^${ip_filter}-${ip_filter}$"; then
-				res=$(host_add "${host}" "${reset}" "${wild}")
+
 				if [ "${wild}" = import ]; then
-					echo "${res}" | grep -q "ДОБАВЛЕН" && echo +
+					host_add "${host}" "${reset}" "${wild}" | grep -q "ДОБАВЛЕН" && echo +
 				else
-					echo "${res}"
+					host_add "${host}" "${reset}" "${wild}"
 				fi
 			else
 				if [ "${wild}" = import ]; then
@@ -2326,22 +2329,22 @@ cmd_add_one_host() {
 					warning "Производим замену ${clear_host} на ${host}"
 					print_line
 					sed -i "/^${clear_host}$/d" "${UNBLOCK_LIST_FILE}"
-					res=$(host_add "${host}" "${reset}" "${wild}")
+
 					if [ "${wild}" = import ]; then
-						echo "${res}" | grep -q "ДОБАВЛЕН" && echo 1
+						host_add "${host}" "${reset}" "${wild}" | grep -q "ДОБАВЛЕН" && echo 1
 					else
-						echo "${res}"
+						host_add "${host}" "${reset}" "${wild}"
 					fi
 				else
 					[ "${wild}" = import ] && echo -
 				fi
 
 			else
-				res=$(host_add "${host}" "${reset}" "${wild}")
+
 				if [ "${wild}" = import ]; then
-					echo "${res}" | grep -q "ДОБАВЛЕН" && echo +
+					host_add "${host}" "${reset}" "${wild}" | grep -q "ДОБАВЛЕН" && echo +
 				else
-					echo "${res}"
+					host_add "${host}" "${reset}" "${wild}"
 				fi
 			fi
 		fi
