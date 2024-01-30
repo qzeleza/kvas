@@ -132,7 +132,7 @@ ip4_firewall_dns_rules_set(){
 	interface=$(get_local_inface)
 	local_ip=$(get_router_ip)
 
-	for protocol in tcp udp ; do
+#	for protocol in tcp udp ; do
 		#	Если не заданы аргументы, то ничего не выполняем
 		if [ -n "${interface}" ] && [ -n "${local_ip}" ]; then
 			# если правила для tcp есть, то пропускаем их добавление
@@ -140,13 +140,14 @@ ip4_firewall_dns_rules_set(){
 				log_warning "Подключаем правила для корректной работы DNS трафика через 53 порт:"
 				log_warning "Интерфейс: ${interface}, IP: ${local_ip}, протокол: ${protocol}."
 
-				ip4tables PREROUTING -w -t nat -i "${interface}" -p "${protocol}" --dport ${DNS_PORT} -j DNAT --to "${local_ip}" &>/dev/null
+				ip4tables PREROUTING -w -t nat -i "${interface}" --dport ${DNS_PORT} -j DNAT --to "${local_ip}" &>/dev/null
+#				ip4tables PREROUTING -w -t nat -i "${interface}" -p "${protocol}" --dport ${DNS_PORT} -j DNAT --to "${local_ip}" &>/dev/null
 				# when_error "${?}" " ${IPv4} Ошибка при установке правил для DNS."
 			fi
 		else
 			log_error "При вызове ip4_firewall_dns_rules_set не были заданы обязательные аргументы."
 		fi
-	done
+#	done
 }
 
 
@@ -198,14 +199,14 @@ ip4_firewall_vpn_mark(){
 
 			ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -j CONNMARK --restore-mark &>/dev/null
 			ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -m mark --mark ${MARK_NUM} -j RETURN &>/dev/null
-			ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -p tcp --syn -j MARK --set-mark ${MARK_NUM} &>/dev/null
-			ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -p udp -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM} &>/dev/null
+			ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" --syn -j MARK --set-mark ${MARK_NUM} &>/dev/null
+			ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM} &>/dev/null
 			ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -j CONNMARK --save-mark &>/dev/null
 
-			ip4tables PREROUTING -t "${table}" -p tcp -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
-			ip4tables PREROUTING -t "${table}" -p udp -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
-			ip4tables OUTPUT     -t "${table}" -p tcp -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
-			ip4tables OUTPUT     -t "${table}" -p udp -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
+			ip4tables PREROUTING -t "${table}" -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
+#			ip4tables PREROUTING -t "${table}" -p udp -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
+			ip4tables OUTPUT     -t "${table}" -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
+#			ip4tables OUTPUT     -t "${table}" -p udp -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
 
 		} &>/dev/null
 #		when_error "${?}" " ${IPv4} Во время маркировки трафика для VPN соединений возникли ошибки."
@@ -227,8 +228,9 @@ ip4_firewall_mark_rules_tcp_udp_on(){
 			log_warning "Маркировка VPN подключений когда программное и аппаратное ускорение ОТКЛЮЧЕНО."
 			# Исключаем маркировку трафика для гостевой (в том числе) сети
 			_inface_ent=$(inface_ent)
-			ip4tables PREROUTING -t mangle -i "${_inface_ent}" -p tcp -m set --match-set ${table_name} dst -j MARK --set-mark ${MARK_NUM}
-			ip4tables PREROUTING -t mangle -i "${_inface_ent}" -p udp -m set --match-set ${table_name} dst -j MARK --set-mark ${MARK_NUM}
+#			ip4tables PREROUTING -t mangle -i "${_inface_ent}" -p tcp -m set --match-set ${table_name} dst -j MARK --set-mark ${MARK_NUM}
+#			ip4tables PREROUTING -t mangle -i "${_inface_ent}" -p udp -m set --match-set ${table_name} dst -j MARK --set-mark ${MARK_NUM}
+			ip4tables PREROUTING -t mangle -i "${_inface_ent}" -m set --match-set ${table_name} dst -j MARK --set-mark ${MARK_NUM}
 
 		}  &>/dev/null
 #		when_error "${?}" " ${IPv4} Возникла ошибка при маркировке трафика гостевой сети для tcp или udp."
@@ -301,8 +303,9 @@ ip4_add_selected_guest_to_ssr_network(){
 	port=$(get_config_value SSR_DNS_PORT)
 	if ! iptables-save | grep PREROUTING | grep "${net_pool}" | grep "${net_inface}" | grep unblock | grep REDIRECT | grep -q "${port}" ; then
 		log_warning "Подключаем правила маркировки гостевого трафика для SHADOWSOCKS."
-	   	iptables -A PREROUTING -t nat -s ${net_pool} -i ${net_inface} -p tcp -m set --match-set unblock dst -j REDIRECT --to-port ${port}
-	   	iptables -A PREROUTING -t nat -s ${net_pool} -i ${net_inface} -p udp -m set --match-set unblock dst -j REDIRECT --to-port ${port}
+#	   	iptables -A PREROUTING -t nat -s ${net_pool} -i ${net_inface} -p tcp -m set --match-set unblock dst -j REDIRECT --to-port ${port}
+#	   	iptables -A PREROUTING -t nat -s ${net_pool} -i ${net_inface} -p udp -m set --match-set unblock dst -j REDIRECT --to-port ${port}
+	   	iptables -A PREROUTING -t nat -s ${net_pool} -i ${net_inface} -m set --match-set unblock dst -j REDIRECT --to-port ${port}
 	fi
 
 
@@ -394,8 +397,8 @@ ip4_firewall_set_ssr_rules(){
 			# Исключаем любые обращения к собственному адресу SHADOWSOCKS
 			ip4tables ${SSR_IPTABLES_CHAIN} -t nat -d "${ssr_ip}" -j RETURN &>/dev/null
 
-			ip4tables PREROUTING -w -t nat -i "${interface}" -p tcp -m set --match-set "${table_name}" dst -j REDIRECT --to-port "${proxy_port}" &>/dev/null
-			ip4tables PREROUTING -w -t nat -i "${interface}" -p udp -m set --match-set "${table_name}" dst -j REDIRECT --to-port "${proxy_port}" &>/dev/null
+			ip4tables PREROUTING -w -t nat -i "${interface}" -m set --match-set "${table_name}" dst -j REDIRECT --to-port "${proxy_port}" &>/dev/null
+#			ip4tables PREROUTING -w -t nat -i "${interface}" -p udp -m set --match-set "${table_name}" dst -j REDIRECT --to-port "${proxy_port}" &>/dev/null
 
 		} &>/dev/null
 #		when_error "${?}" " ${IPv4} Возникла ошибка при установке правил iptable для Shadowsocks подключения"
@@ -449,16 +452,16 @@ ip4tbl_flush_rm_pre_out(){
 	table="${1}"; chain="${2}"; route="${3}"; icmp_arg=${4:-'no'}
 	if [ -n "${table}" ] && [ -n "${chain}" ] && [ -n "${route}" ] ; then
 		log_warning "Производим удаление стандартных правил в таблице ${table}, цепочке ${route} для ${chain}"
-
-		for prot in tcp udp icmp; do
-			ip4save | grep "${route}" | grep "${chain}" | grep -q "${prot}" && {
-				if [ "${icmp_arg}" = 'icmp' ] && [ "${prot}" = icmp ]; then
-					iptab -t "${table}" -D "${route}" ! -p "${prot}" -j "${chain}" &>/dev/null
-				else
-					iptab -t "${table}" -D "${route}" -p "${prot}" -j "${chain}" &>/dev/null
-				fi
-			}
-		done
+		ip4save | grep "${route}" | grep -q "${chain}" && iptab -t "${table}" -D "${route}" -j "${chain}" &>/dev/null
+#		for prot in tcp udp icmp; do
+#			ip4save | grep "${route}" | grep "${chain}" | grep -q "${prot}" && {
+#				if [ "${icmp_arg}" = 'icmp' ] && [ "${prot}" = icmp ]; then
+#					iptab -t "${table}" -D "${route}" ! -p "${prot}" -j "${chain}" &>/dev/null
+#				else
+#					iptab -t "${table}" -D "${route}" -p "${prot}" -j "${chain}" &>/dev/null
+#				fi
+#			}
+#		done
 	else
 		log_error "При вызове ip4tbl_flush_rm_pre_out не были заданы обязательные аргументы."
 	fi
@@ -474,17 +477,18 @@ ip4tbl_flush_rm_match_set(){
 	if [ -n "${table}" ] && [ -n "${chain}" ] && [ -n "${route}" ] ; then
 		log_warning "Производим удаление правил match-set в таблице ${table}, цепочке ${route} для ${chain}"
 
-		for prot in tcp udp; do
-			ip4save | grep "${route}" | grep "${chain}" | grep -q "${prot}" && {
-				if [ -n "${interface}" ] && [ -n "${proxy_port}" ] ; then
+#		for prot in tcp udp; do
+#		ip4save | grep "${route}" | grep "${chain}" | grep -q "${prot}" && {
+		ip4save | grep "${route}" | grep -q "${chain}" && {
+			if [ -n "${interface}" ] && [ -n "${proxy_port}" ] ; then
 #					Для shadowsocks
-					iptab -t "${table}" -i "${interface}" -D "${route}" -p "${prot}" -m set --match-set ${table_name} dst -j "${chain}" --to-port "${proxy_port}" &>/dev/null
-				else
+				iptab -t "${table}" -i "${interface}" -D "${route}" -p "${prot}" -m set --match-set ${table_name} dst -j "${chain}" --to-port "${proxy_port}" &>/dev/null
+			else
 #					Для VPN
-					iptab -t "${table}" -D "${route}" -p "${prot}" -m set --match-set ${table_name} dst -j "${chain}" &>/dev/null
-				fi
-			}
-		done
+				iptab -t "${table}" -D "${route}" -p "${prot}" -m set --match-set ${table_name} dst -j "${chain}" &>/dev/null
+			fi
+		}
+#		done
 	else
 		log_error "При вызове ip4tbl_flush_rm_match_set не были заданы обязательные аргументы."
 	fi
@@ -562,8 +566,9 @@ ikev2_net_access_del(){
 		   net_inface=$(get_entware_ikev2_inface)
 		   if iptables-save | grep PREROUTING | grep "${net_pool}" | grep "${net_inface}" | grep unblock | grep REDIRECT | grep -q "${port}" ; then
 
-				iptab -D PREROUTING -t nat -s ${net_pool} -p tcp -i ${net_inface} -m set --match-set unblock dst -j REDIRECT --to-port ${port}
-				iptab -D PREROUTING -t nat -s ${net_pool} -p udp -i ${net_inface} -m set --match-set unblock dst -j REDIRECT --to-port ${port}
+#				iptab -D PREROUTING -t nat -s ${net_pool} -p tcp -i ${net_inface} -m set --match-set unblock dst -j REDIRECT --to-port ${port}
+#				iptab -D PREROUTING -t nat -s ${net_pool} -p udp -i ${net_inface} -m set --match-set unblock dst -j REDIRECT --to-port ${port}
+				iptab -D PREROUTING -t nat -s ${net_pool} -i ${net_inface} -m set --match-set unblock dst -j REDIRECT --to-port ${port}
 
 		   fi
 		else
@@ -667,8 +672,8 @@ ip4_firewall_rm_ssr_selected_guest_net(){
 	guest_inface="${1}"
 	ssr_port=$(get_config_value "SSR_DNS_PORT")
 
-	iptab -D PREROUTING -t nat -p udp -i "${guest_inface}" -m set --match-set unblock dst -j REDIRECT --to-port "${ssr_port}"
-	iptab -D PREROUTING -t nat -p tcp -i "${guest_inface}" -m set --match-set unblock dst -j REDIRECT --to-port "${ssr_port}"
+#	iptab -D PREROUTING -t nat -p udp -i "${guest_inface}" -m set --match-set unblock dst -j REDIRECT --to-port "${ssr_port}"
+	iptab -D PREROUTING -t nat -i "${guest_inface}" -m set --match-set unblock dst -j REDIRECT --to-port "${ssr_port}"
 }
 
 

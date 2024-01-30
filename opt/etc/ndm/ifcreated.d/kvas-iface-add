@@ -18,7 +18,7 @@ if [ "${1}" = "hook" ] ; then
 
 	#	В случае, если созданное подключение еще нет в списке интерфейсов,
 	#	то добавляем его в файл /opt/etc/inface_equals
-    grep "${id}" "${iface_file}" || is_cli_iface_global "${id}" \
+    grep -q "${id}" "${iface_file}" || is_cli_iface_global "${id}" \
     || echo "${id}|${system_name}|$(get_iface_description "${id}")"  >> "${iface_file}"
 
 fi

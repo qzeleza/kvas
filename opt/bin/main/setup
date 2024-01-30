@@ -478,7 +478,9 @@ cmd_uninstall() {
 	echo -e "Удаление пакета ${GREEN}КВАС™${NOCL} версии ${GREEN}${APP_VERSION}${rel}${NOCL}..."
 
 
-	if [[ ${rm_type} =~ "${answer_yes}" ]] || [[ ${sure} =~ "${answer_yes}" ]] ; then
+	if [ -n "${rm_type}" ] \
+		|| [[ "${rm_type}" =~ "${answer_yes}" ]] \
+		|| [[ "${sure}" =~ "${answer_yes}" ]] ; then
 		answer=y; sure=y
 	else
 		print_line
