@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=kvas
 PKG_VERSION:=1.1.7
-PKG_RELEASE:=release_4
+PKG_RELEASE:=release_5
 PKG_BUILD_DIR:=$(BUILD_DIR)/${FULL_PACKAGE_NAME}_
 
 include $(INCLUDE_DIR)/package.mk
@@ -10,7 +10,7 @@ include $(INCLUDE_DIR)/package.mk
 define Package/kvas
 	SECTION:=utils
 	CATEGORY:=Keendev
-	DEPENDS:=+jq +curl +knot-dig +cron +bind-dig +dnsmasq-full +ipset +dnscrypt-proxy2 		+iptables +shadowsocks-libev-ss-redir +shadowsocks-libev-config +libpcre
+	DEPENDS:=+jq +curl +knot-dig +nano-full +cron +bind-dig +dnsmasq-full +ipset +dnscrypt-proxy2 		+iptables +shadowsocks-libev-ss-redir +shadowsocks-libev-config +libpcre
 	URL:=no
 	TITLE:=VPN клиент для обработки запросов по внесению хостов в белый список.
 	PKGARCH:=all

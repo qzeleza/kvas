@@ -1057,6 +1057,7 @@ dnsmasq_install(){
 
 	ready "Настройка файлов конфигурации dnsmasq"
 	sed -i "s/@LOCAL_IP/${local_ip}/g; s/@INFACE/${inface}/g; s/@UPLEVEL_DNS/${uplevel_dns}/g;" /opt/etc/dnsmasq.conf 1> /dev/null 2> "${ERROR_LOG_FILE}"
+	sed -i
 	ready_status "${?}" "Проблема при настройке файлов конфигурации dnsmasq"
 	# Если запуск функции был не при установке пакета Квас
 	[ -z "${is_install_stage}" ] && cmd_kvas_init "no"
@@ -1764,7 +1765,7 @@ show_interface_name_list_process(){
 			if echo "${answer}" | grep -qi y ; then
 				update_interface_name_list
 			fi
-		elif [ "${answer}" = no ] ; then
+		else
 			update_interface_name_list
 		fi
 	else
@@ -1783,9 +1784,7 @@ cmd_interface_change() {
 	answer="${1}"
 	is_install_stage="${2:-no}"
 
-#	пропускаем запрос о сканировании если параметр skip
-	[ "${answer}" = skip ] || show_interface_name_list_process "${answer}"
-
+	show_interface_name_list_process "${answer}"
 
 #	Отображаем список текущих интерфейсов с номерами по порядку и данными об их доступности
 	select_vpn_interface "${is_install_stage}"
@@ -2094,7 +2093,7 @@ cmd_dns_crypt_on() {
 			{
 #				sed -i "s/\(^cache.=.\).*$/\1${dns_cache_enabled}/g" '/opt/etc/dnscrypt-proxy.toml'
 #				оставляем кеш выключенным за счет работы механизма кеширвоания dnsmasq
-				sed -i "s/\(^cache.=.\).*$/\1fasle/g" '/opt/etc/dnscrypt-proxy.toml'
+				sed -i "s/\(^cache.=.\).*$/\1false/g" '/opt/etc/dnscrypt-proxy.toml'
 				sed -i "s/\(^require_dnssec.=.\).*$/\1true/g" '/opt/etc/dnscrypt-proxy.toml'
 				sed -i "s/\(^cache_min_ttl.=.\).*$/\10/g" '/opt/etc/dnscrypt-proxy.toml'
 

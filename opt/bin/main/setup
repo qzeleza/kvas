@@ -275,6 +275,7 @@ restore_backups(){
 	restore_backup "${ADBLOCK_HOSTS_FILE_BACKUP}" "${ADBLOCK_HOSTS_FILE}" "списка хостов для блокировки рекламы"
 	restore_backup "${ADBLOCK_SOURCES_LIST_BACKUP}" "${ADBLOCK_SOURCES_LIST}" "списка источников хостов для блокировки рекламы"
 #	restore_backup "${}" "${}" ""
+	print_line
 }
 
 
@@ -370,7 +371,6 @@ cmd_install(){
 		# ВОССТАНАВЛИВАЕМ ФАЙЛ СО СПИСКОМ РАЗБЛОКИРОВКИ
 		#------------------------------------------------------
 		restore_backups
-		print_line
 
 		set_config_value APP_VERSION "${new_ver}"
 		set_config_value APP_RELEASE "${new_rel}"
@@ -381,7 +381,8 @@ cmd_install(){
 
 #		Проверяем были ли внесены изменения в файл конфигурации
 		if [ -z "${inface_entware}" ] || [ -z "${cli_inface}" ] ; then
-			echo -e "${RED}Файл конфигурации КВАСа™ был изменен и сейчас не содержит данных о текущих интерфейсах!${NOCL}"
+			echo -e "${RED}Файл конфигурации КВАСа™ был изменен...${NOCL}"
+			echo -e "${RED}и сейчас не содержит данных о текущих интерфейсах!${NOCL}"
 			echo -e "${GREEN}Инициируем процедуру выбора интерфейсов...${NOCL}"
 			print_line
 			#	запрашиваем выбор интерфейса
@@ -473,14 +474,13 @@ cmd_install(){
 # ------------------------------------------------------------------------------------------
 cmd_uninstall() {
 
-	rm_type=${1}; auto=''; sure="${2}"
+	rm_type=${1}; sure="${2}"; auto=''
 	answer_yes='y|Y|Yes|yes|YES|да|Да|ДА'
 	[ -n "${APP_RELEASE}" ] && rel="-${APP_RELEASE}" || rel=''
 	echo -e "Удаление пакета ${GREEN}КВАС™${NOCL} версии ${GREEN}${APP_VERSION}${rel}${NOCL}..."
 
 
-	if [ -n "${rm_type}" ] \
-		|| [[ "${rm_type}" =~ "${answer_yes}" ]] \
+	if [ -n "${rm_type}" ] && [[ "${rm_type}" =~ "${answer_yes}" ]] \
 		|| [[ "${sure}" =~ "${answer_yes}" ]] ; then
 		answer=y; sure=y
 	else

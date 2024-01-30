@@ -93,9 +93,9 @@ ready 'Загружаем пакет...'
 } &>/dev/null && when_ready || when_err
 
 ! [ -f "${package_name}" ] && {
-	echo -e "${RED}Файл пакета не сохранен!${NOCL}"
-	echo -e "${RED}Проверьте свое интернет соединение!${NOCL}"
 	print_line
+	echo -e "${RED}Проверьте свое интернет соединение!${NOCL}"
+	echo -e "${RED}Файл пакета не сохранен!${NOCL}"
 	exit 1
 }
 
