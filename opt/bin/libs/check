@@ -536,6 +536,7 @@ cmd_state_checker() {
 #	Проверка наличия ip адресов хостов в таблице ipset - попытка номер раз
 	unblock_list_ipset_check
 	if [ "${NOT_IN_TABLE}" = true ]; then
+		print_line
 #		если хотя бы один из адресов не находится в таблице, то делаем проверку повторно
 		cmd_kvas_init
 		print_line

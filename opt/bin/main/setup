@@ -182,46 +182,49 @@ stop_crypt(){
 }
 
 #------------------------------------------------------
+# 	УДАЛЕНИЕ ФАЙЛОВ
+#------------------------------------------------------
+rm_file_or_dir(){
+	[ -e "${1}" ] && rm -rf "${1}"
+}
+#------------------------------------------------------
 # 	УДАЛЕНИЕ ФАЙЛОВ КОНФИГУРАЦИИ
 #------------------------------------------------------
 rm_package_files(){
 
 	full=${1:-no}
-	ready "Удаляем все файлы пакета Квас вместе с архивами"
 
 	if [ "${full}" = full ] ; then
-		[ -f /opt/etc/hosts.list ] && mv -f /opt/etc/hosts.list /opt/etc/hosts.list
-		[ -d /opt/tmp/adblock ] && rm -rf /opt/tmp/adblock
-		rm -fr /opt/etc/kvas*
-		rm -fr /opt/etc/hosts.list
-		rm -fr /opt/etc/ads_exception.list
-		rm -f /opt/etc/inface_equals
-		rm -f /opt/etc/cron.5mins/ipset.kvas /opt/etc/shadowsocks.json
-		rm -rf /opt/etc/.kvas
+		ready "Удаляем архивные копии пакета Квас" && {
+			rm_file_or_dir 	/opt/etc/hosts.list
+			rm_file_or_dir 	/opt/tmp/adblock
+			rm_file_or_dir 	/opt/etc/kvas*
+			rm_file_or_dir 	/opt/etc/ads_exception.list
+			rm_file_or_dir 	/opt/etc/inface_equals
+			rm_file_or_dir 	/opt/etc/cron.5mins/ipset.kvas
+			rm_file_or_dir	/opt/etc/shadowsocks.json
+			rm_file_or_dir	/opt/etc/.kvas
+		} && when_ok || when_bad
 	fi
-
-	[ -f /opt/etc/ndm/fs.d/100-vpn ] && rm -f /opt/etc/ndm/fs.d/100-vpn
-	[ -f /opt/etc/ndm/fs.d/100-ipset ] && rm -f /opt/etc/ndm/fs.d/100-ipset
-
-	[ -f /opt/etc/ndm/ifstatechanged.d/100-unblock-vpn ] && rm -f /opt/etc/ndm/ifstatechanged.d/100-unblock-vpn
-
-	[ -f /opt/etc/ndm/netfilter.d/100-vpn-mark ] && rm -f /opt/etc/ndm/netfilter.d/100-vpn-mark
-	[ -f /opt/etc/ndm/netfilter.d/100-proxy-redirect ] && rm -f /opt/etc/ndm/netfilter.d/100-proxy-redirect
-	[ -f /opt/etc/ndm/netfilter.d/100-dns-local ] && rm -f /opt/etc/ndm/netfilter.d/100-dns-local
-
-	[ -f /opt/etc/ndm/iflayerchanged.d/100-unblock-vpn ] && rm -f /opt/etc/ndm/iflayerchanged.d/100-unblock-vpn
-	[ -f /opt/etc/ndm/iflayerchanged.d/kvas-ips-reset ] && rm -f /opt/etc/ndm/iflayerchanged.d/kvas-ips-reset
-	[ -f /opt/etc/ndm/ifcreated.d/kvas-iface-add ] && rm -f /opt/etc/ndm/ifcreated.d/kvas-iface-add
-	[ -f /opt/etc/ndm/ifdestroyed.d/kvas-iface-del ] && rm -f /opt/etc/ndm/ifdestroyed.d/kvas-iface-del
-
-	[ -f /opt/etc/ndm/wan.d/internet-up ] && rm -f /opt/etc/ndm/wan.d/internet-up
-
-	rm -rf /opt/bin/kvas
-	rm -fr /opt/tmp/*kvas*
-	rm -fr /opt/etc/adblock
-	rm -fr /opt/tmp/host*
-	rm -f /opt/lib/opkg/info/kvas*
-	rm -fr /opt/apps/kvas
+	ready "Удаляем файлы пакета Квас" && {
+		rm_file_or_dir	/opt/etc/ndm/fs.d/100-vpn
+		rm_file_or_dir	/opt/etc/ndm/fs.d/100-ipset
+		rm_file_or_dir	/opt/etc/ndm/ifstatechanged.d/100-unblock-vpn
+		rm_file_or_dir	/opt/etc/ndm/netfilter.d/100-vpn-mark
+		rm_file_or_dir	/opt/etc/ndm/netfilter.d/100-proxy-redirect
+		rm_file_or_dir	/opt/etc/ndm/netfilter.d/100-dns-local
+		rm_file_or_dir	/opt/etc/ndm/iflayerchanged.d/100-unblock-vpn
+		rm_file_or_dir	/opt/etc/ndm/iflayerchanged.d/kvas-ips-reset
+		rm_file_or_dir	/opt/etc/ndm/ifcreated.d/kvas-iface-add
+		rm_file_or_dir	/opt/etc/ndm/ifdestroyed.d/kvas-iface-del
+		rm_file_or_dir	/opt/etc/ndm/wan.d/internet-up
+		rm_file_or_dir	/opt/bin/kvas
+		rm_file_or_dir	/opt/tmp/*kvas*
+		rm_file_or_dir	/opt/etc/adblock
+		rm_file_or_dir	/opt/tmp/host*
+#		rm_file_or_dir	/opt/lib/opkg/info/kvas*
+		rm_file_or_dir	/opt/apps/kvas
+	} && when_ok || when_bad
 
 }
 
@@ -312,6 +315,7 @@ setup_print_finish(){
 
 
 cmd_install(){
+
 #	Если режим обновления, то не спрашиваем про выбор соединения,
 #	а просто берем его из файла конфигурации Кваса
 	update_mode=${1:-false}
@@ -342,8 +346,6 @@ cmd_install(){
 	[ -f "${KVAS_START_FILE}" ] || cp -f /opt/apps/kvas/etc/init.d/S96kvas "${KVAS_START_FILE}"
 	chmod +x "${KVAS_START_FILE}"
 
-
-
 	#------------------------------------------------------
 	# Отключаем IPv6
 	#------------------------------------------------------
@@ -354,12 +356,10 @@ cmd_install(){
 	local_ip=$(get_router_ip)
 	set_config_value DNSMASQ_LISTEN_IP "${local_ip}"
 
-
 	#------------------------------------------------------
 	# Сейчас необходимо выбрать VPN интерфейс для работы пакета
 	#------------------------------------------------------
 	if [ "${update_mode}" ]; then
-
 
 		#------------------------------------------------------
 		# меняем номер старой версии пакета на новый
@@ -381,9 +381,8 @@ cmd_install(){
 
 #		Проверяем были ли внесены изменения в файл конфигурации
 		if [ -z "${inface_entware}" ] || [ -z "${cli_inface}" ] ; then
-			echo -e "${RED}Файл конфигурации КВАСа™ был изменен...${NOCL}"
-			echo -e "${RED}и сейчас не содержит данных о текущих интерфейсах!${NOCL}"
-			echo -e "${GREEN}Инициируем процедуру выбора интерфейсов...${NOCL}"
+			echo -e "${RED}Информация об интерфейсах отсутствует!${NOCL}"
+			echo -e "${RED}Инициируем процедуру выбора интерфейсов...${NOCL}"
 			print_line
 			#	запрашиваем выбор интерфейса
 			cmd_interface_change skip install
@@ -470,11 +469,14 @@ cmd_install(){
 #	 $1 - тип удаления
 #		<ПУСТО> - если без аргументов, то удаляем без удаления пакетов, но со всеми архивами
 #	 	full - удаляем полностью со всеми ранее установленными пакетами и файлами архивов
+#	 $2 - делаем ли запрос при удалении пакета о подтверждении удаления или нет
+#	 		если аргумент yes - то вопрос задаем,
+#	 		если иное - то пропускаем запрос на удаление пакета
 #
 # ------------------------------------------------------------------------------------------
 cmd_uninstall() {
 
-	rm_type=${1}; sure="${2}"; auto=''
+	rm_type=${1}; sure="${2}";
 	answer_yes='y|Y|Yes|yes|YES|да|Да|ДА'
 	[ -n "${APP_RELEASE}" ] && rel="-${APP_RELEASE}" || rel=''
 	echo -e "Удаление пакета ${GREEN}КВАС™${NOCL} версии ${GREEN}${APP_VERSION}${rel}${NOCL}..."
@@ -493,7 +495,6 @@ cmd_uninstall() {
 
 		if [ "${rm_type}" = full ]; then
 			mess="Удаляем все архивные данные и все зависимые пакеты..."
-			auto='--autoremove'
 			rm -f /opt/etc/init/K56dnsmasq  /opt/etc/init/K09dnscrypt-proxy2
 			! [ -f "${SHADOWSOCKS_CONF}" ] && touch "${SHADOWSOCKS_CONF}"
 		else
@@ -503,7 +504,7 @@ cmd_uninstall() {
 		fi
 		[ -z "${sure}" ] && print_line
 		echo "${mess}"
-		opkg remove kvas "${auto}" &> /dev/null #&& when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+		opkg remove kvas --autoremove &> /dev/null #&& when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 		print_line
 		set_previous_condition "${rm_type}"
 		print_line

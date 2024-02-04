@@ -59,7 +59,7 @@ read_ynq() {
 		fi
 	fi
 	while true; do
-		ready "${header}"
+		echo -en "${header}  "
 		read -r ynq
 		case "${ynq}" in
 			[Yy]* ) eval "${2}=y"; break; ;;

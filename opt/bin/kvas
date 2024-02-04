@@ -30,7 +30,6 @@ if  echo "${1}" | grep -qvEi 'uninstall|remove|rm' && [ -z "$(get_config_value "
 	echo "${2}" | grep -q "upgrade" && warning "Запускаем настройку пакета" || {
 		error "Настройка пакета не завершена, запускаем настройку пакета" "1"
 	}
-	print_line
 	cmd_install "${3}"
 	print_line
 	exit 0
@@ -149,7 +148,9 @@ case "${1}" in
 		;;
 	update | reset | init)	cmd_kvas_init
 		;;
-	upgrade)				/opt/apps/kvas/bin/main/upgrade "${2}" "${3}"
+	upgrade)				sh /opt/apps/kvas/bin/main/upgrade "${2}" "${3}"; exit 0
+		;;
+	rollback)				sh /opt/apps/kvas/bin/main/upgrade rollback "${2}"; exit 0
 		;;
 	version | ver)			version
 		;;

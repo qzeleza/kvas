@@ -951,7 +951,7 @@ bridge_inface_select() {
 
     	while true; do
 			print_line
-			ready "Выберите номер интерфейса [1-${total}, Q-выход]:"
+			echo -en "Выберите номер интерфейса [1-${total}, Q-выход]:  "
 			read -r num_inface
 			case "${num_inface}" in
 				[qQ]*) break ;;
@@ -1057,7 +1057,6 @@ dnsmasq_install(){
 
 	ready "Настройка файлов конфигурации dnsmasq"
 	sed -i "s/@LOCAL_IP/${local_ip}/g; s/@INFACE/${inface}/g; s/@UPLEVEL_DNS/${uplevel_dns}/g;" /opt/etc/dnsmasq.conf 1> /dev/null 2> "${ERROR_LOG_FILE}"
-	sed -i
 	ready_status "${?}" "Проблема при настройке файлов конфигурации dnsmasq"
 	# Если запуск функции был не при установке пакета Квас
 	[ -z "${is_install_stage}" ] && cmd_kvas_init "no"
@@ -1708,8 +1707,8 @@ is_vpn_interface_connected() {
 		if [ $? = 0 ]; then connected="on"; else connected="off"; fi
 	else
 #		status=$(get_value_interface_field "${cli_inface}" connected)
-		status=$(curl -s "${INFACE_REQUEST}" | jq -r '.[] | select(.id=="'"${cli_inface}"'" and .link=="up" and .connected=="yes" and .state=="up") | .state')
-#		status=$(get_value_interface_field "${cli_inface}" state)
+#		status=$(curl -s "${INFACE_REQUEST}" | jq -r '.[] | select(.id=="'"${cli_inface}"'" and .link=="up" and .connected=="yes" and .state=="up") | .state')
+		status=$(get_value_interface_field "${cli_inface}" state)
 		if [ "${status}" = 'up' ]; then connected="on"; else connected="off"; fi
 	fi
 	echo "${connected}"
@@ -1860,7 +1859,7 @@ select_vpn_interface() {
 	total=$(cat < "${INFACE_NAMES_FILE}" | wc -l)
 	while true; do
 		print_line
-		ready "${BLUE}Выберите номер варианта VPN соединения 1 - ${total} | S-скан. | Q-выход:${NOCL}"
+		echo -en "${BLUE}Выберите номер варианта VPN соединения 1 - ${total} | S-скан. | Q-выход:${NOCL} "
 		read -r num_vpn_inface
 		if ! echo "${num_vpn_inface}" | grep -qiE "[1-${total}qs]"; then
 			error "Введите цифру 1/${total} или S - сканирование, Q - выход."

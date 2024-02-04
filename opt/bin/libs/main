@@ -15,11 +15,16 @@ GREEN="\033[1;32m";
 BLUE="\033[36m";
 YELLOW="\033[33m";
 NOCL="\033[m";
+QST="${RED}?${NOCL}"
+
 DATE_FORMAT='+%d/%m/%Y %H:%M:%S'
 # ------------------------------------------------------------------------------------------
 #	Вспомогательные переменные для работы скрипта
 # ------------------------------------------------------------------------------------------
-LENGTH=68
+# Вычисляем текущую ширину экрана для печати линий определенной ширины
+length=$(stty size 2>/dev/null | cut -d' ' -f2)
+[ "${length}" -gt 80 ] && LENGTH=$((length*2/3)) || LENGTH=68
+
 PROGRESS_BAR_WIDTH=$((LENGTH-5))  # progress bar length in characters
 
 KVAS_BACKUP_PATH=/opt/etc/.kvas/backup
@@ -444,19 +449,39 @@ warning() {
 	size=$(diff_len "${_error}")
 	printf "%b%-${size}s%b\n" "${_error}"
 }
-
+#--------------------------------------------------------------------------------------------------------------
 when_ok() {
-  echo -e "${GREEN}${1}${NOCL}"
+#	Функция работает в купе с ready и применяется следующим образом для примера:
+#	ready 'Запускаем в работу...' {исполняемый код} && when_ok || when_err
+#	печатает слово ГОТОВО зеленым цветом на одной строке с выводимым ready сообщением
+# 	в случае, когда исполняемый код успешно выполнен
+	ok_text=${1:-ГОТОВО}
+	num_left=$((${#ok_text} + 1))
+	to_left="\033[${num_left}D"
+	echo -e "${to_left}${GREEN}${ok_text}${NOCL}"
 }
+
+#--------------------------------------------------------------------------------------------------------------
 when_bad() {
-  echo -e "${RED}${1}${NOCL}"
+#	Функция работает в купе с ready и применяется следующим образом для примера:
+#	ready 'Запускаем в работу...' {исполняемый код} && when_ok || when_err
+#	печатает слово ОШИБКА красным цветом на одной строке с выводимым ready сообщением
+# 	в случае, когда исполняемый код выполнен с ошибкой
+	err_text=${1:-ОШИБКА}
+	num_left=$((${#err_text} + 1))
+	to_left="\033[${num_left}D"
+	echo -e "${to_left}${RED}${err_text}${NOCL}"
 }
+
 when_alert() {
-  echo -e "${BLUE}${1}${NOCL}"
+	alert_text=${1}
+	num_left=$((${#alert_text} + 1))
+	to_left="\033[${num_left}D"
+	echo -e "${to_left}${BLUE}${alert_text}${NOCL}"
 }
 #функция перчатает заданное число раз один и тот же символ
 print_line() {
-	len=$((LENGTH + 15))
+	len=$((LENGTH))
 	printf "%${len}s\n" | tr " " "-"
 }
 please_repeat() {
@@ -525,7 +550,7 @@ read_ynq() {
 		fi
 	fi
 	while true; do
-		ready "${header}"
+		echo -en "${QST} ${header}  "
 		read -r ynq
 		case "${ynq}" in
 			[Yy]* ) eval "${2}=y"; break; ;;
@@ -557,7 +582,7 @@ read_ynq_timer() {
 		fi
 	fi
 	while true; do
-		ready "${header}"
+		echo -en "${QST} ${header}  "
 		read -t ${timeout} -r ynq
 		[ $? = 1 ] && {
 			ynq="${default}"
@@ -595,7 +620,7 @@ read_value() {
 	type="${3}"
 
 	while true; do
-		ready "${BLUE}${header}${NOCL} [Q-выход]"
+		echo -en "${BLUE}${header}${NOCL} [Q-выход]  "
 		if [ "${type}" = 'password' ]; then read -rs value; else read -r value; fi
 		if [ -z "${value}" ]; then
 				echo
