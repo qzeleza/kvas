@@ -12,25 +12,7 @@
 # ------------------------------------------------------------------------------------------
 
 #	Подключаем библиотеку с функциями обработки ndm
-. /opt/apps/kvas/bin/libs/ndm
-
-link_up(){
-	ip4set_create_table
-	ip4_add_route_table
-	ip4_rule_set_priority
-	ip4_mark_vpn_network
-}
-
-link_down(){
-	ip4_firewall_flush_vpn_rules
-	ip4_rule_del_priority
-	ip4_flush_all_tables
-}
-
-link_reboot(){
-	link_down
-	link_up
-}
+. /opt/apps/kvas/bin/libs/ndm_d
 
 if [ "${1}" = "hook" ] && echo "${id}" | grep -q "$(inface_cli)"; then
 

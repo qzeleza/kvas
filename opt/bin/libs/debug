@@ -427,7 +427,7 @@ cmd_print_debug() {
 	else
 		ready "Записываем данные отладки в файл ${1}..."
 		REP='_'
-		print_debug | sed 's/\[1;32m/'"${REP}"'/g; s/\[36m/'"${REP}"'/g; s/\[m/'"${REP}"'/g' > "${1}" && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+		print_debug | sed -E "s/\\\033\[[0-9;]*[a-zA-Z]//g" > "${1}" && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 	fi
 }
 

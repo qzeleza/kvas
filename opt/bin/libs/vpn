@@ -2321,7 +2321,7 @@ cmd_add_one_host() {
 				fi
 			fi
 		else
-			if cat < "${UNBLOCK_LIST_FILE}" | grep -qe "${clear_host}"; then
+			if cat < "${UNBLOCK_LIST_FILE}" | grep -qE "^${clear_host}"; then
 				[ "${wild}" = import ] || warning "Такой домен уже есть в списке разблокировки!"
 				if [ "${clear_host}" != "${host}" ] ; then
 					warning "Производим замену ${clear_host} на ${host}"

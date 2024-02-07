@@ -14,7 +14,6 @@
 #	Подключаем библиотеку с функциями обработки ndm
 . /opt/apps/kvas/bin/libs/ndm_d
 
-
 tmp_file=/opt/tmp/sub_connection
 
 if [ "${1}" = "hook" ]; then

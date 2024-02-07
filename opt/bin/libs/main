@@ -439,10 +439,12 @@ ready_red() {
 	printf "%b%-${size}s%b" "${error}"
 }
 error() {
-	[ -z "${2}" ] && nn='\n' || nn=''
+#	[ -z "${2}" ] && nn='\n' || nn=''
 	_error="${RED}${1}${NOCL}"
 	size=$(diff_len "${_error}")
-	printf "${nn}%b%-${size}s%b\n" "${_error}" 2>&1
+#	printf "${nn}%b%-${size}s%b\n" "${_error}" 2>&1
+	printf "%b%-${size}s%b\n" "${_error}" 2>&1
+	log_error "${_error}"
 }
 warning() {
 	_error="${GREEN}${1}${NOCL}"
