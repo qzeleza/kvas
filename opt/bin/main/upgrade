@@ -31,7 +31,7 @@ set_escapes(){
 has_internet_here(){
 #	Если в возвращаемых аргументах нет false значит интернет присутствует
 	! curl -s "localhost:79/rci/show/internet/status" \
-		| grep -E 'enabled|reliable|gateway-accessible|dns-accessible|internet' \
+		| grep -E 'reliable|gateway-accessible|dns-accessible|internet' \
 		| grep -q false
 }
 #--------------------------------------------------------------------------------------------------------------
@@ -73,7 +73,7 @@ when_ok() {
 #	печатает слово ГОТОВО зеленым цветом на одной строке с выводимым ready сообщением
 # 	в случае, когда исполняемый код успешно выполнен
 	ok_text=${1:-ГОТОВО}
-	num_left=$((${#ok_text} + 1))
+	num_left=$((${#ok_text} + 2))
 	to_left="\033[${num_left}D"
 	echo -e "${to_left}${GREEN}${ok_text}${NOCL}"
 }
@@ -286,8 +286,8 @@ else
 	if [ -f /opt/bin/kvas ]; then
 		ver=$(grep "APP_VERSION=" "${kvas_conf}" | cut -d'=' -f2)
 		rel=$(grep "APP_RELEASE=" "${kvas_conf}" | cut -d'=' -f2)
-		ready "Удаляем предыдущую версию пакета  [${ver} ${rel}]..."
-		kvas uninstall "${remove_mode}" yes &>/dev/null && when_ok || when_err
+		#ready "Удаляем предыдущую версию пакета  [${ver} ${rel}]..."
+		kvas uninstall "${remove_mode}" yes # && when_ok || when_err
 	fi
 fi
 

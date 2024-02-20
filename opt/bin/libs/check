@@ -475,7 +475,7 @@ ipset_site_visit_check() {
 	echo "На странице должен появиться IP Вашего VDS/VPN провайдера."
 	echo -n "После чего вновь перейдите сюда и нажмите на любую клавишу."
 	pause
-	/opt/apps/kvas/bin/main/update &> /dev/null
+	/opt/apps/kvas/bin/main/ipset &> /dev/null
 	print_line
 	ready "Таблица ipset"
 	if ipset list unblock | grep -vqEi '^[a-z]'; then

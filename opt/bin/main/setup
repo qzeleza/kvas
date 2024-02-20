@@ -90,7 +90,7 @@ restore_backup(){
 	if [ -f "${backup_file}" ]; then
 #		warning "Обнаружен архивный файл ${description}..."
 		log_in_file "Файл ${description} ВОССТАНОВЛЕН из архива."
-		ready "Файл ${description} восстановлен"
+		ready "Файл ${description} ${BLUE}восстановлен${NOCL}"
 		if mv -f "${backup_file}" "${dest_file}" ; then
 			when_ok "УСПЕШНО"
 		else
@@ -231,8 +231,8 @@ rm_package_files(){
 set_previous_condition(){
 
 	full=${1:-no}
-	ready "Удаляем файлы конфигурации..."
-	if rm_package_files "${full}" &>/dev/null ; then when_ok "УСПЕШНО"; else when_bad "ОШИБКА"; fi
+#	ready "Удаляем файлы конфигурации..."
+	rm_package_files "${full}" && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
 	if [ -f /opt/etc/crontab ]; then
 		ready "Удаляем данные из cron..."
@@ -505,8 +505,8 @@ cmd_uninstall() {
 		[ -z "${sure}" ] && print_line
 		echo "${mess}"
 		opkg remove kvas --autoremove &> /dev/null #&& when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-		print_line
-		set_previous_condition "${rm_type}"
+#		print_line
+#		set_previous_condition "${rm_type}"
 		print_line
 		echo "Удаление КВАСа завершено."
 	fi

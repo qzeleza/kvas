@@ -45,15 +45,9 @@ if [ "${type}" = "iptables" ] ; then
 				ip4_firewall_mark_rules_tcp_udp_on &> /dev/null
 			fi
 			;;
-		nat)
-			#	в случае наличия гостевой сети
-			if [ -n "${INFACE_GUEST_ENT}" ]; then
-				ip4_add_guest_to_vpn_network &> /dev/null
-			fi
-			;;
-		*)
+#		*)
 #			logger -t "КВАС" "Обработка таблицы ${table} пропущена, нет данных для обработки."
-			;;
+#			;;
 	esac
 fi
 

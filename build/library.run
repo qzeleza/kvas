@@ -119,7 +119,7 @@ copy_app_to_router(){
 	docker_key=$(cat < "$(get_key_file)")
 	ssh -p "${PORT}" "${ROUTER}" 'cat /opt/root/.ssh/authorized_keys' | grep -q "${docker_key}" \
 	|| copy_ssh_keys_to_router
-	set -x
+	#set -x
 	echo "Загрузка и установки пакета на роутер..."
 	ssh -p "${PORT}" "${ROUTER}" "${kvas_install}"
 #	ssh -p "${PORT}" "${ROUTER}" '[ -d /opt/packages ] || mkdir -p /opt/packages'
