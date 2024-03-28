@@ -28,27 +28,10 @@
 if [ "${type}" = "iptables" ] ; then
 
 	. /opt/apps/kvas/bin/libs/ndm
-#	logger -t "КВАС" "Запущен файл ${0} [type=${type} и table=${table}]"
-
 	# Создаем таблицу unblock для ipset ip4
 	ip4set_create_table &> /dev/null
-
-	case "${table}" in
-		mangle)
-			if fastnet_enabled ; then
-				#log_warning "${app}::Проверка пройдена -> программное и аппаратное ускорение ПОДКЛЮЧЕНО."
-				# Без отключения ускорителей fastnat и hwnat
-				ip4_firewall_vpn_mark &> /dev/null
-			else
-				#log_warning "${app}::Проверка пройдена -> программное и аппаратное ускорение ОТКЛЮЧЕНО!"
-				# С отключением fastnat и ускорителей hwnat
-				ip4_firewall_mark_rules_tcp_udp_on &> /dev/null
-			fi
-			;;
-#		*)
-#			logger -t "КВАС" "Обработка таблицы ${table} пропущена, нет данных для обработки."
-#			;;
-	esac
+	#	маркируем правила
+	[ "${table}" = mangle ] && ip4_mark_vpn_network
 fi
 
 

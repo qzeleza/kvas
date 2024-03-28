@@ -294,6 +294,7 @@ fi
 #--------------------------------------------------------------------------------------------------------------
 ready "Устанавливаем новую версию пакета [${version}]..."
 {
+	opkg update &> /dev/null
 	opkg install "/opt/packages/${package_name}"
 
 } &>/dev/null && when_ok || when_err
@@ -305,7 +306,7 @@ if ! [ -f /opt/bin/kvas ] ; then
 # 	если файл пакета не найден после установки пакета, значит произошла ошибка
 	print_error "Пакет установлен некорректно - отсутствуют исполняемые файлы!"
 	echo -e "${GREEN}Попробуйте установить пакет вручную командой "
-	echo -e "${BLUE}'opkg install /opt/packages/${package_name}'${NOCL}"
+	echo -e "${BLUE}'opkg update && opkg install /opt/packages/${package_name}'${NOCL}"
 	print_line
 	exit 1
 else

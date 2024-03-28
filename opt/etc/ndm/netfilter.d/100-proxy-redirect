@@ -30,6 +30,7 @@ if [ "${type}" = "iptables" ] && echo "${table}" | grep -qE 'nat|mangle' ; then
 	#	 создаем правила для shadowsocks подключения
 		ip4_firewall_ssr_prune &> /dev/null
 		ip4_firewall_set_ssr_rules &> /dev/null
+		ip4_add_guest_to_ssr_network &> /dev/null
 	fi
 
 fi

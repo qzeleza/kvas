@@ -17,7 +17,7 @@ if [ "${1}" = "hook" ] && [ "${change}" = "link" ] ; then
 				[ -f "${tmp_file}" ] && {
 					# После отключения PPTP|L2TP (которое используется для подключения к провайдеру)
 					# и при наличии файла tmp_file - переустанавливаем ipset правила для восстановления
-					cmd_vpn_iptable_reset
+					cmd_vpn_iptable_reset &> /dev/null
 					logger -t "КВАС"  "Соединение ${id} успешно подключено, правила восстановлены!"
 					rm -f "${tmp_file}"
 				}
@@ -29,7 +29,9 @@ if [ "${1}" = "hook" ] && [ "${change}" = "link" ] ; then
 	if [ "${id}" = "$(inface_cli)" ]; then
 		case "${connected}-${link}-${up}" in
 			"no-down-down" )
-				link_down &> /dev/null
+				cmd_vpn_iptable_reset &> /dev/null
+#				в качестые экперимента
+#				link_down &> /dev/null
 				logger -t "КВАС"  "Соединение ${id} прервано. Правила и талицы очищены."
 			;;
 			"yes-up-up" )

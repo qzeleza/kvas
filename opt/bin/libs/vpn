@@ -3,6 +3,8 @@
 . /opt/apps/kvas/bin/libs/ndm
 . /opt/apps/kvas/bin/libs/adblock
 
+# Убираем ошибки связанные с отсутствием /opt/etc/hosts
+[ -f /opt/etc/hosts ] || touch /opt/etc/hosts
 # ------------------------------------------------------------------------------------------
 #
 # 	Добавляет хосты в белый список, доступ к сайтам которого
@@ -471,6 +473,8 @@ adguardhome_setup() {
 	else
 		when_bad "СБОЙ";
 		error "Возникла ошибка при установке AdGuard Home в качестве основного DNS сервера."
+		print_line
+		cat < "${ADGUARDHOME_LOG}" | tail
 		exit 1
 	fi
 }
@@ -567,7 +571,7 @@ adguardhome_check_config() {
 
 #			Если случайно был уже запущен какой либо экземпляр процесса AdGuardHome, то удаляем его из памяти
 			pid_to_kill=$(ps -w | grep 'AdGuardHome -l /opt/var/log/AdGuardHome.log' | grep -v 'grep' | cut -d' ' -f1)
-			[ -n "${pid_to_kill}" ] && kill -9 "${pid_to_kill}"
+			[ -n "${pid_to_kill}" ] && kill -9 "${pid_to_kill}" &> /dev/null
 #			Запускаем новую чистую настройку AdGuardHome
 			/opt/bin/AdGuardHome -c "${tmp_conf}" -l "${log_file}" &
 			sleep 2
@@ -606,6 +610,7 @@ adguardhome_install_locally() {
 
 		[ -f /opt/etc/hosts ] && cp /opt/etc/hosts "${KVAS_BACKUP_PATH}/hosts"
 
+		opkg update &> /dev/null
 		opkg remove adguardhome-go --force-depends &> /dev/null
 		opkg install adguardhome-go --force-maintainer  &> /dev/null
 		. /opt/apps/kvas/bin/libs/update
@@ -888,7 +893,7 @@ bridge_access_add() {
         if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
 #           Если доступен ADGUARDHOME
 			cat < "${ADGUARDHOME_CONFIG}" | grep -q '- '"${guest_net_ip}" || \
-				sed -i '/bind_hosts/,/port/ s/.*\(port.*\)/    - '"${guest_net_ip}"'\n\1/1' "${ADGUARDHOME_CONFIG}"
+				sed -i '/bind_hosts/,/port/ s/.*\(port.*\)/    - '"${guest_net_ip}"'\n  \1/1' "${ADGUARDHOME_CONFIG}"
         else
 #           Если сейчас работает только dnsmasq
 			cat < "${DNSMASQ_CONFIG}" | grep -q "listen-address=${guest_net_ip}" ||
@@ -899,8 +904,7 @@ bridge_access_add() {
 }
 
 
-bridge_vpn_access_add(){
-
+bridge_vpn_access_add() {
 	guest_bridge_id=${1}
 
 	if [ -n "${guest_bridge_id}" ]; then
@@ -908,10 +912,12 @@ bridge_vpn_access_add(){
 			ikev2_net_access_add
 		else
 			bridge_access_add "${guest_bridge_id}"
+
+			if has_ssr_enable; then
+				ip4_add_selected_guest_to_ssr_network "${guest_bridge_id}"
+			fi
 		fi
 	fi
-
-
 }
 
 # ------------------------------------------------------------------------------------------
@@ -1037,6 +1043,7 @@ dnsmasq_install(){
 			ready "Устанавливаем пакет dnsmasq..."
 			if ! [ -f /opt/etc/init.d/S56dnsmasq ]; then
 #				то в этом случае можем попытаться удалять или устанавливать пакеты
+				opkg update 1> /dev/null 2> "${ERROR_LOG_FILE}"
 				opkg remove dnsmasq-full --force-depends 1> /dev/null 2> "${ERROR_LOG_FILE}"
 				opkg install dnsmasq-full --force-maintainer 1> /dev/null 2> "${ERROR_LOG_FILE}"
 				when_error "${?}" "Ошибка при установке пакета dnsmasq"
@@ -1300,7 +1307,7 @@ active_backup_config(){
 		[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 	else
 		ready "Восстанавливаем файл конфигурации shadowsocks из архива   "
-		mv -f "${SHADOWSOCKS_CONF}.kvas" "${SHADOWSOCKS_CONF}"  &>/dev/null
+		cp "${SHADOWSOCKS_CONF}.kvas" "${SHADOWSOCKS_CONF}"  &>/dev/null
 		if [ ${?} = 0 ]; then
 			when_ok "УСПЕШНО";
 		else
@@ -1332,9 +1339,9 @@ shadowsocks_backup() {
 			fi
 		fi
 		if [ -f "${SHADOWSOCKS_CONF}" ] ; then
-			grep -qE '""|@' "${SHADOWSOCKS_CONF}" && grep -qE '127.0.0.1|barfoo!' "${SHADOWSOCKS_CONF}" && shadowsocks_read_config
+			grep -qE '""|@|127.0.0.1|barfoo!' "${SHADOWSOCKS_CONF}" && shadowsocks_read_config
 		else
-			if [ -f "${SHADOWSOCKS_CONF}.kvas" ] ; then
+			if [ -f "${SHADOWSOCKS_CONF}.kvas" ] && grep -qvE '""|@|127.0.0.1|barfoo!' "${SHADOWSOCKS_CONF}" ; then
 				active_backup_config
 			else
 				shadowsocks_read_data
@@ -1423,6 +1430,48 @@ cmd_shadowsocks_read_new_data() {
 #	fi
 
 }
+
+
+shadowsocks_read_link(){
+
+
+	SSR_LINK=""; SSR_SERVER_IP=""; SSR_SERVER_PORT=""; SSR_SERVER_CRYPT=""; SSR_SERVER_PASSWD=""
+
+	read_value "Ведите кодированную ссылку в формате ss://:" SSR_LINK
+	[ "${SSR_LINK}" = q ] && exit 1
+
+	if [[ -n "${SSR_LINK}" && "${#SSR_LINK}" -gt 6 ]] ; then
+		password=$(echo "${SSR_LINK}" | grep -oP "(?<=ss://).*?(?=@)" | base64 -d )
+		SSR_SERVER_PASSWD=$(echo "${password}" | cut -d ":" -f 2)
+		SSR_SERVER_CRYPT=$(echo "${password}" | cut -d ":" -f 1)
+		SSR_SERVER_IP=$(echo "${SSR_LINK}" | grep -oP "(?<=@).*?(?=:)")
+		SSR_SERVER_PORT=$(echo "${SSR_LINK}" | cut -d ":" -f 3 | cut -d "#" -f 1)
+	else
+		error "Ссылка пуста или слишком коротка! Введите корректную ссылку!"  nl
+		exit 1
+	fi
+	if [ -z "${SSR_SERVER_PASSWD}" ] || [ -z "${SSR_SERVER_CRYPT}" ] || [ -z "${SSR_SERVER_IP}" ] || [ -z "${SSR_SERVER_PORT}" ] ; then
+		error "Извлеченные данные не корректны! Введите ссылку с корректными данными!"  nl
+		exit 1
+	else
+
+		if [ -f "${SHADOWSOCKS_CONF}" ] ; then
+			sed -i "s/\(\"server\":\).*/\1 \"${SSR_SERVER_IP}\",/; 			\
+					s/\(\"server_port\":\).*/\1 ${SSR_SERVER_PORT},/; 		\
+					s/\(\"local_port\":\).*/\1 $(get_config_value SSR_DNS_PORT),/; 		\
+					s/\(\"password\":\).*/\1 \"${SSR_SERVER_PASSWD}\",/; 	\
+					s/\(\"method\":\).*/\1 \"${SSR_SERVER_CRYPT}\",/;" 		\
+				"${SHADOWSOCKS_CONF}"
+		else
+			print_line
+			error "Не обнаружен файл ${SHADOWSOCKS_CONF}." nl
+			print_line
+			exit 0
+		fi
+	fi
+}
+
+
 # ------------------------------------------------------------------------------------------
 #
 #	Отключаем shadowsocks клиента
@@ -1430,17 +1479,30 @@ cmd_shadowsocks_read_new_data() {
 # ------------------------------------------------------------------------------------------
 shadowsocks_read_data() {
 
-	echo "Чтобы продолжить работу необходимо ввести следующие данные:"
-	echo -e "${GREEN}Хост${NOCL} сервера, его ${GREEN}порт, пароль доступа${NOCL} и ${GREEN}метод шифрования${NOCL}"
-
-	echo -e "${BLUE}Пожалуйста, последовательно введите эти данные ниже.${NOCL}"
-	print_line
-
 	#	устанавливаем новую конфигурацию shadowsocks
 	cp -f "/opt/apps/${APP_NAME}/etc/conf/shadowsocks.json" "${SHADOWSOCKS_CONF}"
 
+	answer=''; read_ynq_timer "У Вас имеется кодированная ss:// ссылка для ввода данных" answer n 6
+	if [ "${answer}" = q ] ; then exit_q; exit 1; fi
+
+	{
+		if echo "${answer}" | grep -qi y ; then
+			shadowsocks_read_link
+		else
+
+			echo "Чтобы продолжить работу необходимо ввести следующие данные:"
+			echo -e "${GREEN}Хост${NOCL} сервера, его ${GREEN}порт, пароль доступа${NOCL} и ${GREEN}метод шифрования${NOCL}"
+
+			echo -e "${BLUE}Пожалуйста, последовательно введите эти данные ниже.${NOCL}"
+			print_line
+
+			shadowsocks_read_config
+		fi
 	# читаем данные и Производим замену в библиотеке ndm основных значения интерфейсов
-	shadowsocks_read_config && 	ndm_interface_change "$(get_ssr_entware_interface)" "shadowsocks"
+	} && ndm_interface_change "$(get_ssr_entware_interface)" "shadowsocks"
+
+
+
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -1484,7 +1546,7 @@ shadowsocks_off() {
 	ready "Интерфейс shadowsocks отключен "
 	#	сохраняем файл конфигурации shadowsocks
 	/opt/etc/init.d/S22shadowsocks stop &> /dev/null
-	mv -f "${SHADOWSOCKS_CONF}" "${SHADOWSOCKS_CONF}.kvas" &> /dev/null
+	[ -f "${SHADOWSOCKS_CONF}" ] || mv -f "${SHADOWSOCKS_CONF}" "${SHADOWSOCKS_CONF}.kvas" &> /dev/null
 	rm -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect"
 	cmd_shadowsocks_iptable_flush &> /dev/null
 	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
@@ -1631,11 +1693,10 @@ EOF
 	)
 	# проходимся по каждому интерфейсу
 	# ВНИМАНИЕ! inface_list - все маленькими буквами!!!
-	count=1
+	count=1; delay=4
 	list_len=$(echo "${inface_list}" | wc -w)
 	for inface_cli in ${inface_list}; do
 #		переподключаем текущее соединение
-		[ "${list_len}" = "${count}" ] && delay=4 || delay=2
 		reset_connection "${inface_cli}" "${delay}"
 		# получаем описание интерфейса
 		description=$(get_value_interface_field "${inface_cli}" description | sed 's|\/|\\/|g')
@@ -1829,19 +1890,7 @@ switch_vpn_on(){
 		ln -s /opt/apps/kvas/bin/main/check_vpn /opt/etc/cron.5mins/check_vpn && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 	}
 
-	#	Проверяем подключены ли гостевые сети
-#	guest_net_list=$(get_config_value INFACE_GUEST_ENT | tr ' ' ',')
-#	if [ -n "${guest_net_list}" ] ; then
-#		print_line
-#		echo -e "${RED}ВНИМАНИЕ!${NOCL}"
-#		echo "Обнаружены гостевые сети: ${guest_net_list}, которые были добавлены для "
-#		echo "предыдущего VPN соединения. Для подключения клиентов этих сетей "
-#		echo "к выбранному VPN соединению необходимо их удалить и снова добавить."
-#		echo "С этой целью воспользуйтесь следующими командами:"
-#		echo -e "1. ${GREEN}kvas vpn net del${NOCL}"
-#		echo -e "2. ${GREEN}kvas vpn net add${NOCL}"
-#		print_line
-#	fi
+
 }
 
 # ------------------------------------------------------------------------------------------
@@ -2038,6 +2087,7 @@ dns_crypt_install() {
 		#		при его отсутствии - устанавливаем пакет
 				if ! [ -f /opt/etc/init.d/S09dnscrypt-proxy2 ]; then
 					ready "Устанавливаем пакет dnscrypt-proxy2..."
+					opkg update &> /dev/null
 					opkg remove dnscrypt-proxy2 --force-depends 1> /dev/null 2> "${ERROR_LOG_FILE}"
 					opkg install dnscrypt-proxy2 --force-maintainer 1> /dev/null 2> "${ERROR_LOG_FILE}"
 					when_error "${?}" "Ошибка при установке пакета dnsmasq"

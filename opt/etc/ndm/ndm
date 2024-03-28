@@ -74,6 +74,9 @@ cmd_vpn_iptable_reset() {
 		ready "Переустановка iptables для vpn завершена"
 		cmd_vpn_iptable_flush  &> /dev/null
 
+#		В качестве экперимента !!!!!
+		ip4set_create_table &> /dev/null
+
 		ip4_add_route_table &> /dev/null
 	#	Устанавливаем приоритет таблицы
 		ip4_rule_set_priority &> /dev/null
@@ -118,8 +121,8 @@ add_ikev2_net_to_config(){
 # ------------------------------------------------------------------------------------------
 ip4_flush_cache(){
 	log_warning "Проводим очистку кеша маршрутизации."
-	ip route flush cache 1> /dev/null 2> "${ERROR_LOG_FILE}" \
-		|| error "[${FUNCNAME}] Возникла ошибка при очистки кеша маршрутизации."
+	ip route flush cache 1> /dev/null 2> "${ERROR_LOG_FILE}"
+#		|| error "[${FUNCNAME}] Возникла ошибка при очистки кеша маршрутизации."
 }
 
 
@@ -138,8 +141,8 @@ ip4_firewall_dns_rules_set(){
 			if ! ip4save | grep -q "${protocol} \-\-dport ${DNS_PORT} \-j DNAT" ; then
 				log_warning "Подключаем правила для корректной работы DNS трафика через 53 порт:"
 				log_warning "Интерфейс: ${interface}, IP: ${local_ip}, протокол: ${protocol}."
-				ip4tables PREROUTING -w -t nat -i "${interface}" --dport ${DNS_PORT} -j DNAT --to "${local_ip}" &>/dev/null \
-					|| error "[${FUNCNAME}] Возникла ошибка в функции при установке правил iptables."
+				ip4tables PREROUTING -w -t nat -i "${interface}" --dport ${DNS_PORT} -j DNAT --to "${local_ip}" &>/dev/null
+#					|| error "[${FUNCNAME}] Возникла ошибка в функции при установке правил iptables."
 			fi
 		else
 			log_error "При вызове ip4_firewall_dns_rules_set не были заданы обязательные аргументы."
@@ -155,19 +158,14 @@ ip4_firewall_exclude_locals(){
 	chain_name=${1}; table=${2};
 #	Если не заданы аргументы, то ничего не выполняем
 	if [ -n "${chain_name}" ] && [ -n "${table}" ]; then
-#		log_warning "Подключаем правила для таблицы ${table} и цепочки ${chain_name}, которые исключают из работы локальные запросы."
-	#	> "${ERROR_LOG_FILE}"
-	#	{
 		iptab -S ${VPN_IPTABLES_CHAIN} -t "${table}" &>/dev/null | grep -q '\-N' || iptab -N ${VPN_IPTABLES_CHAIN} -t "${table}" &>/dev/null
-
 		while read -r _net || [ -n "${_net}" ]; do
 			[ -z "${_net}" ] && continue
 			#  пропускаем строки с комментариями
 			[ ${_net:0:1} = '#' ] && continue
 			# удаляем из строк комментарии - все что встречается после символа # и сам символ
 			_net=$(echo "${_net}" | sed 's/#.*$//g' | tr -s ' ' )
-			ip4tables "${chain_name}" -t "${table}" -d "${_net}" -j RETURN &>/dev/null \
-				|| error "[${FUNCNAME}] Возникла ошибка при установке правил iptables"
+			ip4tables "${chain_name}" -t "${table}" -d "${_net}" -j RETURN &>/dev/null
 
 		done < "${EXCLUDED_NET_FILE}"
 	else
@@ -202,9 +200,7 @@ ip4_firewall_vpn_mark(){
 			ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -j CONNMARK --save-mark &>/dev/null
 
 			ip4tables PREROUTING -t "${table}" -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
-#			ip4tables PREROUTING -t "${table}" -p udp -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
 			ip4tables OUTPUT     -t "${table}" -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
-#			ip4tables OUTPUT     -t "${table}" -p udp -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
 
 		} &>/dev/null || error "[${FUNCNAME}] Во время маркировки трафика для VPN соединений возникли ошибки."
 	fi
@@ -225,8 +221,6 @@ ip4_firewall_mark_rules_tcp_udp_on(){
 			log_warning "Маркировка VPN подключений когда программное и аппаратное ускорение ОТКЛЮЧЕНО."
 			# Исключаем маркировку трафика для гостевой (в том числе) сети
 			_inface_ent=$(inface_ent)
-#			ip4tables PREROUTING -t mangle -i "${_inface_ent}" -p tcp -m set --match-set ${table_name} dst -j MARK --set-mark ${MARK_NUM}
-#			ip4tables PREROUTING -t mangle -i "${_inface_ent}" -p udp -m set --match-set ${table_name} dst -j MARK --set-mark ${MARK_NUM}
 			ip4tables PREROUTING -t mangle -i "${_inface_ent}" -m set --match-set ${table_name} dst -j MARK --set-mark ${MARK_NUM}
 
 		}  &>/dev/null || error "[${FUNCNAME}] Возникла ошибка при маркировке трафика гостевой сети для tcp или udp."
@@ -251,8 +245,6 @@ ip4_add_selected_guest_to_vpn_network(){
 			{
 					log_warning "Подключаем правила маркировки гостевого трафика для VPN."
 					ip4tables POSTROUTING -t nat -s "$(get_guest_net "${guest_inface}")" -o "${guest_inface}" -j MASQUERADE
-#					Под вопросом ?
-#					ip4tables POSTROUTING -t nat -s "$(get_guest_net "${guest_inface}")" -o "${guest_inface}" -m ndmmark --ndmmark ${MARK_NUM} -j SNAT --to-source $(inface_guest_gw4 "${guest_inface}")
 
 			} &>/dev/null
 			rules_masq=$(ip4save | grep "\-j MASQUERADE" | grep " ${guest_inface} ")
@@ -274,39 +266,39 @@ ip4_add_guest_to_vpn_network(){
 # 	Правила маркировки гостевого трафика
 #
 # ------------------------------------------------------------------------------------------
-ip4_add_selected_guest_to_ssr_network(){
-
+ip4_add_selected_guest_to_ssr_network() {
 	net_inface=${1}
 	net_pool=${2}
 
+	[ -z "${net_inface}" ] && {
+		error "[${FUNCNAME}] Отсутствует обязательный параметр сетевой интерфейс."
+		exit 1
+	}
+
 	if [ "${net_inface}" = ikev2 ] ; then
 		net_inface=$(get_entware_ikev2_inface)
+
 		[ -z "${net_pool}" ] && {
 			ikev2_settings=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
 			pool_start=$(echo "${ikev2_settings}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
 			net_pool=$(echo "${pool_start}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/')
 		}
+
+		net_filter=" -s ${net_pool}"
 	else
-		net_pool=$(ip a | grep global | grep "${net_inface}" | sed 's/inet \(.*\/[0-9]\{1,3\}\) scope.*/\1/; s/[ ]//g; s/\(.*\)\.[0-9]\{1,3\}\/\([0-9]\{1,3\}\)$/\1.0\/\2/')
+		net_filter=""
 	fi
-
-
-	[ -z "${net_inface}" ] || [ -z "${net_pool}" ] && {
-		error "[${FUNCNAME}] Отсутствует один из параметров: сетевой интерфейс или сетевой пул."
-		 exit 1
-	}
 
 	port=$(get_config_value SSR_DNS_PORT)
-	if ! iptables-save | grep PREROUTING | grep "${net_pool}" | grep "${net_inface}" | grep unblock | grep REDIRECT | grep -q "${port}" ; then
-		log_warning "Подключаем правила маркировки гостевого трафика для SHADOWSOCKS."
-#		{
-	   		iptables -A PREROUTING -t nat -s ${net_pool} -i ${net_inface} -p tcp -m set --match-set unblock dst -j REDIRECT --to-port ${port}
-	   		iptables -A PREROUTING -t nat -s ${net_pool} -i ${net_inface} -p udp -m set --match-set unblock dst -j REDIRECT --to-port ${port}
-#	   	} || error "[${FUNCNAME}] Возникла ошибка при подключении правил маркировки гостевого трафика для SHADOWSOCKS."
+	if ! iptables-save | grep PREROUTING | grep "${net_filter}" | grep "${net_inface}" | grep unblock | grep REDIRECT | grep -q "${port}" ; then
+		log_warning "Подключаем правила маркировки гостевого трафика ${net_inface} для SHADOWSOCKS."
+
+			iptables -A PREROUTING -t nat ${net_filter} -i ${net_inface} -p tcp -m set --match-set unblock dst -j REDIRECT --to-port ${port}
+			iptables -A PREROUTING -t nat ${net_filter} -i ${net_inface} -p udp -m set --match-set unblock dst -j REDIRECT --to-port ${port}
+
 	fi
-
-
 }
+
 
 ip4_add_guest_to_ssr_network(){
         for guest_inface in $(get_guest_inface_list_from_config)
@@ -475,9 +467,9 @@ ip4tbl_flush_rm_match_set(){
 	if [ -n "${table}" ] && [ -n "${chain}" ] && [ -n "${route}" ] ; then
 		log_warning "Производим удаление правил match-set в таблице ${table}, цепочке ${route} для ${chain}"
 
-#		for prot in tcp udp; do
-#		ip4save | grep "${route}" | grep "${chain}" | grep -q "${prot}" && {
-		ip4save | grep "${route}" | grep -q "${chain}" && {
+		for prot in tcp udp; do
+		ip4save | grep "${route}" | grep "${chain}" | grep -q "${prot}" && {
+#		ip4save | grep "${route}" | grep -q "${chain}" && {
 			if [ -n "${interface}" ] && [ -n "${proxy_port}" ] ; then
 #					Для shadowsocks
 				iptab -t "${table}" -i "${interface}" -D "${route}" -p "${prot}" -m set --match-set ${table_name} dst -j "${chain}" --to-port "${proxy_port}" &>/dev/null
@@ -488,7 +480,7 @@ ip4tbl_flush_rm_match_set(){
 				iptab -t "${table}" -D "${route}" -m set --match-set ${table_name} dst -j "${chain}" &>/dev/null
 			fi
 		}
-#		done
+		done
 	else
 		log_error "При вызове ${FUNCNAME} не были заданы обязательные аргументы."
 	fi
