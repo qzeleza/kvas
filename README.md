@@ -1,6 +1,13 @@
 ![GitHub Repo stars](https://img.shields.io/github/stars/qzeleza/kvas?color=orange) ![GitHub closed issues](https://img.shields.io/github/issues-closed/qzeleza/kvas?color=success) ![GitHub last commit](https://img.shields.io/github/last-commit/qzeleza/kvas) ![GitHub commit activity](https://img.shields.io/github/commit-activity/y/qzeleza/kvas) ![GitHub top language](https://img.shields.io/github/languages/top/qzeleza/kvas) ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/qzeleza/kvas) 
 # [КВАС](https://forum.keenetic.com/topic/14415-пробуем-квас-shadowsocks-и-другие-vpn-клиенты) - защита ваших подключений #
 
+---
+
+#### Внимание! 
+Открыта [группа в Телеграмм](https://t.me/kvas_pro) с целью оперативного обмена информацией по проекту. 
+
+---
+
 
 ### VPN и SHADOWSOCKS клиент для [роутеров Keenetic](https://keenetic.ru/ru/)
 
@@ -25,8 +32,9 @@
 7**Квас** позволяет оперировать со списком исключений при блокировки рекламы, добавляет и удаляет домены в этом списке.
 
 ## Установка пакета 
-1. Зайдите в **entware** своего роутера и введите команду `curl -sO http://kvas.zeleza.ru/upgrade && sh upgrade`. 
+1. Зайдите в **entware** своего роутера и введите команду `curl -sOfL http://kvas.zeleza.ru/upgrade && sh upgrade`. 
 2. Далее, следуйте инструкциям на экране.
+3. Подробности читайте [здесь](https://github.com/qzeleza/kvas/wiki/Установка-пакета)
 
 ## Используемые в проекте продукты
 - Для проведения тестов, в проекте используется пакет [BATS](https://github.com/bats-core/bats-core/blob/master/LICENSE.md) от нескольких [АВТОРОВ](https://github.com/bats-core/bats-core/blob/master/AUTHORS).

@@ -20,7 +20,8 @@ if [ "${1}" = "hook" ] && echo "${id}" | grep -q "$(inface_cli)"; then
 
 #		Запускаем обработку при поднятии соединения
 		"ctrl-running")
-			link_up &> /dev/null
+			cmd_vpn_iptable_reset &> /dev/null
+#			link_up &> /dev/null
 			logger -t "КВАС"  "Соединение ${id} успешно подключено."
 		;;
 

@@ -23,7 +23,8 @@ DATE_FORMAT='+%d/%m/%Y %H:%M:%S'
 # ------------------------------------------------------------------------------------------
 # Вычисляем текущую ширину экрана для печати линий определенной ширины
 length=$(stty size 2>/dev/null | cut -d' ' -f2)
-[ "${length}" -gt 80 ] && LENGTH=$((length*2/3)) || LENGTH=68
+
+[ -n "${length}" ] && [ "${length}" -gt 80 ] && LENGTH=$((length*2/3)) || LENGTH=68
 
 PROGRESS_BAR_WIDTH=$((LENGTH-5))  # progress bar length in characters
 
@@ -112,7 +113,7 @@ get_hook_dir(){
 get_entware_ikev2_inface(){
 #	net_inface_last=$(ip a| grep global | sed 's/.*\(eth[0-9]\{1,3\}\).*/\1/g' | sort | tail -n1)
 #	echo $((net_inface_last + 1))
-	echo eth3
+	ip a | grep -q 'global eth3' && echo eth3 || echo eth2.2
 }
 
 get_ip_list(){
@@ -444,7 +445,7 @@ error() {
 	size=$(diff_len "${_error}")
 #	printf "${nn}%b%-${size}s%b\n" "${_error}" 2>&1
 	printf "%b%-${size}s%b\n" "${_error}" 2>&1
-	log_error "${_error}"
+	log_error "${1}"
 }
 warning() {
 	_error="${GREEN}${1}${NOCL}"

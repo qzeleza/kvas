@@ -1,4 +1,5 @@
 #!/bin/sh
+
 . /opt/apps/kvas/bin/libs/vpn
 . /opt/apps/kvas/bin/libs/check
 . /opt/apps/kvas/bin/libs/update
@@ -144,7 +145,7 @@ case "${1}" in
 		;;
 	purge | clear)			cmd_clear_list "${2}"
 		;;
-	show | list)			cmd_show_list
+	show | list | search | find)	[ -n "${2}" ] && cmd_show_list | grep "${2}" || cmd_show_list
 		;;
 	update | reset | init)	cmd_kvas_init
 		;;

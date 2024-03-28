@@ -1,8 +1,8 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=kvas
-PKG_VERSION:=1.1.7
-PKG_RELEASE:=release_8
+PKG_VERSION:=1.1.8
+PKG_RELEASE:=release_1
 PKG_BUILD_DIR:=$(BUILD_DIR)/${FULL_PACKAGE_NAME}_
 
 include $(INCLUDE_DIR)/package.mk

@@ -22,12 +22,12 @@ cmd_adguard_update(){
 			current_version=$(AdGuardHome --version | cut -d' ' -f4)
 
 			if [ "${latest_version}" != "${current_version}" ]; then
-				copy_name=${bin_path}/${full_adguard_name}.${current_version}
+				copy_name=${bin_path}/${full_adguard_name}_${current_version}
 
 				mess_2="Копия сохранена под именем ${copy_name}"
 				warning "Найдено обновление пакета ${full_adguard_name} версии ${latest_version}"
 				print_line
-				echo -e "${BLUE}Обновляем пакет ${full_adguard_name}...${NOCL}"
+				ready "${BLUE}Обновляем пакет ${full_adguard_name}...${NOCL}"
 				{
 					curl -kfsSL "${url_update}" -o "/tmp/${full_adguard_name}.tar.gz"
 		#			Делаем копию предыдущей версии пакета
@@ -48,5 +48,6 @@ cmd_adguard_update(){
 			arch=$(grep "arch" /opt/etc/entware_release | cut -f2 -d"=")
 			error "Для Вашей архитектуры процессора '${arch}' обновления не найдены." nl
 		fi
-	}
+	} || error "Сервис AdGuard Home ОТКЛЮЧЕН. Для продолжения необходимо запустить команду kvas adguard on"
+
 }

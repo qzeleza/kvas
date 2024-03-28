@@ -24,11 +24,13 @@ cmd_hosts_list(){
 
 dns_server_restart(){
 	host="${1}"
+	[ -f /opt/etc/hosts ] || touch /opt/etc/hosts
 	[ -n "${host}" ] && kdig "${host}" @localhost &> /dev/null
 	if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
 		mess="Перезапуск службы AdGuardHome..."
 		service=/opt/etc/init.d/S99adguardhome
 	else
+
 		mess="Перезапуск службы dnsmasq..."
 		service=/opt/etc/init.d/S56dnsmasq
 	fi
