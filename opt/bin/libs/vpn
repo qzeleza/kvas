@@ -899,8 +899,7 @@ bridge_access_add() {
 }
 
 
-bridge_vpn_access_add(){
-
+bridge_vpn_access_add() {
 	guest_bridge_id=${1}
 
 	if [ -n "${guest_bridge_id}" ]; then
@@ -908,10 +907,12 @@ bridge_vpn_access_add(){
 			ikev2_net_access_add
 		else
 			bridge_access_add "${guest_bridge_id}"
+
+			if has_ssr_enable; then
+				ip4_add_selected_guest_to_ssr_network "${guest_bridge_id}"
+			fi
 		fi
 	fi
-
-
 }
 
 # ------------------------------------------------------------------------------------------
