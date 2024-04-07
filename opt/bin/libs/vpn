@@ -888,7 +888,7 @@ bridge_access_add() {
         if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
 #           Если доступен ADGUARDHOME
 			cat < "${ADGUARDHOME_CONFIG}" | grep -q '- '"${guest_net_ip}" || \
-				sed -i '/bind_hosts/,/port/ s/.*\(port.*\)/    - '"${guest_net_ip}"'\n\1/1' "${ADGUARDHOME_CONFIG}"
+				sed -i '/bind_hosts/,/port/ s/.*\(port.*\)/    - '"${guest_net_ip}"'\n  \1/1' "${ADGUARDHOME_CONFIG}"
         else
 #           Если сейчас работает только dnsmasq
 			cat < "${DNSMASQ_CONFIG}" | grep -q "listen-address=${guest_net_ip}" ||
