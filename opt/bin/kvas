@@ -95,12 +95,12 @@ case "${1}" in
 
 	vpn)
 		case "${2}" in
-			set) 			cmd_interface_change skip ;;
+			set) 			cmd_interface_change skip && cmd_vpn_iptable_reset &> /dev/null ;;
 			reset) 			cmd_vpn_iptable_reset && all_services_restart;;
 			net | guest)
 				case "${3}" in
-					add ) 			cmd_bridge_vpn_access_add ;;
-					del ) 			cmd_bridge_vpn_access_del ;;
+					add ) 			cmd_bridge_vpn_access_add && cmd_vpn_iptable_reset &> /dev/null;;
+					del ) 			cmd_bridge_vpn_access_del && cmd_vpn_iptable_reset &> /dev/null;;
 					*) 				cmd_bridge_vpn_access_list ;;
 				esac
 				;;

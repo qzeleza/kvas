@@ -46,7 +46,8 @@ ip4tables() (/opt/sbin/iptables -C "$@" &>/dev/null || /opt/sbin/iptables -A "$@
 iptab() (/opt/sbin/iptables "$@")
 ip4save() (/opt/sbin/iptables-save | grep -vE '\-A _')
 get_gw4()([ "${1}" ] && ip addr show "${1}" | grep -Po "(?<=inet ).*(?=/)")
-
+version_os()(ndmc -c show version | grep version | head -1 | cut -d: -f2| tr -d ' ')
+is_os_4()([[ "$(version_os)" =~ 4.* ]])
 
 #как пример гостевая сеть br3, которой необходимо обеспечить доступ к VPN
 inface_cli()(get_config_value "INFACE_CLI")
@@ -60,8 +61,8 @@ guest_net()(echo "$(inface_guest_gw4 "${1}" | cut -d'.' -f1-3).0/24")
 # проверка на доступность программного и аппаратного ускорения
 # ------------------------------------------------------------------------------------------
 fastnet_support()(curl -s localhost:79/rci/show/version | grep -q ppe)
-fast_hw_enabled()(! curl -s localhost:79/rci/show/rc/ppe | grep hardware -C1 | grep -q false)
-fast_sw_enabled()(! curl -s localhost:79/rci/show/rc/ppe | grep software -C1 | grep -q false)
+fast_hw_enabled()(is_os_4 && ask=enable || ask=false; ! curl -s localhost:79/rci/show/rc/ppe | grep hardware -C1 | grep -q ${ask})
+fast_sw_enabled()(is_os_4 && ask=enable || ask=false; ! curl -s localhost:79/rci/show/rc/ppe | grep software -C1 | grep -q ${ask})
 fastnet_enabled()(fast_hw_enabled || fast_sw_enabled)
 
 # ------------------------------------------------------------------------------------------
@@ -178,32 +179,33 @@ ip4_firewall_exclude_locals(){
 # Маркируем VPN подключения, когда программное и аппаратное ускорение ПОДКЛЮЧЕНО
 # ------------------------------------------------------------------------------------------
 ip4_firewall_vpn_mark(){
-
-	rules=$(ip4save | grep "${VPN_IPTABLES_CHAIN}" | grep -v '\[0:0\]')
-
-	if [ -z "${rules}" ] ; then
+#
+#	rules=$(ip4save | grep "${VPN_IPTABLES_CHAIN}" | grep -v '\[0:0\]')
+#	mark_rules=$(ip4save | grep "${VPN_IPTABLES_CHAIN}" | grep "mark ${MARK_NUM}" )
+#
+#	if [ -z "${mark_rules}" ] || [ -z "${rules}" ]; then
 		# Маркируем трафик для домашней(основной) сети и прохождение пакетов через VPN подключение
-		{
-			table=mangle
-			log_warning "Маркируем VPN подключения, когда программное и аппаратное ускорение ПОДКЛЮЧЕНО"
+	{
+		table=mangle
+		log_warning "Маркируем VPN подключения, когда программное и аппаратное ускорение ПОДКЛЮЧЕНО"
 
-			iptab -S ${VPN_IPTABLES_CHAIN} -t "${table}" 2>/dev/null | grep -q '\-N' || iptab -N ${VPN_IPTABLES_CHAIN} -t "${table}" &>/dev/null
-			ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -m set ! --match-set "${table_name}" dst -j RETURN &>/dev/null
+		iptab -S ${VPN_IPTABLES_CHAIN} -t "${table}" 2>/dev/null | grep -q '\-N' || iptab -N ${VPN_IPTABLES_CHAIN} -t "${table}" &>/dev/null
+		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -m set ! --match-set "${table_name}" dst -j RETURN &>/dev/null
 
-			# Игнорируем локальные сети и любые другие адреса, которые вы хотели бы обойти прокси
-			ip4_firewall_exclude_locals ${VPN_IPTABLES_CHAIN} "${table}"  &>/dev/null
+		# Игнорируем локальные сети и любые другие адреса, которые вы хотели бы обойти прокси
+		ip4_firewall_exclude_locals ${VPN_IPTABLES_CHAIN} "${table}"  &>/dev/null
 
-			ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -j CONNMARK --restore-mark &>/dev/null
-			ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -m mark --mark ${MARK_NUM} -j RETURN &>/dev/null
-			ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" --syn -j MARK --set-mark ${MARK_NUM} &>/dev/null
-			ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM} &>/dev/null
-			ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -j CONNMARK --save-mark &>/dev/null
+		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -j CONNMARK --restore-mark &>/dev/null
+		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -m mark --mark ${MARK_NUM} -j RETURN &>/dev/null
+		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" --syn -j MARK --set-mark ${MARK_NUM} &>/dev/null
+		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM} &>/dev/null
+		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -j CONNMARK --save-mark &>/dev/null
 
-			ip4tables PREROUTING -t "${table}" -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
-			ip4tables OUTPUT     -t "${table}" -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
+		ip4tables PREROUTING -t "${table}" -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
+		ip4tables OUTPUT     -t "${table}" -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
 
-		} &>/dev/null || error "[${FUNCNAME}] Во время маркировки трафика для VPN соединений возникли ошибки."
-	fi
+	} &>/dev/null || error "[${FUNCNAME}] Во время маркировки трафика для VPN соединений возникли ошибки."
+#	fi
 }
 
 
@@ -214,17 +216,17 @@ ip4_firewall_vpn_mark(){
 # ------------------------------------------------------------------------------------------
 ip4_firewall_mark_rules_tcp_udp_on(){
 
-	rules=$(ip4save | grep "\j MARK" | grep "${table_name}")
+#	rules=$(ip4save | grep "\j MARK" | grep "${table_name}")
 
-	if [ -z "${rules}" ] ; then
-		{
-			log_warning "Маркировка VPN подключений когда программное и аппаратное ускорение ОТКЛЮЧЕНО."
-			# Исключаем маркировку трафика для гостевой (в том числе) сети
-			_inface_ent=$(inface_ent)
-			ip4tables PREROUTING -t mangle -i "${_inface_ent}" -m set --match-set ${table_name} dst -j MARK --set-mark ${MARK_NUM}
+#	if [ -z "${rules}" ] ; then
+	{
+		log_warning "Маркировка VPN подключений когда программное и аппаратное ускорение ОТКЛЮЧЕНО."
+		# Исключаем маркировку трафика для гостевой (в том числе) сети
+		_inface_ent=$(inface_ent)
+		ip4tables PREROUTING -t mangle -i "${_inface_ent}" -m set --match-set ${table_name} dst -j MARK --set-mark ${MARK_NUM}
 
-		}  &>/dev/null || error "[${FUNCNAME}] Возникла ошибка при маркировке трафика гостевой сети для tcp или udp."
-	fi
+	}  &>/dev/null || error "[${FUNCNAME}] Возникла ошибка при маркировке трафика гостевой сети для tcp или udp."
+#	fi
 }
 
 
@@ -238,20 +240,20 @@ get_guest_net(){
 }
 ip4_add_selected_guest_to_vpn_network(){
 	guest_inface="${1}"
-	rules_masq=$(ip4save  | grep "\-j MASQUERADE" | grep " ${guest_inface} ")
+#	rules_masq=$(ip4save  | grep "\-j MASQUERADE" | grep " ${guest_inface} ")
 #	rules_dns=$(ip4save | grep " ${guest_inface} " | grep DNAT | grep 53)
-	if [ -z "${rules_masq}" ] ; then
+#	if [ -z "${rules_masq}" ] ; then
 			# Маркируем трафик гостевой сети
-			{
-					log_warning "Подключаем правила маркировки гостевого трафика для VPN."
-					ip4tables POSTROUTING -t nat -s "$(get_guest_net "${guest_inface}")" -o "${guest_inface}" -j MASQUERADE
+	{
+		log_warning "Подключаем правила маркировки гостевого трафика для VPN."
+		ip4tables POSTROUTING -t nat -s "$(get_guest_net "${guest_inface}")" -o "${guest_inface}" -j MASQUERADE
 
-			} &>/dev/null
-			rules_masq=$(ip4save | grep "\-j MASQUERADE" | grep " ${guest_inface} ")
-			if [ -z "${rules_masq}" ] ; then
-				error "[${FUNCNAME}] Возникла ошибка при маркировке гостевого трафика ${guest_inface} [$(guest_net "${guest_inface}")] для VPN."
-			fi
+	} &>/dev/null
+	rules_masq=$(ip4save | grep "\-j MASQUERADE" | grep " ${guest_inface} ")
+	if [ -z "${rules_masq}" ] ; then
+		error "[${FUNCNAME}] Возникла ошибка при маркировке гостевого трафика ${guest_inface} [$(guest_net "${guest_inface}")] для VPN."
 	fi
+#	fi
 }
 ip4_add_guest_to_vpn_network(){
 
@@ -290,13 +292,13 @@ ip4_add_selected_guest_to_ssr_network() {
 	fi
 
 	port=$(get_config_value SSR_DNS_PORT)
-	if ! iptables-save | grep PREROUTING | grep "${net_filter}" | grep "${net_inface}" | grep unblock | grep REDIRECT | grep -q "${port}" ; then
-		log_warning "Подключаем правила маркировки гостевого трафика ${net_inface} для SHADOWSOCKS."
+#	if ! iptables-save | grep PREROUTING | grep "${net_filter}" | grep "${net_inface}" | grep unblock | grep REDIRECT | grep -q "${port}" ; then
+	log_warning "Подключаем правила маркировки гостевого трафика ${net_inface} для SHADOWSOCKS."
 
-			iptables -A PREROUTING -t nat ${net_filter} -i ${net_inface} -p tcp -m set --match-set unblock dst -j REDIRECT --to-port ${port}
-			iptables -A PREROUTING -t nat ${net_filter} -i ${net_inface} -p udp -m set --match-set unblock dst -j REDIRECT --to-port ${port}
+	iptables -A PREROUTING -t nat ${net_filter} -i ${net_inface} -p tcp -m set --match-set unblock dst -j REDIRECT --to-port ${port}
+	iptables -A PREROUTING -t nat ${net_filter} -i ${net_inface} -p udp -m set --match-set unblock dst -j REDIRECT --to-port ${port}
 
-	fi
+#	fi
 }
 
 
@@ -370,27 +372,27 @@ ip4_firewall_set_ssr_rules(){
 	# Источник:
 	# https://github.com/shadowsocks/shadowsocks-libev/blob/master/doc/ss-redir.asciidoc?ysclid=l949tgrsfn795375643
 	# Создаем новую цепочку SHADOWSOCKS
-	ssr_rules=$(ip4save | grep "${SSR_IPTABLES_CHAIN}" | grep -v '\[0:0\]')
-	routing_rules=$(ip4save | grep PREROUTING | grep " ${interface} " | grep "${table_name}" | grep REDIRECT | grep "${proxy_port}")
+#	ssr_rules=$(ip4save | grep "${SSR_IPTABLES_CHAIN}" | grep -v '\[0:0\]')
+#	routing_rules=$(ip4save | grep PREROUTING | grep " ${interface} " | grep "${table_name}" | grep REDIRECT | grep "${proxy_port}")
 
-	if [ -z "${ssr_rules}" ] || [ -z "${routing_rules}" ] ; then
-		{
-			log_warning "Подключаем правила для SHADOWSOCKS интерфейса ${interface} порт ${proxy_port}."
+#	if [ -z "${ssr_rules}" ] || [ -z "${routing_rules}" ] ; then
+	{
+		log_warning "Подключаем правила для SHADOWSOCKS интерфейса ${interface} порт ${proxy_port}."
 
-			iptab -S ${SSR_IPTABLES_CHAIN} -t nat 2>/dev/null | grep -q '\-N' || iptab -N ${SSR_IPTABLES_CHAIN} -t nat &>/dev/null
+		iptab -S ${SSR_IPTABLES_CHAIN} -t nat 2>/dev/null | grep -q '\-N' || iptab -N ${SSR_IPTABLES_CHAIN} -t nat &>/dev/null
 
-			# Игнорируем локальные сети и любые другие адреса, которые вы хотели бы обойти прокси
-			ip4_firewall_exclude_locals ${SSR_IPTABLES_CHAIN} nat &>/dev/null
+		# Игнорируем локальные сети и любые другие адреса, которые вы хотели бы обойти прокси
+		ip4_firewall_exclude_locals ${SSR_IPTABLES_CHAIN} nat &>/dev/null
 
-			ssr_ip=$(cat < /opt/etc/shadowsocks.json | grep 'server":' | tr -d '" ,' | cut -d':' -f2 )
-			# Исключаем любые обращения к собственному адресу SHADOWSOCKS
-			ip4tables ${SSR_IPTABLES_CHAIN} -t nat -d "${ssr_ip}" -j RETURN &>/dev/null
+		ssr_ip=$(cat < /opt/etc/shadowsocks.json | grep 'server":' | tr -d '" ,' | cut -d':' -f2 )
+		# Исключаем любые обращения к собственному адресу SHADOWSOCKS
+		ip4tables ${SSR_IPTABLES_CHAIN} -t nat -d "${ssr_ip}" -j RETURN &>/dev/null
 
-			ip4tables PREROUTING -w -t nat -i "${interface}" -p tcp -m set --match-set "${table_name}" dst -j REDIRECT --to-port "${proxy_port}" &>/dev/null
-			ip4tables PREROUTING -w -t nat -i "${interface}" -p udp -m set --match-set "${table_name}" dst -j REDIRECT --to-port "${proxy_port}" &>/dev/null
+		ip4tables PREROUTING -w -t nat -i "${interface}" -p tcp -m set --match-set "${table_name}" dst -j REDIRECT --to-port "${proxy_port}" &>/dev/null
+		ip4tables PREROUTING -w -t nat -i "${interface}" -p udp -m set --match-set "${table_name}" dst -j REDIRECT --to-port "${proxy_port}" &>/dev/null
 
-		} &>/dev/null || error "[${FUNCNAME}] Возникла ошибка при установке правил iptable для Shadowsocks подключения"
-	fi
+	} &>/dev/null || error "[${FUNCNAME}] Возникла ошибка при установке правил iptable для Shadowsocks подключения"
+#	fi
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -551,22 +553,23 @@ ikev2_net_access_del(){
 
 		net_ip=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.1/')
 		net_pool=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/')
+		ikev2_inface=$(get_entware_ikev2_inface)
 
 		if has_ssr_enable ;then
 
 		   port=$(get_config_value SSR_DNS_PORT)
-		   net_inface=$(get_entware_ikev2_inface)
-		   if iptables-save | grep PREROUTING | grep "${net_pool}" | grep "${net_inface}" | grep unblock | grep REDIRECT | grep -q "${port}" ; then
 
-				iptab -D PREROUTING -t nat -s ${net_pool} -p tcp -i ${net_inface} -m set --match-set unblock dst -j REDIRECT --to-port ${port}
-				iptab -D PREROUTING -t nat -s ${net_pool} -p udp -i ${net_inface} -m set --match-set unblock dst -j REDIRECT --to-port ${port}
+		   if iptables-save | grep PREROUTING | grep "${net_pool}" | grep "${ikev2_inface}" | grep unblock | grep REDIRECT | grep -q "${port}" ; then
+
+				iptab -D PREROUTING -t nat -s ${net_pool} -p tcp -i ${ikev2_inface} -m set --match-set unblock dst -j REDIRECT --to-port ${port}
+				iptab -D PREROUTING -t nat -s ${net_pool} -p udp -i ${ikev2_inface} -m set --match-set unblock dst -j REDIRECT --to-port ${port}
 #				iptab -D PREROUTING -t nat -s ${net_pool} -i ${net_inface} -m set --match-set unblock dst -j REDIRECT --to-port ${port}
 
 		   fi
 		else
-		   if iptables-save | grep POSTROUTING | grep "${net_pool}" | grep eth3 | grep -q MASQUERADE ; then
-				   iptab -D POSTROUTING -t nat -s "${net_pool}" -o eth3 -j MASQUERADE
-		   fi
+			if iptables-save | grep POSTROUTING | grep "${net_pool}" | grep "${ikev2_inface}" | grep -q MASQUERADE ; then
+				   iptab -D POSTROUTING -t nat -s "${net_pool}" -o "${ikev2_inface}" -j MASQUERADE
+			fi
 		fi
 		[ -z "${1}" ] && del_ikev2_net_from_config
 
@@ -618,8 +621,9 @@ ikev2_net_access_add(){
 			ip4_add_selected_guest_to_ssr_network ikev2 "${net_pool}"
 			add_ikev2_net_to_config
 		else
-			if ! iptables-save | grep POSTROUTING | grep "${net_pool}" | grep eth3 | grep -q MASQUERADE ; then
-				iptables -A POSTROUTING -t nat -s "${net_pool}" -o eth3 -j MASQUERADE
+			ikev2_inface=$(get_entware_ikev2_inface)
+			if ! iptables-save | grep POSTROUTING | grep "${net_pool}" | grep "${ikev2_inface}" | grep -q MASQUERADE ; then
+				iptables -A POSTROUTING -t nat -s "${net_pool}" -o "${ikev2_inface}" -j MASQUERADE
 				add_ikev2_net_to_config
 			fi
 		fi

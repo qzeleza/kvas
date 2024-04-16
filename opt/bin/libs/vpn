@@ -754,7 +754,7 @@ warning_info(){
 	print_line
 	echo "Если все сделали, нажмите любую клавишу."
 	read -s -n 1
-    clean
+    clear
 	print_line
 
 }
@@ -1441,6 +1441,7 @@ shadowsocks_read_link(){
 	[ "${SSR_LINK}" = q ] && exit 1
 
 	if [[ -n "${SSR_LINK}" && "${#SSR_LINK}" -gt 6 ]] ; then
+		SSR_LINK="${SSR_LINK//\#*/}"
 		password=$(echo "${SSR_LINK}" | grep -oP "(?<=ss://).*?(?=@)" | base64 -d )
 		SSR_SERVER_PASSWD=$(echo "${password}" | cut -d ":" -f 2)
 		SSR_SERVER_CRYPT=$(echo "${password}" | cut -d ":" -f 1)
@@ -1482,7 +1483,7 @@ shadowsocks_read_data() {
 	#	устанавливаем новую конфигурацию shadowsocks
 	cp -f "/opt/apps/${APP_NAME}/etc/conf/shadowsocks.json" "${SHADOWSOCKS_CONF}"
 
-	answer=''; read_ynq_timer "У Вас имеется кодированная ss:// ссылка для ввода данных" answer n 6
+	answer=''; read_ynq "У Вас имеется кодированная ss:// ссылка для ввода данных" answer
 	if [ "${answer}" = q ] ; then exit_q; exit 1; fi
 
 	{
@@ -2432,6 +2433,7 @@ cmd_del_one_host() {
 			/opt/apps/kvas/bin/main/adblock &> /dev/null
 			[ $? = 0 ] && when_ok "УДАЛЕН" || when_bad "НЕ УДАЛЕН"
 		fi
+		cmd_vpn_iptable_reset &> /dev/null
 
 	else
 		error "Такая запись отсутствует в списке разблокировки!" no_nln
