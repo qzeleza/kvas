@@ -302,6 +302,7 @@ ipset_check() {
 		cp /opt/apps/kvas/etc/conf/hosts.list "${UNBLOCK_LIST_FILE}"
 	fi
 	ip4set_create_table
+	sleep 3
 	/opt/apps/kvas/bin/main/ipset &> /dev/null
 	if ipset list "${table_name}" | grep -vEi '^[a-z]' &> /dev/null; then
 		when_ok "ЗАПОЛНЕНА"

@@ -130,7 +130,10 @@ case "${1}" in
 		;;
 
 	debug)
-							cmd_print_debug "${2}"
+		case "${2}" in
+			ipset) 			unblock_list_ipset_chec ;;
+			*) 				cmd_print_debug "${2}"		;;
+		esac
 		;;
 	test | check)			cmd_state_checker
 							[ -n "${2}" ] && exit 0
@@ -141,15 +144,15 @@ case "${1}" in
 		;;
 	export)					cmd_export_hosts "${2}"
 		;;
-	del)					cmd_del_one_host "${2}"
+	del | rm )					cmd_del_one_host "${2}"
 		;;
 	purge | clear)			cmd_clear_list "${2}"
 		;;
 	show | list | search | find)	[ -n "${2}" ] && cmd_show_list | grep "${2}" || cmd_show_list
 		;;
-	update | reset | init)	cmd_kvas_init
+	reset | init)	cmd_kvas_init
 		;;
-	upgrade)				sh /opt/apps/kvas/bin/main/upgrade "${2}" "${3}"; exit 0
+	upgrade | update)		sh /opt/apps/kvas/bin/main/upgrade "${2}" "${3}"; exit 0
 		;;
 	rollback)				sh /opt/apps/kvas/bin/main/upgrade rollback "${2}"; exit 0
 		;;
@@ -157,7 +160,7 @@ case "${1}" in
 		;;
 	help|-h|--h ) 			[ -n "${2}" ] && cmd_help | grep "${2}" || cmd_help
 		;;
-	uninstall | remove | rm ) 	cmd_uninstall  "${2}" "${3}"
+	uninstall ) 			cmd_uninstall  "${2}" "${3}"
 		;;
 
 	*)						error "Команда '${1}' не известна, список доступных команд:"

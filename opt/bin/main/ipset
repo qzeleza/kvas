@@ -42,9 +42,9 @@ while read -r line || [ -n "${line}" ]; do
 
 	# если строка начинается с IP, то проводим обработку по IP
 	if echo "${host}" | grep -qoE "${IP_FILTER}|${IP_FILTER}-${IP_FILTER}|${IP_FILTER}/[0-9]{1,2}"; then
-		ipset -exist add "${TABLE_NAME}" "${host}" &>/dev/null
+		ipset -exist add "${TABLE_NAME}" "${host}" &>/dev/null || true
 	else
-		add_host_by_iplist_to_ipset "${host}"
+		add_host_by_iplist_to_ipset "${host}" || true
 	fi
 
 done < "${HOST_LIST}"

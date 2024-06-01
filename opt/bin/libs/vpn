@@ -496,7 +496,7 @@ get_adguardhome_ip_port() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_adguardhome_status() {
-	ready "Сервис AdGuard Home "
+	ready "Сервис AdGuard Home [$(grep address /opt/etc/AdGuardHome/AdGuardHome.yaml | cut -d":" -f2)]"
 	# Проверяем наличие исполняемого файла AdGuardHome
 
 	if [ -f /opt/bin/AdGuardHome ] ; then
