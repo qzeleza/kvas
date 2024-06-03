@@ -48,3 +48,9 @@
 ## Каталог всех версий проекта
 - [Перейти по cсылке](https://github.com/qzeleza/kvas/tree/main/ipk)
 
+## История "Звезд"
+
+[![Star History Chart](https://api.star-history.com/svg?repos=qzeleza/kvas&type=Timeline)](https://star-history.com/#qzeleza/kvas&Timeline)
+
+--- 
+
