@@ -49,7 +49,7 @@ host_vpn_pass_check() {
 	ready "Проверка домена ${domain}"
 	print_line
 	extern_ip=$(get_external_ip)
-	ip_list=$(kdig +short "${domain}" | tr '\n' ' ' )
+	ip_list=$(get_iplist_from_domain "${domain}" | tr '\n' ' ' )
 	for adr in ${ip_list::-1}; do
 		${IPSET} list unblock | grep -q "${adr}" || ${IPSET} -exist add unblock "${adr}"
 		${IPSET} list unblock | grep -q "${adr}" || is_ok=1
@@ -82,9 +82,9 @@ dns_override_check() {
 		echo -e "С этой целью зайдите в админ панель роутера по адресу: ${GREEN}${cli}${NOCL}"
 		echo "и выполните последовательно три следующих команды: "
 		print_line
-		echo -e "1. ${GREEN}opkg dns-override ${NOCL} 			- отключаем использование DNS провайдера,"
-		echo -e "2. ${GREEN}system configuration save ${NOCL}  	- сохраняем изменения,"
-		echo -e "3. ${GREEN}system reboot ${NOCL} 				- перегружаем роутер."
+		echo -e "1. ${GREEN}opkg dns-override ${NOCL}           - отключаем использование DNS провайдера,"
+		echo -e "2. ${GREEN}system configuration save ${NOCL}   - сохраняем изменения,"
+		echo -e "3. ${GREEN}system reboot ${NOCL}               - перегружаем роутер."
 		print_line
 		exit 1
 	fi
@@ -169,8 +169,10 @@ vpn_check(){
 			ready "Перезапускаем еще раз vpn соединение ${vpn_cli_desc}"
 			curl -s -d '{"up":"false"}' "${LOCALHOST_IP}:79/rci/interface/${vpn_cli}" &>/dev/null
 			sleep 1
-			status=$(curl -s -d '{"up":"true"}' "${LOCALHOST_IP}:79/rci/interface/${vpn_cli}")
-			if [ -n "$(echo "${status}" | grep 'interface is up.' )" ]; then
+			curl -s -d '{"up":"true"}' "${LOCALHOST_IP}:79/rci/interface/${vpn_cli}" &>/dev/null
+			connected=$(is_vpn_interface_connected "${vpn_cli}")
+			if [ "${connected}" = 'on' ]; then
+			# if [ -n "$(echo "${status}" | grep 'interface is up.' )" ]; then
 				when_ok "ПОДКЮЧЕНО"
 			else
 				when_bad "ОШИБКА"
@@ -459,11 +461,11 @@ hosts_list_check(){
 #
 # ------------------------------------------------------------------------------------------
 ipset_site_visit_check() {
-	echo "ВНИМАНИЕ!!!  ПРЕЖДЕ, ЧЕМ ПРИСТУПИТЬ К ДАЛЬНЕЙШИМ ДЕЙСТВИЯМ, СДЕЛАЙТЕ СЛЕДУЮЩЕЕ:"
+	echo "ВНИМАНИЕ!!!  прежде, чем приступить к дальнейшим действиям, сделайте следующее:"
 	echo
-	echo "1. ОЧИСТИТЕ КЕШ НА ВАШЕМ КОМПЬЮТЕРЕ (ИНСТРУКЦИЮ ИЩИТЕ В СЕТИ)."
-	echo "2. ОБЯЗАТЕЛЬНО ПРОВЕРЬТЕ, ЧТО АДРЕС DNS КЛИЕНТА ИДЕНТИЧЕН АДРЕСУ ВАШЕГО РОУТЕРА!"
-	echo "3. ДАЛЕЕ, ОЧИСТИТЕ ВСЕ КУКИ НА БРАЗУРЕ, В КОТОРОМ ХОТИТЕ УВИДИТЬ РЕЗУЛЬТАТ!"
+	echo "1. Очистите кеш на Вашем компьютере (инструкцию ищите в сети)."
+	echo "2. Обязательно проверьте, что адрес dns клиента идентичен адресу вашего роутера!"
+	echo "3. Далее, очистите все куки на бразуре, в котором хотите увидить результат!"
 	echo
 	echo "Для продолжения нажмите на любую клавишу."
 	print_line

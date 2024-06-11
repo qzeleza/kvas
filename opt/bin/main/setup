@@ -24,9 +24,9 @@ setup_test_provider_dns(){
 		echo -e "С этой целью зайдите в админ панель роутера по адресу: ${GREEN}${cli}${NOCL}"
 		echo "и выполните последовательно три следующих команды: "
 		print_line
-		echo -e "1. ${GREEN}opkg dns-override ${NOCL} 			- отключаем использование DNS провайдера,"
-		echo -e "2. ${GREEN}system configuration save ${NOCL}  	- сохраняем изменения,"
-		echo -e "3. ${GREEN}system reboot ${NOCL} 				- перегружаем роутер."
+		echo -e "1. ${GREEN}opkg dns-override ${NOCL}           - отключаем использование DNS провайдера,"
+		echo -e "2. ${GREEN}system configuration save ${NOCL}   - сохраняем изменения,"
+		echo -e "3. ${GREEN}system reboot ${NOCL}               - перегружаем роутер."
 		print_line
 		exit 1
 	fi

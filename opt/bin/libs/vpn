@@ -1175,7 +1175,7 @@ cmd_dnsmasq_port_show() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_dns_test() {
-	domain=${1:-facebook.com}
+	domain=${1:-google.com}
 	ready "Тестируем получение адреса домена ${domain}"
 	result=$(test_host "${domain}" ip)
 	[ -n "${result}" ] && when_alert "${result}" || when_bad "ПУСТО"
@@ -1772,10 +1772,7 @@ is_vpn_interface_connected() {
 		/opt/etc/init.d/S22shadowsocks status | grep -q 'alive' &> /dev/null
 		if [ $? = 0 ]; then connected="on"; else connected="off"; fi
 	else
-#		status=$(get_value_interface_field "${cli_inface}" connected)
-#		status=$(curl -s "${INFACE_REQUEST}" | jq -r '.[] | select(.id=="'"${cli_inface}"'" and .link=="up" and .connected=="yes" and .state=="up") | .state')
-		status=$(get_value_interface_field "${cli_inface}" state)
-		if [ "${status}" = 'up' ]; then connected="on"; else connected="off"; fi
+		if is_interface_online "${cli_inface}"; then connected="on"; else connected="off"; fi
 	fi
 	echo "${connected}"
 }
@@ -2233,14 +2230,14 @@ test_host() {
 	ret=0
 	if echo "${1}" | grep -q '\.' ; then
 		dns=$(get_config_value DNS_DEFAULT )
-		ips="$(kdig "${1}" +short "@${dns}" 2> /dev/null)"
+		ips="$(get_iplist_from_domain "${1}" "${dns}" 2> /dev/null)"
 		if [ -z "${ips}" ]; then
 			dns=$(get_config_value DNS_STATIC_1)
-			ips=$(kdig "${1}" +short "@${dns}" 2> /dev/null)
+			ips=$(get_iplist_from_domain "${1}" "${dns}" 2> /dev/null)
 
 			if [ -z "${ips}" ]; then
 				dns=$(get_config_value DNS_STATIC_2);
-				ips=$(kdig "${1}" +short "@${dns}" 2> /dev/null)
+				ips=$(get_iplist_from_domain "${1}" "${dns}" 2> /dev/null)
 				[ -n "${ips}" ] && set_config_value DNS_DEFAULT "${dns}"
 			else
 				set_config_value DNS_DEFAULT "${dns}"
@@ -2356,6 +2353,9 @@ cmd_add_one_host() {
 	reset="${2:-yes}"
 	wild="${3}"
 
+	# Выходим из функции при отуствии интернет-соединения или VPN
+	exit_when_no_internet_or_vpn_connected || exit 1 
+
 	clear_host=$(echo "${host}" | sed 's/\*//')
 	ip_filter='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'
 	#	формальная проверка на наличие точки в имени домена
@@ -2418,6 +2418,10 @@ cmd_add_one_host() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_del_one_host() {
+
+	# Выходим из функции при отуствии интернет-соединения или VPN
+	exit_when_no_internet_or_vpn_connected || exit 1 
+
 	host_="${1}"
 	if cat < "${UNBLOCK_LIST_FILE}" | grep -qe "${host_}$" ; then
 		ready "Удаляем ${YELLOW}${host_}${NOCL} из списка разблокировки..."
@@ -2454,6 +2458,9 @@ cmd_clear_list() {
 				ready "Список разблокировки будет полностью очищен. Уверены?" && read -r yn
 				case ${yn} in
 				[Yy]*)
+					# Выходим из функции при отуствии интернет-соединения или VPN
+					exit_when_no_internet_or_vpn_connected || exit 1 
+					
 					print_line
 					ready "Очищаем список разблокировки ..."
 					mv -f "${UNBLOCK_LIST_FILE}" "${KVAS_LIST_FILE_BACKUP}"
@@ -2499,6 +2506,10 @@ rec_in_var() {
 # ------------------------------------------------------------------------------------------
 
 cmd_import_hosts() {
+
+	# Выходим из функции при отуствии интернет-соединения или VPN
+	exit_when_no_internet_or_vpn_connected || exit 1 
+
 	host_list="${1}"
 	if [ -z "${host_list}" ]; then
 		error "Не задано имя файла для импорта."
