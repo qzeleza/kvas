@@ -30,11 +30,12 @@ set_escapes(){
 
 has_no_internet_here(){
 #	Если в возвращаемых аргументах нет false значит интернет присутствует
-	curl -s "localhost:79/rci/show/internet/status" | jq -r 'select(.enabled==true and .reliable==true and ."gateway-accessible"==true and ."captive-accessible"==true and ."dns-accessible"==true and .internet==true)'
+	# test -z "$(curl -s "localhost:79/rci/show/internet/status" \
+	# | jq -r 'select(.enabled==true and .reliable==true and ."gateway-accessible"==true and ."captive-accessible"==true and ."dns-accessible"==true and .internet==true)')"
 
-	# ! curl -s "localhost:79/rci/show/internet/status" \
-	# 	| grep -E 'reliable|gateway-accessible|dns-accessible|internet' \
-	# 	| grep -q false
+	curl -s "localhost:79/rci/show/internet/status" \
+		| grep -E 'reliable|gateway-accessible|dns-accessible|internet|enabled|captive-accessible' \
+		| grep -q false
 }
 #--------------------------------------------------------------------------------------------------------------
 print_line(){

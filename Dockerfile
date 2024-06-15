@@ -13,8 +13,8 @@ ENV LANG en_US.utf8
 
 RUN chmod 1777 /tmp \
     && dpkg --add-architecture i386  \
-    && groupadd --gid ${GID} ${USER}  \
-    && useradd --create-home --uid ${UID} --gid ${GID} --shell /bin/bash ${USER}  \
+    && echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers \
+    && useradd -m -d /home/${USER} -G sudo -s /bin/bash ${USER} \
     && apt-get update \
     && apt-get install -y locales && rm -rf /var/lib/apt/lists/* \
     && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
@@ -34,19 +34,15 @@ COPY . ${APPS_ROOT}/${APP_NAME}/
 WORKDIR ${APPS_ROOT}
 RUN rm -rf /var/lib/apt/lists/* \
     && git clone https://github.com/Entware/Entware.git  \
-    && mv Entware/ entware/ && cd ${APPS_ROOT}/entware  \
+    && mv Entware/ entware/ \
+    && chown -R ${USER}:sudo ${APPS_ROOT}/entware ${APPS_ROOT}/${APP_NAME} \
+    && cd ${APPS_ROOT}/entware  \
     && make package/symlinks  \
-    && cp `ls /${APPS_ROOT}/entware/configs/mipsel-*` .config \
-    && mkdir -p /${APPS_ROOT}/entware/package/utils/${APP_NAME}/ \
-    && if [ -n ${APP_PATH_NAME_TO_MAKE} ]; then \
-        ln -s ${APPS_ROOT}/${APP_NAME}/${APP_PATH_NAME_TO_MAKE} /${APPS_ROOT}/entware/package/utils/${APP_NAME}/;\
-        mv /${APPS_ROOT}/entware/package/utils/${APP_NAME}/opt /${APPS_ROOT}/entware/package/utils/${APP_NAME}/files;\
-    else\
-            ln -s ${APPS_ROOT}/${APP_NAME} ${APPS_ROOT}/entware/package/utils/${APP_NAME}/;\
-            mv ${APPS_ROOT}/entware/package/utils/${APP_NAME} ${APPS_ROOT}/entware/package/utils/${APP_NAME}/files;\
-    fi
-RUN chown -R ${USER}:${GROUP} ${APPS_ROOT}/entware ${APPS_ROOT}/${APP_NAME} \
-    && chmod -R +x ${APPS_ROOT}/${APP_NAME}/build/*.run \
+    && cp `ls ${APPS_ROOT}/entware/configs/mipsel-*` .config \
+    && mkdir -p ${APPS_ROOT}/entware/package/utils/${APP_NAME}/ \
+    && ln -s ${APPS_ROOT}/${APP_NAME} ${APPS_ROOT}/entware/package/utils/${APP_NAME}/ 
+    
+RUN chmod -R +x ${APPS_ROOT}/${APP_NAME}/build/*.run \
     && git clone https://github.com/bats-core/bats-core.git \
     && cd bats-core \
     && ./install.sh /usr/local \
@@ -56,8 +52,7 @@ WORKDIR ${APPS_ROOT}/${APP_NAME}/
 RUN ${APPS_ROOT}/${APP_NAME}/build/Makefile.build
 
 USER ${USER}
-RUN ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa \
-    && ${APPS_ROOT}/${APP_NAME}/build/firstrun.build
+RUN ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa 
 
 
 

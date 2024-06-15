@@ -144,7 +144,7 @@ case "${1}" in
 		;;
 	export)					cmd_export_hosts "${2}"
 		;;
-	del | rm )					cmd_del_one_host "${2}"
+	del | rm )				cmd_del_one_host "${2}"
 		;;
 	purge | clear)			cmd_clear_list "${2}"
 		;;
