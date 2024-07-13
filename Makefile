@@ -3,14 +3,14 @@ include $(TOPDIR)/rules.mk
 PKG_NAME:=kvas
 PKG_VERSION:=1.1.8
 PKG_RELEASE:=release_2
-PKG_BUILD_DIR:=$(BUILD_DIR)/${FULL_PACKAGE_NAME}_
+PKG_BUILD_DIR:=$(BUILD_DIR)/${FULL_PACKAGE_NAME}
 
 include $(INCLUDE_DIR)/package.mk
 
 define Package/kvas
 	SECTION:=utils
 	CATEGORY:=Keendev
-	DEPENDS:=+jq +curl +knot-dig +nano-full +cron +bind-dig +dnsmasq-full +ipset +dnscrypt-proxy2 		+iptables +shadowsocks-libev-ss-redir +shadowsocks-libev-config +libpcre
+	DEPENDS:=+libpcre2 +jq +curl +knot-dig +nano-full +cron +bind-dig +dnsmasq-full +ipset +dnscrypt-proxy2 		+iptables +shadowsocks-libev-ss-redir +shadowsocks-libev-config
 	URL:=no
 	TITLE:=VPN клиент для обработки запросов по внесению хостов в белый список.
 	PKGARCH:=all
@@ -25,8 +25,10 @@ endef
 
 define Build/Prepare
 endef
+
 define Build/Configure
 endef
+
 define Build/Compile
 endef
 
@@ -37,14 +39,14 @@ define Package/kvas/install
 	$(INSTALL_DIR) $(1)/opt/etc/init.d
 	$(INSTALL_DIR) $(1)/opt/etc/ndm/fs.d
 	$(INSTALL_DIR) $(1)/opt/etc/ndm/netfilter.d
-	$(INSTALL_DIR) $(1)/opt/"/apps/kvas"
+	$(INSTALL_DIR) $(1)/opt/apps/kvas
 
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/files/etc/ndm/fs.d/100-ipset $(1)/opt/etc/ndm/fs.d
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/files/etc/ndm/netfilter.d/100-proxy-redirect $(1)/opt/etc/ndm/netfilter.d
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/files/etc/ndm/netfilter.d/100-dns-local $(1)/opt/etc/ndm/netfilter.d
+	$(INSTALL_BIN) opt/etc/ndm/fs.d/100-ipset $(1)/opt/etc/ndm/fs.d
+	$(INSTALL_BIN) opt/etc/ndm/netfilter.d/100-proxy-redirect $(1)/opt/etc/ndm/netfilter.d
+	$(INSTALL_BIN) opt/etc/ndm/netfilter.d/100-dns-local $(1)/opt/etc/ndm/netfilter.d
 
-	$(INSTALL_BIN) ./files/etc/init.d/S96kvas $(1)/opt/etc/init.d
-	$(CP) ./files/. $(1)/opt/"/apps/kvas"
+	$(INSTALL_BIN) opt/etc/init.d/S96kvas $(1)/opt/etc/init.d
+	$(CP) . $(1)/opt/apps/kvas
 
 endef
 

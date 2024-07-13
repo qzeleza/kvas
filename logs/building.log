@@ -1,0 +1,67 @@
+-------------------------------------------------------------------------------------------
+🟢 [13-07-2024 07:30:35] СБОРКА ЗАПУЩЕНА
+-------------------------------------------------------------------------------------------
+++ user_app_build user_app 'Этап сборки самого приложения \Z4kvas\Zn' 1/1
+++ local stage=user_app
+++ local 'description=Этап сборки самого приложения \Z4kvas\Zn'
+++ local steps=1/1
++++ nproc
++++ nproc
+++ commands_array=('update_scripts_to_manifest_file build/Makefile' 'printf "Ошибка при обновлелении файла манифеста Makefile"' 'make -j7 package/feeds/packages/kvas/clean' 'make -j1 package/feeds/packages/kvas/clean V=sc' 'make -j7 package/feeds/packages/kvas/compile' 'make -j1 package/feeds/packages/kvas/compile V=sc' '[ -d /home/zeleza/kvas/ipk ] || { mkdir -p /home/zeleza/kvas/ipk; true; }' 'printf "Ошибка при создании директории /home/zeleza/kvas/ipk"' 'cp bin/targets/aarch64-3.10/generic-glibc/packages/kvas_1.1.8-release_2_aarch64-3.10.ipk /home/zeleza/kvas/ipk/' 'printf "Ошибка при копировании файла '\''kvas_1.1.8-release_2_aarch64-3.10.ipk'\'' в папку '\''/home/zeleza/kvas/ipk/'\''"')
+++ local commands_array
+++ run_commands_with_logging commands_array /home/zeleza/scripts/entrypoint.dev user_app 'Этап сборки самого приложения \Z4kvas\Zn' 1/1
+++ set -xue
+++ local -n commands=commands_array
+++ local func=/home/zeleza/scripts/entrypoint.dev
+++ local stage=user_app
+++ local 'description=Этап сборки самого приложения \Z4kvas\Zn'
+++ local steps=1/1
+++ [[ 0 -ne 0 ]]
++++ mktemp
+++ cmd_content_file=/tmp/tmp.Cxe8Ud3GYp
+++ echo 0
+++ local _cmd
+++ (( i=0 ))
+++ (( i<10 ))
+++ local 'main_command=update_scripts_to_manifest_file build/Makefile'
+++ local 'log_command=printf "Ошибка при обновлелении файла манифеста Makefile"'
+++ '[' -s /tmp/tmp.Cxe8Ud3GYp ']'
+++ printf '▶ update_scripts_to_manifest_file build/Makefile\n'
+▶ update_scripts_to_manifest_file build/Makefile
+++ one_line
+++ prn_line 91 -
+++ width=91
+++ type_line=-
++++ seq 1 91
+++ printf %.0s- 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91
+-------------------------------------------------------------------------------------------++ echo ''
+
+++ exec
++++ eval 'update_scripts_to_manifest_file build/Makefile'
+++++ update_scripts_to_manifest_file build/Makefile
++++ tee /tmp/tmp.Cxe8Ud3GYp
+++++ local _manifest_file=/home/zeleza/kvas/build/Makefile
+++++ local _scripts_path=/home/zeleza/kvas/
+++++ '[' -n '' ']'
++++ echo 0
+++ local return_code=0
+++ '[' 0 -ne 0 ']'
+++ (( i+=2  ))
+++ (( i<10 ))
+++ local 'main_command=make -j7 package/feeds/packages/kvas/clean'
+++ local 'log_command=make -j1 package/feeds/packages/kvas/clean V=sc'
+++ '[' -s /tmp/tmp.Cxe8Ud3GYp ']'
+++ printf '▶ make -j7 package/feeds/packages/kvas/clean\n'
+▶ make -j7 package/feeds/packages/kvas/clean
+++ one_line
+++ prn_line 91 -
+++ width=91
+++ type_line=-
++++ seq 1 91
+++ printf %.0s- 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91
+-------------------------------------------------------------------------------------------++ echo ''
+
+++ exec
++++ eval 'make -j7 package/feeds/packages/kvas/clean'
+++++ make -j7 package/feeds/packages/kvas/clean
++++ tee /tmp/tmp.Cxe8Ud3GYp
