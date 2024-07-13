@@ -812,7 +812,7 @@ cmd_bridge_vpn_access_list() {
 
 			printf '%s\n' "${interfaces_list}" |
 			while IFS= read -r desc_full ; do
-			if echo "${desc_full}" | grep -q Bridge ; then
+			if echo "${desc_full}" | grep -q Bridge || echo "${desc_full}" | grep -q Wireguard ; then
 				net_ip=$(echo "${desc_full}" | sed 's/.*\[\([0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\)\].*/\1/')
 				ent_inf=$(ip a | grep global | grep "${net_ip}" | sed 's/.* \(.*\)$/\1/')
 			else
