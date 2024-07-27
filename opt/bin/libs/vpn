@@ -680,9 +680,10 @@ cmd_adguardhome_off(){
 # ------------------------------------------------------------------------------------------
 bridge_vpn_access_del() {
         guest_bridge_id="${1}"
-        cli_inface=$(echo "${INFACE_NAMES_FILE}" | grep "${guest_bridge_id}" | cut -d"|" -f1)
-        ready "Удаление гостевого интерфейса ${cli_inface} завершено"
-        {
+		_id=$(echo "${guest_bridge_id}" | sed 's/[a-z]//g')
+		cli_inface=$(curl -s "${INFACE_REQUEST}" | jq -r '.[] | select(.address != null and .id == "'"Bridge${_id}"'") | .description')	    
+		ready "Удаление гостевого интерфейса '${cli_inface}' завершено"
+		{
 
 #                ip4_firewall_rm_selected_guest_net "${guest_bridge_id}"
                 #       Слушаем 53 порт гостевого интерфейса
@@ -761,7 +762,7 @@ warning_info(){
 cmd_bridge_vpn_access_list() {
 
 	[ "${2}" = skip ] || {
-		warning_info
+		# warning_info
 		echo "Полный список подключенных гостевых сетей:"
 		print_line
 	}
@@ -843,26 +844,27 @@ cmd_bridge_vpn_access_list() {
 # ------------------------------------------------------------------------------------------
 cmd_bridge_vpn_access_del() {
 
-    echo "Выберите гостевую сеть для удаления:"
-    print_line
     guest_bridge_id=''; bridge_inface_select guest_bridge_id del
 
-		if [ -n "${guest_bridge_id}" ]; then
+	if [ -n "${guest_bridge_id}" ]; then
 #			проверяем, есть ли в списке ikev2
-			if echo "${guest_bridge_id}" | grep -iq ikev2 ; then
-				ikev2_net_access_del
-			else
-				bridge_vpn_access_del "${guest_bridge_id}"
-				sed -i '/INFACE_GUEST_ENT=/,/^$/ s/'"${guest_bridge_id}"'[,]\{0,1\}//; s/[ ,]//g' "${KVAS_CONF_FILE}"
-			fi
+		if echo "${guest_bridge_id}" | grep -iq ikev2 ; then
+			ikev2_net_access_del
+		else
+			bridge_vpn_access_del "${guest_bridge_id}"
+			sed -i '/INFACE_GUEST_ENT=/,/^$/ s/'"${guest_bridge_id}"'[,]\{0,1\}//; s/[ ,]//g' "${KVAS_CONF_FILE}"
 		fi
+		ready "Перезапускаем DNS сервер"
+		if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
+			/opt/etc/init.d/S99adguardhome restart &> /dev/null
+		else
+			/opt/etc/init.d/S56dnsmasq restart &> /dev/null
+		fi
+		[ $? = 0 ] && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 
-        #       перезапускаем DNS сервер новыми IP для прослушки на 53 порту
-        if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
-                /opt/etc/init.d/S99adguardhome restart &> /dev/null
-        else
-                /opt/etc/init.d/S56dnsmasq restart &> /dev/null
-        fi
+	fi
+
+	
 
 }
 
@@ -875,14 +877,14 @@ cmd_bridge_vpn_access_del() {
 # ------------------------------------------------------------------------------------------
 bridge_access_add() {
 
-        guest_bridge_id=${1};
-
-#        has_ssr_enable && vpn_type='shadowsocks' || vpn_type='vpn'
-		cli_inface=$(echo "${INFACE_NAMES_FILE}" | grep "${guest_bridge_id}" | cut -d"|" -f1)
-        ready "Добавление гостевого интерфейса ${cli_inface} завершено"
-
+        guest_bridge_id=${1}; 
+# set -xe
+		_id=$(echo "${guest_bridge_id}" | sed 's/[a-z]//g')
+		cli_inface=$(curl -s "${INFACE_REQUEST}" | jq -r '.[] | select(.address != null and .id == "'"Bridge${_id}"'") | .description')	    
+		ready "Добавление гостевого интерфейса '${cli_inface}' завершено"
+# set +xe
 #		если сеть уже есть в списке, то пропускаем добавление
-		cat <  "${KVAS_CONF_FILE}" | grep INFACE_GUEST_ENT | grep -q "${guest_bridge_id}" || {
+		grep INFACE_GUEST_ENT "${KVAS_CONF_FILE}" | grep -q "${guest_bridge_id}" || {
 			has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p')
 			[ -n "${has_guest_nets}" ] && point=',' || point=''
 			sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}${guest_bridge_id}/g; s/[ ]//g" "${KVAS_CONF_FILE}"
@@ -892,11 +894,11 @@ bridge_access_add() {
         guest_net_ip=$(ip a | grep global | grep -E ' '"${guest_bridge_id}" | sed 's/inet \(.*\)\/.*/\1/' | tr -d ' ')
         if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
 #           Если доступен ADGUARDHOME
-			cat < "${ADGUARDHOME_CONFIG}" | grep -q '- '"${guest_net_ip}" || \
+			grep -q "\- ${guest_net_ip}" "${ADGUARDHOME_CONFIG}" || \
 				sed -i '/bind_hosts/,/port/ s/.*\(port.*\)/    - '"${guest_net_ip}"'\n  \1/1' "${ADGUARDHOME_CONFIG}"
         else
 #           Если сейчас работает только dnsmasq
-			cat < "${DNSMASQ_CONFIG}" | grep -q "listen-address=${guest_net_ip}" ||
+			grep -q "listen-address=${guest_net_ip}" "${DNSMASQ_CONFIG}" || \
 				sed -i '/listen-address/,/port/ s/.*\(port.*\)/listen-address='"${guest_net_ip}"'\n\1/' "${DNSMASQ_CONFIG}"
 
         fi
@@ -927,19 +929,21 @@ bridge_vpn_access_add() {
 # ------------------------------------------------------------------------------------------
 cmd_bridge_vpn_access_add() {
 
-    echo "Выберите гостевую сеть для добавления:"
-    print_line
 #       Если добавляем конкретный интерфейс
 	guest_bridge_id=''; bridge_inface_select guest_bridge_id add
 
-	bridge_vpn_access_add "${guest_bridge_id}"
+	if [ -n "${guest_bridge_id}" ]; then
+		bridge_vpn_access_add "${guest_bridge_id}"
 
-#       перезапускаем DNS сервер новыми IP для прослушки на 53 порту
-    if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
-        /opt/etc/init.d/S99adguardhome restart &> /dev/null
-    else
-        /opt/etc/init.d/S56dnsmasq restart &> /dev/null
-    fi
+	#       перезапускаем DNS сервер новыми IP для прослушки на 53 порту
+		ready "Перезапускаем DNS сервер"
+		if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
+			/opt/etc/init.d/S99adguardhome restart &> /dev/null
+		else
+			/opt/etc/init.d/S56dnsmasq restart &> /dev/null
+		fi
+		[ $? = 0 ] && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+	fi
 }
 
 
@@ -953,9 +957,11 @@ cmd_bridge_vpn_access_add() {
 bridge_inface_select() {
     action="${2}"
     entware_list=$(cmd_bridge_vpn_access_list "${action}" skip)
+	echo "${action}" | grep -q "add" && act="добавления" || act="удаления"
+
     if [ -n "${entware_list}" ]; then
-#        echo "Выберите гостевую сеть для добавления:"
-#       print_line
+       	echo "Выберите гостевую сеть для ${act}:"
+      	print_line
         echo "${entware_list}"
         total=$(echo -e "${entware_list}" | wc -l)
 
@@ -978,7 +984,6 @@ bridge_inface_select() {
 			esac
     	done
     else
-        echo "${action}" | grep -q "add" && act="добавления" || act="удаления"
         warning "Гостевые интерфейсы для ${act} отсутствуют!"
     fi
 }

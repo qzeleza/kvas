@@ -1,5 +1,5 @@
 -------------------------------------------------------------------------------------------
-🟢 [13-07-2024 07:30:35] СБОРКА ЗАПУЩЕНА
+🟢 [25-07-2024 08:10:10] СБОРКА ЗАПУЩЕНА
 -------------------------------------------------------------------------------------------
 ++ user_app_build user_app 'Этап сборки самого приложения \Z4kvas\Zn' 1/1
 ++ local stage=user_app
@@ -18,14 +18,14 @@
 ++ local steps=1/1
 ++ [[ 0 -ne 0 ]]
 +++ mktemp
-++ cmd_content_file=/tmp/tmp.Cxe8Ud3GYp
+++ cmd_content_file=/tmp/tmp.50NUlGDcj1
 ++ echo 0
 ++ local _cmd
 ++ (( i=0 ))
 ++ (( i<10 ))
 ++ local 'main_command=update_scripts_to_manifest_file build/Makefile'
 ++ local 'log_command=printf "Ошибка при обновлелении файла манифеста Makefile"'
-++ '[' -s /tmp/tmp.Cxe8Ud3GYp ']'
+++ '[' -s /tmp/tmp.50NUlGDcj1 ']'
 ++ printf '▶ update_scripts_to_manifest_file build/Makefile\n'
 ▶ update_scripts_to_manifest_file build/Makefile
 ++ one_line
@@ -37,9 +37,9 @@
 -------------------------------------------------------------------------------------------++ echo ''
 
 ++ exec
++++ tee /tmp/tmp.50NUlGDcj1
 +++ eval 'update_scripts_to_manifest_file build/Makefile'
 ++++ update_scripts_to_manifest_file build/Makefile
-+++ tee /tmp/tmp.Cxe8Ud3GYp
 ++++ local _manifest_file=/home/zeleza/kvas/build/Makefile
 ++++ local _scripts_path=/home/zeleza/kvas/
 ++++ '[' -n '' ']'
@@ -50,7 +50,7 @@
 ++ (( i<10 ))
 ++ local 'main_command=make -j7 package/feeds/packages/kvas/clean'
 ++ local 'log_command=make -j1 package/feeds/packages/kvas/clean V=sc'
-++ '[' -s /tmp/tmp.Cxe8Ud3GYp ']'
+++ '[' -s /tmp/tmp.50NUlGDcj1 ']'
 ++ printf '▶ make -j7 package/feeds/packages/kvas/clean\n'
 ▶ make -j7 package/feeds/packages/kvas/clean
 ++ one_line
@@ -64,4 +64,52 @@
 ++ exec
 +++ eval 'make -j7 package/feeds/packages/kvas/clean'
 ++++ make -j7 package/feeds/packages/kvas/clean
-+++ tee /tmp/tmp.Cxe8Ud3GYp
++++ tee /tmp/tmp.50NUlGDcj1
+WARNING: Makefile 'package/feeds/packages/boost/Makefile' has a dependency on 'libquadmath', which does not exist
+WARNING: Makefile 'package/network/services/bridger/Makefile' has a build dependency on 'bpf-headers', which does not exist
+WARNING: Makefile 'package/feeds/packages/kvas/build/Makefile' has a dependency on 'shadowsocks-libev-ss-redir', which does not exist
+WARNING: Makefile 'package/feeds/packages/kvas/build/Makefile' has a dependency on 'shadowsocks-libev-config', which does not exist
+WARNING: Makefile 'package/feeds/packages/kvas/Makefile' has a dependency on 'shadowsocks-libev-ss-redir', which does not exist
+WARNING: Makefile 'package/feeds/packages/kvas/Makefile' has a dependency on 'shadowsocks-libev-config', which does not exist
+WARNING: Makefile 'package/libs/libsemanage/Makefile' has a dependency on 'libaudit', which does not exist
+WARNING: Makefile 'package/libs/libsemanage/Makefile' has a build dependency on 'audit/host', which does not exist
+WARNING: Makefile 'package/feeds/packages/mc/Makefile' has a dependency on 'libe2p', which does not exist
+WARNING: Makefile 'package/utils/policycoreutils/Makefile' has a dependency on 'libaudit', which does not exist
+WARNING: Makefile 'package/utils/policycoreutils/Makefile' has a dependency on 'libaudit', which does not exist
+WARNING: Makefile 'package/utils/policycoreutils/Makefile' has a dependency on 'libaudit', which does not exist
+WARNING: Makefile 'package/utils/policycoreutils/Makefile' has a dependency on 'libaudit', which does not exist
+make[2]: Entering directory '/home/zeleza/entware/scripts/config'
+make[2]: 'conf' is up to date.
+make[2]: Leaving directory '/home/zeleza/entware/scripts/config'
+ make[1] package/feeds/packages/kvas/clean
+ make[2] -C /home/zeleza/kvas clean
++++ echo 0
+++ local return_code=0
+++ '[' 0 -ne 0 ']'
+++ (( i+=2  ))
+++ (( i<10 ))
+++ local 'main_command=make -j7 package/feeds/packages/kvas/compile'
+++ local 'log_command=make -j1 package/feeds/packages/kvas/compile V=sc'
+++ '[' -s /tmp/tmp.50NUlGDcj1 ']'
+++ one_line
+++ prn_line 91 -
+++ width=91
+++ type_line=-
++++ seq 1 91
+++ printf %.0s- 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91
+-------------------------------------------------------------------------------------------++ echo ''
+
+++ printf '▶ make -j7 package/feeds/packages/kvas/compile\n'
+▶ make -j7 package/feeds/packages/kvas/compile
+++ one_line
+++ prn_line 91 -
+++ width=91
+++ type_line=-
++++ seq 1 91
+++ printf %.0s- 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91
+-------------------------------------------------------------------------------------------++ echo ''
+
+++ exec
++++ eval 'make -j7 package/feeds/packages/kvas/compile'
+++++ make -j7 package/feeds/packages/kvas/compile
++++ tee /tmp/tmp.50NUlGDcj1
