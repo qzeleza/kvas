@@ -24,7 +24,7 @@
 logger -t "КВАС" "Запущен файл ${0}"
 
 # Проверяем доступность сети
-until ADDRS=$(kdig +short ya.ru @127.0.0.1:9153 ) && [ -n "${ADDRS}" ] > /dev/null 2>&1; do sleep 5; done
+until ADDRS=$(kdig +short ya.ru @localhost ) && [ -n "${ADDRS}" ] > /dev/null 2>&1; do sleep 5; done
 
 # Подготавливаем список текущих адресов в ipset для проверки
 current_ipset=$(ipset list "${TABLE_NAME}" | grep "^[0-9]")
