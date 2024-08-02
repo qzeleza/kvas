@@ -23,8 +23,17 @@
 . /opt/apps/kvas/bin/libs/ipset
 logger -t "КВАС" "Запущен файл ${0}"
 
-# Проверяем доступность сети
-until ADDRS=$(kdig +short ya.ru @localhost ) && [ -n "${ADDRS}" ] > /dev/null 2>&1; do sleep 5; done
+# Проверяем доступность сети с ограниченным числом попыток
+max_attempts=5
+attempt=0
+until ADDRS=$(kdig +short ya.ru @localhost ) && [ -n "${ADDRS}" ] > /dev/null 2>&1 || [ $attempt -eq $max_attempts ]; do
+  sleep 5
+  attempt=$((attempt + 1))
+done
+if [ $attempt -eq $max_attempts ]; then
+  logger -t "КВАС" "Сеть не доступна"
+  exit 1
+fi
 
 # Подготавливаем список текущих адресов в ipset для проверки
 current_ipset=$(ipset list "${TABLE_NAME}" | grep "^[0-9]")
