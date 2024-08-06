@@ -536,6 +536,8 @@ adguardhome_check_config() {
 			[ -f /opt/etc/init.d/S56dnsmasq ] && /opt/etc/init.d/S56dnsmasq stop &> /dev/null
 			[ -f /opt/etc/init.d/S09dnscrypt-proxy2 ] && /opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
 			rm -f /opt/var/log/AdGuardHome.log
+			rm -f /opt/etc/AdGuardHome/data/querylog.json
+
 #			Проверяем наличие файла конфигурации AdGuardHome в папке исполняемых файлов
 			if [ -f /opt/bin/AdGuardHome.yaml ]; then
 #				проверяем файл на оригинальность (без переделок ли он под квас)
@@ -573,6 +575,7 @@ adguardhome_check_config() {
 			pid_to_kill=$(ps -w | grep 'AdGuardHome -l /opt/var/log/AdGuardHome.log' | grep -v 'grep' | cut -d' ' -f1)
 			[ -n "${pid_to_kill}" ] && kill -9 "${pid_to_kill}" &> /dev/null
 #			Запускаем новую чистую настройку AdGuardHome
+			[ -f /opt/bin/AdGuardHome ] || opkg install adguardhome-go &> /dev/null
 			/opt/bin/AdGuardHome -c "${tmp_conf}" -l "${log_file}" &
 			sleep 2
 
@@ -603,7 +606,7 @@ adguardhome_install_locally() {
 		echo "и следуйте рекомендациям на экране, после настройки AdGuard Home"
 		echo "запустите команду ${GREEN}kvas adguard on${NOCL}."
 	else
-
+	
 		[ -f /opt/etc/init.d/S56dnsmasq ] && /opt/etc/init.d/S56dnsmasq stop &> /dev/null
 		[ -f /opt/etc/init.d/S09dnscrypt-proxy2 ] && /opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
 		rm -f /opt/var/log/AdGuardHome.log
@@ -2361,13 +2364,40 @@ cmd_add_one_host() {
 	reset="${2:-yes}"
 	wild="${3}"
 
+	# Проверяем есть ли в введенной строке имя метки или нет
+	tag_name=$("${@}" | grep -oP '(?<=-tag )\S+')
+
+	if [ -n "${tag_name}" ] ; then
+		# Помечаем доменное имя тегом 
+		cmd_add_domain_to_tag_list "${tag_name}" "${host}"
+		# Если  помимо этого домена существует еще доменные с одноименным тегом
+		# то делаем запрос на их доавление.
+		local _tmpfile=$(mktemp)
+		_get_same_tag_domains_missing_in_protection_list "${host}" > "${_tmpfile}"
+		# Проверяем есть ли в этом списке домены
+		[ -s "${_tmpfile}" ] && {
+			# Если есть, то спрашивем добавить ли их
+			read_ynq "Найдены доменные имена с тегом '${tag_name}',\nкоторых пока нет в списке защищенных доменнов.\nДобавить их в список?" answer
+			[[ "$answer" =~ [qn] ]] && return 1
+			if [[ "$answer" =~ [y] ]] ; then
+				print_line
+				cmd_import_hosts "${_tmpfile}"
+			fi
+			rm -f "${_tmpfile}"
+			return 0
+		}
+	fi
+
 	clear_host=$(echo "${host}" | sed 's/\*//')
 	ip_filter='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'
 	#	формальная проверка на наличие точки в имени домена
 	if echo "${host}" | grep -q '\.' ; then
+		# если точка в имени домена есть, то проверяем на корректность IP
 		if echo "${clear_host}" | grep -qE "${ip_filter}*" ; then
-			if echo "${clear_host}" | grep -qE "^${ip_filter}/[0-9]{1,2}$|^${ip_filter}$|^${ip_filter}-${ip_filter}$"; then
 
+			# если точка в имени домена есть, то проверяем на корректность IP
+			if echo "${clear_host}" | grep -qE "^${ip_filter}/[0-9]{1,2}$|^${ip_filter}$|^${ip_filter}-${ip_filter}$"; then
+				# если включен режим импорта
 				if [ "${wild}" = import ]; then
 					host_add "${host}" "${reset}" "${wild}" | grep -q "ДОБАВЛЕН" && echo +
 				else
@@ -2381,6 +2411,7 @@ cmd_add_one_host() {
 				fi
 			fi
 		else
+			# проверка на наличие домена в списке защиты доменов
 			if cat < "${UNBLOCK_LIST_FILE}" | grep -qE "^${clear_host}"; then
 				[ "${wild}" = import ] || warning "Такой домен уже есть в списке разблокировки!"
 				if [ "${clear_host}" != "${host}" ] ; then
@@ -2425,7 +2456,7 @@ cmd_add_one_host() {
 cmd_del_one_host() {
 	host_="${1}"
 	if cat < "${UNBLOCK_LIST_FILE}" | grep -qe "${host_}$" ; then
-		ready "Удаляем ${YELLOW}${host_}${NOCL} из списка разблокировки..."
+		ready "Удаляем ${YELLOW}${host_}${NOCL} из списка защищенных..."
 		sed -i "/${host_////\\/}/d" "${UNBLOCK_LIST_FILE}"
 
 		cmd_adguardhome_status | grep -q ВКЛЮЧЕН && sed -i "/${host_////\\/}/d" "${ADGUARD_IPSET_FILE}"
@@ -2441,8 +2472,46 @@ cmd_del_one_host() {
 		cmd_vpn_iptable_reset &> /dev/null
 
 	else
-		error "Такая запись отсутствует в списке разблокировки!" no_nln
+		error "Такая запись отсутствует в списке защищенных!" no_nln
 	fi
+}
+
+
+# ------------------------------------------------------------------------------------------
+#
+#	Удаляем из белого списка множество доменных имен
+#	$1 - список доменных имен для удаления
+#
+# ------------------------------------------------------------------------------------------
+del_multy_hosts() {
+	list_to_del="$1"
+
+	if [ -z "${list_to_del}" ]; then
+		error "Список пуст!" 
+		return 1
+	else
+		for host_ in ${list_to_del}; do
+			ready "Удаляем ${YELLOW}${host_}${NOCL} из списка защищенных..."
+			if cat < "${UNBLOCK_LIST_FILE}" | grep -qe "${host_}$" ; then
+				
+				sed -i "/${host_////\\/}/d" "${UNBLOCK_LIST_FILE}"
+				cmd_adguardhome_status | grep -q ВКЛЮЧЕН && sed -i "/${host_////\\/}/d" "${ADGUARD_IPSET_FILE}"
+				[ $? = 0 ] && when_ok "УДАЛЕН" || when_bad "НЕ УДАЛЕН"
+			else 
+				when_alert "НЕТ В СПИСКЕ"
+			fi
+		done
+		#	если включен блокировщик рекламы
+		if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
+			ready "Удаляем имена выше из списка блокировки рекламы"
+			/opt/apps/kvas/bin/main/adblock &> /dev/null
+			[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+		fi
+		ready "Перегружаем все правила конфигурации iptables и ipset"
+		cmd_kvas_init  &> /dev/null && cmd_vpn_iptable_reset &> /dev/null
+		[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+	fi
+
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -2513,7 +2582,7 @@ cmd_import_hosts() {
 			error "Списочный файл ${host_list} не существует."
 			error "Проверьте верность написания пути и его имени."
 		else
-			ready "Импортируем хосты в список разблокировки и обновляем маршруты..."
+			ready "Импортируем хосты в список защищаемых доменов и обновляем маршруты..."
 			clear_file_content "${host_list}"
 
 			clear_file_content "${UNBLOCK_LIST_FILE}"
@@ -2590,6 +2659,9 @@ cmd_import_hosts() {
 		fi
 	fi
 }
+
+
+
 # ------------------------------------------------------------------------------------------
 #
 #	Экспортируем (сохраняем) список доменов в другой файл
@@ -2609,6 +2681,70 @@ cmd_export_hosts() {
 	echo "${HOSTS_LIST}" > "${backup_name}"
 	[ $? = 0 ] && when_ok "СОХРАНЕНЫ" || when_bad "ОШИБКА"
 }
+
+
+
+
+# -------------------------------------------------------------------------------------------
+#
+#   Функция для добавления доменов в список для защиты
+#
+# ------------------------------------------------------------------------------------------
+add_tag_section_to_protect_list() {
+
+    local section="$1"
+    local tag_selected answer
+    tag_select "добавления" tag_selected
+    [ -n "${tag_selected}" ] && {
+        print_line
+        echo -e "В защищенный список будут добавлены следующие домены:"
+        print_line
+        local domains=$(get_tag_domain_list "${tag_selected}")
+        echo -e "${domains}" | sed '$d' | sort -u  | sed = | sed 'N;s/\n/. /g'
+        print_line
+        read_ynq "Добавляем?" answer
+        if [[ "$answer" =~ [qQ] ]] ; then
+            return 0 
+        elif [ "${answer}" = y ]; then
+            print_line
+            local TMPFILE=$(mktemp)
+            echo "${domains}" | sed '$d' > "${TMPFILE}"
+            cmd_import_hosts "${TMPFILE}"
+            rm "${TMPFILE}"
+        fi
+    }
+}
+
+
+# -------------------------------------------------------------------------------------------
+#
+#   Функция для удаления доменов из списка защиты
+#
+# ------------------------------------------------------------------------------------------
+del_tag_section_to_protect_list() {
+
+    local section="$1"
+    local tag_selected answer
+    tag_select "удаления" tag_selected
+    [ -n "${tag_selected}" ] && {
+        print_line
+        echo -e "Из защищенного списка будут удалены следующие домены:"
+        print_line
+        local domains=$(get_tag_domain_list "${tag_selected}")
+        echo -e "${domains}" | sed '$d' | sort -u  | sed = | sed 'N;s/\n/. /g'
+        print_line
+        read_ynq "Удаляем?" answer
+        if [[ "$answer" =~ [qQ] ]] ; then
+            return 0 
+        elif [ "${answer}" = y ]; then
+            print_line
+            del_multy_hosts "${domains}"
+        fi
+    }
+}
+
+
+
 # ------------------------------------------------------------------------------------------
 #
 #	Отображаем БС

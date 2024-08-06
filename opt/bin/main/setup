@@ -24,9 +24,9 @@ setup_test_provider_dns(){
 		echo -e "С этой целью зайдите в админ панель роутера по адресу: ${GREEN}${cli}${NOCL}"
 		echo "и выполните последовательно три следующих команды: "
 		print_line
-		echo -e "1. ${GREEN}opkg dns-override ${NOCL} 			- отключаем использование DNS провайдера,"
-		echo -e "2. ${GREEN}system configuration save ${NOCL}  	- сохраняем изменения,"
-		echo -e "3. ${GREEN}system reboot ${NOCL} 				- перегружаем роутер."
+		echo -e "1. ${GREEN}opkg dns-override${NOCL}           - отключаем использование DNS провайдера,"
+		echo -e "2. ${GREEN}system configuration save${NOCL}   - сохраняем изменения,"
+		echo -e "3. ${GREEN}system reboot${NOCL}               - перегружаем роутер."
 		print_line
 		exit 1
 	fi
@@ -335,6 +335,7 @@ cmd_install(){
 
 	ln -sf /opt/apps/kvas/bin/main/ipset /opt/etc/cron.5mins/ipset.kvas
 
+	[ -d "/opt/etc/ndm/iflayerchanged.d" ] || mkdir -p /opt/etc/ndm/iflayerchanged.d
 	hook_dir=$(get_hook_dir); home_dir=/opt/apps/kvas
 	ln -sf "${home_dir}/etc/ndm/${hook_dir}/100-unblock-vpn" "/opt/etc/ndm/${hook_dir}/100-unblock-vpn"
 	ln -sf "${home_dir}/etc/ndm/iflayerchanged.d/kvas-ips-reset" "/opt/etc/ndm/iflayerchanged.d/kvas-ips-reset"

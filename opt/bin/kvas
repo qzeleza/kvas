@@ -129,6 +129,14 @@ case "${1}" in
 		esac
 		;;
 
+	tags)
+		case "${2}" in
+			list) 			cmd_show_tags_domain_list "${3}" ;;
+			add)			cmd_add_domain_to_tag_list "${3}" "${4}" ;;
+			del)			cmd_del_domain_to_tag_list "${3}" "${4}" ;;
+			*) 				cmd_show_tags_domain_list "${3}" ;;
+		esac
+		;;
 	debug)
 		case "${2}" in
 			ipset) 			unblock_list_ipset_chec ;;

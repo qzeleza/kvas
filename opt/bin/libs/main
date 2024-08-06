@@ -470,7 +470,7 @@ when_ok() {
 	ok_text=${1:-ГОТОВО}
 	num_left=$((${#ok_text} + 2))
 	to_left="\033[${num_left}D"
-	echo -e "${to_left}${GREEN}${ok_text}${NOCL}"
+	echo -e " ${GREEN}${to_left}${ok_text}${NOCL}"
 }
 
 #--------------------------------------------------------------------------------------------------------------
@@ -482,14 +482,14 @@ when_bad() {
 	err_text=${1:-ОШИБКА}
 	num_left=$((${#err_text} + 1))
 	to_left="\033[${num_left}D"
-	echo -e "${to_left}${RED}${err_text}${NOCL}"
+	echo -e "${RED}${to_left}${err_text}${NOCL}"
 }
 
 when_alert() {
 	alert_text=${1}
 	num_left=$((${#alert_text} + 1))
 	to_left="\033[${num_left}D"
-	echo -e "${to_left}${BLUE}${alert_text}${NOCL}"
+	echo -e "${BLUE}${to_left}${alert_text}${NOCL}"
 }
 #функция перчатает заданное число раз один и тот же символ
 print_line() {

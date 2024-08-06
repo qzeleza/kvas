@@ -1,5 +1,5 @@
 -------------------------------------------------------------------------------------------
-🟢 [25-07-2024 08:10:10] СБОРКА ЗАПУЩЕНА
+🟢 [01-08-2024 16:13:43] СБОРКА ЗАПУЩЕНА
 -------------------------------------------------------------------------------------------
 ++ user_app_build user_app 'Этап сборки самого приложения \Z4kvas\Zn' 1/1
 ++ local stage=user_app
@@ -18,14 +18,14 @@
 ++ local steps=1/1
 ++ [[ 0 -ne 0 ]]
 +++ mktemp
-++ cmd_content_file=/tmp/tmp.50NUlGDcj1
+++ cmd_content_file=/tmp/tmp.NIviD1AVMG
 ++ echo 0
 ++ local _cmd
 ++ (( i=0 ))
 ++ (( i<10 ))
 ++ local 'main_command=update_scripts_to_manifest_file build/Makefile'
 ++ local 'log_command=printf "Ошибка при обновлелении файла манифеста Makefile"'
-++ '[' -s /tmp/tmp.50NUlGDcj1 ']'
+++ '[' -s /tmp/tmp.NIviD1AVMG ']'
 ++ printf '▶ update_scripts_to_manifest_file build/Makefile\n'
 ▶ update_scripts_to_manifest_file build/Makefile
 ++ one_line
@@ -37,9 +37,9 @@
 -------------------------------------------------------------------------------------------++ echo ''
 
 ++ exec
-+++ tee /tmp/tmp.50NUlGDcj1
 +++ eval 'update_scripts_to_manifest_file build/Makefile'
 ++++ update_scripts_to_manifest_file build/Makefile
++++ tee /tmp/tmp.NIviD1AVMG
 ++++ local _manifest_file=/home/zeleza/kvas/build/Makefile
 ++++ local _scripts_path=/home/zeleza/kvas/
 ++++ '[' -n '' ']'
@@ -50,7 +50,7 @@
 ++ (( i<10 ))
 ++ local 'main_command=make -j7 package/feeds/packages/kvas/clean'
 ++ local 'log_command=make -j1 package/feeds/packages/kvas/clean V=sc'
-++ '[' -s /tmp/tmp.50NUlGDcj1 ']'
+++ '[' -s /tmp/tmp.NIviD1AVMG ']'
 ++ printf '▶ make -j7 package/feeds/packages/kvas/clean\n'
 ▶ make -j7 package/feeds/packages/kvas/clean
 ++ one_line
@@ -64,20 +64,7 @@
 ++ exec
 +++ eval 'make -j7 package/feeds/packages/kvas/clean'
 ++++ make -j7 package/feeds/packages/kvas/clean
-+++ tee /tmp/tmp.50NUlGDcj1
-WARNING: Makefile 'package/feeds/packages/boost/Makefile' has a dependency on 'libquadmath', which does not exist
-WARNING: Makefile 'package/network/services/bridger/Makefile' has a build dependency on 'bpf-headers', which does not exist
-WARNING: Makefile 'package/feeds/packages/kvas/build/Makefile' has a dependency on 'shadowsocks-libev-ss-redir', which does not exist
-WARNING: Makefile 'package/feeds/packages/kvas/build/Makefile' has a dependency on 'shadowsocks-libev-config', which does not exist
-WARNING: Makefile 'package/feeds/packages/kvas/Makefile' has a dependency on 'shadowsocks-libev-ss-redir', which does not exist
-WARNING: Makefile 'package/feeds/packages/kvas/Makefile' has a dependency on 'shadowsocks-libev-config', which does not exist
-WARNING: Makefile 'package/libs/libsemanage/Makefile' has a dependency on 'libaudit', which does not exist
-WARNING: Makefile 'package/libs/libsemanage/Makefile' has a build dependency on 'audit/host', which does not exist
-WARNING: Makefile 'package/feeds/packages/mc/Makefile' has a dependency on 'libe2p', which does not exist
-WARNING: Makefile 'package/utils/policycoreutils/Makefile' has a dependency on 'libaudit', which does not exist
-WARNING: Makefile 'package/utils/policycoreutils/Makefile' has a dependency on 'libaudit', which does not exist
-WARNING: Makefile 'package/utils/policycoreutils/Makefile' has a dependency on 'libaudit', which does not exist
-WARNING: Makefile 'package/utils/policycoreutils/Makefile' has a dependency on 'libaudit', which does not exist
++++ tee /tmp/tmp.NIviD1AVMG
 make[2]: Entering directory '/home/zeleza/entware/scripts/config'
 make[2]: 'conf' is up to date.
 make[2]: Leaving directory '/home/zeleza/entware/scripts/config'
@@ -90,7 +77,7 @@ make[2]: Leaving directory '/home/zeleza/entware/scripts/config'
 ++ (( i<10 ))
 ++ local 'main_command=make -j7 package/feeds/packages/kvas/compile'
 ++ local 'log_command=make -j1 package/feeds/packages/kvas/compile V=sc'
-++ '[' -s /tmp/tmp.50NUlGDcj1 ']'
+++ '[' -s /tmp/tmp.NIviD1AVMG ']'
 ++ one_line
 ++ prn_line 91 -
 ++ width=91
@@ -112,4 +99,30 @@ make[2]: Leaving directory '/home/zeleza/entware/scripts/config'
 ++ exec
 +++ eval 'make -j7 package/feeds/packages/kvas/compile'
 ++++ make -j7 package/feeds/packages/kvas/compile
-+++ tee /tmp/tmp.50NUlGDcj1
++++ tee /tmp/tmp.NIviD1AVMG
+make[2]: Entering directory '/home/zeleza/entware/scripts/config'
+make[2]: 'conf' is up to date.
+make[2]: Leaving directory '/home/zeleza/entware/scripts/config'
+ make[1] package/feeds/packages/kvas/compile
+ make[2] -C package/libs/toolchain compile
+ make[2] -C package/devel/gperf host-compile
+ make[2] -C package/libs/libiconv-full host-compile
+ make[2] -C package/libs/ncurses host-compile
+ make[2] -C package/libs/libunistring host-compile
+ make[2] -C package/libs/libxml2 host-compile
+ make[2] -C package/libs/gettext-full host-compile
+ make[2] -C feeds/packages/libs/libuv compile
+ make[2] -C package/libs/zlib compile
+ make[2] -C feeds/packages/libs/nghttp2 compile
+ make[2] -C package/system/ca-certificates compile
+ make[2] -C package/libs/libcap compile
+ make[2] -C feeds/packages/utils/jq compile
+ make[2] -C package/libs/gmp compile
+ make[2] -C feeds/packages/libs/liburcu compile
+ make[2] -C feeds/packages/libs/lmdb compile
+ make[2] -C feeds/packages/utils/xz compile
+ make[2] -C package/utils/bzip2 compile
+ make[2] -C feeds/rtndev/cron compile
+ make[2] -C feeds/packages/libs/c-ares compile
+ make[2] -C feeds/packages/libs/libev compile
+ make[2] -C feeds/packages/libs/libsodium compile

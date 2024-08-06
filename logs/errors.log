@@ -1,9 +1,0 @@
-make[8]: *** [Makefile:2339: ocsp.lo] Error 1
-make[7]: *** [Makefile:2213: all] Error 2
-make[6]: *** [Makefile:2971: all-recursive] Error 1
-make[5]: *** [Makefile:2574: all] Error 2
-make[4]: *** [Makefile:2329: all-recursive] Error 1
-make[3]: *** [Makefile:2254: all] Error 2
-make[2]: *** [Makefile:271: /home/zeleza/entware/build_dir/target-aarch64_cortex-a53_glibc-2.27/gnutls-3.8.5/.built] Error 2
-make[1]: *** [package/Makefile:128: package/feeds/packages/gnutls/compile] Error 1
-make: *** [/home/zeleza/entware/include/toplevel.mk:248: package/feeds/packages/kvas/compile] Error 2

@@ -1,0 +1,326 @@
+#!/bin/sh
+# ------------------------------------------------------------------------------------------
+#
+# 	ПРОЕКТ КВАС
+#
+# 	Данный файл служит для обработки тегов
+#   Реализованы такие функции:
+#		- получение списка тегов
+#		- получение списка доменных имен по тегу
+#		- добавление доменного имени по тегу в список  
+#		- удаление доменного имени по тегу из списка
+# 
+# ------------------------------------------------------------------------------------------
+#
+#	Разработчик: kvas@zeleza.ru
+#	Дата: 02/08/2024
+#	Лицензия: Apache License 2.0
+# 
+# ------------------------------------------------------------------------------------------
+
+. /opt/apps/kvas/bin/libs/main
+
+# Файл с тегами
+TAGS_FILE=/opt/apps/kvas/etc/conf/tags.list
+
+
+# ------------------------------------------------------------------------------------------
+#
+# 	Получаем список тегов и доменов
+#
+# ------------------------------------------------------------------------------------------
+cmd_show_tags_domain_list(){
+
+    section="$1"
+
+    if [ -n "$section" ] ; then
+        _list=$(get_tag_domain_list "$section")
+    else
+        _list=$(cat < "${TAGS_FILE}")
+    fi
+
+    if grep -q "\[$section\]" "${TAGS_FILE}" ; then
+
+        echo -e "${GREEN}Список доменных имен в тегах:${NOCL}"
+        print_line
+        [ -n "$section" ] && echo -e "${GREEN}[$section]${NOCL}"
+        while read -r line; do
+            if [[ "$line" =~ \[.*?\] ]]; then
+                echo -e "${GREEN}${line}${NOCL}"
+            else
+                echo -e "  $line" 
+            fi
+        done <<< $_list
+    else
+        error "Тег $section не найден!"
+    fi
+}
+
+
+# ------------------------------------------------------------------------------------------
+#
+# 	Получаем список тегов
+#
+# ------------------------------------------------------------------------------------------
+get_tags_list(){
+    cat < "${TAGS_FILE}" | grep -vE '^#|^$' | grep "\[" | grep "\]" | tr -d ']['
+}
+
+# ------------------------------------------------------------------------------------------
+#
+# 	Получаем список доменных имен по тегу
+#
+# ------------------------------------------------------------------------------------------
+get_tag_domain_list(){
+    awk -v section="$1" '/\['"$1"'\]/{flag=1; next} /\[.*\]/{flag=0} flag' "${TAGS_FILE}"
+}
+
+# ------------------------------------------------------------------------------------------
+#
+# 	Получаем первый домен из списка доменных имен по тегу
+#
+# ------------------------------------------------------------------------------------------
+get_first_domain_from_section() {
+    get_tag_domain_list "$1" | head -n 1
+}
+
+# ------------------------------------------------------------------------------------------
+# 
+#   Функция для проверки наличия секции в файле 
+#
+# ------------------------------------------------------------------------------------------
+_check_section() {
+
+    local section="$1"
+    if ! grep -q "\[$section\]" "${TAGS_FILE}"; then
+        read_ynq "Тег '$section' не найден. Добавить?" answer
+        if [[ "$answer" =~ [qn] ]] ; then return 1; 
+        elif [[ "$answer" =~ [y] ]] ; then
+            echo -e "\n[$section]" >> "${TAGS_FILE}"
+        fi
+        print_line
+        
+    fi
+
+}
+
+# ------------------------------------------------------------------------------------------
+# 
+#   Функция для получения имени тега по имени домена
+#
+# ------------------------------------------------------------------------------------------
+_get_tagname_by_domain() {
+    local domain_name=$1
+
+    # Найти строку с доменом и получить строки до этой строки, затем найти последний тег перед доменом
+    sed -n "/^$domain_name$/=" "$TAGS_FILE" | while read -r line_number; do
+        sed -n "1,${line_number}p" "$TAGS_FILE" | grep -oP '^\[\K[^\]]+' | tail -1
+    done
+
+}
+# ------------------------------------------------------------------------------------------
+# 
+#   Функция возврщает список доменных имен, помеченных одним тегом и 
+#   которых нет в защитном списке 
+#
+# ------------------------------------------------------------------------------------------
+_get_same_tag_domains_missing_in_protection_list() {
+    
+    local domain="$1"
+    local tagname=$(_get_tagname_by_domain "${domain}" | tail -1)
+    local _list=""
+
+    get_tag_domain_list "$tagname" | while read -r line; do
+        local _host=$(grep "^$line$" "${UNBLOCK_LIST_FILE}")
+        if [ -n "$_host" ]; then
+            _list="${_list} ${line}"
+        fi
+    done
+
+    echo "${_list}"
+}
+# ------------------------------------------------------------------------------------------
+# 
+#   Функция для проверки домена на наличие доменной зоны
+#
+# ------------------------------------------------------------------------------------------
+_check_domain_zone() {
+    local domain="$1"
+
+    # Проверка на наличие доменной зоны
+    echo "$domain" | grep -qE "\.[a-zA-Z]{2,6}$" || {
+        warning "Неверный формат домена."
+        warning "Должна быть указана доменная зона (например, .com, .ru, .org)."
+        return 1
+    }
+
+
+}
+
+# ------------------------------------------------------------------------------------------
+# 
+#   Функция для добавления домена в секцию
+#
+# ------------------------------------------------------------------------------------------
+cmd_add_domain_to_tag_list() {
+
+    local section="$1"
+    local domain="$2"
+
+    _check_domain_zone "${domain}" || return 1
+    _check_section "$section" || return 1
+
+    get_tag_domain_list "$section" | grep -q "^$domain$" && {
+         warning "Домен '$domain' уже помечен тегом '$section'."
+         warning "Пропускаем добавление домена в тег '$section'..."
+        return 1
+    }
+
+    ready "Домен '$domain' добавлен в тег '$section'."
+    if sed -i "/\[$section\]/a $domain" "${TAGS_FILE}" ; 
+    then when_ok "УСПЕШНО";
+    else when_bad "ОШИБКА"; fi
+}
+
+# -------------------------------------------------------------------------------------------
+# 
+#   Функция для удаления домена из секции
+#
+# ------------------------------------------------------------------------------------------
+cmd_del_domain_from_tag_list() {
+
+    local section="$1"
+    local domain="$2"
+
+    # Если задана только секция - удаляем все домены в этой секции
+    if [ -z "${domain}" ] ; then
+        read_ynq "Будут удалены все домены под тегом '$section' и сам тег.\nВы уверены?" answer
+        if [[ "$answer" =~ [qn] ]] ; then return 1; fi
+        [ "${answer}" = y ] && {
+            sed -i "/\[$section\]/,/\[.*\]/ { /.*$/d }" "${TAGS_FILE}"
+        }
+        return
+    else
+
+        _check_domain_zone "${domain}" || return 1
+
+        grep -q "\[$section\]" "${TAGS_FILE}" || {
+            echo "Тег '$section' не найден."
+            return 1
+        }
+        
+
+        if ! grep -q "^$domain$" "${TAGS_FILE}"; then
+            error "Домен '$domain' не имеет тег '$section'."
+            return 1
+        fi
+
+        sed -i "/\[$section\]/,/\[.*\]/ { /^$domain$/d }" "${TAGS_FILE}"
+    fi
+}
+
+
+# --------------------------------------------------------------------------------------------
+# 
+#   Функция для проверки наличия элементов тега в списке unblock
+#
+# ------------------------------------------------------------------------------------------
+
+has_section_domains_in_list() {
+# set -exu
+    local section="$1"
+    _check_section "$section" || return 1
+    
+    local all_present=true
+    local none_present=true
+    local partial_present=false
+    local missing_elements=""
+
+    [ -f "${UNBLOCK_LIST_FILE}" ] || {
+        # error "Файл '${UNBLOCK_LIST_FILE}' не найден."
+        when_bad "ОШИБКА"
+        return 1
+    }
+
+    for domain in $(get_tag_domain_list "$section"); do
+# echo "$domain" 
+        if grep -q "$domain$" "${UNBLOCK_LIST_FILE}" ; then
+            none_present=false
+        else
+            all_present=false
+            missing_elements+="$domain "
+        fi
+
+    done
+# echo "all_present=$all_present, none_present=$none_present, missing_elements=$missing_elements"
+    if $all_present; then
+        # when_ok "ДОБАВЛЕНА"
+        echo 1
+    elif $none_present; then
+        # when_bad "ОТСУТСТВУЕТ"
+        echo 2
+    else
+        # when_alert "ЧАСТИЧНО"
+        echo 3
+    fi
+# set +exu
+}
+
+# --------------------------------------------------------------------------------------------
+# 
+#   Функция для выбора секции из списка
+#
+# ------------------------------------------------------------------------------------------
+tag_select() {
+
+    local tags="$(get_tags_list)"
+    local action="$1"
+
+    echo -e "Список тегов для ${BLUE}${action}${NOCL}:"
+    print_line
+    local i=0
+    local added_list=""
+    local ask_list=""
+
+    for tag in $tags; do
+        local res=$(has_section_domains_in_list "$tag")
+        if [ ${res} != 1 ] ; then
+
+            ((i++))
+            ask_list+="$(ready "$i. $tag")"
+            [ ${res} = 2 ] && ask_list+="$(when_bad "ОТСУТСТВУЕТ")"
+            [ ${res} = 3 ] && ask_list+="$(when_alert "ЧАСТИЧНО")"
+            ask_list+="\n"
+        else
+            added_list+="$(ready "$tag" && when_ok "ДОБАВЛЕН")\n" 
+        fi
+        
+    done
+    
+    [ -n "${added_list}" ] && echo -e "${added_list}" | sed '$d'
+    print_line
+    [ -n "${ask_list}" ] && echo -e "${ask_list}" | sed '$d'
+
+    if [ "$i" -gt 0 ]; then
+        print_line
+        while true; do
+            read -p "Выберите номер из списка [1-$i/Q]: " choice
+
+            [[ "$choice" =~ [qQ] ]] && return 0
+            # Проверка на ввод только цифр и в пределах диапазона
+            if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= i )); then
+                break
+            else
+                error "Неверный ввод. Пожалуйста, введите номер из списка."
+            fi
+            
+        done
+
+        chosen_tag=$(echo -e "${tags}" | sed -n $choice'p')
+
+        eval "$2=$chosen_tag"
+
+    else
+        error "Список тегов пуст. Проверьте наличие тега в файле."
+    fi
+}
