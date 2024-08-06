@@ -35,18 +35,27 @@ if [ $attempt -eq $max_attempts ]; then
   exit 1
 fi
 
-# Подготавливаем список текущих адресов в ipset для проверки
-current_ipset=$(ipset list "${TABLE_NAME}" | grep "^[0-9]")
 
-# Обновляем таблицу ipset данными из файла
+# обновляем таблицу ipset данными из файла с доменными именами, IP и сетями
 while read -r line || [ -n "${line}" ]; do
-    [ "${line::1}" = "-" ] || [ -z "${line}" ] || [ "${line:0:1}" = "#" ] && continue
-    line=$(echo "${line}" | sed 's/#.*$//g' | tr -s ' ' | sed 's/\*//g')
 
-    # Обрабатываем IP, диапазоны IP и сети
-    if echo "${line}" | grep -qE "${IP_FILTER}|${IP_FILTER}-${IP_FILTER}|${IP_FILTER}/[0-9]{1,2}"; then
-        [[ ! $current_ipset =~ $line ]] && ipset -exist add "${TABLE_NAME}" "${line}"
-    else
-        add_host_by_iplist_to_ipset "${line}"
-    fi
+	#  пропускаем строки c минусами - это рекламные сайты
+	#  пропускаем пустые строки и строки с комментариями
+	#  пропускаем строки с комментариями
+	[ "${line::1}" = "-" ] || [ -z "${line}" ] || [ "${line:0:1}" = "#" ] && continue
+
+	# удаляем из строки комментарии - все что встречается после символа # и сам символ
+	# удаляем *
+	host=$(echo "${line}" | sed 's/#.*$//g' | tr -s ' ' | sed 's/\*//')
+
+	# если строка начинается с IP, то проводим обработку по IP
+	if echo "${host}" | grep -qoE "${IP_FILTER}|${IP_FILTER}-${IP_FILTER}|${IP_FILTER}/[0-9]{1,2}"; then
+		ipset -exist add "${TABLE_NAME}" "${host}" &>/dev/null || true
+	else
+		add_host_by_iplist_to_ipset "${host}" || true
+	fi
+
 done < "${HOST_LIST}"
+
+#count=$(ipset list "${TABLE_NAME}" | grep -cE "^${IP_FILTER}")
+#logger -t "Общее число IP адресов в ipset составляет ${count} шт."
