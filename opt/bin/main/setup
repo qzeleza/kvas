@@ -123,6 +123,66 @@ restore_backup(){
 }
 
 
+
+# Функция временной остановки работы пакета
+cmd_pause_kvas(){
+
+	ready "Временно приостановливаем работу Кваса..."
+	{
+		ip4_firewall_flush_all_rules
+		ip4_flush_all_tables
+		route_del
+		ip4_rule_del_priority
+		
+		# Архивируем файлы механизма ndm
+		[ -f /opt/etc/ndm/iflayerchanged.d/100-unblock-vpn ] && {
+			mv /opt/etc/ndm/iflayerchanged.d/100-unblock-vpn ${KVAS_BACKUP_PATH}/100-unblock-vpn-layer
+		}
+		[ -f /opt/etc/ndm/iflayerchanged.d/kvas-ips-reset ] && {
+			mv /opt/etc/ndm/iflayerchanged.d/kvas-ips-reset ${KVAS_BACKUP_PATH}/kvas-ips-reset-layer
+		}
+		[ -f /opt/etc/ndm/ifstatechanged.d/kvas-ips-reset ] && {
+			mv /opt/etc/ndm/ifstatechanged.d/100-unblock-vpn ${KVAS_BACKUP_PATH}/100-unblock-vpn-state
+		}
+		[ -f /opt/etc/ndm/netfilter.d/100-proxy-redirect ] && {
+			mv /opt/etc/ndm/netfilter.d/100-proxy-redirect ${KVAS_BACKUP_PATH}/100-proxy-redirect 
+		}
+		[ -f /opt/etc/ndm/netfilter.d/100-vpn-mark ] && {
+			mv /opt/etc/ndm/netfilter.d/100-vpn-mark ${KVAS_BACKUP_PATH}/100-vpn-mark
+		}
+	} &> /dev/null && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
+			
+
+}
+
+# Функция восстановления архивных файлов конфигурации пакета
+cmd_unpause_kvas(){
+
+	ready "Восстанавливаем работу Кваса после паузы..."
+	{
+		#  Восстанавливаем из архива файлы механизма ndm
+		[ -f ${KVAS_BACKUP_PATH}/100-unblock-vpn-layer ] && {
+			mv ${KVAS_BACKUP_PATH}/100-unblock-vpn-layer /opt/etc/ndm/iflayerchanged.d/100-unblock-vpn 
+		}
+		[ -f ${KVAS_BACKUP_PATH}/100-unblock-vpn-layer ] && {
+			mv ${KVAS_BACKUP_PATH}/100-unblock-vpn-layer /opt/etc/ndm/iflayerchanged.d/100-unblock-vpn 
+		}
+		[ -f ${KVAS_BACKUP_PATH}/100-unblock-vpn-state ] && {
+			mv ${KVAS_BACKUP_PATH}/100-unblock-vpn-state /opt/etc/ndm/ifstatechanged.d/100-unblock-vpn
+		}
+		[ -f ${KVAS_BACKUP_PATH}/100-proxy-redirect ] && {
+			mv ${KVAS_BACKUP_PATH}/100-proxy-redirect /opt/etc/ndm/netfilter.d/100-proxy-redirect  
+		}
+		[ -f ${KVAS_BACKUP_PATH}/100-vpn-mark ] && {
+			mv ${KVAS_BACKUP_PATH}/100-vpn-mark /opt/etc/ndm/netfilter.d/100-vpn-mark 
+		}	
+		cmd_kvas_init
+
+	} &> /dev/null && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
+	
+}
+
+
 #------------------------------------------------------
 # 	ВОССТАНАВЛИВАЕМ СОСТОЯНИЕ AdGuardHome,
 # 	КОТОРОЕ БЫЛО ПЕРЕД УСТАНОВКОЙ ПАКЕТА КВАС

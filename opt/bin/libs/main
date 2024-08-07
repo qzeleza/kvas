@@ -193,7 +193,7 @@ reset_connection() {
 	if echo "${isp_state}" | grep -q down ; then
 		reset_ISP_connection || {
 			error "Проверьте соединение с провайдером и/или настройки DNS."
-			exit 1
+			return 1
 		}
 	fi
 
@@ -211,12 +211,12 @@ reset_connection() {
 			print_line
 			error "${error_mess}" nl
 			print_line
-			exit 0
+			return 1
 		}
 	fi
 	sleep "${time_delay}"
 	curl -s -d "{\"${state}\":\"true\"}" "${INFACE_PART_REQUEST}/${inface_cli}" &> /dev/null
-	sleep 1
+	sleep 1 && return 0
 }
 
 

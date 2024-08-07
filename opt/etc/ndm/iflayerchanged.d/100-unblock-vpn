@@ -14,7 +14,9 @@
 #	Подключаем библиотеку с функциями обработки ndm
 . /opt/apps/kvas/bin/libs/ndm_d
 
-if [ "${1}" = "hook" ] && echo "${id}" | grep -q "$(inface_cli)"; then
+local cli_inface="$(inface_cli)"
+
+if [ "${1}" = "hook" ] && echo "${id}" | grep -q "${cli_inface}"; then
 
 	case "${layer}-${level}" in
 
@@ -27,7 +29,7 @@ if [ "${1}" = "hook" ] && echo "${id}" | grep -q "$(inface_cli)"; then
 
 #		Запускаем обработку при отключении соединении
 		"ctrl-disabled" )
-			link_reboot &> /dev/null
+			link_reboot "${cli_inface}" &> /dev/null
 			logger -t "КВАС"  "Соединение ${id} успешно завершено."
 		;;
 

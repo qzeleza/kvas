@@ -1449,7 +1449,7 @@ shadowsocks_read_link(){
 	[ "${SSR_LINK}" = q ] && exit 1
 
 	if [[ -n "${SSR_LINK}" && "${#SSR_LINK}" -gt 6 ]] ; then
-		SSR_LINK="${SSR_LINK//\#*/}"
+		SSR_LINK="$(echo ${SSR_LINK}" | sed -E 's/(.*)[#?\/]\?.*|(.*)#.*/\1\2/')"
 		password=$(echo "${SSR_LINK}" | grep -oP "(?<=ss://).*?(?=@)" | base64 -d )
 		SSR_SERVER_PASSWD=$(echo "${password}" | cut -d ":" -f 2)
 		SSR_SERVER_CRYPT=$(echo "${password}" | cut -d ":" -f 1)

@@ -81,7 +81,15 @@ link_down(){
 #
 # ------------------------------------------------------------------------------------------
 link_reboot(){
+	local connect_pause_time=5
 	link_down
-	link_up
+	# перезапускаем основное и vpn подключение в случае сбоя
+	reset_connection "${1}" "${connect_pause_time}" && link_up || {
+		# снова перезапускаем основное и vpn подключение
+		reset_connection "${1}" "${connect_pause_time}" && link_up || {
+			logger -t "КВАС" "Сбой в подключении ${1}!"
+			exit 1
+		}
+	}
 }
 
