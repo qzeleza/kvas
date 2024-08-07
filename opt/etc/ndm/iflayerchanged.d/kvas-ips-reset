@@ -43,12 +43,12 @@ if [ "${1}" = "hook" ]; then
 		case "${layer}-${level}" in
 			"ctrl-disabled" )
 				link_reboot &> /dev/null
-				logger -t "КВАС"  "Соединение ${id} прервано. Правила и талицы очищены."
+				logger -t "КВАС"  "Соединение ${id} прервано. Правила и таблицы очищены."
 			;;
 			"ctrl-running" )
 				cmd_vpn_iptable_reset &> /dev/null
 #				link_up &> /dev/null
-				logger -t "КВАС"  "Соединение ${id} установлено. Правила и талицы пересозданы."
+				logger -t "КВАС"  "Соединение ${id} установлено. Правила и таблицы пересозданы."
 			;;
 		esac
 	fi
