@@ -211,9 +211,8 @@ check_words_in_multiline_var() {
 # ------------------------------------------------------------------------------------------
 unblock_list_ipset_check(){
 
-	echo "Проверка наличия ip адресов хостов в таблице ipset "
-	echo "команда 'ipset list unblock '"
-	echo -e "${RED}ВНИМАНИЕ!${NOCL}\nВыводятся только записи с ошибками: ${RED}ОТСУТСТВУЕТ${NOCL} и ${BLUE}АДРЕСА НЕТ${NOCL}"
+	echo "Проверка наличия ip адресов хостов в таблице ipset команда 'ipset list unblock '"
+	echo -e "${RED}ВНИМАНИЕ!${NOCL} Выводятся только записи с ошибками: ${RED}ОТСУТСТВУЕТ${NOCL} и ${BLUE}АДРЕСА НЕТ${NOCL}"
 	print_line
 	# /opt/apps/kvas/bin/main/ipset &>/dev/null
 	HAS_NO_ADDRESS=;NOT_IN_TABLE=;
@@ -233,7 +232,7 @@ unblock_list_ipset_check(){
 				if echo "${line}" | grep -qE "${IP_FILTER}|${NET_FILTER}" ; then
 					ips=${line}; ips=${ips//,/ }
 				else
-					ips=$(kdig "${line}" +short "@${dns_ip}" | tr '\n' ',')
+					ips=$(get_iplist_from_domain "${line}" "${dns_ip}" | tr '\n' ',')
 					ips="${ips::-1}"
 				fi
 				if [ -z "$ips" ] || [ "${ips}" = 0.0.0.0 ]; then

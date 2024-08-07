@@ -1,4 +1,5 @@
 #!/bin/bash
+set -xeu 
 set -e
 . /apps/kvas/build/library.run
 
@@ -9,6 +10,7 @@ set -e
 #
 #========================================================================================================
 change_version_in_package(){
+	ls -lia /apps/entware/package/utils/"${APP_NAME}"/files/
 	sed -i "s/^\(APP_VERSION=\).*/\1${VERSION}/g" \
 		/apps/entware/package/utils/"${APP_NAME}"/files/etc/conf/kvas.conf
 	if [ -n "${RELEASE}" ] ; then rel="-${RELEASE}"; else rel=""; fi
@@ -63,6 +65,8 @@ PACKAGE_NAME=$(get_package_name)
 APP_PKG_FILE="/apps/entware/bin/targets/mipsel-3.4/generic-glibc/packages/${PACKAGE_NAME}"
 rm -f "${APP_PKG_FILE}"
 
+# chown -R master:staff /apps/entware/package/utils/"${APP_NAME}"
+
 change_version_in_package
 /apps/"${APP_NAME}"/build/Makefile.build
 
@@ -93,3 +97,4 @@ show_line
 #run_reinstalation_on_router
 #run_tests
 echo "Сборка УСПЕШНО завершена: $(zdump EST-3)";
+set +xeu 

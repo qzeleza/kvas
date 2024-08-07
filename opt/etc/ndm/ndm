@@ -135,19 +135,20 @@ ip4_firewall_dns_rules_set(){
 	interface=$(get_local_inface)
 	local_ip=$(get_router_ip)
 
+	ip4tables PREROUTING -t nat -p udp --dport ${DNS_PORT} -j DNAT --to "${local_ip}:${DNS_PORT}" &>/dev/null
 #	for protocol in tcp udp ; do
 		#	Если не заданы аргументы, то ничего не выполняем
-		if [ -n "${interface}" ] && [ -n "${local_ip}" ]; then
-			# если правила для tcp есть, то пропускаем их добавление
-			if ! ip4save | grep -q "${protocol} \-\-dport ${DNS_PORT} \-j DNAT" ; then
-				log_warning "Подключаем правила для корректной работы DNS трафика через 53 порт:"
-				log_warning "Интерфейс: ${interface}, IP: ${local_ip}, протокол: ${protocol}."
-				ip4tables PREROUTING -w -t nat -i "${interface}" --dport ${DNS_PORT} -j DNAT --to "${local_ip}" &>/dev/null
-#					|| error "[${FUNCNAME}] Возникла ошибка в функции при установке правил iptables."
-			fi
-		else
-			log_error "При вызове ip4_firewall_dns_rules_set не были заданы обязательные аргументы."
-		fi
+# 		if [ -n "${interface}" ] && [ -n "${local_ip}" ]; then
+# 			# если правила для tcp есть, то пропускаем их добавление
+# 			if ! ip4save | grep -q "${protocol} \-\-dport ${DNS_PORT} \-j DNAT" ; then
+# 				log_warning "Подключаем правила для корректной работы DNS трафика через 53 порт:"
+# 				log_warning "Интерфейс: ${interface}, IP: ${local_ip}, протокол: ${protocol}."
+# 				ip4tables PREROUTING -w -t nat -i "${interface}" --dport ${DNS_PORT} -j DNAT --to "${local_ip}" &>/dev/null
+# #					|| error "[${FUNCNAME}] Возникла ошибка в функции при установке правил iptables."
+# 			fi
+# 		else
+# 			log_error "При вызове ip4_firewall_dns_rules_set не были заданы обязательные аргументы."
+# 		fi
 #	done
 }
 

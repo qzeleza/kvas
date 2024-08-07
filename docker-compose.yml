@@ -1,4 +1,3 @@
-version: "3.9"
 services:
 
   develop_app:
@@ -10,7 +9,7 @@ services:
       args:
         UID: "${UID}"
         GID: "${GID}"
-        USER: "${USER}"
+        USER: master
         GROUP: "${GROUP}"
         APPS_ROOT: "${APPS_ROOT}"
         APP_NAME: "${APP_NAME}"

@@ -1,6 +1,8 @@
 #! /usr/bin/env bash
 . ./build/library.run
 
+arg=${1:-}
+
 DEBUG=YES										# флаг отладки процесса сборки образа
 env_file=.env
 GIT_FORCE=0											# флаг для запуска перезаписи данных в git
@@ -24,11 +26,23 @@ GID=$(get_remove_value "G_ID")
 DEBUG=${DEBUG}
 EOF
 
+is_mac_os(){
+	uname | grep -q Darwin 
+}
 
-run_docker_on_macos(){
+sedi(){
+	if is_mac_os ; then 
+		sed -i '' "$@"
+	else
+		sed -i "$@"
+	fi
+}
+
+
+run_if_docker_on_macos(){
 #	Запускаем Docker на MacOS
 	[ -f "${HOME}.docker/run/docker.sock" ] || {
-		uname | grep -q Darwin && {
+		is_mac_os && {
 			open -a Docker --background | grep -q 'Unable to find application' && {
 				echo "Для дальнейшей работы установите Docker на Вашей Mac OS."
 				echo "https://docs.docker.com/desktop/install/mac-install/"
@@ -41,7 +55,7 @@ run_docker_on_macos(){
 stop_docker_on_macos(){
 #	Запускаем Docker на MacOS
 	[ -f "${HOME}.docker/run/docker.sock" ] && {
-		uname | grep -q Darwin && pkill Docker
+		is_mac_os && pkill Docker
 	}
 }
 
@@ -53,53 +67,67 @@ new_release(){
 	release=$(cat < ./build/version | sed -n 's/RELEASE=\(.*\)/\1/p')
 #	Если релиз пустой, то так его пустым и оставляем, если есть цифра, но увеличиваем на 1
 	[ -n "${release}" ] && next_release=$((release+1))
-	sed -i '' 's/\(RELEASE=\).*/\1'"${next_release}"'/' ./build/version
+	sedi 's/\(RELEASE=\).*/\1'"${next_release}"'/' ./build/version
 	find ./ipk/ -maxdepth 1 -type f -iregex '.*kvas.*' -exec mv {} ./ipk/old \;
 }
 
 
-
+set -xeu
 # если версия сборки задана через аргумент запуска в виде цифры до двух знаков
-echo "${1}" | grep -qE '[0-9]{1,2}' && {
+echo "${arg}" | grep -qE '[0-9]{1,2}' && {
 
-	sed -i '' 's/\(RELEASE=\).*/\1'"${1}"'/' ./build/version
+	sedi 's/\(RELEASE=\).*/\1'"${arg}"'/' ./build/version
 #	если не задан второй параметр то обновляем git, если задан то не обновляем
-	if [ -z "${2}" ] ; then
+	if [ -z "${2:-}" ] ; then
 		GIT_FORCE=1
 	fi
 } || new_release
 
 # Проверяем Docker и при необходимости запускаем его
-run_docker_on_macos
+# run_if_docker_on_macos
 
 # удаляем старые контейнеры
-docker container prune -f
+# docker container prune -f
+# id_app_conts=$(docker ps -aq -f ancestor=${image_name})
+# [ -n "${id_app_conts}" ] && docker rm ${id_app_conts} &> /dev/null
+# docker run "${image_name}"
+id_dc=$(docker ps -aq -f ancestor="${image_name}")
+# docker run \
+# 	--env-file "${env_file}" \
+# 	--interactive --tty  \
+# 	--entrypoint "${APPS_ROOT}/${APP_NAME}/build/package.build" \
+# 	--name ${APP_NAME} \
+# 	--volume ${PWD}:${APPS_ROOT}/${APP_NAME} \
+# 	"${image_name}"
 
-if [ "${1}" = build ] || [ -z "$(docker ps -a -f 'status=running' | grep "${APP_NAME}")" ]; then
+docker exec --user "master:staff" -it "${id_dc}" "${APPS_ROOT}/${APP_NAME}/build/package.build" 	/bin/bash
+
+exit
+
+if [ "${arg}" = build ] || [ -z "$(docker ps -a -f 'status=running' | grep "${APP_NAME}")" ]; then
 #	то заходим внутрь контейнера и сразу запускаем сборку пакета
 #	если не создан образ, то запускаем сборку образа
 	show_line; echo "Запускаем сборку образа ${image_name}"
 	show_line
 	docker image ls | grep -q "${image_name}" && build='' || build='--build'
-	docker-compose up "${build}" -d
-fi
+	docker compose up "${build}" -d && {
 
-if [ "${?}" = 0 ]; then
-	show_line; echo "Docker-образ собран без ошибок."
-	echo "Запускаем сборку пакета в самом контейнере..."
-	id_dc=$(docker ps -aq -f ancestor="${image_name}")
-	docker exec --user "${user}:${group}" -it "${id_dc}" \
-			"${APPS_ROOT}/${APP_NAME}/build/package.build" \
-			/bin/bash && {
-				[ "${GIT_FORCE}" = 1 ] && {
-#					Так как номер релиза в ручную задается только когда нужно что-то срокчно исправить
-#					то форсируем передачу данных в git
+		show_line; echo "Docker-образ собран без ошибок."
+		echo "Запускаем сборку пакета в самом контейнере..."
+		id_dc=$(docker ps -aq -f ancestor="${image_name}")
+		docker exec --user "${user}:${group}" -it "${id_dc}" \
+				"${APPS_ROOT}/${APP_NAME}/build/package.build" \
+				/bin/bash && {
+					[ "${GIT_FORCE}" = 1 ] && {
+	#					Так как номер релиза в ручную задается только когда нужно что-то срокчно исправить
+	#					то форсируем передачу данных в git
 
-					git add .
-					git commit --amend --no-edit
-					git push origin main --force
+						git add .
+						git commit --amend --no-edit
+						git push origin main --force
+					}
 				}
-			}
+	}
 else
 	show_line; echo "Docker-образ собран с ошибками!"
 	exit 1

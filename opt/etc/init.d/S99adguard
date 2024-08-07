@@ -25,7 +25,7 @@ DIR="-w /opt/etc/AdGuardHome"
 LOG="-l /opt/var/log/AdGuardHome.log"
 PID="--pidfile ${PIDFILE}"
 UPD="--no-check-update"
-OPT="${DIR} ${LOG} ${PID} ${UPD} ${CNF}"
+OPT="${DIR} ${LOG} ${PID} ${CNF}"
 
 ENABLED=yes
 PROCS=AdGuardHome

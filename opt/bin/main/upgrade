@@ -28,10 +28,13 @@ set_escapes(){
 	QST="${RED}?${NOCL}"
 }
 
-has_internet_here(){
+has_no_internet_here(){
 #	Если в возвращаемых аргументах нет false значит интернет присутствует
-	! curl -s "localhost:79/rci/show/internet/status" \
-		| grep -E 'reliable|gateway-accessible|dns-accessible|internet' \
+	# test -z "$(curl -s "localhost:79/rci/show/internet/status" \
+	# | jq -r 'select(.enabled==true and .reliable==true and ."gateway-accessible"==true and ."captive-accessible"==true and ."dns-accessible"==true and .internet==true)')"
+
+	curl -s "localhost:79/rci/show/internet/status" \
+		| grep -E 'reliable|gateway-accessible|dns-accessible|internet|enabled|captive-accessible' \
 		| grep -q false
 }
 #--------------------------------------------------------------------------------------------------------------
@@ -198,11 +201,11 @@ set_escapes
 #--------------------------------------------------------------------------------------------------------------
 print_line
 ready "Проверка наличия интернета"
-has_internet_here && when_ok "ПРИСУТСТВУЕТ" || {
+has_no_internet_here && {
 	when_err "ОТСУТСТВУЕТ"
 	print_error "Проверьте свое интернет соединение!"
 	exit 1
-}
+} || when_ok "ПРИСУТСТВУЕТ"
 
 #--------------------------------------------------------------------------------------------------------------
 # если в параметрах есть аргумент full,

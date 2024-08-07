@@ -11,7 +11,7 @@ add_host_by_iplist_to_ipset(){
 	host=${1//\*/}
 #	получаем список из адресов от текущего dns сервера
 # 	и исключаем из списка адреса типа 0.0.0.0
-	ip_list=$(kdig +short "${host}" @localhost \
+	ip_list=$(get_iplist_from_domain "${host}" \
 	| grep -Eo "${IP_FILTER}" \
 	| grep -v '0.0.0.0' )
 
@@ -35,7 +35,7 @@ add_host_by_iplist_to_ipset(){
 add_host_by_ASlist_to_ipset(){
 	host=${1//\*/};
 	if [ "${host}" ]; then
-		for ip in $(kdig +short "${host}" @localhost); do
+		for ip in $(get_iplist_from_domain "${host}" ); do
 			as_number=$(whois -h whois.radb.net "${ip}" | grep 'origin:' | tr -d ' ' | cut -d ':' -f2)
 			for net in $(whois -h whois.radb.net "!g${as_number}" | tr '\n' ' '); do
 				if echo "${net}" | grep -Eo "${IP_FILTER}" | grep -qv '0.0.0.0' ; then

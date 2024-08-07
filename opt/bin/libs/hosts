@@ -25,7 +25,7 @@ cmd_hosts_list(){
 dns_server_restart(){
 	host="${1}"
 	[ -f /opt/etc/hosts ] || touch /opt/etc/hosts
-	[ -n "${host}" ] && kdig "${host}" @localhost &> /dev/null
+	[ -n "${host}" ] && get_iplist_from_domain "${host}" &> /dev/null
 	if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
 		mess="Перезапуск службы AdGuardHome..."
 		service=/opt/etc/init.d/S99adguardhome

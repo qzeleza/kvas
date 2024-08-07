@@ -82,8 +82,8 @@ case "${1}" in
 		;;
 
 	hosts)
-		case "${3}" in
-			add ) 			cmd_hosts_one_add "${4}" "${5}" ;;
+		case "${2}" in
+			add ) 			cmd_hosts_one_add "${3}" "${4}" ;;
 			edit ) 			cmd_hosts_edit ;;
 			*) 				cmd_hosts_list ;;
 		esac
@@ -142,8 +142,8 @@ case "${1}" in
 		;;
 	debug)
 		case "${2}" in
-			ipset) 			unblock_list_ipset_chec ;;
-			*) 				cmd_print_debug "${2}"	;;
+			ipset) 			unblock_list_ipset_check ;;
+			*) 				cmd_print_debug "${2}"		;;
 		esac
 		;;
 	test | check)			cmd_state_checker
@@ -155,7 +155,7 @@ case "${1}" in
 		;;
 	export)					cmd_export_hosts "${2}"
 		;;
-	del | rm )              cmd_del_one_host "${2}"
+	del | rm )				cmd_del_one_host "${2}"
 		;;
 	purge | clear)			cmd_clear_list "${2}"
 		;;
