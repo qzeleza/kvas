@@ -1920,51 +1920,56 @@ select_vpn_interface() {
 		print_line
 		echo -en "${BLUE}Выберите номер варианта VPN соединения 1 - ${total} | S-скан. | Q-выход:${NOCL} "
 		read -r num_vpn_inface
-		if ! echo "${num_vpn_inface}" | grep -qiE "[1-${total}qs]"; then
-			error "Введите цифру 1/${total} или S - сканирование, Q - выход."
-		else
+		if [[ "$num_vpn_inface" =~ ^[\-]?[0-9]+$ ]]; then
 			print_line
-			if echo "${num_vpn_inface}" | grep -qiE "[1-${total}]"; then
-#				Если выбрали уже интерфейс
-	#			Меняем интерфейс в файле ndm
-				inface_entware=$(get_vpn_interface_by_num "${num_vpn_inface}")
-				cli_inface=$(echo "${INFACE_NAMES_FILE}" | grep "${inface_entware}" | cut -d"|" -f1)
-				switch_vpn_on "${inface_entware}" "${cli_inface}"
+			if [[ "$num_vpn_inface" -ge 1 && "$num_vpn_inface" -le "$total" ]]; then
+#			Если выбрали уже интерфейс
+	#		Меняем интерфейс в файле ndm
+			inface_entware=$(get_vpn_interface_by_num "${num_vpn_inface}")
+			cli_inface=$(echo "${INFACE_NAMES_FILE}" | grep "${inface_entware}" | cut -d"|" -f1)
+			switch_vpn_on "${inface_entware}" "${cli_inface}"
 
-			elif echo "${num_vpn_inface}" | grep -qi "q"; then
-#				Если нажали на q
-				echo -e "${RED}Процедура настройки прервана пользователем!${NOCL}"
-				print_line
-#				если интернет отключен, то выдаем сообщение
-				if curl -s "http://localhost:79/rci/show/interface" | \
-					jq -r '.[] | select(.id=="'"$(get_defaultgw_id)"'" and .state=="up" and .link=="up") | .connected' | grep -qv 'yes' ; then
-
-					if cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then
-						/opt/etc/init.d/S56dnsmasq stop  &> /dev/null
-					else
-						"${ADGUARDHOME_DEMON}" stop &> /dev/null
-					fi
-					cli="$(get_router_host)/a"
-					echo -e "${RED}К сожалению, у Вас пропал интернет. ${NOCL}"
-					echo -e "${RED}Проверьте основное подключение к провайдеру. ${NOCL}"
-					print_line
-					echo "Если ничего не помогает, то для восстановления подключения"
-					echo -e "необходимо зайти в админ панель роутера по адресу: ${GREEN}${cli}${NOCL}"
-					echo "и выполнить последовательно три следующих команды: "
-					print_line
-					echo -e "1. ${GREEN}no opkg dns-override ${NOCL}       - вновь подключаем DNS провайдера,"
-					echo -e "2. ${GREEN}system configuration save ${NOCL}  - сохраняем изменения,"
-					echo -e "3. ${GREEN}system reboot ${NOCL}              - перегружаем роутер."
-					print_line
-					exit 1
-				fi
-				exit
 			else
-				cmd_interface_change "no" "${is_install_stage}"
+				error "Число должно быть в пределах от 1 до ${total}"
+				continue
 			fi
+		elif [[ "$num_vpn_inface" =~ ^[Qq]$ ]]; then
+			print_line
+#			Если нажали на q
+			echo -e "${RED}Процедура настройки прервана пользователем!${NOCL}"
+			print_line
+#			если интернет отключен, то выдаем сообщение
+			if curl -s "http://localhost:79/rci/show/interface" | \
+				jq -r '.[] | select(.id=="'"$(get_defaultgw_id)"'" and .state=="up" and .link=="up") | .connected' | grep -qv 'yes' ; then
 
-			break
+				if cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then
+					/opt/etc/init.d/S56dnsmasq stop  &> /dev/null
+				else
+					"${ADGUARDHOME_DEMON}" stop &> /dev/null
+				fi
+				cli="$(get_router_host)/a"
+				echo -e "${RED}К сожалению, у Вас пропал интернет. ${NOCL}"
+				echo -e "${RED}Проверьте основное подключение к провайдеру. ${NOCL}"
+				print_line
+				echo "Если ничего не помогает, то для восстановления подключения"
+				echo -e "необходимо зайти в админ панель роутера по адресу: ${GREEN}${cli}${NOCL}"
+				echo "и выполнить последовательно три следующих команды: "
+				print_line
+				echo -e "1. ${GREEN}no opkg dns-override ${NOCL}       - вновь подключаем DNS провайдера,"
+				echo -e "2. ${GREEN}system configuration save ${NOCL}  - сохраняем изменения,"
+				echo -e "3. ${GREEN}system reboot ${NOCL}              - перегружаем роутер."
+				print_line
+				exit 1
+			fi
+			exit
+		elif [[ "$num_vpn_inface" =~ ^[Ss]$ ]]; then
+			print_line
+			cmd_interface_change "no" "${is_install_stage}"
+		else
+			error "Введите цифру 1-${total} или S - сканирование, Q - выход."
+			continue
 		fi
+		break
 	done
 
 }
