@@ -1691,7 +1691,7 @@ EOF
 	# очищаем файл с именами интерфейсов
 	echo "shadowsocks|$(get_ssr_entware_interface)|shadowsocks" > "${INFACE_NAMES_FILE}"
 	# обозначаем список типов обрабатываемых VPN интерфейсов
-	types_inface='"OpenVPN","Wireguard","IKE","SSTP","PPPOE","L2TP","PPTP"'
+	types_inface='"OpenVPN","Wireguard","IKE","SSTP","PPPOE","L2TP","PPTP","Proxy"'
 #	архивный вариант с выключенными интерфейсами сотовых операторов
 #	types_inface='"OpenVPN","Wireguard","IKE","SSTP","PPPOE","L2TP","CdcEthernet","UsbLte"'
 	# получаем список ID интерфейсов в наличии на роутере через пробел
