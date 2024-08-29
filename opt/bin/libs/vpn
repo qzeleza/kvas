@@ -1253,6 +1253,19 @@ ndm_interface_change() {
 }
 # ------------------------------------------------------------------------------------------
 #
+#	Устанавливаем в библиотеке ndm адрес шлюза
+#   $1 - адрес шлюза
+#
+# ------------------------------------------------------------------------------------------
+ndm_gateway_change() {
+	addr_man="${1}"
+	cp /opt/apps/${APP_NAME}/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
+	chmod +x /opt/apps/kvas/bin/libs/ndm
+	set_config_value "ADDR_MAN" "${addr_man}"
+
+}
+# ------------------------------------------------------------------------------------------
+#
 #	ВКЛючаем VPN клиента
 #	$1 - id интерфейса в entware
 #
@@ -1449,16 +1462,17 @@ shadowsocks_read_link(){
 	[ "${SSR_LINK}" = q ] && exit 1
 
 	if [[ -n "${SSR_LINK}" && "${#SSR_LINK}" -gt 6 ]] ; then
-		SSR_LINK="$(echo ${SSR_LINK}" | sed -E 's/(.*)[#?\/]\?.*|(.*)#.*/\1\2/')"
+		SSR_LINK="$(echo "${SSR_LINK}" | sed -E 's/(.*)[#?\/]\?.*|(.*)#.*/\1\2/')"
 		password=$(echo "${SSR_LINK}" | grep -oP "(?<=ss://).*?(?=@)" | base64 -d )
 		SSR_SERVER_PASSWD=$(echo "${password}" | cut -d ":" -f 2)
 		SSR_SERVER_CRYPT=$(echo "${password}" | cut -d ":" -f 1)
 		SSR_SERVER_IP=$(echo "${SSR_LINK}" | grep -oP "(?<=@).*?(?=:)")
-		SSR_SERVER_PORT=$(echo "${SSR_LINK}" | cut -d ":" -f 3 | cut -d "#" -f 1)
+		SSR_SERVER_PORT=$(echo "${SSR_LINK}" | cut -d ":" -f 3 | cut -d "#" -f 1 )
 	else
 		error "Ссылка пуста или слишком коротка! Введите корректную ссылку!"  nl
 		exit 1
 	fi
+	
 	if [ -z "${SSR_SERVER_PASSWD}" ] || [ -z "${SSR_SERVER_CRYPT}" ] || [ -z "${SSR_SERVER_IP}" ] || [ -z "${SSR_SERVER_PORT}" ] ; then
 		error "Извлеченные данные не корректны! Введите ссылку с корректными данными!"  nl
 		exit 1
@@ -1842,6 +1856,32 @@ show_interface_name_list_process(){
 		update_interface_name_list
 	fi
 }
+
+#------------------------------------------------------------------------------------------
+
+#------------------------------------------------------------------------------------------
+cmd_manual_gateway_set() {
+
+		print_line
+		echo -en "${BLUE}Введите адрес шлюза :${NOCL} "
+		read -r addr_gateway 
+		echo -en "${BLUE}Введите интерфейс, к которому подключен шлюз(Если он в локальной сети, то это интерфейс br0) | Q-выход:${NOCL} "
+		read -r inface_gateway
+
+		if [[ "$addr_gateway" =~ ^[Qq]$ ]] || [[ "$inface_gateway" =~ ^[Qq]$ ]]; then
+			print_line
+#			Если нажали на q
+			echo -e "${RED}Процедура настройки прервана пользователем!${NOCL}"
+			print_line
+		else
+			ndm_gateway_change ${addr_gateway}
+			switch_vpn_on "${inface_gateway}" "Gateway"
+			cmd_kvas_init "update"
+		fi
+
+}
+
+
 # ------------------------------------------------------------------------------------------
 #
 #	Переключаем интерфейс клиента
@@ -1853,12 +1893,11 @@ cmd_interface_change() {
 
 	answer="${1}"
 	is_install_stage="${2:-no}"
-
-	show_interface_name_list_process "${answer}"
-
-#	Отображаем список текущих интерфейсов с номерами по порядку и данными об их доступности
-	select_vpn_interface "${is_install_stage}"
-
+    
+		show_interface_name_list_process "${answer}"
+        #	Отображаем список текущих интерфейсов с номерами по порядку и данными об их доступности
+		select_vpn_interface "${is_install_stage}"
+	
 }
 
 switch_vpn_on(){
@@ -1922,6 +1961,7 @@ select_vpn_interface() {
 		read -r num_vpn_inface
 		if [[ "$num_vpn_inface" =~ ^[\-]?[0-9]+$ ]]; then
 			print_line
+			set_config_value "ADDR_MAN" ""
 			if [[ "$num_vpn_inface" -ge 1 && "$num_vpn_inface" -le "$total" ]]; then
 #			Если выбрали уже интерфейс
 	#		Меняем интерфейс в файле ndm
