@@ -523,6 +523,9 @@ cmd_install(){
 	log_alert "УСТАНОВКА ПАКЕТА КВАС ЗАВЕРШЕНА!" "${LOG_HEADER}"
 }
 
+WGET='/opt/bin/wget -q --no-check-certificate'
+# Вы полняем команду отключения DNS провайдера без перезагрузки и выхода из сессии
+rci_post()($WGET -qO - --post-data="$1" localhost:79/rci/ > /dev/null 2>&1)
 
 # ------------------------------------------------------------------------------------------
 #
@@ -566,8 +569,11 @@ cmd_uninstall() {
 		[ -z "${sure}" ] && print_line
 		echo "${mess}"
 		opkg remove kvas --autoremove &> /dev/null #&& when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+		rci_post '[{"opkg": {"no dns-override": true}},{"system": {"configuration": {"save": true}}}]'
+	
 #		print_line
-#		set_previous_condition "${rm_type}"
+#		
+		#set_previous_condition "${rm_type}"
 		print_line
 		echo "Удаление КВАСа завершено."
 	fi
