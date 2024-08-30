@@ -33,27 +33,34 @@ cmd_show_tags_domain_list(){
 
     section="$1"
 
-    if [ -n "$section" ] ; then
-        _list=$(get_tag_domain_list "$section")
-    else
+    if [ -z "$section" ] ; then
         _list=$(cat < "${TAGS_FILE}")
-    fi
-
-    if grep -q "\[$section\]" "${TAGS_FILE}" ; then
-
-        echo -e "${GREEN}Список доменных имен в тегах:${NOCL}"
-        print_line
-        [ -n "$section" ] && echo -e "${GREEN}[$section]${NOCL}"
-        while read -r line; do
-            if [[ "$line" =~ \[.*?\] ]]; then
-                echo -e "${GREEN}${line}${NOCL}"
-            else
-                echo -e "  $line" 
-            fi
-        done <<< $_list
     else
-        error "Тег $section не найден!"
+        grep -q "\[$section\]" "${TAGS_FILE}" || {
+            error "Тег '$section' не найден!"
+            return 1
+        }
+        _list=$(get_tag_domain_list "$section")
+
     fi
+
+
+    echo -e "${GREEN}Список доменных имен в тегах:${NOCL}"
+    print_line
+    [ -n "$section" ] && echo -e "${GREEN}[$section]${NOCL}"
+
+    IFS=$'\n'
+    for line in $_list; do
+        if [[ "$line" =~ \[.*?\] ]]; then
+            echo -e "  $line"
+        else
+            echo ''
+            echo -e "${GREEN}${line}${NOCL}"
+            
+        fi
+    done
+    unset IFS
+
 }
 
 
@@ -225,7 +232,6 @@ cmd_del_domain_from_tag_list() {
 #   Функция для проверки наличия элементов тега в списке unblock
 #
 # ------------------------------------------------------------------------------------------
-
 has_section_domains_in_list() {
 # set -exu
     local section="$1"

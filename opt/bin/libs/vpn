@@ -2,6 +2,7 @@
 . /opt/apps/kvas/bin/libs/debug
 . /opt/apps/kvas/bin/libs/ndm
 . /opt/apps/kvas/bin/libs/adblock
+. /opt/apps/kvas/bin/libs/tags
 
 # Убираем ошибки связанные с отсутствием /opt/etc/hosts
 [ -f /opt/etc/hosts ] || touch /opt/etc/hosts
@@ -432,8 +433,9 @@ adguardhome_setup() {
 		/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
 		mv -f /opt/etc/init.d/S09dnscrypt-proxy2 "${KVAS_BACKUP_PATH}"
 	}
+	[ -f "${ADGUARDHOME_DEMON}" ] && ${ADGUARDHOME_DEMON} stop &> /dev/null
 #   останавливаем adg сервис, если он запущен
-	${ADGUARDHOME_DEMON} stop &> /dev/null
+	
 #	устанавливаем DNS по умолчанию на ADGUARD
 	set_config_value DNS_DEFAULT "${localhost}#${port}"
 #	меняем номер порта в файле конфигурации adguard
@@ -445,11 +447,12 @@ adguardhome_setup() {
 	fi
 #	и копируем подготовленный файл сервиса adguard в папку запуска сервисов
 #	проверяем файл на оригинальность (без переделок ли он под квас)
-	if ! cat < "${ADGUARDHOME_DEMON}" | grep -q kvas ; then
+
+	if [ -f "${ADGUARDHOME_DEMON}" ] && ! cat < "${ADGUARDHOME_DEMON}" | grep -q kvas ; then
 #		если оригинальный, то архивируем его
 		mv "${ADGUARDHOME_DEMON}" "${KVAS_BACKUP_PATH}/S99adguardhome.origin"
 	fi
-	cp /opt/apps/kvas/etc/init.d/S99adguard "${ADGUARDHOME_DEMON}"
+	[ -f "/opt/apps/kvas/etc/init.d/S99adguard" ] && cp /opt/apps/kvas/etc/init.d/S99adguard "${ADGUARDHOME_DEMON}"
 #	удаляем сервис запуска квас так как его теперь будет заменять файл сервиса adguard
 	rm -f "${KVAS_START_FILE}"
 #	меняем dns в настройках ipset
@@ -466,7 +469,7 @@ adguardhome_setup() {
 	ip4_firewall_flush_all_rules
 	ip4_firewall_set_all_rules
 
-	"${ADGUARDHOME_DEMON}" start &> /dev/null
+	[ -f "${ADGUARDHOME_DEMON}" ] && "${ADGUARDHOME_DEMON}" start &> /dev/null
 #	отслеживаем результат запуска сервиса adguard
 	if [ $? = 0 ]; then
 		when_ok "УСПЕШНО"
@@ -523,7 +526,7 @@ cmd_adguardhome_status() {
 # ------------------------------------------------------------------------------------------
 adguardhome_check_config() {
 		# Проверяем наличие	архивной копии AdGuardHome
-		if [ -f "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml ]; then
+		if [ -f "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml ] && [ -f ${ADGUARDHOME_DEMON}]; then
 			cp "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml "${ADGUARDHOME_CONFIG}"
 			"${ADGUARDHOME_DEMON}" restart  &> /dev/null
 			ip=$(get_router_ip)
@@ -539,7 +542,7 @@ adguardhome_check_config() {
 			rm -f /opt/etc/AdGuardHome/data/querylog.json
 
 #			Проверяем наличие файла конфигурации AdGuardHome в папке исполняемых файлов
-			if [ -f /opt/bin/AdGuardHome.yaml ]; then
+			if [ -f /opt/bin/AdGuardHome.yaml ] && [ -f "${ADGUARDHOME_DEMON}" ]; then
 #				проверяем файл на оригинальность (без переделок ли он под квас)
 				if ! cat < "${ADGUARDHOME_DEMON}" | grep -q kvas ; then
 #					если оригинальный, то архивируем его
@@ -655,7 +658,7 @@ cmd_adguardhome_on() {
 cmd_adguardhome_off(){
 	ready "AdGuard Home в качестве DNS сервера удален"
 	[ -f "${ADGUARDHOME_CONFIG}" ] && sed -i "s/\( port:\) .*/\1 0/" "${ADGUARDHOME_CONFIG}"
-	${ADGUARDHOME_DEMON} stop &> /dev/null
+	[ -f "${ADGUARDHOME_DEMON}" ] && ${ADGUARDHOME_DEMON} stop &> /dev/null
 	[ -f "${ADGUARDHOME_CONFIG}" ] && mv -f "${ADGUARDHOME_CONFIG}" "${KVAS_BACKUP_PATH}/AdGuardHome.yaml"
 	[ -f /opt/etc/init.d/S56dnsmasq ] && /opt/etc/init.d/S56dnsmasq stop &> /dev/null
 	[ -f /opt/etc/init.d/S09dnscrypt-proxy2 ] && /opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
@@ -1113,7 +1116,8 @@ dnsmasq_dns_change() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_dnsmasq_dns_change() {
-	exit_when_adguard_on status; [ "${status}" = 0 ] && {
+	exit_when_adguard_on status; 
+	[ "${status}" = 0 ] && {
 		dns_new=${1}; cmd=${2:-restart}
 		if [ -z "${dns_new}" ]; then
 			dns_show
@@ -1219,10 +1223,10 @@ dns_show() {
 # ------------------------------------------------------------------------------------------
 vpn_off() {
 #	ready "Интерфейс vpn отключен "
-	rm -f "/opt/etc/ndm/netfilter.d/100-vpn-mark"
+	[ -f "/opt/etc/ndm/netfilter.d/100-vpn-mark" ] && rm -f "/opt/etc/ndm/netfilter.d/100-vpn-mark"
 	[ -f /opt/etc/ndm/ifstatechanged.d/100-unblock-vpn ] && rm -f /opt/etc/ndm/ifstatechanged.d/100-unblock-vpn
 	[ -f /opt/etc/ndm/iflayerchanged.d/100-unblock-vpn ] && rm -f /opt/etc/ndm/iflayerchanged.d/100-unblock-vpn
-	rm -f "/opt/etc/ndm/fs.d/100-vpn"
+	[ -f "/opt/etc/ndm/fs.d/100-vpn" ] && rm -f "/opt/etc/ndm/fs.d/100-vpn"
 	cmd_vpn_iptable_flush  &> /dev/null
 }
 # ------------------------------------------------------------------------------------------
@@ -1330,7 +1334,7 @@ active_backup_config(){
 # ------------------------------------------------------------------------------------------
 shadowsocks_backup() {
 	# Проверяем установлен ли сервис shadowsocks
-	if [ -f /opt/bin/ss-redir ] && [ -f /opt/etc/init.d/S22shadowsocks ]; then
+	if [ -f "${SSR_CMD}" ] && [ -f /opt/etc/init.d/S22shadowsocks ]; then
 		# меняем данные в файлах shadowsocks
 		sed -i 's/ss-local/ss-redir/g' /opt/etc/init.d/S22shadowsocks
 
@@ -1347,7 +1351,7 @@ shadowsocks_backup() {
 			fi
 		fi
 		if [ -f "${SHADOWSOCKS_CONF}" ] ; then
-			grep -qE '""|@|127.0.0.1|barfoo!' "${SHADOWSOCKS_CONF}" && shadowsocks_read_config
+			grep -qE '""|@|127.0.0.1|barfoo!' "${SHADOWSOCKS_CONF}" && shadowsocks_read_data
 		else
 			if [ -f "${SHADOWSOCKS_CONF}.kvas" ] && grep -qvE '""|@|127.0.0.1|barfoo!' "${SHADOWSOCKS_CONF}" ; then
 				active_backup_config
@@ -1379,11 +1383,13 @@ shadowsocks_read_config(){
 	[ "${SSR_SERVER_PASSWD}" = q ] && exit 1
 	echo
 
+	# Экранируем символы для применения в sed
+	ESCAPED_PASSWD=$(escape_sed "$SSR_SERVER_PASSWD")
 	if [ -f "${SHADOWSOCKS_CONF}" ] ; then
 		sed -i "s/\(\"server\":\).*/\1 \"${SSR_SERVER_IP}\",/; 			\
 				s/\(\"server_port\":\).*/\1 ${SSR_SERVER_PORT},/; 		\
 				s/\(\"local_port\":\).*/\1 $(get_config_value SSR_DNS_PORT),/; 		\
-				s/\(\"password\":\).*/\1 \"${SSR_SERVER_PASSWD}\",/; 	\
+				s/\(\"password\":\).*/\1 \"${ESCAPED_PASSWD}\",/; 	\
 				s/\(\"method\":\).*/\1 \"${SSR_SERVER_CRYPT}\",/;" 		\
 			"${SHADOWSOCKS_CONF}"
 	else
@@ -1395,14 +1401,14 @@ shadowsocks_read_config(){
 }
 
 shadowsocks_config_check(){
-	ss-redir  -c "${SHADOWSOCKS_CONF}" 2>/dev/null &
-	id=$(ps -w | grep 'ss-redir -c '"${SHADOWSOCKS_CONF}" | grep -v grep | cut -d' ' -f1)
+	ssr_run 2>/dev/null &
+	id=$(ps -w | grep "-c ${SHADOWSOCKS_CONF}" | grep -v grep | cut -d' ' -f1)
 	if [ -n "${id}" ] ; then
 		kill -9 "${id}"
 	else
 		error "Обнаружены ошибки в файле конфигурации ${SHADOWSOCKS_CONF}" nl
 		print_line
-		ss-redir  -c "${SHADOWSOCKS_CONF}"
+		ssr_run 
 		print_line
 		exit 0
 	fi
@@ -1449,7 +1455,7 @@ shadowsocks_read_link(){
 	[ "${SSR_LINK}" = q ] && exit 1
 
 	if [[ -n "${SSR_LINK}" && "${#SSR_LINK}" -gt 6 ]] ; then
-		SSR_LINK="$(echo ${SSR_LINK}" | sed -E 's/(.*)[#?\/]\?.*|(.*)#.*/\1\2/')"
+		SSR_LINK="$(echo "${SSR_LINK}" | sed -E 's/(.*)[#?\/]\?.*|(.*)#.*/\1\2/')"
 		password=$(echo "${SSR_LINK}" | grep -oP "(?<=ss://).*?(?=@)" | base64 -d )
 		SSR_SERVER_PASSWD=$(echo "${password}" | cut -d ":" -f 2)
 		SSR_SERVER_CRYPT=$(echo "${password}" | cut -d ":" -f 1)
@@ -1465,10 +1471,13 @@ shadowsocks_read_link(){
 	else
 
 		if [ -f "${SHADOWSOCKS_CONF}" ] ; then
+			# Экранируем символы для применения в sed
+			ESCAPED_PASSWD=$(escape_sed "$SSR_SERVER_PASSWD")
+
 			sed -i "s/\(\"server\":\).*/\1 \"${SSR_SERVER_IP}\",/; 			\
 					s/\(\"server_port\":\).*/\1 ${SSR_SERVER_PORT},/; 		\
 					s/\(\"local_port\":\).*/\1 $(get_config_value SSR_DNS_PORT),/; 		\
-					s/\(\"password\":\).*/\1 \"${SSR_SERVER_PASSWD}\",/; 	\
+					s/\(\"password\":\).*/\1 \"${ESCAPED_PASSWD}\",/; 	\
 					s/\(\"method\":\).*/\1 \"${SSR_SERVER_CRYPT}\",/;" 		\
 				"${SHADOWSOCKS_CONF}"
 		else
@@ -1939,10 +1948,10 @@ select_vpn_interface() {
 				if curl -s "http://localhost:79/rci/show/interface" | \
 					jq -r '.[] | select(.id=="'"$(get_defaultgw_id)"'" and .state=="up" and .link=="up") | .connected' | grep -qv 'yes' ; then
 
-					if cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then
-						/opt/etc/init.d/S56dnsmasq stop  &> /dev/null
-					else
+					if [ -f "${ADGUARDHOME_DEMON}" ] && cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then
 						"${ADGUARDHOME_DEMON}" stop &> /dev/null
+					else
+						/opt/etc/init.d/S56dnsmasq stop  &> /dev/null
 					fi
 					cli="$(get_router_host)/a"
 					echo -e "${RED}К сожалению, у Вас пропал интернет. ${NOCL}"
@@ -2328,7 +2337,7 @@ host_add() {
 		_host="*${clear_host}"
 	fi
 
-	ready "Добавляем ${YELLOW}${_host}${NOCL} в список разблокировки..."
+	ready "Добавляем ${YELLOW}${_host}${NOCL} в защищенный список..."
 	echo "${_host}" >> "${UNBLOCK_LIST_FILE}"
 
 #	если включен блокировщик рекламы
@@ -2338,7 +2347,7 @@ host_add() {
 
 	[ "${reset}" = 'yes' ] && cmd_kvas_init  &> /dev/null
 
-	cmd_adguardhome_status | grep -q ВКЛЮЧЕН && add_host_to_adguard "${clear_host}" &> /dev/null
+	[ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ] && cmd_adguardhome_status | grep -q ВКЛЮЧЕН && add_host_to_adguard "${clear_host}" &> /dev/null
 	add_host_to_ipset "${clear_host}" &> /dev/null
 
 	[ $? = 0 ] && when_ok "ДОБАВЛЕН" || when_bad "НЕ ДОБАВЛЕН"
@@ -2346,6 +2355,7 @@ host_add() {
 
 
 }
+
 # ------------------------------------------------------------------------------------------
 #
 #	Добавляем в белый список одно доменное имя, точнее список его IP адресов
@@ -2362,32 +2372,34 @@ cmd_add_one_host() {
 	wild="${3}"
 
 	# Выходим из функции при отуствии интернет-соединения или VPN
-	exit_when_no_internet_or_vpn_connected || exit 1 
+	exit_when_no_internet_or_vpn || exit 1 
 
 	# Проверяем есть ли в введенной строке имя метки или нет
-	tag_name=$("${@}" | grep -oP '(?<=-tag )\S+')
+	tag_name=$(echo "${*}" | grep -oP '(?<=-tag )\S+')
 
 	if [ -n "${tag_name}" ] ; then
 		# Помечаем доменное имя тегом 
 		cmd_add_domain_to_tag_list "${tag_name}" "${host}"
-		# Если  помимо этого домена существует еще доменные с одноименным тегом
-		# то делаем запрос на их доавление.
-		local _tmpfile=$(mktemp)
-		_get_same_tag_domains_missing_in_protection_list "${host}" > "${_tmpfile}"
-		# Проверяем есть ли в этом списке домены
-		[ -s "${_tmpfile}" ] && {
-			# Если есть, то спрашивем добавить ли их
-			read_ynq "Найдены доменные имена с тегом '${tag_name}',\nкоторых пока нет в списке защищенных доменнов.\nДобавить их в список?" answer
-			[[ "$answer" =~ [qn] ]] && return 1
-			if [[ "$answer" =~ [y] ]] ; then
-				print_line
-				cmd_import_hosts "${_tmpfile}"
-			fi
-			rm -f "${_tmpfile}"
-			return 0
-		}
-	fi
+	fi	
 
+	# Если  помимо этого домена существует еще доменные с одноименным тегом
+	# то делаем запрос на их доавление.
+	local _tmpfile=$(mktemp)
+	_get_same_tag_domains_missing_in_protection_list "${host}" | sed '/$/d' > "${_tmpfile}"
+	# Проверяем есть ли в этом списке домены
+	[ -s "${_tmpfile}" ] && {
+		[ -z "${tag_name}" ] && tagname=$(_get_tagname_by_domain "${host}" | tail -1)
+		# Если есть, то спрашивем добавить ли их
+		read_ynq "Найдены доменные имена с тегом '${tag_name}',которых пока нет в списке защищенных доменнов.\nДобавить их в список?" answer
+		[[ "$answer" =~ [qn] ]] && return 1
+		if [[ "$answer" =~ [y] ]] ; then
+			print_line
+			cmd_import_hosts "${_tmpfile}"
+		fi
+		rm -f "${_tmpfile}"
+		return 0
+	}
+	
 
 	clear_host=$(echo "${host}" | sed 's/\*//')
 	ip_filter='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'
@@ -2457,7 +2469,7 @@ cmd_add_one_host() {
 cmd_del_one_host() {
 
 	# Выходим из функции при отуствии интернет-соединения или VPN
-	exit_when_no_internet_or_vpn_connected || exit 1 
+	exit_when_no_internet_or_vpn || exit 1 
 
 	host_="${1}"
 	if cat < "${UNBLOCK_LIST_FILE}" | grep -qe "${host_}$" ; then
@@ -2534,7 +2546,7 @@ cmd_clear_list() {
 				case ${yn} in
 				[Yy]*)
 					# Выходим из функции при отуствии интернет-соединения или VPN
-					exit_when_no_internet_or_vpn_connected || exit 1 
+					exit_when_no_internet_or_vpn || exit 1 
 					
 					print_line
 					ready "Очищаем список разблокировки ..."
@@ -2583,7 +2595,7 @@ rec_in_var() {
 cmd_import_hosts() {
 
 	# Выходим из функции при отуствии интернет-соединения или VPN
-	exit_when_no_internet_or_vpn_connected || exit 1 
+	exit_when_no_internet_or_vpn || exit 1 
 
 	host_list="${1}"
 	if [ -z "${host_list}" ]; then

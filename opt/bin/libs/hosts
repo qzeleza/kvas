@@ -19,6 +19,7 @@
 cmd_hosts_list(){
     warning "Список доменных имен в файле ${GREEN}/opt/etc/hosts${NOCL}:"
 	print_line
+	[ -f /opt/etc/hosts ] || touch /opt/etc/hosts
     cat < /opt/etc/hosts | grep -vE '^#|^$'
 }
 
@@ -54,6 +55,8 @@ cmd_hosts_edit(){
 # добавлять можно как <domain> <ip>, так и kvas dns host add <ip> <domain>
 #
 cmd_hosts_one_add(){
+
+	[ -f /opt/etc/hosts ] || touch /opt/etc/hosts
 
 	if echo "${1}" | grep -qE "${IP_FILTER}"; then
 		ip=${1}

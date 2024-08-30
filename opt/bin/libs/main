@@ -30,6 +30,11 @@ PROGRESS_BAR_WIDTH=$((LENGTH-5))  # progress bar length in characters
 
 KVAS_BACKUP_PATH=/opt/etc/.kvas/backup
 
+SSR_NAME=ss-redir
+SSR_CMD=/opt/bin/${SSR_NAME}
+# ssr_run()(/opt/bin/sslocal --protocol redir -c /opt/etc/shadowsocks.json ${@}) )
+ssr_run()(/opt/bin/ss-redir -c /opt/etc/shadowsocks.json ${@}) 
+
 KVAS_CONF_FILE=/opt/etc/kvas.conf
 UNBLOCK_LIST_FILE=/opt/etc/hosts.list
 ADGUARDHOME_CONFIG=/opt/etc/AdGuardHome/AdGuardHome.yaml
@@ -89,6 +94,16 @@ INFACE_PART_REQUEST="${LOCALHOST_IP}:79/rci/interface"
 SSR_ENTWARE_TEMPL=ezcfg
 MINUS=9
 
+#-------------------------------------------------------------------------------
+# 
+#	Функция которая экранирует спец символы для sed
+# 
+#-------------------------------------------------------------------------------
+escape_sed() {
+	printf '%s' "$1" | sed -e 's/[][\/.^$*{}|]/\\&/g'
+}
+
+
 is_dns_server_online(){
 #---------------------------------------------------------------------------------
 #   Проверяем соединение с DNS сервером на указанном порту
@@ -143,18 +158,20 @@ get_iplist_from_domain(){
 }
 
 
-
 exit_when_no_internet_or_vpn(){
 #---------------------------------------------------------------------------------
 #   Проверяем работу интернета и VPN
 #---------------------------------------------------------------------------------
-	local cli_inface=${1}
+	local cli_inface=$(get_current_vpn_interface cli)
 	has_no_internet_here && {
 		error "Интернет недоступен. Продолжение невозможно." nl
+		print_line
 		exit 1
 	}
+	
 	is_interface_online "${cli_inface}" || {
 		error "VPN интерфейс ${cli_inface} недоступен. Продолжение невозможно." nl
+		print_line
 		exit 1
 	}
 }
@@ -175,8 +192,12 @@ is_interface_online() {
 #   $1 - VPN интерфейс в терминах CLI (например OpenVPN0)
 #---------------------------------------------------------------------------------
 	local cli_inface=${1}
-	inface_desc=$(curl -s "${INFACE_REQUEST}/${cli_inface}" | jq -r 'select(.state=="up" and .link=="up" and .connected=="yes")')
-	[ -n "${inface_desc}" ]
+	if [ "${cli_inface}" = shadowsocks ] && [ -f /opt/etc/init.d/S22shadowsocks ] ; then
+		/opt/etc/init.d/S22shadowsocks status | grep -q 'alive' &> /dev/null
+	else
+		inface_desc=$(curl -s "${INFACE_REQUEST}/${cli_inface}" | jq -r 'select(.state=="up" and .link=="up" and .connected=="yes")')
+		[ -n "${inface_desc}" ]
+	fi
 }
 
 clean_escape(){

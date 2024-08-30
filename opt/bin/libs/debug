@@ -113,7 +113,7 @@ shadowsocks_debug() {
 	if /opt/etc/init.d/S22shadowsocks status &> /dev/null; then
 		when_ok "ЗАПУЩЕНА"
 		port=$(cat < '/opt/etc/shadowsocks.json' | grep local_port | cut -d':' -f2 | tr -d ' ,')
-		result=$(netstat -ltunp 2> /dev/null | grep "ss-redir" | tr -s " ")
+		result=$(netstat -ltunp 2> /dev/null | grep "${SSR_NAME}" | tr -s " ")
 		echo_debug "Отчет по прослушиванию порта shadowsocks [${port}]\nкоманда: netstat -ltunp | grep \"ss-redir\"" "${result}"
 		result=$(cat < /opt/etc/shadowsocks.json | grep -vE "password|server")
 		echo_debug "Выборка из файла конфигурации shadowsocks /opt/etc/shadowsocks.json" "${result}"
@@ -127,7 +127,7 @@ shadowsocks_debug() {
 		print_line
 		warning "Запускаем shadowsocks в режиме отладки"
 		print_line
-		ss-redir -vc /opt/etc/shadowsocks.json
+		ssr_run -v
 		print_line
 		exit 1
 	fi
@@ -211,12 +211,11 @@ check_words_in_multiline_var() {
 # ------------------------------------------------------------------------------------------
 unblock_list_ipset_check(){
 
-	echo "Проверка наличия ip адресов хостов в таблице ipset команда 'ipset list unblock '"
-	echo -e "${RED}ВНИМАНИЕ!${NOCL} Выводятся только записи с ошибками: ${RED}ОТСУТСТВУЕТ${NOCL} и ${BLUE}АДРЕСА НЕТ${NOCL}"
-	print_line
-	# /opt/apps/kvas/bin/main/ipset &>/dev/null
+	echo "Проверка наличия ip адресов хостов в таблице ipset"
+
 	HAS_NO_ADDRESS=;NOT_IN_TABLE=;
-	sleep 3
+	sleep 2
+	local bad_ipset_list=""
 	if [ -f "${UNBLOCK_LIST_FILE}" ]; then
 		result_ipset=$(ipset list unblock | grep -vEi '^[a-z]' | sort )
 		if [ -n "${result_ipset}" ]; then
@@ -236,7 +235,7 @@ unblock_list_ipset_check(){
 					ips="${ips::-1}"
 				fi
 				if [ -z "$ips" ] || [ "${ips}" = 0.0.0.0 ]; then
-                	ready "${BLUE}${line}${NOCL}" && when_alert "АДРЕСА НЕТ"
+                	bad_ipset_list="${bad_ipset_list}\n$(ready "${BLUE}${line}${NOCL}" && when_alert "АДРЕСА НЕТ")"
 					HAS_NO_ADDRESS=true
 	            else
 					line_ips="${hided_line} ${ips}"
@@ -252,7 +251,7 @@ unblock_list_ipset_check(){
 					if ! check_words_in_multiline_var "${result_ipset}" "${ips}" ; then
 					# 	ready "${GREEN}${hided_line}${NOCL} ${cutted}"; when_ok "В ТАБЛИЦЕ" ;
 					# else
-						ready "${RED}${line}${NOCL} ${cutted}"; when_bad "ОТСУТСТВУЕТ"
+						bad_ipset_list="${bad_ipset_list}\n$(ready "${RED}${line}${NOCL} ${cutted}"; when_bad "ОТСУТСТВУЕТ")"
 						NOT_IN_TABLE=true
 					fi
 
@@ -267,10 +266,20 @@ unblock_list_ipset_check(){
 		echo -e "Добавьте домены в этот список командой ${GREN}kvas add <domain.ru>${NOCL}"
 	fi
 
-	print_line
+	# Удаляем пустые строки
+	bad_ipset_list=$(echo "$bad_ipset_list" | sed '/^$/d')
+	if [ -n "${bad_ipset_list}" ] ; then 
+		print_line
+		echo -e "${GREEN}ВНИМАНИЕ!${NOCL} Выводятся только записи с ошибками: ОТСУТСТВУЕТ и АДРЕСА НЕТ"
+		print_line
+		printf '%s' "$bad_ipset_list"
+	else 
+		echo -e "${GREEN}ВНИМАНИЕ!${NOCL} Все записи в таблице ${BLUE}unblock${NOCL} прошли проверку."
+	fi 
+	
 	echo 
 	[ "${HAS_NO_ADDRESS}" = true ] && {
-		
+		print_line
 		echo -e "Значение ${BLUE}АДРЕСА НЕТ${NOCL} - это может говорить о том, что адрес этого"
 		echo -e "домена не определяется утилитами ${BLUE}kdig${NOCL} или ${BLUE}dig${NOCL}."
 		echo ''
@@ -289,7 +298,7 @@ unblock_list_ipset_check(){
 	}
 
 	[ "${NOT_IN_TABLE}" = true ] && {
-
+		print_line
 		echo -e "Значение ${RED}ОТСУТСТВУЕТ${NOCL} - это может говорить о том, что адрес доменного имени "
 		echo -e "был корректно определен при помощи утилит ${BLUE}kdig${NOCL} или ${BLUE}dig${NOCL}, но по какой-то "
 		echo -e "причине, пока не был добавлен в текущую {BLUE}ipset{NOCL} таблицу."
@@ -478,7 +487,7 @@ show_services_status(){
 	. /opt/apps/kvas/bin/libs/vpn
 	cmd_vpn_status
 	cmd_ads_status
-	if cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then
+	if [ -f "${ADGUARDHOME_DEMON}" ] && cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then
 		cmd_adguardhome_status
 	else
 		cmd_dns_crypt_status_show

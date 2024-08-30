@@ -1,6 +1,0 @@
-#! /usr/bin/env bash
-set -e
-. ./build/library.run
-copy_app_to_router
-#run_reinstalation_on_router
-#run_tests

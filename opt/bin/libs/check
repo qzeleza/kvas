@@ -463,17 +463,19 @@ hosts_list_check(){
 ipset_site_visit_check() {
 	echo "ВНИМАНИЕ!!!  прежде, чем приступить к дальнейшим действиям, сделайте следующее:"
 	echo
-	echo "1. Очистите кеш на Вашем компьютере (инструкцию ищите в сети)."
-	echo "2. Обязательно проверьте, что адрес dns клиента идентичен адресу вашего роутера!"
+	echo "1. Очистите кеш на Ваших клиентах, которые подключены к роутеру:"
+	echo -e "\t${BLUE}MacOS${NOCL}: ${YELLOW}sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder${NOCL}"
+	echo -e "\t${BLUE}Linux${NOCL}: ${YELLOW}sudo systemd-resolve --flush-caches или sudo resolvectl flush-caches${NOCL}"
+	echo -e "\t${BLUE}Windows: ${YELLOW}ipconfig /flushdns${NOCL}"
+	echo "2. Обязательно проверьте, что адрес DNS клиента идентичен адресу вашего роутера!"
 	echo "3. Далее, очистите все куки на бразуре, в котором хотите увидить результат!"
 	echo
 	echo "Для продолжения нажмите на любую клавишу."
 	print_line
 	pause
-	clear
-	warning "Проверка заполнения ipset таблицы при посещении сайта."
+	warning "Проверяем заполнения ipset таблицы при посещении сайта."
 	print_line
-	echo "Далее, для проверки заполнения, откройте на компьютере браузер"
+	echo "Сейчас, для проверки заполнения, откройте на компьютере браузер"
 	echo "Затем зайдите на сайт https://myip2.ru"
 	echo "На странице должен появиться IP Вашего VDS/VPN провайдера."
 	echo -n "После чего вновь перейдите сюда и нажмите на любую клавишу."
@@ -486,7 +488,8 @@ ipset_site_visit_check() {
 	else
 		when_bad "ПУСТА"
 		print_line
-		warning "Попробуйте запустить тест снова"
+		warning "Попробуйте запустить тест снова и/или обратитесь к документации:"
+		warning "https://github.com/qzeleza/kvas/wiki"
 	fi
 #	print_line
 

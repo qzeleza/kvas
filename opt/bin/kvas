@@ -5,6 +5,7 @@
 . /opt/apps/kvas/bin/libs/update
 . /opt/apps/kvas/bin/libs/hosts
 . /opt/apps/kvas/bin/main/setup
+. /opt/apps/kvas/bin/libs/tags
 
 #------------------------------------------------------------------------------
 #
@@ -26,10 +27,11 @@
 # ------------------------------------------------------------------------------
 
 
-if  echo "${1}" | grep -qvEi 'uninstall|remove|rm' && [ -z "$(get_config_value "SETUP_FINISHED")" ]; then
+if  echo "${1}" | grep -qvEi 'uninstall' && [ -z "$(get_config_value "SETUP_FINISHED")" ]; then
 	print_line
 	echo "${2}" | grep -q "upgrade" && warning "Запускаем настройку пакета" || {
 		error "Настройка пакета не завершена, запускаем настройку пакета" "1"
+		print_line
 	}
 	cmd_install "${3}"
 	print_line
@@ -42,7 +44,7 @@ print_line
 case "${1}" in
 	setup)
 							echo "Настройка пакета КВАС завершена!"
-							echo "Для удаления пакета наберите 'kvas remove'"
+							echo "Для удаления пакета наберите 'kvas uninstall'"
 							;;
 
 	pause|freeze)           cmd_pause_kvas ;;
@@ -92,7 +94,7 @@ case "${1}" in
 	dns)
 		case "${2}" in
 			test) 			cmd_dns_test "${3}";;
-			*) 				cmd_dnsmasq_dns_change "${2}" ;;
+			# *) 				cmd_dnsmasq_dns_change "${2}" ;;
 		esac
 		;;
 
@@ -137,7 +139,7 @@ case "${1}" in
 			list) 			cmd_show_tags_domain_list "${3}" ;;
 			add)			cmd_add_domain_to_tag_list "${3}" "${4}" ;;
 			del)			cmd_del_domain_to_tag_list "${3}" "${4}" ;;
-			*) 				cmd_show_tags_domain_list "${3}" ;;
+			*) 				cmd_show_tags_domain_list "${2}" ;;
 		esac
 		;;
 	debug)
@@ -155,7 +157,7 @@ case "${1}" in
 		;;
 	export)					cmd_export_hosts "${2}"
 		;;
-	del | rm )				cmd_del_one_host "${2}"
+	del | rm | remove )		cmd_del_one_host "${2}"
 		;;
 	purge | clear)			cmd_clear_list "${2}"
 		;;
