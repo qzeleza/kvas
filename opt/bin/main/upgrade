@@ -27,6 +27,10 @@ set_escapes(){
 	NOCL="\033[m";
 	QST="${RED}?${NOCL}"
 }
+WGET='/opt/bin/wget -q --no-check-certificate'
+# Вы полняем команду отключения DNS провайдера без перезагрузки и выхода из сессии
+rci_post()($WGET -qO - --post-data="$1" localhost:79/rci/ > /dev/null 2>&1)
+
 
 has_no_internet_here(){
 #	Если в возвращаемых аргументах нет false значит интернет присутствует
@@ -317,6 +321,13 @@ ready "Устанавливаем новую версию пакета [${versio
 } &>/dev/null && when_ok || when_err
 
 #--------------------------------------------------------------------------------------------------------------
+connect_home_nets(){
+	# подключаем одну гостевую сеть к Квасу, если она имеется
+	ip a | grep global | grep -v br0 | grep -qE br[1-9] &&  {
+		clear
+		cmd_bridge_vpn_access_add
+	}
+}
 
 if ! [ -f /opt/bin/kvas ] ; then
 	print_line
@@ -328,14 +339,20 @@ if ! [ -f /opt/bin/kvas ] ; then
 	exit 1
 else
 	sleep 1
+	# Отключаем системный DNS-сервер роутера
+	rci_post '[{"opkg": {"dns-override": true}},{"system": {"configuration": {"save": true}}}]'
 	# 	если файл пакета найден после установки пакета,
 	# 	то запускаем установку и затем тестирование пакета
 	kvas setup "${UPDATE_MODE}" && {
+		# подключаем гостевые сети, если они имется
+		connect_home_nets
+		print_line
 		echo 'Тестируем настройки...'
 #		В данном случае, чтобы не печатать линию после
 #		окончания тестирования дважды передаем параметр upgrade
 		kvas test upgrade
 	}
 fi
-rm -f upgrade
+
+rm -f upgrade install
 

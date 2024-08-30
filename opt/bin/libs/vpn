@@ -1711,7 +1711,7 @@ EOF
 	)
 	# проходимся по каждому интерфейсу
 	# ВНИМАНИЕ! inface_list - все маленькими буквами!!!
-	count=1; delay=4
+	count=1; delay=10
 	list_len=$(echo "${inface_list}" | wc -w)
 	for inface_cli in ${inface_list}; do
 #		переподключаем текущее соединение
@@ -2169,7 +2169,8 @@ cmd_dns_crypt_on() {
 				sed -i "s/\(^cache.=.\).*$/\1false/g" '/opt/etc/dnscrypt-proxy.toml'
 				sed -i "s/\(^require_dnssec.=.\).*$/\1true/g" '/opt/etc/dnscrypt-proxy.toml'
 				sed -i "s/\(^cache_min_ttl.=.\).*$/\10/g" '/opt/etc/dnscrypt-proxy.toml'
-
+				sed -i "s/.* \(server_names =\).*/\1 ['google', 'yandex', 'cloudflare']/g" '/opt/etc/dnscrypt-proxy.toml'
+				
 				sed -i "/proxy-dnssec/d" /opt/etc/dnsmasq.conf
 				echo "proxy-dnssec" >> /opt/etc/dnsmasq.conf
 				dns_crypt_port_change "${dns_crypt_port}" restart

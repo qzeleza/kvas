@@ -148,7 +148,7 @@ case "${1}" in
 			*) 				cmd_print_debug "${2}"		;;
 		esac
 		;;
-	test | check)			cmd_state_checker
+	test | check)			cmd_state_checker "${2}"
 							[ -n "${2}" ] && exit 0
 		;;
 	add | new)				cmd_add_one_host "${2}" "yes" "${3}"

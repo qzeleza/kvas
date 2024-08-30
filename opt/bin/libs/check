@@ -553,7 +553,9 @@ cmd_state_checker() {
 		NOT_IN_TABLE=false
 	fi
 	print_line
-	ipset_site_visit_check
+	# При активном флаге не будет выполняться функция ipset_site_visit_check 
+	# и тест будет завершаться без участия пользователя
+	[[ "${1}" = '--no-check' ]] || ipset_site_visit_check
 #	print_line
 #	check_tunnel
 
