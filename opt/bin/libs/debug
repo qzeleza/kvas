@@ -267,14 +267,14 @@ unblock_list_ipset_check(){
 	fi
 
 	# Удаляем пустые строки
-	bad_ipset_list=$(echo "$bad_ipset_list" | sed '/^$/d')
+	bad_ipset_list=$(printf "%s" "$bad_ipset_list" | sed '/^$/d')
 	if [ -n "${bad_ipset_list}" ] ; then 
 		print_line
-		echo -e "${GREEN}ВНИМАНИЕ!${NOCL} Выводятся только записи с ошибками: ОТСУТСТВУЕТ и АДРЕСА НЕТ"
+		echo -e "${RED}ВНИМАНИЕ!${NOCL} Выводятся только записи с ошибками: ОТСУТСТВУЕТ и АДРЕСА НЕТ"
 		print_line
 		printf '%s' "$bad_ipset_list"
 	else 
-		echo -e "${GREEN}ВНИМАНИЕ!${NOCL} Все записи в таблице ${BLUE}unblock${NOCL} прошли проверку."
+		echo -e "${GREEN}Все записи в таблице ${BLUE}unblock${NOCL} ${GREEN}прошли проверку.${NOCL}"
 	fi 
 	
 	echo 

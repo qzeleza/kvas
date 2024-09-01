@@ -461,7 +461,7 @@ hosts_list_check(){
 #
 # ------------------------------------------------------------------------------------------
 ipset_site_visit_check() {
-	echo "ВНИМАНИЕ!!!  прежде, чем приступить к дальнейшим действиям, сделайте следующее:"
+	echo -e "${RED}ВНИМАНИЕ, прежде, чем приступить к дальнейшим действиям${NOCL}, сделайте следующее:"
 	echo
 	echo "1. Очистите кеш на Ваших клиентах, которые подключены к роутеру:"
 	echo -e "\t${BLUE}MacOS${NOCL}: ${YELLOW}sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder${NOCL}"
@@ -476,8 +476,8 @@ ipset_site_visit_check() {
 	warning "Проверяем заполнения ipset таблицы при посещении сайта."
 	print_line
 	echo "Сейчас, для проверки заполнения, откройте на компьютере браузер"
-	echo "Затем зайдите на сайт https://myip2.ru"
-	echo "На странице должен появиться IP Вашего VDS/VPN провайдера."
+	echo -e "Затем зайдите на сайт ${BLUE}https://myip2.ru${NOCL} в режиме ${RED}ИНКОГНИТО.${NOCL}"
+	echo -e "На странице должен появиться ${BLUE}IP Вашего VDS/VPN провайдера${NOCL}."
 	echo -n "После чего вновь перейдите сюда и нажмите на любую клавишу."
 	pause
 	/opt/apps/kvas/bin/main/ipset &> /dev/null
@@ -555,7 +555,7 @@ cmd_state_checker() {
 	print_line
 	# При активном флаге не будет выполняться функция ipset_site_visit_check 
 	# и тест будет завершаться без участия пользователя
-	[[ "${1}" = '--no-check' ]] || ipset_site_visit_check
+	[ "${1}" = '--no-check' || '-fast' ] || ipset_site_visit_check
 #	print_line
 #	check_tunnel
 

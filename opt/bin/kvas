@@ -94,7 +94,7 @@ case "${1}" in
 	dns)
 		case "${2}" in
 			test) 			cmd_dns_test "${3}";;
-			# *) 				cmd_dnsmasq_dns_change "${2}" ;;
+			*) 				cmd_dnsmasq_dns_change "${2}" ;;
 		esac
 		;;
 
