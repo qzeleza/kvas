@@ -263,6 +263,10 @@ rm_package_files(){
 			rm_file_or_dir 	/opt/etc/inface_equals
 			rm_file_or_dir 	/opt/etc/cron.5mins/ipset.kvas
 			rm_file_or_dir	/opt/etc/shadowsocks.json
+			rm_file_or_dir	/opt/etc/init.d/S22shadowsocks
+			rm_file_or_dir /opt/etc/cron.5mins/check_vpn
+			rm_file_or_dir /opt/etc/cron.5mins/ipset.kvas
+			rm_file_or_dir /opt/etc/.backup
 			rm_file_or_dir	/opt/etc/.kvas
 		} && when_ok || when_bad
 	fi
@@ -473,6 +477,7 @@ cmd_install(){
 	#----------------------------------------------------------
 
 	if [ "${ANSWER_AGH}" = n ]; then
+	
 		if [ -f "${ADGUARDHOME_DEMON}" ]; then
 			if "${ADGUARDHOME_DEMON}" status | grep -q alive; then
 				"${ADGUARDHOME_DEMON}" stop &> /dev/null
@@ -527,6 +532,51 @@ WGET='/opt/bin/wget -q --no-check-certificate'
 # Вы полняем команду отключения DNS провайдера без перезагрузки и выхода из сессии
 rci_post()($WGET -qO - --post-data="$1" localhost:79/rci/ > /dev/null 2>&1)
 
+
+#------------------------------------------------------
+#  Обрабатываем режим тестировщика 
+#  удаляем под ноль все запущенные службы
+#------------------------------------------------------
+all_services_rm_develop_mode() {
+
+	if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
+		ready "Останавливаем и удаляем службу AdGuardHome "
+		{
+			${ADGUARDHOME_DEMON} stop &> /dev/null 
+			rm_file_or_dir /opt/etc/AdGuardHome/AdGuardHome.yaml
+			opkg remove adguardhome-go --force-depends &> /dev/null
+		} && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+		
+	else 
+		
+		if has_ssr_enable ; then
+			ready "Останавливаем службу Shadowsocks "
+			{
+				# Останавливаем сервер SSR
+				/opt/etc/init.d/S22shadowsocks stop &> /dev/null 
+				rm_file_or_dir /opt/etc/shadowsocks.json
+				opkg remove shadowsocks-libev --force-depends &> /dev/null
+
+			} && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+		else
+			ready "Останавливаем службу dnsmasq "
+			{
+				/opt/etc/init.d/S56dnsmasq stop &> /dev/null 
+				rm_file_or_dir /opt/etc/dnsmasq.conf
+				opkg remove dnsmasq --force-depends &> /dev/null
+			} && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+
+			get_dns_crypt_status | grep -q "on" && {
+				ready "Останавливаем службу dnscrypt-proxy2 "
+				{
+					/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null 
+					rm_file_or_dir /opt/etc/dnscrypt-proxy.toml
+					opkg remove dnscrypt-proxy2 --force-depends &> /dev/null
+				} && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+			}
+		fi
+	fi
+}
 # ------------------------------------------------------------------------------------------
 #
 #	 Удаляет полностью пакет Квас с устройства
@@ -560,7 +610,10 @@ cmd_uninstall() {
 		if [ "${rm_type}" = full ]; then
 			mess="Удаляем все архивные данные и все зависимые пакеты..."
 			rm -f /opt/etc/init/K56dnsmasq  /opt/etc/init/K09dnscrypt-proxy2
-			! [ -f "${SHADOWSOCKS_CONF}" ] && touch "${SHADOWSOCKS_CONF}"
+			[ -f "${SHADOWSOCKS_CONF}" ] || touch "${SHADOWSOCKS_CONF}"
+
+		elif [ "${rm_type}" == develop ] ; then
+			all_services_rm_develop_mode
 		else
 #			Сохраняем значимые файлы конфигурации
 			save_backups
@@ -568,9 +621,33 @@ cmd_uninstall() {
 		fi
 		[ -z "${sure}" ] && print_line
 		echo "${mess}"
-		opkg remove kvas --autoremove &> /dev/null #&& when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-		rci_post '[{"opkg": {"no dns-override": true}},{"system": {"configuration": {"save": true}}}]'
+		# Останавливаем сервер AdGuardHome
+		if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
+			ready "Останавливаем службу AdGuardHome "
+		 	${ADGUARDHOME_DEMON} stop &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+		else 
+			
+			if has_ssr_enable ; then
+				ready "Останавливаем службу Shadowsocks "
+				# Останавливаем сервер SSR
+				/opt/etc/init.d/S22shadowsocks stop &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+			else
+				ready "Останавливаем службу dnsmasq "
+				/opt/etc/init.d/S56dnsmasq stop &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+				get_dns_crypt_status | grep -q "on" && {
+					ready "Останавливаем службу dnscrypt-proxy2 "
+					/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+				}
+			fi
+		fi
+		ready "Удаляем пакет Квас..."
+		opkg remove kvas --autoremove &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+
+		ready "Восстанавливаем работу роутера через DNS провайдера..."
+		rci_post '[{"opkg": {"dns-override": false}},{"system": {"configuration": {"save": true}}}]' &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 	
+		
+
 #		print_line
 #		
 		#set_previous_condition "${rm_type}"

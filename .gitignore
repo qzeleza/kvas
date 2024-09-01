@@ -83,3 +83,4 @@ fabric.properties
 
 !/Makefile
 !/tests/
+#ipk/

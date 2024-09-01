@@ -499,7 +499,11 @@ get_adguardhome_ip_port() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_adguardhome_status() {
-	ready "Сервис AdGuard Home [$(grep address /opt/etc/AdGuardHome/AdGuardHome.yaml | cut -d":" -f2)]"
+	local local_ip=""
+	if [ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ] ; then 
+		local_ip="[$(grep address /opt/etc/AdGuardHome/AdGuardHome.yaml | cut -d":" -f2)]"
+	fi
+	ready "Сервис AdGuard Home ${local_ip}"
 	# Проверяем наличие исполняемого файла AdGuardHome
 
 	if [ -f /opt/bin/AdGuardHome ] ; then
@@ -1253,7 +1257,6 @@ ndm_interface_change() {
 	chmod +x /opt/apps/kvas/bin/libs/ndm
 	set_config_value "INFACE_ENT" "${inface_entware}"
 	set_config_value "INFACE_CLI" "${inface_cli}"
-
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -1427,21 +1430,9 @@ cmd_shadowsocks_read_new_data() {
 	print_line
 
 	shadowsocks_read_data
+	ndm_interface_change "$(get_ssr_entware_interface)" "shadowsocks"
 	shadowsocks_config_check &>/dev/null
-
 	service_restart  shadowsocks S22shadowsocks
-
-#	ready "Перезапускаем shadowsocks интерфейс"
-#	/opt/etc/init.d/S22shadowsocks restart &> /dev/null
-#	/opt/etc/init.d/S22shadowsocks status &> /dev/null
-#	if [ $? = 0 ]; then
-#		when_ok "УСПЕШНО"
-#	else
-#		when_bad "ОШИБКА"
-#		error "Возникла ошибка при подключении shadowsocks интерфейса!"
-#		error "Проверьте доступность сервера и настройки клиента!"
-#		exit 1
-#	fi
 
 }
 
@@ -1515,9 +1506,8 @@ shadowsocks_read_data() {
 
 			shadowsocks_read_config
 		fi
-	# читаем данные и Производим замену в библиотеке ndm основных значения интерфейсов
-	[ ${?} = 0 ] && ndm_interface_change "$(get_ssr_entware_interface)" "shadowsocks"
 
+	
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -2612,7 +2602,7 @@ cmd_import_hosts() {
 			ready "Импортируем хосты в список защищаемых доменов и обновляем маршруты..."
 			clear_file_content "${host_list}"
 
-			clear_file_content "${UNBLOCK_LIST_FILE}"
+			# clear_file_content "${UNBLOCK_LIST_FILE}"
 
 			hosts_to_add_ubl=''
 			hosts_repeated_ubl=''
