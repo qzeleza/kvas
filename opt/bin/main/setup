@@ -155,6 +155,25 @@ cmd_pause_kvas(){
 
 }
 
+restart_all_services(){
+
+	if cmd_adguardhome_status | grep -qE "(ВКЛЮЧЕН|ОТКЛЮЧЕН)" ; then
+		/opt/etc/init.d/S99adguardhome restart &> /dev/null 
+	else
+		if has_ssr_enable ; then
+			/opt/etc/init.d/S22shadowsocks restart &> /dev/null 
+		else
+			/opt/etc/init.d/S56dnsmasq restart &> /dev/null 
+			get_dns_crypt_status | grep -q "on" && {
+				/opt/etc/init.d/S09dnscrypt-proxy2 restart &> /dev/null 
+			}
+		fi
+
+	fi
+
+
+
+}
 # Функция восстановления архивных файлов конфигурации пакета
 cmd_unpause_kvas(){
 
@@ -176,7 +195,9 @@ cmd_unpause_kvas(){
 		[ -f ${KVAS_BACKUP_PATH}/100-vpn-mark ] && {
 			mv ${KVAS_BACKUP_PATH}/100-vpn-mark /opt/etc/ndm/netfilter.d/100-vpn-mark 
 		}	
+
 		cmd_kvas_init
+		restart_all_services
 
 	} &> /dev/null && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
 	
