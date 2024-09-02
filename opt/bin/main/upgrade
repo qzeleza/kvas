@@ -172,7 +172,7 @@ select_release_from_list(){
 # ---------------------------------------------------------------------------------------------
 remove_nano(){
 	nano_name=$(opkg list-installed | grep nano | cut -d' ' -f1)
-	[ -n "${nano_nmae}" ] && opkg --force-remove --force-depends remove "${nano_name}" &> /dev/null
+	[ -n "${nano_name}" ] && opkg --force-remove --force-depends remove "${nano_name}" &> /dev/null
 }
 
 #--------------------------------------------------------------------------------------------------------------
