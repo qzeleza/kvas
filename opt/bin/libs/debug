@@ -235,7 +235,7 @@ unblock_list_ipset_check(){
 					ips="${ips::-1}"
 				fi
 				if [ -z "$ips" ] || [ "${ips}" = 0.0.0.0 ]; then
-                	bad_ipset_list="${bad_ipset_list}\n$(ready "${BLUE}${line}${NOCL}" && when_alert "АДРЕСА НЕТ")"
+                	bad_ipset_list="$(printf "%s" "${bad_ipset_list}\n$(ready "${BLUE}${line}${NOCL}" && when_alert "АДРЕСА НЕТ")")"
 					HAS_NO_ADDRESS=true
 	            else
 					line_ips="${hided_line} ${ips}"
@@ -251,7 +251,7 @@ unblock_list_ipset_check(){
 					if ! check_words_in_multiline_var "${result_ipset}" "${ips}" ; then
 					# 	ready "${GREEN}${hided_line}${NOCL} ${cutted}"; when_ok "В ТАБЛИЦЕ" ;
 					# else
-						bad_ipset_list="${bad_ipset_list}\n$(ready "${RED}${line}${NOCL} ${cutted}"; when_bad "ОТСУТСТВУЕТ")"
+						bad_ipset_list="$(printf "%s" "${bad_ipset_list}\n$(ready "${RED}${line}${NOCL} ${cutted}"; when_bad "ОТСУТСТВУЕТ")")"
 						NOT_IN_TABLE=true
 					fi
 
@@ -267,7 +267,7 @@ unblock_list_ipset_check(){
 	fi
 
 	# Удаляем пустые строки
-	bad_ipset_list=$(printf "%s" "$bad_ipset_list" | sed '/^$/d')
+	bad_ipset_list=$(printf "%s" "${bad_ipset_list}" | sed '/^$/d')
 	if [ -n "${bad_ipset_list}" ] ; then 
 		print_line
 		echo -e "${RED}ВНИМАНИЕ!${NOCL} Выводятся только записи с ошибками: ОТСУТСТВУЕТ и АДРЕСА НЕТ"

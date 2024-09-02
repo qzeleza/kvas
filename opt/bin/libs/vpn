@@ -731,14 +731,14 @@ ikev2_include_to_list(){
                 echo "${ikev2}" | grep enable | grep -q true && status="ВКЛ. " || status="ОТКЛ."
 		echo "${ikev2}" | grep enable | grep -q true && color="${GREEN}" || color="${RED}"
 		txt="1. Сеть \"VPN-сервер\" IKEv2 [${net_pool}]"
-		prn="$(join_ready "${txt}" "${status}" "${color}" $((LENGTH - MINUS)))"
+		prn="$(_join_ready "${txt}" "${status}" "${color}" $((LENGTH - MINUS)))"
                 ready "${prn}"
                 cat < "/opt/etc/kvas.conf" | grep 'INFACE_GUEST_ENT=' | grep -q "[^_]ikev2" && when_ok "ДОБАВЛЕНА" || when_alert "НЕ ДОБАВЛЕНА"
         fi
 
 }
 
-join_ready() {
+_join_ready() {
 	color=${3}
         size=$(diff_len "${1}" "${4}")
         printf "%b%-${size}s%b" "${1}"
@@ -753,9 +753,9 @@ guest_include_to_list(){
 	echo "${desc_full}" | grep -q 'is up' && color=${GREEN} || color=${RED}
 	echo "${desc_full}" | grep -q 'is up' && status="ВКЛ. " || status="ОТКЛ."
 
-        _desc="$(echo "${desc_full}" | sed 's/^\(.*\) is.*$/\1/')"
+	_desc="$(echo "${desc_full}" | sed 's/^\(.*\) is.*$/\1/')"
 #       отображаем все гостевые интерфейсы
-	prn="$(join_ready "${num}. Сеть ${_desc}" "${status}" ${color} $((LENGTH - MINUS)))"
+	prn="$(_join_ready "${num}. Сеть ${_desc}" "${status}" ${color} $((LENGTH - MINUS)))"
         ready "${prn}"
         cat < "/opt/etc/kvas.conf" | grep 'INFACE_GUEST_ENT=' | grep -q "[^_]${ent_inf}" && when_ok "ДОБАВЛЕНА" || when_alert "НЕ ДОБАВЛЕНА"
 }
@@ -1395,12 +1395,14 @@ shadowsocks_read_config(){
 	# Экранируем символы для применения в sed
 	ESCAPED_PASSWD=$(escape_sed "$SSR_SERVER_PASSWD")
 	if [ -f "${SHADOWSOCKS_CONF}" ] ; then
+
+		ready "Изменяем конфигурацию ${SHADOWSOCKS_CONF} для введенных данных..."
 		sed -i "s/\(\"server\":\).*/\1 \"${SSR_SERVER_IP}\",/; 			\
 				s/\(\"server_port\":\).*/\1 ${SSR_SERVER_PORT},/; 		\
 				s/\(\"local_port\":\).*/\1 $(get_config_value SSR_DNS_PORT),/; 		\
 				s/\(\"password\":\).*/\1 \"${ESCAPED_PASSWD}\",/; 	\
 				s/\(\"method\":\).*/\1 \"${SSR_SERVER_CRYPT}\",/;" 		\
-			"${SHADOWSOCKS_CONF}"
+			"${SHADOWSOCKS_CONF}" &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 	else
 		print_line
 		error "Не обнаружен файл ${SHADOWSOCKS_CONF}." nl
@@ -1456,17 +1458,17 @@ shadowsocks_read_data() {
 	if [ "${answer}" = q ] ; then exit_q; exit 1; fi
 
 	if echo "${answer}" | grep -qi y ; then
-			shadowsocks_read_link
-		else
+		shadowsocks_read_link
+	else
 
-			echo "Чтобы продолжить работу необходимо ввести следующие данные:"
-			echo -e "${GREEN}Хост${NOCL} сервера, его ${GREEN}порт, пароль доступа${NOCL} и ${GREEN}метод шифрования${NOCL}"
+		echo "Чтобы продолжить работу необходимо ввести следующие данные:"
+		echo -e "${GREEN}Хост${NOCL} сервера, его ${GREEN}порт, пароль доступа${NOCL} и ${GREEN}метод шифрования${NOCL}"
 
-			echo -e "${BLUE}Пожалуйста, последовательно введите эти данные ниже.${NOCL}"
-			print_line
+		echo -e "${BLUE}Пожалуйста, последовательно введите эти данные ниже.${NOCL}"
+		print_line
 
-			shadowsocks_read_config
-		fi
+		shadowsocks_read_config
+	fi
 
 	
 }
@@ -1485,7 +1487,7 @@ shadowsocks_read_link(){
 		SSR_SERVER_PASSWD=$(echo "${password}" | cut -d ":" -f 2)
 		SSR_SERVER_CRYPT=$(echo "${password}" | cut -d ":" -f 1)
 		SSR_SERVER_IP=$(echo "${SSR_LINK}" | grep -oP "(?<=@).*?(?=:)")
-		SSR_SERVER_PORT=$(echo "${SSR_LINK}" | cut -d ":" -f 3 | cut -d "#" -f 1)
+		SSR_SERVER_PORT=$(echo "${SSR_LINK}" | sed 's/.*@.*:\([0-9]\{1,6\}\).*/\1/')
 	else
 		error "Ссылка пуста или слишком коротка! Введите корректную ссылку!"  nl
 		exit 1

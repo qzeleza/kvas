@@ -555,7 +555,7 @@ cmd_state_checker() {
 	print_line
 	# При активном флаге не будет выполняться функция ipset_site_visit_check 
 	# и тест будет завершаться без участия пользователя
-	[ "${1}" = '--no-check' || '-fast' ] || ipset_site_visit_check
+	[ "${1}" = '--no-check'  ] || [ "${1}" = '-fast' ] || ipset_site_visit_check
 #	print_line
 #	check_tunnel
 
