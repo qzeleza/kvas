@@ -161,7 +161,11 @@ case "${1}" in
 		;;
 	purge | clear)			cmd_clear_list "${2}"
 		;;
-	show | list | search | find)	[ -n "${2}" ] && cmd_show_list | grep "${2}" || cmd_show_list
+	show | list | search | find)	
+							[ -n "${2}" ] && cmd_show_list | grep "${2}" || {
+								print_line
+								echo -e "Доменное имя ${BLUE}${2}${NOCL} в списке не обнаружено."
+							}
 		;;
 	reset | init)	        cmd_kvas_init
 		;;

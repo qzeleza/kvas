@@ -1,5 +1,5 @@
 #!/bin/sh
-. /opt/apps/kvas/bin/libs/main
+
 . /opt/apps/kvas/bin/libs/debug
 . /opt/apps/kvas/bin/libs/ndm
 . /opt/apps/kvas/bin/libs/adblock
@@ -2377,13 +2377,21 @@ cmd_add_one_host() {
 	# Выходим из функции при отуствии интернет-соединения или VPN
 	exit_when_no_internet_or_vpn || exit 1 
 
-	# Проверяем есть ли в введенной строке имя метки или нет
-	tag_name=$(echo "${*}" | grep -oP '(?<=-tag )\S+')
+	# Если первый параметр пуст или равен 'tags', то 
+	# делаем запрос на выбор закваски и добавляем все доменные имена из закваски в список защиты
+	[ -z "${host}" ] || [ "${host}" = tags ] && {
+		add_tag_section_to_protect_list
+		return 0
+	}
 
-	if [ -n "${tag_name}" ] ; then
+	# Проверяем есть ли в введенной строке имя метки -tag или нет
+	has_tag=$([ -n "$(echo "${*}" | grep -oP '(?<=-tag )\S+')" ])
+
+	if [ "${has_tag}" ] ; then
+		tag_name=$(echo "${*}" | sed 's/.*\-tag \(.*\)/\1/')
 		# Помечаем доменное имя тегом 
 		cmd_add_domain_to_tag_list "${tag_name}" "${host}"
-	fi	
+	fi
 
 	# Если  помимо этого домена существует еще доменные с одноименным тегом
 	# то делаем запрос на их доавление.
@@ -2719,7 +2727,7 @@ cmd_export_hosts() {
 # ------------------------------------------------------------------------------------------
 add_tag_section_to_protect_list() {
 
-    local section="$1"
+    # local section="$1"
     local tag_selected answer
     tag_select "добавления" tag_selected
     [ -n "${tag_selected}" ] && {
@@ -2750,7 +2758,7 @@ add_tag_section_to_protect_list() {
 # ------------------------------------------------------------------------------------------
 del_tag_section_to_protect_list() {
 
-    local section="$1"
+    # local section="$1"
     local tag_selected answer
     tag_select "удаления" tag_selected
     [ -n "${tag_selected}" ] && {

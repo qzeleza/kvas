@@ -37,7 +37,7 @@ cmd_show_tags_domain_list(){
         _list=$(cat < "${TAGS_FILE}")
     else
         grep -q "\[$section\]" "${TAGS_FILE}" || {
-            error "Тег '$section' не найден!"
+            error "Закваска '$section' не обнаружена!"
             return 1
         }
         _list=$(get_tag_domain_list "$section")
@@ -45,7 +45,7 @@ cmd_show_tags_domain_list(){
     fi
 
 
-    echo -e "${GREEN}Список доменных имен в тегах:${NOCL}"
+    echo -e "${GREEN}Список доменных имен в заквасках:${NOCL}"
     print_line
     [ -n "$section" ] && echo -e "${GREEN}[$section]${NOCL}"
 
@@ -100,7 +100,7 @@ _check_section() {
 
     local section="$1"
     if ! grep -q "\[$section\]" "${TAGS_FILE}"; then
-        read_ynq "Тег '$section' не найден. Добавить?" answer
+        read_ynq "Закваска '$section' не найдена. Добавить?" answer
         if [[ "$answer" =~ [qn] ]] ; then return 1; 
         elif [[ "$answer" =~ [y] ]] ; then
             echo -e "\n[$section]" >> "${TAGS_FILE}"
@@ -178,12 +178,12 @@ cmd_add_domain_to_tag_list() {
     _check_section "$section" || return 1
 
     get_tag_domain_list "$section" | grep -q "^$domain$" && {
-         warning "Домен '$domain' уже помечен тегом '$section'."
-         warning "Пропускаем добавление домена в тег '$section'..."
+         warning "Домен '$domain' уже есть в закваске '$section'."
+         warning "Пропускаем добавление домена в закваску '$section'..."
         return 1
     }
 
-    ready "Домен '$domain' добавлен в тег '$section'."
+    ready "Домен '$domain' добавлен в закваску '$section'."
     if sed -i "/\[$section\]/a $domain" "${TAGS_FILE}" ; 
     then when_ok "УСПЕШНО";
     else when_bad "ОШИБКА"; fi
@@ -201,7 +201,7 @@ cmd_del_domain_from_tag_list() {
 
     # Если задана только секция - удаляем все домены в этой секции
     if [ -z "${domain}" ] ; then
-        read_ynq "Будут удалены все домены под тегом '$section' и сам тег.\nВы уверены?" answer
+        read_ynq "Будут удалены все домены с закваской '$section' и само имя закваски.\nВы уверены?" answer
         if [[ "$answer" =~ [qn] ]] ; then return 1; fi
         [ "${answer}" = y ] && {
             sed -i "/\[$section\]/,/\[.*\]/ { /.*$/d }" "${TAGS_FILE}"
@@ -212,13 +212,13 @@ cmd_del_domain_from_tag_list() {
         _check_domain_zone "${domain}" || return 1
 
         grep -q "\[$section\]" "${TAGS_FILE}" || {
-            echo "Тег '$section' не найден."
+            echo "Закваска '$section' не найдена."
             return 1
         }
         
 
         if ! grep -q "^$domain$" "${TAGS_FILE}"; then
-            error "Домен '$domain' не имеет тег '$section'."
+            error "Домен '$domain' не обнаружен в закваске '$section'."
             return 1
         fi
 
@@ -282,7 +282,7 @@ tag_select() {
     local tags="$(get_tags_list)"
     local action="$1"
 
-    echo -e "Список тегов для ${BLUE}${action}${NOCL}:"
+    echo -e "Список заквасок для ${BLUE}${action}${NOCL}:"
     print_line
     local i=0
     local added_list=""
@@ -310,7 +310,7 @@ tag_select() {
     if [ "$i" -gt 0 ]; then
         print_line
         while true; do
-            read -p "Выберите номер из списка [1-$i/Q]: " choice
+            read -p "Выберите номер закваски из списка [1-$i/Q]: " choice
 
             [[ "$choice" =~ [qQ] ]] && return 0
             # Проверка на ввод только цифр и в пределах диапазона
@@ -327,6 +327,6 @@ tag_select() {
         eval "$2=$chosen_tag"
 
     else
-        error "Список тегов пуст. Проверьте наличие тега в файле."
+        error "Список заквасок пуст. Проверьте наличие закваски в файле."
     fi
 }
