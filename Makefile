@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=kvas
 PKG_VERSION:=1.1.9
-PKG_RELEASE:=beta_1
+PKG_RELEASE:=beta_2
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)-$(PKG_RELEASE)
 
 include $(INCLUDE_DIR)/package.mk
@@ -19,7 +19,7 @@ endef
 # +libstdcpp 
 define Package/kvas/description
 	Данный пакет позволяет осуществлять контроль и поддерживать в актуальном состоянии
-	список разблокировки хостов или "Белый список". При обращении к любому хосту из
+	защищенный список хостов или "Белый список". При обращении к любому хосту из
 	этого списка, весь трафик будет идти через любое VPN или через Shadowsocks соединение,
 	заранее настроенное на роутере.
 endef

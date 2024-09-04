@@ -7,22 +7,22 @@
 #   Реализованы такие функции:
 #		- получение списка тегов
 #		- получение списка доменных имен по тегу
-#		- добавление доменного имени по тегу в список  
+#		- добавление доменного имени по тегу в список
 #		- удаление доменного имени по тегу из списка
-# 
+#
 # ------------------------------------------------------------------------------------------
 #
 #	Разработчик: kvas@zeleza.ru
 #	Дата: 02/08/2024
 #	Лицензия: Apache License 2.0
-# 
+#
 # ------------------------------------------------------------------------------------------
 
-. /opt/apps/kvas/bin/libs/main
+# . /opt/apps/kvas/bin/libs/main
 
 # Файл с тегами
 TAGS_FILE=/opt/apps/kvas/etc/conf/tags.list
-
+KVAS_LIST_FILE=/opt/etc/hosts.list
 
 # ------------------------------------------------------------------------------------------
 #
@@ -56,7 +56,7 @@ cmd_show_tags_domain_list(){
         else
             echo ''
             echo -e "${GREEN}${line}${NOCL}"
-            
+
         fi
     done
     unset IFS
@@ -92,8 +92,8 @@ get_first_domain_from_section() {
 }
 
 # ------------------------------------------------------------------------------------------
-# 
-#   Функция для проверки наличия секции в файле 
+#
+#   Функция для проверки наличия секции в файле
 #
 # ------------------------------------------------------------------------------------------
 _check_section() {
@@ -101,18 +101,18 @@ _check_section() {
     local section="$1"
     if ! grep -q "\[$section\]" "${TAGS_FILE}"; then
         read_ynq "Закваска '$section' не найдена. Добавить?" answer
-        if [[ "$answer" =~ [qn] ]] ; then return 1; 
+        if [[ "$answer" =~ [qn] ]] ; then return 1;
         elif [[ "$answer" =~ [y] ]] ; then
             echo -e "\n[$section]" >> "${TAGS_FILE}"
         fi
         print_line
-        
+
     fi
 
 }
 
 # ------------------------------------------------------------------------------------------
-# 
+#
 #   Функция для получения имени тега по имени домена
 #
 # ------------------------------------------------------------------------------------------
@@ -126,19 +126,19 @@ _get_tagname_by_domain() {
 
 }
 # ------------------------------------------------------------------------------------------
-# 
-#   Функция возврщает список доменных имен, помеченных одним тегом и 
-#   которых нет в защитном списке 
+#
+#   Функция возврщает список доменных имен, помеченных одним тегом и
+#   которых нет в защитном списке
 #
 # ------------------------------------------------------------------------------------------
 _get_same_tag_domains_missing_in_protection_list() {
-    
+
     local domain="$1"
     local tagname=$(_get_tagname_by_domain "${domain}" | tail -1)
     local _list=""
 
     get_tag_domain_list "$tagname" | while read -r line; do
-        local _host=$(grep "^$line$" "${UNBLOCK_LIST_FILE}")
+        local _host=$(grep "^$line$" "${KVAS_LIST_FILE}")
         if [ -n "$_host" ]; then
             _list="${_list} ${line}"
         fi
@@ -147,7 +147,7 @@ _get_same_tag_domains_missing_in_protection_list() {
     echo "${_list}"
 }
 # ------------------------------------------------------------------------------------------
-# 
+#
 #   Функция для проверки домена на наличие доменной зоны
 #
 # ------------------------------------------------------------------------------------------
@@ -165,7 +165,7 @@ _check_domain_zone() {
 }
 
 # ------------------------------------------------------------------------------------------
-# 
+#
 #   Функция для добавления домена в секцию
 #
 # ------------------------------------------------------------------------------------------
@@ -184,13 +184,13 @@ cmd_add_domain_to_tag_list() {
     }
 
     ready "Домен '$domain' добавлен в закваску '$section'."
-    if sed -i "/\[$section\]/a $domain" "${TAGS_FILE}" ; 
+    if sed -i "/\[$section\]/a $domain" "${TAGS_FILE}" ;
     then when_ok "УСПЕШНО";
     else when_bad "ОШИБКА"; fi
 }
 
 # -------------------------------------------------------------------------------------------
-# 
+#
 #   Функция для удаления домена из секции
 #
 # ------------------------------------------------------------------------------------------
@@ -215,7 +215,7 @@ cmd_del_domain_from_tag_list() {
             echo "Закваска '$section' не найдена."
             return 1
         }
-        
+
 
         if ! grep -q "^$domain$" "${TAGS_FILE}"; then
             error "Домен '$domain' не обнаружен в закваске '$section'."
@@ -228,37 +228,40 @@ cmd_del_domain_from_tag_list() {
 
 
 # --------------------------------------------------------------------------------------------
-# 
+#
 #   Функция для проверки наличия элементов тега в списке unblock
 #
 # ------------------------------------------------------------------------------------------
 has_section_domains_in_list() {
-# set -exu
+#set -exu
     local section="$1"
+    local action="${2}"
     _check_section "$section" || return 1
-    
+
     local all_present=true
     local none_present=true
     local partial_present=false
     local missing_elements=""
 
-    [ -f "${UNBLOCK_LIST_FILE}" ] || {
-        # error "Файл '${UNBLOCK_LIST_FILE}' не найден."
+    [ -f "${KVAS_LIST_FILE}" ] || {
+        # error "Файл '${KVAS_LIST_FILE}' не найден."
         when_bad "ОШИБКА"
         return 1
     }
 
-    for domain in $(get_tag_domain_list "$section"); do
-# echo "$domain" 
-        if grep -q "$domain$" "${UNBLOCK_LIST_FILE}" ; then
+    for domain in $(get_tag_domain_list "$section" | sed -e 's/^[[:space:]]*//; s/[[:space:]]*$//' ); do
+# echo "$domain"
+        if grep -q "^$domain$" "${KVAS_LIST_FILE}" ; then
             none_present=false
+            #[ "$action" = "del" ] && none_present=true
         else
             all_present=false
-            missing_elements+="$domain "
+            #[ "$action" = "del" ] && all_present=true
+            missing_elements="${missing_elements}$domain "
         fi
 
     done
-# echo "all_present=$all_present, none_present=$none_present, missing_elements=$missing_elements"
+#echo "missing_elements=$missing_elements"
     if $all_present; then
         # when_ok "ДОБАВЛЕНА"
         echo 1
@@ -273,7 +276,7 @@ has_section_domains_in_list() {
 }
 
 # --------------------------------------------------------------------------------------------
-# 
+#
 #   Функция для выбора секции из списка
 #
 # ------------------------------------------------------------------------------------------
@@ -283,50 +286,107 @@ tag_select() {
     local action="$1"
 
     echo -e "Список заквасок для ${BLUE}${action}${NOCL}:"
+
+    if [ -z "${action}" ] ; then
+        error "Не задан режим работы функции tag_select."
+        return 1
+    fi
+
+    if [ "${action}" = "добавления" ] ; then action="add"; else action="del"; fi
+
+
     print_line
     local i=0
     local added_list=""
     local ask_list=""
 
-    for tag in $tags; do
-        local res=$(has_section_domains_in_list "$tag")
-        if [ ${res} != 1 ] ; then
+#set -xeu
+    while IFS= read -r tag; do
 
-            ((i++))
-            ask_list+="$(ready "$i. $tag")"
-            [ ${res} = 2 ] && ask_list+="$(when_bad "ОТСУТСТВУЕТ")"
-            [ ${res} = 3 ] && ask_list+="$(when_alert "ЧАСТИЧНО")"
-            ask_list+="\n"
-        else
-            added_list+="$(ready "$tag" && when_ok "ДОБАВЛЕН")\n" 
+        local res=$(has_section_domains_in_list "$tag" "$action")
+
+        if [ ${res} -gt 1 ] ; then
+
+            if [ "${action}" = "add" ] ; then
+		i=$((i+1))
+                ask_list="${ask_list}$(ready "$i. $tag")"
+                [ "${res}" -eq 2 ] && ask_list="${ask_list}$(when_bad "ОТСУТСТВУЕТ")"
+                [ "${res}" -eq 3 ] && ask_list="${ask_list}$(when_alert "ЧАСТИЧНО")"
+                ask_list="${ask_list}\n"
+
+            else
+		if [ "${res}" -eq 2 ]; then
+			# Переводим в список отсутсвующих
+			#res=1
+			added_list="${added_list}$(ready "$tag")"
+			added_list="${added_list}$(when_alert "ОТСУТСТВУЕТ")\n"
+                else
+			i=$((i+1))
+			added_list="${added_list}$(ready "$i. $tag")"
+			added_list="${added_list}$(when_alert "ЧАСТИЧНО")"
+			added_list="${added_list}\n"
+		fi
+            fi
+
         fi
-        
-    done
-    
-    [ -n "${added_list}" ] && echo -e "${added_list}" | sed '$d'
-    print_line
-    [ -n "${ask_list}" ] && echo -e "${ask_list}" | sed '$d'
+	if [ ${res} = 1 ]; then
+            # если домен уже есть в списке
+            if [ "${action}" = "add" ] ; then
+                added_list="${added_list}$(ready "$tag" && when_ok "ДОБАВЛЕН")\n"
+            else
+		i=$((i+1))
+		ask_list="${ask_list}$(ready "$i. $tag")"
+		if [ "${res}" -eq 1 ]; then
+                	ask_list="${ask_list}$(when_bad "В СПИСКЕ")\n"
+		fi
+            fi
+        fi
+    done <<EOF
+$tags
+EOF
+
+
+#set -xeu
+    	[ -n "${added_list}" ] && {
+        	echo -e "${added_list}" | sed '/^$/d'
+        	[ -n "${ask_list}" ] && print_line
+    	}
+    	[ -n "${ask_list}" ] && {
+#		[ -n "${added_list}" ] && print_line
+		echo -e "${ask_list}" | sed '/^$/d'
+	}
+
+#    score=$(echo -e "${ask_list}" | wc -l)
 
     if [ "$i" -gt 0 ]; then
         print_line
         while true; do
-            read -p "Выберите номер закваски из списка [1-$i/Q]: " choice
+	    local choice
+            read -p "Выберите номер закваски из списка [1-$i], A:Все, Q:Выход: " choice
 
-            [[ "$choice" =~ [qQ] ]] && return 0
-            # Проверка на ввод только цифр и в пределах диапазона
-            if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= i )); then
+            [[ "${choice}" =~ [qQ] ]] && return 0
+            [[ "${choice}" =~ [aA] ]] && break
+#set -xeu
+           # Проверка на ввод только цифр и в пределах диапазона
+            if [[ "${choice}" =~ ^[0-9]+$ ]] && [ ${choice} -ge 1 ] && [ ${choice} -le ${i} ]; then
                 break
             else
                 error "Неверный ввод. Пожалуйста, введите номер из списка."
             fi
-            
+
         done
-
-        chosen_tag=$(echo -e "${tags}" | sed -n $choice'p')
-
-        eval "$2=$chosen_tag"
+set -xeu
+        if [[ "${choice}" =~ [aA] ]] ; then
+            # если выбрано все
+            eval "$2=ALL"
+        else
+	    #local _list=$([ "${action}" = add ] && echo "${ask_list}" || echo "${added_list}")
+            chosen_tag=$(echo -e "${ask_list}" | sed -n $choice'p' | sed 's/^[0-9]\{1,3\}. \(.*\) .* .*$/\"\1\"/; /^$/d' | tr -d ' ' )
+            eval "$2=$chosen_tag"
+        fi
 
     else
-        error "Список заквасок пуст. Проверьте наличие закваски в файле."
+        error "Список заквасок пуст.\nПроверьте наличие заквасок в файле '${TAGS_FILE}'."
     fi
+set +xeu
 }

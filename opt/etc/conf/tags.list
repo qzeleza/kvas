@@ -1,6 +1,7 @@
 [kvas]
 myip2.ru
 2ip.ru
+ifconfig.me
 addr.tools
 myip.addr.tools
 browserleaks.com
@@ -13,10 +14,21 @@ microsoft.com
 microsoft365.com
 
 [youtube]
-youtube.com 
-www.youtube.com 
-googlevideo.com 
+*googlevideo.com
+yt3.ggpht.com
+*youtube.com
 i.ytimg.com
+youtubei.googleapis.com
+yt3.ggpht.com
+yt3.googleusercontent.com
+m.youtube.com
+google.com
+googleapis.com
+gstatic.com
+play.google.com
+s.youtube.com
+www.youtube.com
+youtu.be
 
 [docker]
 hub.docker.com
@@ -38,8 +50,11 @@ clashofclans.inbox.supercell.com
 supercell.com
 game.clashroyaleapp.com
 brawlstars.com
+*.wbagora.com
+*.wbinsights.com
+*wbgames.com
 
-[gpt]
+[ai]
 chat.openai.com
 chatgpt.com
 auth.openai.com

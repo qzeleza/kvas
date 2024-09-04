@@ -223,14 +223,14 @@ cmd_ads_del_from_skip_list(){
 #--------------------------------------------------------------
 #
 # 	Удаляем все доменные имена, которые у нас имеются
-# 	в списке разблокировки (белый список)
+# 	в защищенный список(белый список)
 #
 #--------------------------------------------------------------
 ads_remove_white_hosts(){
 
-	if [ -f "${UNBLOCK_LIST_FILE}" ] && [ "$(cat < "${UNBLOCK_LIST_FILE}" | wc -l )" -ge 1 ]; then
-		exclude_com=".*.$(cat < "${UNBLOCK_LIST_FILE}" | tr -d '*' | sed ':a;N;$!ba;s/\n/$|.*./g')$"
-		ready "Удаляем хосты, находящиеся в списке разблокировки"
+	if [ -f "${KVAS_LIST_FILE}" ] && [ "$(cat < "${KVAS_LIST_FILE}" | wc -l )" -ge 1 ]; then
+		exclude_com=".*.$(cat < "${KVAS_LIST_FILE}" | tr -d '*' | sed ':a;N;$!ba;s/\n/$|.*./g')$"
+		ready "Удаляем хосты, находящиеся в защищенном списке"
 		TMP_FILE="/opt/tmp/hosts.tmp"
 		cat < "${ADBLOCK_HOSTS_FILE}" | grep -vE "${exclude_com}" > "${TMP_FILE}"
 		mv -f "${TMP_FILE}" "${ADBLOCK_HOSTS_FILE}"
@@ -261,7 +261,7 @@ ads_remove_exception_hosts(){
 #
 # ------------------------------------------------------------------------------------------
 ads_list_hosts_update() {
-	# Удаляем все доменные имена, которые у нас имеются в списке разблокировки (белый список)
+	# Удаляем все доменные имена, которые у нас имеются в защищенный список (белый список)
 	# и в списке исключений
 	ads_remove_white_hosts
 	ads_remove_exception_hosts

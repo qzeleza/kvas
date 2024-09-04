@@ -260,7 +260,7 @@ dnscrypt_proxy_check() {
 #
 # ------------------------------------------------------------------------------------------
 iptable_check() {
-	ready "Наличие правил разблокировки в iptable"
+	ready "Наличие правил защиты в iptable"
 	count_local_nets=$(cat < "${EXCLUDED_NET_FILE}" | wc -l)
 	count_ip4tables_rules=$(/opt/sbin/iptables-save \
 		| grep -E "${table_name}|${VPN_IPTABLES_CHAIN}|${SSR_IPTABLES_CHAIN}" \
@@ -277,7 +277,7 @@ iptable_check() {
 			ip4set_create_table
 			ip4_mark_vpn_network
 		fi
-		ready "Повторная проверка правил разблокировки в iptable"
+		ready "Повторная проверка правил защиты в iptable"
 		if /opt/sbin/iptables-save | grep -qE "${table_name}|${VPN_IPTABLES_CHAIN}|${SSR_IPTABLES_CHAIN}";  then
 			when_ok "ПРОЙДЕНА"
 		else
@@ -299,9 +299,9 @@ iptable_check() {
 # ------------------------------------------------------------------------------------------
 ipset_check() {
 	ready "Заполнение ipset таблицы скриптами КВАСа"
-	if ! [ -f "${UNBLOCK_LIST_FILE}" ] || \
-	[ "$(grep -vcE '^$|#' "${UNBLOCK_LIST_FILE}" )" -eq 0 ] ; then
-		cp /opt/apps/kvas/etc/conf/hosts.list "${UNBLOCK_LIST_FILE}"
+	if ! [ -f "${KVAS_LIST_FILE}" ] || \
+	[ "$(grep -vcE '^$|#' "${KVAS_LIST_FILE}" )" -eq 0 ] ; then
+		cp /opt/apps/kvas/etc/conf/hosts.list "${KVAS_LIST_FILE}"
 	fi
 	ip4set_create_table
 	sleep 3
@@ -341,7 +341,7 @@ unblock_dnsmasq_check() {
 		else
 			when_bad "ОШИБКА"
 			print_line
-			if [ "$(cat < "${UNBLOCK_LIST_FILE}" | wc -l)" -gt 0 ]; then
+			if [ "$(cat < "${KVAS_LIST_FILE}" | wc -l)" -gt 0 ]; then
 				error "Белый список пуст - /opt/etc/hosts.list"
 				warning "Добавьте туда хосты командой ${BLUE}kvas add host.com"
 			else
@@ -372,7 +372,7 @@ cmd_adguard_check() {
 			else
 				when_bad "ОШИБКА"
 				print_line
-				if [ "$(cat < "${UNBLOCK_LIST_FILE}" | wc -l)" -gt 0 ]; then
+				if [ "$(cat < "${KVAS_LIST_FILE}" | wc -l)" -gt 0 ]; then
 					error "Белый список пуст - /opt/etc/hosts.list"
 					warning "Добавьте в него хосты командой ${BLUE}kvas add имя_домена${NOCL}"
 				else
@@ -448,8 +448,8 @@ internet_check() {
 #
 # ------------------------------------------------------------------------------------------
 hosts_list_check(){
-	{ ! [ -f "${UNBLOCK_LIST_FILE}" ] || [ "$(cat < "${UNBLOCK_LIST_FILE}" | wc -l)" = 0 ];} && {
-		warning "Файл списка разблокировки не существует"
+	{ ! [ -f "${KVAS_LIST_FILE}" ] || [ "$(cat < "${KVAS_LIST_FILE}" | wc -l)" = 0 ];} && {
+		warning "Файл защищенного списка не существует"
 		warning "Создаем новый, но c одним хостом для проверки: myip2.ru"
 		print_line
 		kvas add myip2.ru
@@ -464,11 +464,11 @@ ipset_site_visit_check() {
 	echo -e "${RED}ВНИМАНИЕ, прежде, чем приступить к дальнейшим действиям${NOCL}, сделайте следующее:"
 	echo
 	echo "1. Очистите кеш на Ваших клиентах, которые подключены к роутеру:"
-	echo -e "\t${BLUE}MacOS${NOCL}: ${YELLOW}sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder${NOCL}"
-	echo -e "\t${BLUE}Linux${NOCL}: ${YELLOW}sudo systemd-resolve --flush-caches или sudo resolvectl flush-caches${NOCL}"
+	echo -e "\t${BLUE}macOS  : ${YELLOW}sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder${NOCL}"
+	echo -e "\t${BLUE}Linux  : ${YELLOW}sudo systemd-resolve --flush-caches или sudo resolvectl flush-caches${NOCL}"
 	echo -e "\t${BLUE}Windows: ${YELLOW}ipconfig /flushdns${NOCL}"
 	echo "2. Обязательно проверьте, что адрес DNS клиента идентичен адресу вашего роутера!"
-	echo "3. Далее, очистите все куки на бразуре, в котором хотите увидить результат!"
+	echo "3. Далее, очистите все куки в бразуре, в котором хотите увидить результат!"
 	echo
 	echo "Для продолжения нажмите на любую клавишу."
 	print_line
@@ -476,7 +476,7 @@ ipset_site_visit_check() {
 	warning "Проверяем заполнения ipset таблицы при посещении сайта."
 	print_line
 	echo "Сейчас, для проверки заполнения, откройте на компьютере браузер"
-	echo -e "Затем зайдите на сайт ${BLUE}https://myip2.ru${NOCL} в режиме ${RED}ИНКОГНИТО.${NOCL}"
+	echo -e "Затем зайдите на сайт ${BLUE}https://ifconfig.me${NOCL} в режиме ${RED}ИНКОГНИТО.${NOCL}"
 	echo -e "На странице должен появиться ${BLUE}IP Вашего VDS/VPN провайдера${NOCL}."
 	echo -n "После чего вновь перейдите сюда и нажмите на любую клавишу."
 	pause

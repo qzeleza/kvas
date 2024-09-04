@@ -173,8 +173,8 @@ dnscrypt_proxy_debug() {
 # ------------------------------------------------------------------------------------------
 kvas_list_debug() {
 
-	result=$(cat < "${UNBLOCK_LIST_FILE}" | sed 's/^\(.*\)\(#.*\)/\2/; s/^...../*****/; /^#/d; /^$/d')
-	echo_debug "Список разблокировки /opt/etc/hosts.list (все записи)" "${result}"
+	result=$(cat < "${KVAS_LIST_FILE}" | sed 's/^\(.*\)\(#.*\)/\2/; s/^...../*****/; /^#/d; /^$/d')
+	echo_debug "Защищенный список /opt/etc/hosts.list (все записи)" "${result}"
 }
 
 hide_num_letters(){
@@ -216,7 +216,7 @@ unblock_list_ipset_check(){
 	HAS_NO_ADDRESS=;NOT_IN_TABLE=;
 	sleep 2
 	local bad_ipset_list=""
-	if [ -f "${UNBLOCK_LIST_FILE}" ]; then
+	if [ -f "${KVAS_LIST_FILE}" ]; then
 		result_ipset=$(ipset list unblock | grep -vEi '^[a-z]' | sort )
 		if [ -n "${result_ipset}" ]; then
 			while read -r line || [ -n "${line}" ]; do
@@ -256,13 +256,13 @@ unblock_list_ipset_check(){
 					fi
 
 				fi
-			done < "${UNBLOCK_LIST_FILE}"
+			done < "${KVAS_LIST_FILE}"
 		else
-			error "Таблица разблокировки unblock отсутствует в списке ipset"
+			error "Таблица защиты unblock отсутствует в списке ipset"
 			echo -e "Проверьте работу скрипта ${GREN}/opt/apps/kvas/bin/main/ipset${NOCL}"
 		fi
 	else
-		error "Отсутствует список разблокировки /opt/etc/hosts.list"
+		error "Отсутствует защищенный список /opt/etc/hosts.list"
 		echo -e "Добавьте домены в этот список командой ${GREN}kvas add <domain.ru>${NOCL}"
 	fi
 
@@ -331,10 +331,8 @@ unblock_ipset_debug() {
 # ------------------------------------------------------------------------------------------
 unblock_dnsmasq_debug() {
 
-#	result=$(cat < "/opt/apps/kvas/bin/main/dnsmasq" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
-#	echo_debug "Скрипт заполнения списка разблокировки /opt/apps/kvas/bin/main/dnsmasq" "${result}"
 	result=$(cat < "${DNSMASQ_IPSET_HOSTS}" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | sed 's/^...../*****/'  )
-	echo_debug "Список разблокировки в ${DNSMASQ_IPSET_HOSTS} (все записи)" "${result}"
+	echo_debug "Защищенный список в ${DNSMASQ_IPSET_HOSTS} (все записи)" "${result}"
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -344,7 +342,7 @@ unblock_dnsmasq_debug() {
 unblock_adguard_debug() {
 
 #	result=$(cat < "/opt/apps/kvas/bin/main/adguard" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
-#	echo_debug "Скрипт заполнения списка разблокировки /opt/apps/kvas/bin/main/dnsmasq" "${result}"
+#	echo_debug "Скрипт заполнения защищенный список /opt/apps/kvas/bin/main/dnsmasq" "${result}"
 	result=$(cat < "${ADGUARD_IPSET_FILE}" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | sed -e '$d' | sed 's/^...../*****/' )
 	echo_debug "Блок записей по ipset в ${ADGUARD_IPSET_FILE}" "${result}"
 	
@@ -413,7 +411,7 @@ syslog_debug() {
 #
 # ------------------------------------------------------------------------------------------
 ping_debug() {
-	#  host=$(cat < '"${UNBLOCK_LIST_FILE}"' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | tr -s '\n' | head -1)
+	#  host=$(cat < '"${KVAS_LIST_FILE}"' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | tr -s '\n' | head -1)
 	host='myip2.ru'
 	result=$(ping -c3 "${host}")
 	echo_debug "Прозвон ${host}" "${result}"

@@ -36,7 +36,7 @@ SSR_CMD=/opt/bin/${SSR_NAME}
 ssr_run()(/opt/bin/ss-redir -c /opt/etc/shadowsocks.json ${@}) 
 
 KVAS_CONF_FILE=/opt/etc/kvas.conf
-UNBLOCK_LIST_FILE=/opt/etc/hosts.list
+KVAS_LIST_FILE=/opt/etc/hosts.list
 ADGUARDHOME_CONFIG=/opt/etc/AdGuardHome/AdGuardHome.yaml
 ADGUARD_IPSET_FILE=/opt/etc/AdGuardHome/kvas.ipset
 SHADOWSOCKS_CONF=/opt/etc/shadowsocks.json
@@ -265,7 +265,7 @@ is_inside_tunnel(){
 
 
 has_ssr_enable() ([ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ])
-has_adguard_enable() ([ -f "${ADGUARDHOME_DEMON}" ] && "${ADGUARDHOME_DEMON}" status | grep -q alive;)
+has_adguard_enable() ([ -f "${ADGUARDHOME_DEMON}" ] && "${ADGUARDHOME_DEMON}" status | grep -q alive; || return 1)
 
 # ------------------------------------------------------------------------------------------
 #

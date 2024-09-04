@@ -26,6 +26,22 @@
 #	Лицензия: Apache License 2.0
 # ------------------------------------------------------------------------------
 
+# ------------------------------------------------------------------------------------------
+#
+#	Функция оторажения списка доменных имен и поиска доменного имени
+#	$1 - строка поиска
+# ------------------------------------------------------------------------------------------
+cmd_show_kvas_list()
+
+	local domain_to_search="${1}"
+	if [ -z "${domain_to_search}" ] ; then
+		cmd_show_list
+	else
+		cmd_show_list | grep "${domain_to_search}" || {
+			echo -e "Доменное имя ${BLUE}${domain_to_search}${NOCL} в списке не обнаружено."
+		}
+	fi
+}
 
 if  echo "${1}" | grep -qvEi 'uninstall' && [ -z "$(get_config_value "SETUP_FINISHED")" ]; then
 	print_line
@@ -38,7 +54,7 @@ if  echo "${1}" | grep -qvEi 'uninstall' && [ -z "$(get_config_value "SETUP_FINI
 	exit 0
 fi
 
-clear_file_content "${UNBLOCK_LIST_FILE}"
+clear_file_content "${KVAS_LIST_FILE}"
 
 print_line
 case "${1}" in
@@ -162,10 +178,7 @@ case "${1}" in
 	purge | clear)			cmd_clear_list "${2}"
 		;;
 	show | list | search | find)	
-							[ -n "${2}" ] && cmd_show_list | grep "${2}" || {
-								print_line
-								echo -e "Доменное имя ${BLUE}${2}${NOCL} в списке не обнаружено."
-							}
+							cmd_show_kvas_list "${2}"
 		;;
 	reset | init)	        cmd_kvas_init
 		;;

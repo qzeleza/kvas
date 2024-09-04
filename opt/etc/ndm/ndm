@@ -951,7 +951,7 @@ recreate_ssr_rules(){
 #
 # ------------------------------------------------------------------------------------------
 refresh_adguard_ipset_table(){
-	ready "${prefix}Заполняем AdGuard таблицу данными из списка разблокировки."
+	ready "${prefix}Заполняем AdGuard таблицу данными из защищенного списка."
 	/opt/apps/kvas/bin/main/adguard &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 }
 

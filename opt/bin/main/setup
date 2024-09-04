@@ -78,7 +78,7 @@ setup_adguard(){
 #	Функция восстановления архивных файлов конфигурации пакета
 #	$1 - архивный файл конфигурации
 #	$2 - файл в который необходимо восстановить (назначение)
-#	$3 - описание файла в родительном падеже при склонении слова файл - "чего"?, например, "списка разблокировки"
+#	$3 - описание файла в родительном падеже при склонении слова файл - "чего"?, например, "защищенного списка"
 #
 restore_backup(){
 
@@ -347,7 +347,7 @@ set_previous_condition(){
 
 # восставившем архивные копии файлов конфигурации
 restore_backups(){
-	restore_backup "${KVAS_LIST_FILE_BACKUP}" "${UNBLOCK_LIST_FILE}" "списка разблокировки"
+	restore_backup "${KVAS_LIST_FILE_BACKUP}" "${KVAS_LIST_FILE}" "защищенного списка"
 	restore_backup "${KVAS_CONFIG_BACKUP}" "${KVAS_CONF_FILE}" "конфигурации пакета Квас"
 
 	restore_backup "${ADGUARDHOME_CONFIG_BACKUP}" "${ADGUARDHOME_CONFIG}" "конфигурации AdGuardHome"
@@ -370,7 +370,7 @@ restore_backups(){
 # Сохраняем все значимые файлы конфигурации пакета Квас
 save_backups(){
 	backup_copy "${KVAS_CONF_FILE}" "${KVAS_CONFIG_BACKUP}"
-	backup_copy "${UNBLOCK_LIST_FILE}" "${KVAS_LIST_FILE_BACKUP}"
+	backup_copy "${KVAS_LIST_FILE}" "${KVAS_LIST_FILE_BACKUP}"
 
 	backup_copy "${ADGUARDHOME_CONFIG}" "${ADGUARDHOME_CONFIG_BACKUP}"
 	backup_copy "${ADGUARD_IPSET_FILE}" "${ADGUARD_IPSET_FILE_BACKUP}"

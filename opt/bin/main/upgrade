@@ -203,7 +203,7 @@ sed -i 's/\(export TERM=\).*/\1xterm-256color/' /opt/etc/profile
 set_escapes
 
 #--------------------------------------------------------------------------------------------------------------
-print_line
+# print_line	
 ready "Проверка наличия интернета"
 has_no_internet_here && {
 	when_err "ОТСУТСТВУЕТ"
