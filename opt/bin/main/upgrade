@@ -31,6 +31,9 @@ WGET='/opt/bin/wget -q --no-check-certificate'
 # Вы полняем команду отключения DNS провайдера без перезагрузки и выхода из сессии
 rci_post()($WGET -qO - --post-data="$1" localhost:79/rci/ > /dev/null 2>&1)
 
+has_dns_override() {
+	curl -s "http://localhost:79/rci/opkg/dns-override" | grep -q true
+}
 
 has_no_internet_here(){
 #	Если в возвращаемых аргументах нет false значит интернет присутствует
@@ -345,8 +348,11 @@ else
 
 	has_dns_override && {
 		# Отключаем системный DNS-сервер роутера
-		ready 'Отключаем работу через DNS-провайдера  роутера...'
-		rci_post '[{"opkg": {"dns-override": true}},{"system": {"configuration": {"save": true}}}]' &>/dev/null && when_ok || when_err
+		echo 'Отключаем работу через DNS-провайдера  роутера...'
+		echo "Возможно, что сейчас произойдет выход из сессии..."
+		echo "В этом случае необходимо заново войти в сессию по ssh"
+		echo "и выполнить команду 'kvas setup ${UPDATE_MODE}'"
+		rci_post '[{"opkg": {"dns-override": true}},{"system": {"configuration": {"save": true}}}]' &>/dev/null 
 	}
 		# 	если файл пакета найден после установки пакета,
 	# 	то запускаем установку и затем тестирование пакета

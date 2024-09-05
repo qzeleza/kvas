@@ -468,7 +468,7 @@ ipset_site_visit_check() {
 	echo -e "\t${BLUE}Linux  : ${YELLOW}sudo systemd-resolve --flush-caches или sudo resolvectl flush-caches${NOCL}"
 	echo -e "\t${BLUE}Windows: ${YELLOW}ipconfig /flushdns${NOCL}"
 	echo "2. Обязательно проверьте, что адрес DNS клиента идентичен адресу вашего роутера!"
-	echo "3. Далее, очистите все куки в бразуре, в котором хотите увидить результат!"
+	echo "3. Далее, очистите все куки в бразуре, в котором хотите увидеть результат!"
 	echo
 	echo "Для продолжения нажмите на любую клавишу."
 	print_line

@@ -16,8 +16,11 @@ log_in_file(){
 
 # Проверяем отключено ли использование DNS провайдера
 setup_test_provider_dns(){
-	
-	has_dns_override || rci_post '[{"opkg": {"dns-override": true}},{"system": {"configuration": {"save": true}}}]' &>/dev/null && when_ok || when_error
+
+	has_dns_override || {
+		ready "Отключаем DNS провайдера..."
+		rci_post '[{"opkg": {"dns-override": true}},{"system": {"configuration": {"save": true}}}]' &>/dev/null && when_ok || when_err
+	} 
 	if ! has_dns_override ; then
 		cli="$(get_router_host)/a"
 		log_in_file "ОШИБКА: Не отключено использование DNS провайдера."
@@ -668,10 +671,10 @@ cmd_uninstall() {
 		ready "Удаляем пакет Квас..."
 		opkg remove kvas --autoremove &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
-		ready "Восстанавливаем работу роутера через DNS провайдера..."
-		has_dns_override && /
-			rci_post '[{"opkg": {"dns-override": false}},{"system": {"configuration": {"save": true}}}]' &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-	
+		echo "Восстанавливаем работу роутера через DNS провайдера..."
+		echo "Возможно, что сейчас произойдет выход из сессии..."
+		echo "В этом случае необходимо заново войти в сессию по ssh."
+		has_dns_override && rci_post '[{"opkg": {"dns-override": false}},{"system": {"configuration": {"save": true}}}]' &> /dev/null
 		
 
 #		print_line

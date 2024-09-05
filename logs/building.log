@@ -1,5 +1,5 @@
 -------------------------------------------------------------------------------------------
-🟢 [05-09-2024 08:39:48] СБОРКА ЗАПУЩЕНА
+🟢 [05-09-2024 09:55:25] СБОРКА ЗАПУЩЕНА
 -------------------------------------------------------------------------------------------
 ▶ make -j9 package/feeds/packages/kvas/clean
 -------------------------------------------------------------------------------------------
@@ -15,35 +15,35 @@ make[2]: Entering directory '/home/zeleza/entware/scripts/config'
 make[2]: 'conf' is up to date.
 make[2]: Leaving directory '/home/zeleza/entware/scripts/config'
  make[1] package/feeds/packages/kvas/compile
- make[2] -C package/devel/gperf host-compile
- make[2] -C package/libs/libiconv-full host-compile
  make[2] -C package/libs/toolchain compile
+ make[2] -C package/devel/gperf host-compile
  make[2] -C package/libs/ncurses host-compile
+ make[2] -C package/libs/libiconv-full host-compile
  make[2] -C feeds/packages/libs/libuv compile
  make[2] -C package/system/ca-certificates compile
- make[2] -C feeds/packages/libs/nghttp2 compile
  make[2] -C package/libs/libcap compile
- make[2] -C package/libs/zlib compile
  make[2] -C feeds/oldports/pcre compile
+ make[2] -C package/libs/zlib compile
+ make[2] -C feeds/packages/libs/nghttp2 compile
  make[2] -C feeds/packages/utils/jq compile
  make[2] -C package/libs/gmp compile
  make[2] -C feeds/packages/libs/liburcu compile
- make[2] -C feeds/packages/utils/xz compile
  make[2] -C feeds/packages/libs/lmdb compile
+ make[2] -C feeds/packages/utils/xz compile
  make[2] -C package/utils/bzip2 compile
  make[2] -C feeds/rtndev/cron compile
  make[2] -C feeds/packages/libs/c-ares compile
- make[2] -C feeds/packages/libs/libev compile
  make[2] -C feeds/packages/libs/libsodium compile
- make[2] -C package/libs/pcre2 compile
+ make[2] -C feeds/packages/libs/libev compile
  make[2] -C package/libs/mbedtls compile
+ make[2] -C package/libs/pcre2 compile
  make[2] -C package/libs/libmnl compile
  make[2] -C package/libs/libnfnetlink compile
- make[2] -C package/network/utils/iptables compile
  make[2] -C feeds/golang/dnscrypt-proxy2 compile
+ make[2] -C package/network/utils/iptables compile
  make[2] -C package/libs/openssl compile
- make[2] -C package/libs/libunistring host-compile
  make[2] -C package/libs/libxml2 host-compile
+ make[2] -C package/libs/libunistring host-compile
  make[2] -C package/libs/nettle compile
  make[2] -C package/libs/ncurses compile
  make[2] -C feeds/packages/libs/file compile
@@ -54,8 +54,8 @@ make[2]: Leaving directory '/home/zeleza/entware/scripts/config'
  make[2] -C feeds/packages/net/bind compile
  make[2] -C package/libs/gettext-full host-compile
  make[2] -C package/network/services/dnsmasq compile
- make[2] -C feeds/packages/libs/libedit compile
  make[2] -C feeds/packages/utils/nano compile
+ make[2] -C feeds/packages/libs/libedit compile
  make[2] -C feeds/packages/utils/nano compile
  make[2] -C feeds/packages/libs/gnutls compile
  make[2] -C feeds/packages/utils/nano compile
@@ -70,7 +70,7 @@ make[2]: Leaving directory '/home/zeleza/entware/scripts/config'
 Собраныный пакет можно найти в папке /home/zeleza/kvas/ipk"
 -------------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------------
-🟢 [05-09-2024 08:40:08] СБОРКА ЗАВЕРШЕНА
+🟢 [05-09-2024 09:55:46] СБОРКА ЗАВЕРШЕНА
 -------------------------------------------------------------------------------------------
-Затрачено времени на исполнение: 00:00:20
+Затрачено времени на исполнение: 00:00:21
 -------------------------------------------------------------------------------------------
