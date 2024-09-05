@@ -14,10 +14,11 @@ log_in_file(){
 }
 
 
-
 # Проверяем отключено ли использование DNS провайдера
 setup_test_provider_dns(){
-	if ! curl -s "${LOCALHOST_IP}"':79/rci/opkg/dns-override' | grep -q true ; then
+	
+	has_dns_override || rci_post '[{"opkg": {"dns-override": true}},{"system": {"configuration": {"save": true}}}]' &>/dev/null && when_ok || when_error
+	if ! has_dns_override ; then
 		cli="$(get_router_host)/a"
 		log_in_file "ОШИБКА: Не отключено использование DNS провайдера."
 		echo -e "${RED}Для корректной работы DNS сервера необходимо отключить использование DNS провайдера!${NOCL}"
@@ -598,6 +599,9 @@ all_services_rm_develop_mode() {
 		fi
 	fi
 }
+
+
+
 # ------------------------------------------------------------------------------------------
 #
 #	 Удаляет полностью пакет Квас с устройства
@@ -665,7 +669,8 @@ cmd_uninstall() {
 		opkg remove kvas --autoremove &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
 		ready "Восстанавливаем работу роутера через DNS провайдера..."
-		rci_post '[{"opkg": {"dns-override": false}},{"system": {"configuration": {"save": true}}}]' &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+		has_dns_override && /
+			rci_post '[{"opkg": {"dns-override": false}},{"system": {"configuration": {"save": true}}}]' &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 	
 		
 

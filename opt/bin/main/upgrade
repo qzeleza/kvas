@@ -37,8 +37,11 @@ has_no_internet_here(){
 	# test -z "$(curl -s "localhost:79/rci/show/internet/status" \
 	# | jq -r 'select(.enabled==true and .reliable==true and ."gateway-accessible"==true and ."captive-accessible"==true and ."dns-accessible"==true and .internet==true)')"
 
+	# curl -s "localhost:79/rci/show/internet/status" \
+	# 	| grep -E 'reliable|gateway-accessible|dns-accessible|internet|enabled|captive-accessible' \
+	# 	| grep -q false
 	curl -s "localhost:79/rci/show/internet/status" \
-		| grep -E 'reliable|gateway-accessible|dns-accessible|internet|enabled|captive-accessible' \
+		| grep -E 'gateway-accessible|dns-accessible|internet|captive-accessible' \
 		| grep -q false
 }
 #--------------------------------------------------------------------------------------------------------------
@@ -339,10 +342,13 @@ if ! [ -f /opt/bin/kvas ] ; then
 	exit 1
 else
 	sleep 1
-	# Отключаем системный DNS-сервер роутера
-	ready 'Отключаем работу через DNS-провайдера  роутера...'
-	rci_post '[{"opkg": {"dns-override": true}},{"system": {"configuration": {"save": true}}}]' &>/dev/null && when_ok || when_err
-	# 	если файл пакета найден после установки пакета,
+
+	has_dns_override && {
+		# Отключаем системный DNS-сервер роутера
+		ready 'Отключаем работу через DNS-провайдера  роутера...'
+		rci_post '[{"opkg": {"dns-override": true}},{"system": {"configuration": {"save": true}}}]' &>/dev/null && when_ok || when_err
+	}
+		# 	если файл пакета найден после установки пакета,
 	# 	то запускаем установку и затем тестирование пакета
 	kvas setup "${UPDATE_MODE}" && {
 		# подключаем гостевые сети, если они имется

@@ -176,14 +176,20 @@ exit_when_no_internet_or_vpn(){
 	}
 }
 
+has_dns_override() {
+	curl -s "http://localhost:79/rci/opkg/dns-override" | grep -q true
+}
+
 has_no_internet_here(){
 #---------------------------------------------------------------------------------
 #   Проверяем работу интерненета по всем возможным параметрам
 #---------------------------------------------------------------------------------
 
 #	Если в возвращаемых аргументах нет false значит интернет присутствует
-	status=$(curl -s "localhost:79/rci/show/internet/status" | jq -r 'select(.enabled==true and .reliable==true and ."gateway-accessible"==true and ."captive-accessible"==true and ."dns-accessible"==true and .internet==true)')
-	[ -z "${status}" ]
+	# status=$(curl -s "localhost:79/rci/show/internet/status" | jq -r 'select(.enabled==true and .reliable==true and ."gateway-accessible"==true and ."captive-accessible"==true and ."dns-accessible"==true and .internet==true)')
+	curl -s "localhost:79/rci/show/internet/status" \
+		| grep -E 'gateway-accessible|dns-accessible|internet|captive-accessible' \
+		| grep -q false
 }
 
 is_interface_online() {
