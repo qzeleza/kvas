@@ -265,7 +265,13 @@ is_inside_tunnel(){
 
 
 has_ssr_enable() ([ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ])
-has_adguard_enable() ([ -f "${ADGUARDHOME_DEMON}" ] && "${ADGUARDHOME_DEMON}" status | grep -q alive; || return 1)
+has_adguard_enable() {
+	if [ -f "${ADGUARDHOME_DEMON}" ]; then  
+		"${ADGUARDHOME_DEMON}" status | grep -q alive
+	else
+		return 1
+	fi
+}
 
 # ------------------------------------------------------------------------------------------
 #
