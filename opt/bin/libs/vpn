@@ -1723,7 +1723,7 @@ EOF
 	)
 	# проходимся по каждому интерфейсу
 	# ВНИМАНИЕ! inface_list - все маленькими буквами!!!
-	count=1; delay=10
+	count=1; delay=3
 	list_len=$(echo "${inface_list}" | wc -w)
 	for inface_cli in ${inface_list}; do
 #		переподключаем текущее соединение

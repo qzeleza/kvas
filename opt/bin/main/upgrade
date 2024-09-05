@@ -31,9 +31,6 @@ WGET='/opt/bin/wget -q --no-check-certificate'
 # Вы полняем команду отключения DNS провайдера без перезагрузки и выхода из сессии
 rci_post()($WGET -qO - --post-data="$1" localhost:79/rci/ > /dev/null 2>&1)
 
-has_dns_override() {
-	curl -s "http://localhost:79/rci/opkg/dns-override" | grep -q true
-}
 
 has_no_internet_here(){
 #	Если в возвращаемых аргументах нет false значит интернет присутствует
@@ -345,8 +342,7 @@ if ! [ -f /opt/bin/kvas ] ; then
 	exit 1
 else
 	sleep 1
-
-	has_dns_override && {
+	curl -s "http://localhost:79/rci/opkg/dns-override" | grep -q true || {
 		# Отключаем системный DNS-сервер роутера
 		echo 'Отключаем работу через DNS-провайдера  роутера...'
 		echo "Возможно, что сейчас произойдет выход из сессии..."
