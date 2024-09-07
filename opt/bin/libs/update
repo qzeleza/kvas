@@ -10,7 +10,9 @@
 #
 cmd_adguard_update(){
 
-	exit_when_dnsmasq_on status no_warring; [ "${status}" = 0 ] && {
+	exit_when_dnsmasq_on status no_warring; 
+	
+	if [ "${status}" = 0 ] ; then
 		bin_path=/opt/bin
 		full_adguard_name=AdGuardHome
 
@@ -48,6 +50,8 @@ cmd_adguard_update(){
 			arch=$(grep "arch" /opt/etc/entware_release | cut -f2 -d"=")
 			error "Для Вашей архитектуры процессора '${arch}' обновления не найдены." nl
 		fi
-	} || error "Сервис AdGuard Home ОТКЛЮЧЕН. Для продолжения необходимо запустить команду kvas adguard on"
+	else
+		error "Сервис AdGuard Home ОТКЛЮЧЕН. Для продолжения необходимо запустить команду kvas adguard on"
+	fi
 
 }

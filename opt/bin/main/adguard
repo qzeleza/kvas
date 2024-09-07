@@ -22,7 +22,7 @@
 app_name="КВАС"
 logger -t "${app_name}" "Запущен файл ${0}"
 
-table_name=unblock
+IPSET_TABLE_NAME=kvas
 adguard_config=/opt/etc/AdGuardHome/AdGuardHome.yaml
 adguard_ipset_file=/opt/etc/AdGuardHome/kvas.ipset
 host_list=/opt/etc/hosts.list
@@ -46,7 +46,7 @@ adguard_ipset_list_update(){
 	#	в случае если это не IP -пропускаем строку
 		echo "${line}" | grep -Eq "${regex}" && continue
 	#   формируем строку для блока ipset
-		host="$(echo "${line}" | sed 's/\*//;')/${table_name}"
+		host="$(echo "${line}" | sed 's/\*//;')/${IPSET_TABLE_NAME}"
 	#	Проверяем наличие сформированной строки на наличие ее файле ipset конфигурации adguard_ipset_file
 		grep -q  "${host}" "${adguard_ipset_file}" && continue
 	#   формирyем буфер из строк для ipset

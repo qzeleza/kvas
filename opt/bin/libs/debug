@@ -113,7 +113,7 @@ shadowsocks_debug() {
 	if /opt/etc/init.d/S22shadowsocks status &> /dev/null; then
 		when_ok "ЗАПУЩЕНА"
 		port=$(cat < '/opt/etc/shadowsocks.json' | grep local_port | cut -d':' -f2 | tr -d ' ,')
-		result=$(netstat -ltunp 2> /dev/null | grep "ss-redir" | tr -s " ")
+		result=$(netstat -ltunp 2> /dev/null | grep "${SSR_NAME}" | tr -s " ")
 		echo_debug "Отчет по прослушиванию порта shadowsocks [${port}]\nкоманда: netstat -ltunp | grep \"ss-redir\"" "${result}"
 		result=$(cat < /opt/etc/shadowsocks.json | grep -vE "password|server")
 		echo_debug "Выборка из файла конфигурации shadowsocks /opt/etc/shadowsocks.json" "${result}"
@@ -127,7 +127,7 @@ shadowsocks_debug() {
 		print_line
 		warning "Запускаем shadowsocks в режиме отладки"
 		print_line
-		ss-redir -vc /opt/etc/shadowsocks.json
+		ssr_run -v
 		print_line
 		exit 1
 	fi
@@ -173,8 +173,8 @@ dnscrypt_proxy_debug() {
 # ------------------------------------------------------------------------------------------
 kvas_list_debug() {
 
-	result=$(cat < "${UNBLOCK_LIST_FILE}" | sed 's/^\(.*\)\(#.*\)/\2/; s/^...../*****/; /^#/d; /^$/d')
-	echo_debug "Список разблокировки /opt/etc/hosts.list (все записи)" "${result}"
+	result=$(cat < "${KVAS_LIST_FILE}" | sed 's/^\(.*\)\(#.*\)/\2/; s/^...../*****/; /^#/d; /^$/d')
+	echo_debug "Защищенный список /opt/etc/hosts.list (все записи)" "${result}"
 }
 
 hide_num_letters(){
@@ -211,14 +211,13 @@ check_words_in_multiline_var() {
 # ------------------------------------------------------------------------------------------
 unblock_list_ipset_check(){
 
-	echo "Проверка наличия ip адресов хостов в таблице ipset команда 'ipset list unblock '"
-	echo -e "${RED}ВНИМАНИЕ!${NOCL} Выводятся только записи с ошибками: ${RED}ОТСУТСТВУЕТ${NOCL} и ${BLUE}АДРЕСА НЕТ${NOCL}"
-	print_line
-	# /opt/apps/kvas/bin/main/ipset &>/dev/null
+	echo "Проверка наличия ip адресов хостов в таблице ipset"
+
 	HAS_NO_ADDRESS=;NOT_IN_TABLE=;
-	sleep 3
-	if [ -f "${UNBLOCK_LIST_FILE}" ]; then
-		result_ipset=$(ipset list unblock | grep -vEi '^[a-z]' | sort )
+	sleep 2
+	local bad_ipset_list=""
+	if [ -f "${KVAS_LIST_FILE}" ]; then
+		result_ipset=$(ipset list ${IPSET_TABLE_NAME} | grep -vEi '^[a-z]' | sort )
 		if [ -n "${result_ipset}" ]; then
 			while read -r line || [ -n "${line}" ]; do
 				[  -z "${line}" ] && continue
@@ -236,7 +235,7 @@ unblock_list_ipset_check(){
 					ips="${ips::-1}"
 				fi
 				if [ -z "$ips" ] || [ "${ips}" = 0.0.0.0 ]; then
-                	ready "${BLUE}${line}${NOCL}" && when_alert "АДРЕСА НЕТ"
+                	bad_ipset_list="$(printf "%s" "${bad_ipset_list}\n$(ready "${BLUE}${line}${NOCL}" && when_alert "АДРЕСА НЕТ")")"
 					HAS_NO_ADDRESS=true
 	            else
 					line_ips="${hided_line} ${ips}"
@@ -252,25 +251,35 @@ unblock_list_ipset_check(){
 					if ! check_words_in_multiline_var "${result_ipset}" "${ips}" ; then
 					# 	ready "${GREEN}${hided_line}${NOCL} ${cutted}"; when_ok "В ТАБЛИЦЕ" ;
 					# else
-						ready "${RED}${line}${NOCL} ${cutted}"; when_bad "ОТСУТСТВУЕТ"
+						bad_ipset_list="$(printf "%s" "${bad_ipset_list}\n$(ready "${RED}${line}${NOCL} ${cutted}"; when_bad "ОТСУТСТВУЕТ")")"
 						NOT_IN_TABLE=true
 					fi
 
 				fi
-			done < "${UNBLOCK_LIST_FILE}"
+			done < "${KVAS_LIST_FILE}"
 		else
-			error "Таблица разблокировки unblock отсутствует в списке ipset"
+			error "Таблица защиты ${IPSET_TABLE_NAME} отсутствует в списке ipset"
 			echo -e "Проверьте работу скрипта ${GREN}/opt/apps/kvas/bin/main/ipset${NOCL}"
 		fi
 	else
-		error "Отсутствует список разблокировки /opt/etc/hosts.list"
+		error "Отсутствует защищенный список /opt/etc/hosts.list"
 		echo -e "Добавьте домены в этот список командой ${GREN}kvas add <domain.ru>${NOCL}"
 	fi
 
-	print_line
+	# Удаляем пустые строки
+	bad_ipset_list=$(printf "%s" "${bad_ipset_list}" | sed '/^$/d')
+	if [ -n "${bad_ipset_list}" ] ; then 
+		print_line
+		echo -e "${RED}ВНИМАНИЕ!${NOCL} Выводятся только записи с ошибками: ОТСУТСТВУЕТ и АДРЕСА НЕТ"
+		print_line
+		printf '%s' "$bad_ipset_list"
+	else 
+		echo -e "${GREEN}Все записи в таблице ${BLUE}${IPSET_TABLE_NAME}${NOCL} ${GREEN}прошли проверку.${NOCL}"
+	fi 
+	
 	echo 
 	[ "${HAS_NO_ADDRESS}" = true ] && {
-		
+		print_line
 		echo -e "Значение ${BLUE}АДРЕСА НЕТ${NOCL} - это может говорить о том, что адрес этого"
 		echo -e "домена не определяется утилитами ${BLUE}kdig${NOCL} или ${BLUE}dig${NOCL}."
 		echo ''
@@ -289,7 +298,7 @@ unblock_list_ipset_check(){
 	}
 
 	[ "${NOT_IN_TABLE}" = true ] && {
-
+		print_line
 		echo -e "Значение ${RED}ОТСУТСТВУЕТ${NOCL} - это может говорить о том, что адрес доменного имени "
 		echo -e "был корректно определен при помощи утилит ${BLUE}kdig${NOCL} или ${BLUE}dig${NOCL}, но по какой-то "
 		echo -e "причине, пока не был добавлен в текущую {BLUE}ipset{NOCL} таблицу."
@@ -302,16 +311,16 @@ unblock_list_ipset_check(){
 #	 Формируем лог отладочной информации
 #
 # ------------------------------------------------------------------------------------------
-unblock_ipset_debug() {
+kvas_ipset_debug() {
 
 	result=$(cat < "/opt/apps/kvas/bin/main/ipset" | sed -n 's/.*\(@[0-9\.:]\{1,20\}\).*/\1/p' | sort -u)
 	echo_debug "DNS сервер, используемый в /opt/apps/kvas/bin/main/ipset" "${result}"
 #	/opt/apps/kvas/bin/main/ipset &>/dev/null
-	result_ipset=$(ipset list unblock | grep -vEi '^[a-z]' | sort | head -10 | sed 's/^...../*****/')
+	result_ipset=$(ipset list ${IPSET_TABLE_NAME} | grep -vEi '^[a-z]' | sort | head -10 | sed 's/^...../*****/')
 	result=$(echo "${result_ipset}" )
-	echo_debug "Таблица ipset (10 крайних записей)\nкоманда: 'ipset list unblock'" "${result}\n...\n...\n..."
+	echo_debug "Таблица ipset (10 крайних записей)\nкоманда: 'ipset list ${IPSET_TABLE_NAME}'" "${result}\n...\n...\n..."
 	print_line
-	unblock_list_ipset_check
+	kvas_list_ipset_check
 
 }
 
@@ -320,22 +329,20 @@ unblock_ipset_debug() {
 #	 Формируем лог отладочной информации
 #
 # ------------------------------------------------------------------------------------------
-unblock_dnsmasq_debug() {
+kvas_dnsmasq_debug() {
 
-#	result=$(cat < "/opt/apps/kvas/bin/main/dnsmasq" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
-#	echo_debug "Скрипт заполнения списка разблокировки /opt/apps/kvas/bin/main/dnsmasq" "${result}"
 	result=$(cat < "${DNSMASQ_IPSET_HOSTS}" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | sed 's/^...../*****/'  )
-	echo_debug "Список разблокировки в ${DNSMASQ_IPSET_HOSTS} (все записи)" "${result}"
+	echo_debug "Защищенный список в ${DNSMASQ_IPSET_HOSTS} (все записи)" "${result}"
 }
 # ------------------------------------------------------------------------------------------
 #
 #	 Формируем лог отладочной информации
 #
 # ------------------------------------------------------------------------------------------
-unblock_adguard_debug() {
+kvas_adguard_debug() {
 
 #	result=$(cat < "/opt/apps/kvas/bin/main/adguard" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
-#	echo_debug "Скрипт заполнения списка разблокировки /opt/apps/kvas/bin/main/dnsmasq" "${result}"
+#	echo_debug "Скрипт заполнения защищенный список /opt/apps/kvas/bin/main/dnsmasq" "${result}"
 	result=$(cat < "${ADGUARD_IPSET_FILE}" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | sed -e '$d' | sed 's/^...../*****/' )
 	echo_debug "Блок записей по ipset в ${ADGUARD_IPSET_FILE}" "${result}"
 	
@@ -368,14 +375,14 @@ iptables_debug() {
 	if has_ssr_enable; then
 		print_line
 		cmd_shadowsocks_iptable_reset
-		result=$(/opt/sbin/iptables-save 2>/dev/null | grep -E 'unblock|SHADOWSOCKS')
+		result=$(/opt/sbin/iptables-save 2>/dev/null | grep -E ${IPSET_TABLE_NAME}'|SHADOWSOCKS')
 	else
 		print_line
 		. /opt/apps/kvas/bin/libs/ndm
 		cmd_vpn_iptable_reset
-		result=$(/opt/sbin/iptables-save | grep -E 'VPNREDIR|unblock' )
+		result=$(/opt/sbin/iptables-save | grep -E 'VPNREDIR|'${IPSET_TABLE_NAME} )
 	fi
-	echo_debug "Правила перенаправления трафика unblock в iptables\nкоманда: iptables-save | grep -E 'SHADOWSOCKS|VPNREDIR|unblock'" "${result}"
+	echo_debug "Правила перенаправления трафика ${IPSET_TABLE_NAME} в iptables\nкоманда: iptables-save | grep -E 'SHADOWSOCKS|VPNREDIR|'${IPSET_TABLE_NAME}" "${result}"
 }
 
 # ------------------------------------------------------------------------------------------
@@ -404,7 +411,7 @@ syslog_debug() {
 #
 # ------------------------------------------------------------------------------------------
 ping_debug() {
-	#  host=$(cat < '"${UNBLOCK_LIST_FILE}"' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | tr -s '\n' | head -1)
+	#  host=$(cat < '"${KVAS_LIST_FILE}"' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | tr -s '\n' | head -1)
 	host='myip2.ru'
 	result=$(ping -c3 "${host}")
 	echo_debug "Прозвон ${host}" "${result}"
@@ -478,7 +485,7 @@ show_services_status(){
 	. /opt/apps/kvas/bin/libs/vpn
 	cmd_vpn_status
 	cmd_ads_status
-	if cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then
+	if [ -f "${ADGUARDHOME_DEMON}" ] && cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then
 		cmd_adguardhome_status
 	else
 		cmd_dns_crypt_status_show

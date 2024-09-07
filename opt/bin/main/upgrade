@@ -27,14 +27,21 @@ set_escapes(){
 	NOCL="\033[m";
 	QST="${RED}?${NOCL}"
 }
+WGET='/opt/bin/wget -q --no-check-certificate'
+# Вы полняем команду отключения DNS провайдера без перезагрузки и выхода из сессии
+rci_post()($WGET -qO - --post-data="$1" localhost:79/rci/ > /dev/null 2>&1)
+
 
 has_no_internet_here(){
 #	Если в возвращаемых аргументах нет false значит интернет присутствует
 	# test -z "$(curl -s "localhost:79/rci/show/internet/status" \
 	# | jq -r 'select(.enabled==true and .reliable==true and ."gateway-accessible"==true and ."captive-accessible"==true and ."dns-accessible"==true and .internet==true)')"
 
+	# curl -s "localhost:79/rci/show/internet/status" \
+	# 	| grep -E 'reliable|gateway-accessible|dns-accessible|internet|enabled|captive-accessible' \
+	# 	| grep -q false
 	curl -s "localhost:79/rci/show/internet/status" \
-		| grep -E 'reliable|gateway-accessible|dns-accessible|internet|enabled|captive-accessible' \
+		| grep -E 'gateway-accessible|dns-accessible|internet|captive-accessible' \
 		| grep -q false
 }
 #--------------------------------------------------------------------------------------------------------------
@@ -168,7 +175,7 @@ select_release_from_list(){
 # ---------------------------------------------------------------------------------------------
 remove_nano(){
 	nano_name=$(opkg list-installed | grep nano | cut -d' ' -f1)
-	[ -n "${nano_nmae}" ] && opkg --force-remove --force-depends remove "${nano_name}" &> /dev/null
+	[ -n "${nano_name}" ] && opkg --force-remove --force-depends remove "${nano_name}" &> /dev/null
 }
 
 #--------------------------------------------------------------------------------------------------------------
@@ -199,7 +206,7 @@ sed -i 's/\(export TERM=\).*/\1xterm-256color/' /opt/etc/profile
 set_escapes
 
 #--------------------------------------------------------------------------------------------------------------
-print_line
+# print_line	
 ready "Проверка наличия интернета"
 has_no_internet_here && {
 	when_err "ОТСУТСТВУЕТ"
@@ -317,6 +324,13 @@ ready "Устанавливаем новую версию пакета [${versio
 } &>/dev/null && when_ok || when_err
 
 #--------------------------------------------------------------------------------------------------------------
+connect_home_nets(){
+	# подключаем одну гостевую сеть к Квасу, если она имеется
+	ip a | grep global | grep -v br0 | grep -qE br[1-9] &&  {
+		clear
+		cmd_bridge_vpn_access_add
+	}
+}
 
 if ! [ -f /opt/bin/kvas ] ; then
 	print_line
@@ -328,14 +342,26 @@ if ! [ -f /opt/bin/kvas ] ; then
 	exit 1
 else
 	sleep 1
-	# 	если файл пакета найден после установки пакета,
+	curl -s "http://localhost:79/rci/opkg/dns-override" | grep -q true || {
+		# Отключаем системный DNS-сервер роутера
+		echo 'Отключаем работу через DNS-провайдера  роутера...'
+		echo "Возможно, что сейчас произойдет выход из сессии..."
+		echo "В этом случае необходимо заново войти в сессию по ssh"
+		echo "и выполнить команду 'kvas setup ${UPDATE_MODE}'"
+		rci_post '[{"opkg": {"dns-override": true}},{"system": {"configuration": {"save": true}}}]' &>/dev/null 
+	}
+		# 	если файл пакета найден после установки пакета,
 	# 	то запускаем установку и затем тестирование пакета
 	kvas setup "${UPDATE_MODE}" && {
+		# подключаем гостевые сети, если они имется
+		connect_home_nets
+		print_line
 		echo 'Тестируем настройки...'
 #		В данном случае, чтобы не печатать линию после
 #		окончания тестирования дважды передаем параметр upgrade
 		kvas test upgrade
 	}
 fi
-rm -f upgrade
+
+rm -f upgrade install
 

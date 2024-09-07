@@ -5,6 +5,7 @@
 . /opt/apps/kvas/bin/libs/update
 . /opt/apps/kvas/bin/libs/hosts
 . /opt/apps/kvas/bin/main/setup
+. /opt/apps/kvas/bin/libs/tags
 
 #------------------------------------------------------------------------------
 #
@@ -25,24 +26,41 @@
 #	Лицензия: Apache License 2.0
 # ------------------------------------------------------------------------------
 
+# ------------------------------------------------------------------------------------------
+#
+#	Функция оторажения списка доменных имен и поиска доменного имени
+#	$1 - строка поиска
+# ------------------------------------------------------------------------------------------
+cmd_show_kvas_list(){
 
-if  echo "${1}" | grep -qvEi 'uninstall|remove|rm' && [ -z "$(get_config_value "SETUP_FINISHED")" ]; then
+	local domain_to_search="${1}"
+	if [ -z "${domain_to_search}" ] ; then
+		cmd_show_list
+	else
+		cmd_show_list | grep "${domain_to_search}" || {
+			echo -e "Доменное имя ${BLUE}${domain_to_search}${NOCL} в списке не обнаружено."
+		}
+	fi
+}
+
+if  echo "${1}" | grep -qvEi 'uninstall' && [ -z "$(get_config_value "SETUP_FINISHED")" ]; then
 	print_line
 	echo "${2}" | grep -q "upgrade" && warning "Запускаем настройку пакета" || {
 		error "Настройка пакета не завершена, запускаем настройку пакета" "1"
+		print_line
 	}
 	cmd_install "${3}"
 	print_line
 	exit 0
 fi
 
-clear_file_content "${UNBLOCK_LIST_FILE}"
+clear_file_content "${KVAS_LIST_FILE}"
 
 print_line
 case "${1}" in
 	setup)
 							echo "Настройка пакета КВАС завершена!"
-							echo "Для удаления пакета наберите 'kvas remove'"
+							echo "Для удаления пакета наберите 'kvas uninstall'"
 							;;
 
 	pause|freeze)           cmd_pause_kvas ;;
@@ -138,7 +156,7 @@ case "${1}" in
 			list) 			cmd_show_tags_domain_list "${3}" ;;
 			add)			cmd_add_domain_to_tag_list "${3}" "${4}" ;;
 			del)			cmd_del_domain_to_tag_list "${3}" "${4}" ;;
-			*) 				cmd_show_tags_domain_list "${3}" ;;
+			*) 				cmd_show_tags_domain_list "${2}" ;;
 		esac
 		;;
 	debug)
@@ -147,7 +165,7 @@ case "${1}" in
 			*) 				cmd_print_debug "${2}"		;;
 		esac
 		;;
-	test | check)			cmd_state_checker
+	test | check)			cmd_state_checker "${2}"
 							[ -n "${2}" ] && exit 0
 		;;
 	add | new)				cmd_add_one_host "${2}" "yes" "${3}"
@@ -156,11 +174,12 @@ case "${1}" in
 		;;
 	export)					cmd_export_hosts "${2}"
 		;;
-	del | rm )				cmd_del_one_host "${2}"
+	del | rm  )				cmd_del_one_host "${2}"
 		;;
 	purge | clear)			cmd_clear_list "${2}"
 		;;
-	show | list | search | find)	[ -n "${2}" ] && cmd_show_list | grep "${2}" || cmd_show_list
+	show | list | search | find)	
+							cmd_show_kvas_list "${2}"
 		;;
 	reset | init)	        cmd_kvas_init
 		;;

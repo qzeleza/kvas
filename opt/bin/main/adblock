@@ -139,15 +139,15 @@ remove_duplicates(){
 #--------------------------------------------------------------
 #
 # 	Удаляем все доменные имена, которые у нас имеются
-# 	в списке разблокировки (белый список)
+# 	в  защищенный список (белый список)
 #
 #--------------------------------------------------------------
 remove_white_hosts(){
 
 	nlines_amount=$(cat < "${ADBLOCK_HOSTS_FILE}" | wc -l)
-	if [ -f "${UNBLOCK_LIST_FILE}" ] && [ "$(cat < "${UNBLOCK_LIST_FILE}" | wc -l )" -ge 1 ]; then
-		exclude_com=".*.$(cat < "${UNBLOCK_LIST_FILE}" | tr -d '*' | sed ':a;N;$!ba;s/\n/$|.*./g')$"
-		ready "Удаляем хосты, находящиеся в списке разблокировки"
+	if [ -f "${KVAS_LIST_FILE}" ] && [ "$(cat < "${KVAS_LIST_FILE}" | wc -l )" -ge 1 ]; then
+		exclude_com=".*.$(cat < "${KVAS_LIST_FILE}" | tr -d '*' | sed ':a;N;$!ba;s/\n/$|.*./g')$"
+		ready "Удаляем хосты, находящиеся в защищенном списке"
 		cat < "${TMP_FILE}" | grep -vE "${exclude_com}" > "${ADBLOCK_HOSTS_FILE}"
 		when_ok "ГОТОВО"
 		nlines_excluded_wl=$(cat < "${ADBLOCK_HOSTS_FILE}" | wc -l)
@@ -275,7 +275,7 @@ print_line
 load_adblock_hosts
 # Удаляем возможные дубликаты
 remove_duplicates
-# Удаляем все доменные имена, которые у нас имеются в списке разблокировки (белый список)
+# Удаляем все доменные имена, которые у нас имеются в защищенный список (белый список)
 # и в списке исключений
 remove_white_hosts
 remove_exception_hosts

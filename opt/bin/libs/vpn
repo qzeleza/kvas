@@ -1,7 +1,10 @@
 #!/bin/sh
+
 . /opt/apps/kvas/bin/libs/debug
 . /opt/apps/kvas/bin/libs/ndm
 . /opt/apps/kvas/bin/libs/adblock
+. /opt/apps/kvas/bin/libs/tags
+
 
 # Убираем ошибки связанные с отсутствием /opt/etc/hosts
 [ -f /opt/etc/hosts ] || touch /opt/etc/hosts
@@ -47,7 +50,7 @@ update_iptables(){
 update_ipset(){
 	stage="${1}"
 
-	ready "${prefix}Заполняем ipset таблицу данными из списка разблокировки."
+	ready "${prefix}Заполняем ipset таблицу данными из защищенного списка"
 	/opt/apps/kvas/bin/main/ipset &> /dev/null &
 	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
@@ -162,7 +165,7 @@ service_restart(){
 	srv_name=${1}
 	srv_initd=${2}
 	ready "Перезапускаем ${srv_name}"
-	if /opt/etc/init.d/${srv_initd} restart &> /dev/null; then
+	if "/opt/etc/init.d/${srv_initd}" restart &> /dev/null; then
 		when_ok "УСПЕШНО"
 	else
 		when_bad "ОШИБКА"
@@ -432,12 +435,20 @@ adguardhome_setup() {
 		/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
 		mv -f /opt/etc/init.d/S09dnscrypt-proxy2 "${KVAS_BACKUP_PATH}"
 	}
+	[ -f "${ADGUARDHOME_DEMON}" ] && ${ADGUARDHOME_DEMON} stop &> /dev/null
 #   останавливаем adg сервис, если он запущен
-	${ADGUARDHOME_DEMON} stop &> /dev/null
+	
 #	устанавливаем DNS по умолчанию на ADGUARD
 	set_config_value DNS_DEFAULT "${localhost}#${port}"
 #	меняем номер порта в файле конфигурации adguard
 	sed -i "s/\( port:\) .*/\1 ${port}/" "${ADGUARDHOME_CONFIG}"
+
+	# меняем время обработки TTL адресов 
+	ttl_timeout_min=$(get_config_value TTL_TIMEOUT)
+	ttl_timeout_max=$((ttl_timeout_min + 3600))
+	sed -i "s/\(  cache_ttl_min:\) .*/\1 ${ttl_timeout_min}/" "${ADGUARDHOME_CONFIG}"
+	sed -i "s/\(  cache_ttl_max:\) .*/\1 ${ttl_timeout_max}/" "${ADGUARDHOME_CONFIG}"
+
 #	если файл сервис adguard в наличии то архивируем файл конфигурации
 	if [ -f "${ADGUARDHOME_DEMON}" ] && [ -f /opt/bin/AdGuardHome.yaml ]; then
 		cp /opt/bin/AdGuardHome.yaml "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml
@@ -445,11 +456,12 @@ adguardhome_setup() {
 	fi
 #	и копируем подготовленный файл сервиса adguard в папку запуска сервисов
 #	проверяем файл на оригинальность (без переделок ли он под квас)
-	if ! cat < "${ADGUARDHOME_DEMON}" | grep -q kvas ; then
+
+	if [ -f "${ADGUARDHOME_DEMON}" ] && ! cat < "${ADGUARDHOME_DEMON}" | grep -q kvas ; then
 #		если оригинальный, то архивируем его
 		mv "${ADGUARDHOME_DEMON}" "${KVAS_BACKUP_PATH}/S99adguardhome.origin"
 	fi
-	cp /opt/apps/kvas/etc/init.d/S99adguard "${ADGUARDHOME_DEMON}"
+	[ -f "/opt/apps/kvas/etc/init.d/S99adguard" ] && cp /opt/apps/kvas/etc/init.d/S99adguard "${ADGUARDHOME_DEMON}"
 #	удаляем сервис запуска квас так как его теперь будет заменять файл сервиса adguard
 	rm -f "${KVAS_START_FILE}"
 #	меняем dns в настройках ipset
@@ -466,7 +478,7 @@ adguardhome_setup() {
 	ip4_firewall_flush_all_rules
 	ip4_firewall_set_all_rules
 
-	"${ADGUARDHOME_DEMON}" start &> /dev/null
+	[ -f "${ADGUARDHOME_DEMON}" ] && "${ADGUARDHOME_DEMON}" start &> /dev/null
 #	отслеживаем результат запуска сервиса adguard
 	if [ $? = 0 ]; then
 		when_ok "УСПЕШНО"
@@ -496,7 +508,11 @@ get_adguardhome_ip_port() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_adguardhome_status() {
-	ready "Сервис AdGuard Home [$(grep address /opt/etc/AdGuardHome/AdGuardHome.yaml | cut -d":" -f2)]"
+	local local_ip=""
+	if [ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ] ; then 
+		local_ip="[$(grep address /opt/etc/AdGuardHome/AdGuardHome.yaml | cut -d":" -f2)]"
+	fi
+	ready "Сервис AdGuard Home ${local_ip}"
 	# Проверяем наличие исполняемого файла AdGuardHome
 
 	if [ -f /opt/bin/AdGuardHome ] ; then
@@ -523,7 +539,7 @@ cmd_adguardhome_status() {
 # ------------------------------------------------------------------------------------------
 adguardhome_check_config() {
 		# Проверяем наличие	архивной копии AdGuardHome
-		if [ -f "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml ]; then
+		if [ -f "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml ] && [ -f ${ADGUARDHOME_DEMON}]; then
 			cp "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml "${ADGUARDHOME_CONFIG}"
 			"${ADGUARDHOME_DEMON}" restart  &> /dev/null
 			ip=$(get_router_ip)
@@ -539,7 +555,7 @@ adguardhome_check_config() {
 			rm -f /opt/etc/AdGuardHome/data/querylog.json
 
 #			Проверяем наличие файла конфигурации AdGuardHome в папке исполняемых файлов
-			if [ -f /opt/bin/AdGuardHome.yaml ]; then
+			if [ -f /opt/bin/AdGuardHome.yaml ] && [ -f "${ADGUARDHOME_DEMON}" ]; then
 #				проверяем файл на оригинальность (без переделок ли он под квас)
 				if ! cat < "${ADGUARDHOME_DEMON}" | grep -q kvas ; then
 #					если оригинальный, то архивируем его
@@ -607,15 +623,21 @@ adguardhome_install_locally() {
 		echo "запустите команду ${GREEN}kvas adguard on${NOCL}."
 	else
 	
-		[ -f /opt/etc/init.d/S56dnsmasq ] && /opt/etc/init.d/S56dnsmasq stop &> /dev/null
-		[ -f /opt/etc/init.d/S09dnscrypt-proxy2 ] && /opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
-		rm -f /opt/var/log/AdGuardHome.log
+		ready "Устанавливаем пакет AdGuard Home на роутер (~ 1-2 мин.)..."
+		{
+			[ -f /opt/etc/init.d/S56dnsmasq ] && /opt/etc/init.d/S56dnsmasq stop &> /dev/null
+			[ -f /opt/etc/init.d/S09dnscrypt-proxy2 ] && /opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
+			# обнуляем файлы конфигурации 
+			> /opt/etc/dnsmasq.d/kvas.dnsmasq
+			> /opt/var/log/AdGuardHome.log
 
-		[ -f /opt/etc/hosts ] && cp /opt/etc/hosts "${KVAS_BACKUP_PATH}/hosts"
+			[ -f /opt/etc/hosts ] && cp /opt/etc/hosts "${KVAS_BACKUP_PATH}/hosts"
 
-		opkg update &> /dev/null
-		opkg remove adguardhome-go --force-depends &> /dev/null
-		opkg install adguardhome-go --force-maintainer  &> /dev/null
+			opkg update &> /dev/null
+			opkg remove adguardhome-go --force-depends &> /dev/null
+			opkg install adguardhome-go --force-maintainer  &> /dev/null
+		} &> /dev/null && when_ok "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+
 		. /opt/apps/kvas/bin/libs/update
 		cmd_adguard_update
 		adguardhome_check_config
@@ -655,10 +677,19 @@ cmd_adguardhome_on() {
 cmd_adguardhome_off(){
 	ready "AdGuard Home в качестве DNS сервера удален"
 	[ -f "${ADGUARDHOME_CONFIG}" ] && sed -i "s/\( port:\) .*/\1 0/" "${ADGUARDHOME_CONFIG}"
-	${ADGUARDHOME_DEMON} stop &> /dev/null
+	[ -f "${ADGUARDHOME_DEMON}" ] && {
+		${ADGUARDHOME_DEMON} stop
+		kill -9 $(pgrep AdGuardHome) &> /dev/null	
+	}
 	[ -f "${ADGUARDHOME_CONFIG}" ] && mv -f "${ADGUARDHOME_CONFIG}" "${KVAS_BACKUP_PATH}/AdGuardHome.yaml"
-	[ -f /opt/etc/init.d/S56dnsmasq ] && /opt/etc/init.d/S56dnsmasq stop &> /dev/null
-	[ -f /opt/etc/init.d/S09dnscrypt-proxy2 ] && /opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
+	[ -f /opt/etc/init.d/S56dnsmasq ] && {
+		/opt/etc/init.d/S56dnsmasq stop &> /dev/null
+		kill -9 $(pgrep dnsmasq) &> /dev/null
+	}
+	[ -f /opt/etc/init.d/S09dnscrypt-proxy2 ] && {
+		/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
+		kill -9 $(pgrep dnscrypt-proxy) &> /dev/null
+	}
 	cp /opt/apps/kvas/etc/init.d/S96kvas "${KVAS_START_FILE}"
 	dnsmasq_install '' &> /dev/null
 	#	Обновляем правила ip4tables для доступного соединения
@@ -718,14 +749,14 @@ ikev2_include_to_list(){
                 echo "${ikev2}" | grep enable | grep -q true && status="ВКЛ. " || status="ОТКЛ."
 		echo "${ikev2}" | grep enable | grep -q true && color="${GREEN}" || color="${RED}"
 		txt="1. Сеть \"VPN-сервер\" IKEv2 [${net_pool}]"
-		prn="$(join_ready "${txt}" "${status}" "${color}" $((LENGTH - MINUS)))"
+		prn="$(_join_ready "${txt}" "${status}" "${color}" $((LENGTH - MINUS)))"
                 ready "${prn}"
                 cat < "/opt/etc/kvas.conf" | grep 'INFACE_GUEST_ENT=' | grep -q "[^_]ikev2" && when_ok "ДОБАВЛЕНА" || when_alert "НЕ ДОБАВЛЕНА"
         fi
 
 }
 
-join_ready() {
+_join_ready() {
 	color=${3}
         size=$(diff_len "${1}" "${4}")
         printf "%b%-${size}s%b" "${1}"
@@ -733,16 +764,19 @@ join_ready() {
 }
 
 guest_include_to_list(){
+	
 	num=${1}
 	desc_full=${2}
 	ent_inf=${3}
 
+	MINUS=10
+	
 	echo "${desc_full}" | grep -q 'is up' && color=${GREEN} || color=${RED}
 	echo "${desc_full}" | grep -q 'is up' && status="ВКЛ. " || status="ОТКЛ."
 
-        _desc="$(echo "${desc_full}" | sed 's/^\(.*\) is.*$/\1/')"
+	_desc="$(echo "${desc_full}" | sed 's/^\(.*\) is.*$/\1/')"
 #       отображаем все гостевые интерфейсы
-	prn="$(join_ready "${num}. Сеть ${_desc}" "${status}" ${color} $((LENGTH - MINUS)))"
+	prn="$(_join_ready "${num}. Сеть ${_desc}" "${status}" ${color} $((LENGTH - MINUS)))"
         ready "${prn}"
         cat < "/opt/etc/kvas.conf" | grep 'INFACE_GUEST_ENT=' | grep -q "[^_]${ent_inf}" && when_ok "ДОБАВЛЕНА" || when_alert "НЕ ДОБАВЛЕНА"
 }
@@ -788,34 +822,35 @@ cmd_bridge_vpn_access_list() {
 						and .type != "WifiStation"
 						and .type != "Vlan"
 					) | ("\"" + .description +
-						"\" " + .type	+
+						"\" " + .id	+
 						" [" + .address + "] " +
 						" is " + .state)' )
 
-        num=0
-        #        Подключаем IKEv2 VPN-сервер
-        if cat < "${KVAS_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -qi ikev2; then
-                if [ -z "${wild}" ] || [ "${wild}" = del ]; then
-                        ikev2_item=$(ikev2_include_to_list)
-                        [ -n "${ikev2_item}" ] && {
-                        	echo "${ikev2_item}"
-                        	num=1
-                        }
-                fi
-        else
-                if [ -z "${wild}" ] || [ "${wild}" = add ]; then
-                        ikev2_item=$(ikev2_include_to_list)
+	num=0
+	#        Подключаем IKEv2 VPN-сервер
+	if cat < "${KVAS_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -qi ikev2; then
+			if [ -z "${wild}" ] || [ "${wild}" = del ]; then
+					ikev2_item=$(ikev2_include_to_list)
+					[ -n "${ikev2_item}" ] && {
+						echo "${ikev2_item}"
+						num=1
+					}
+			fi
+	else
+			if [ -z "${wild}" ] || [ "${wild}" = add ]; then
+					ikev2_item=$(ikev2_include_to_list)
 
-                        [ -n "${ikev2_item}" ] && {
-                        	echo "${ikev2_item}"
-                        	num=1
-                        }
-                fi
-        fi
-        [ -n "${interfaces_list}" ] && {
+					[ -n "${ikev2_item}" ] && {
+						echo "${ikev2_item}"
+						num=1
+					}
+			fi
+	fi
+	[ -n "${interfaces_list}" ] && {
 
-			printf '%s\n' "${interfaces_list}" |
-			while IFS= read -r desc_full ; do
+		printf '%s\n' "${interfaces_list}" |
+		while IFS= read -r desc_full ; do
+		
 			if echo "${desc_full}" | grep -q Bridge ; then
 				net_ip=$(echo "${desc_full}" | sed 's/.*\[\([0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\)\].*/\1/')
 				ent_inf=$(ip a | grep global | grep "${net_ip}" | sed 's/.* \(.*\)$/\1/')
@@ -823,20 +858,20 @@ cmd_bridge_vpn_access_list() {
 				desc=$(echo "${desc_full}" | sed 's|\"\(.*\)\".*|\1|')
 				ent_inf=$(cat /opt/etc/inface_equals | grep "${desc}" | cut -d'|' -f2)
 			fi
-				if cat < "${KVAS_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -qi "${ent_inf}"; then
+			if cat < "${KVAS_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -qi "${ent_inf}"; then
 
-					if [ -z "${wild}" ] || [ "${wild}" = del ]; then
-						num=$((num + 1))
-						guest_include_to_list "${num}" "${desc_full}" "${ent_inf}"
-					fi
-				else
-					if [ -z "${wild}" ] || [ "${wild}" = add ]; then
-						num=$((num + 1))
-						guest_include_to_list "${num}" "${desc_full}" "${ent_inf}"
-					fi
+				if [ -z "${wild}" ] || [ "${wild}" = del ]; then
+					num=$((num + 1))
+					guest_include_to_list "${num}" "${desc_full}" "${ent_inf}"
 				fi
-			done
-		}
+			else
+				if [ -z "${wild}" ] || [ "${wild}" = add ]; then
+					num=$((num + 1))
+					guest_include_to_list "${num}" "${desc_full}" "${ent_inf}"
+				fi
+			fi
+		done
+	}
 }
 
 
@@ -1113,7 +1148,8 @@ dnsmasq_dns_change() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_dnsmasq_dns_change() {
-	exit_when_adguard_on status; [ "${status}" = 0 ] && {
+	exit_when_adguard_on status; 
+	[ "${status}" = 0 ] && {
 		dns_new=${1}; cmd=${2:-restart}
 		if [ -z "${dns_new}" ]; then
 			dns_show
@@ -1219,10 +1255,10 @@ dns_show() {
 # ------------------------------------------------------------------------------------------
 vpn_off() {
 #	ready "Интерфейс vpn отключен "
-	rm -f "/opt/etc/ndm/netfilter.d/100-vpn-mark"
-	[ -f /opt/etc/ndm/ifstatechanged.d/100-unblock-vpn ] && rm -f /opt/etc/ndm/ifstatechanged.d/100-unblock-vpn
-	[ -f /opt/etc/ndm/iflayerchanged.d/100-unblock-vpn ] && rm -f /opt/etc/ndm/iflayerchanged.d/100-unblock-vpn
-	rm -f "/opt/etc/ndm/fs.d/100-vpn"
+	[ -f "/opt/etc/ndm/netfilter.d/100-vpn-mark" ] && rm -f "/opt/etc/ndm/netfilter.d/100-vpn-mark"
+	[ -f /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn ] && rm -f /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
+	[ -f /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn ] && rm -f /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn
+	[ -f "/opt/etc/ndm/fs.d/100-vpn" ] && rm -f "/opt/etc/ndm/fs.d/100-vpn"
 	cmd_vpn_iptable_flush  &> /dev/null
 }
 # ------------------------------------------------------------------------------------------
@@ -1249,7 +1285,6 @@ ndm_interface_change() {
 	chmod +x /opt/apps/kvas/bin/libs/ndm
 	set_config_value "INFACE_ENT" "${inface_entware}"
 	set_config_value "INFACE_CLI" "${inface_cli}"
-
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -1290,8 +1325,8 @@ vpn_on() {
 #		Если версия фирменной оболочки равно или больше 4.0,
 #		то применяем механизм iflayerchanged.d, если нет, то ifstatechanged.d
 		hook_dir=$(get_hook_dir)
-		cp "/opt/apps/${APP_NAME}/etc/ndm/${hook_dir}/100-unblock-vpn" "/opt/etc/ndm/${hook_dir}/100-unblock-vpn"
-		chmod +x "/opt/etc/ndm/${hook_dir}/100-unblock-vpn"
+		cp "/opt/apps/${APP_NAME}/etc/ndm/${hook_dir}/100-kvas-vpn" "/opt/etc/ndm/${hook_dir}/100-kvas-vpn"
+		chmod +x "/opt/etc/ndm/${hook_dir}/100-kvas-vpn"
 
 		state=$(get_value_interface_field "${inface_cli}" state)
 
@@ -1343,7 +1378,7 @@ active_backup_config(){
 # ------------------------------------------------------------------------------------------
 shadowsocks_backup() {
 	# Проверяем установлен ли сервис shadowsocks
-	if [ -f /opt/bin/ss-redir ] && [ -f /opt/etc/init.d/S22shadowsocks ]; then
+	if [ -f "${SSR_CMD}" ] && [ -f /opt/etc/init.d/S22shadowsocks ]; then
 		# меняем данные в файлах shadowsocks
 		sed -i 's/ss-local/ss-redir/g' /opt/etc/init.d/S22shadowsocks
 
@@ -1360,7 +1395,7 @@ shadowsocks_backup() {
 			fi
 		fi
 		if [ -f "${SHADOWSOCKS_CONF}" ] ; then
-			grep -qE '""|@|127.0.0.1|barfoo!' "${SHADOWSOCKS_CONF}" && shadowsocks_read_config
+			grep -qE '""|@|127.0.0.1|barfoo!' "${SHADOWSOCKS_CONF}" && shadowsocks_read_data
 		else
 			if [ -f "${SHADOWSOCKS_CONF}.kvas" ] && grep -qvE '""|@|127.0.0.1|barfoo!' "${SHADOWSOCKS_CONF}" ; then
 				active_backup_config
@@ -1392,13 +1427,17 @@ shadowsocks_read_config(){
 	[ "${SSR_SERVER_PASSWD}" = q ] && exit 1
 	echo
 
+	# Экранируем символы для применения в sed
+	ESCAPED_PASSWD=$(escape_sed "$SSR_SERVER_PASSWD")
 	if [ -f "${SHADOWSOCKS_CONF}" ] ; then
+
+		ready "Изменяем конфигурацию ${SHADOWSOCKS_CONF} для введенных данных..."
 		sed -i "s/\(\"server\":\).*/\1 \"${SSR_SERVER_IP}\",/; 			\
 				s/\(\"server_port\":\).*/\1 ${SSR_SERVER_PORT},/; 		\
 				s/\(\"local_port\":\).*/\1 $(get_config_value SSR_DNS_PORT),/; 		\
-				s/\(\"password\":\).*/\1 \"${SSR_SERVER_PASSWD}\",/; 	\
+				s/\(\"password\":\).*/\1 \"${ESCAPED_PASSWD}\",/; 	\
 				s/\(\"method\":\).*/\1 \"${SSR_SERVER_CRYPT}\",/;" 		\
-			"${SHADOWSOCKS_CONF}"
+			"${SHADOWSOCKS_CONF}" &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 	else
 		print_line
 		error "Не обнаружен файл ${SHADOWSOCKS_CONF}." nl
@@ -1408,14 +1447,14 @@ shadowsocks_read_config(){
 }
 
 shadowsocks_config_check(){
-	ss-redir  -c "${SHADOWSOCKS_CONF}" 2>/dev/null &
-	id=$(ps -w | grep 'ss-redir -c '"${SHADOWSOCKS_CONF}" | grep -v grep | cut -d' ' -f1)
+	ssr_run 2>/dev/null &
+	id=$(ps -w | grep "-c ${SHADOWSOCKS_CONF}" | grep -v grep | cut -d' ' -f1)
 	if [ -n "${id}" ] ; then
 		kill -9 "${id}"
 	else
 		error "Обнаружены ошибки в файле конфигурации ${SHADOWSOCKS_CONF}" nl
 		print_line
-		ss-redir  -c "${SHADOWSOCKS_CONF}"
+		ssr_run 
 		print_line
 		exit 0
 	fi
@@ -1434,24 +1473,40 @@ cmd_shadowsocks_read_new_data() {
 	print_line
 
 	shadowsocks_read_data
+	ndm_interface_change "$(get_ssr_entware_interface)" "shadowsocks"
 	shadowsocks_config_check &>/dev/null
-
 	service_restart  shadowsocks S22shadowsocks
-
-#	ready "Перезапускаем shadowsocks интерфейс"
-#	/opt/etc/init.d/S22shadowsocks restart &> /dev/null
-#	/opt/etc/init.d/S22shadowsocks status &> /dev/null
-#	if [ $? = 0 ]; then
-#		when_ok "УСПЕШНО"
-#	else
-#		when_bad "ОШИБКА"
-#		error "Возникла ошибка при подключении shadowsocks интерфейса!"
-#		error "Проверьте доступность сервера и настройки клиента!"
-#		exit 1
-#	fi
 
 }
 
+# ------------------------------------------------------------------------------------------
+#
+#	Отключаем shadowsocks клиента
+#
+# ------------------------------------------------------------------------------------------
+shadowsocks_read_data() {
+
+	#	устанавливаем новую конфигурацию shadowsocks
+	cp -f "/opt/apps/${APP_NAME}/etc/conf/shadowsocks.json" "${SHADOWSOCKS_CONF}"
+
+	answer=''; read_ynq "У Вас имеется кодированная ss:// ссылка для ввода данных" answer
+	if [ "${answer}" = q ] ; then exit_q; exit 1; fi
+
+	if echo "${answer}" | grep -qi y ; then
+		shadowsocks_read_link
+	else
+
+		echo "Чтобы продолжить работу необходимо ввести следующие данные:"
+		echo -e "${GREEN}Хост${NOCL} сервера, его ${GREEN}порт, пароль доступа${NOCL} и ${GREEN}метод шифрования${NOCL}"
+
+		echo -e "${BLUE}Пожалуйста, последовательно введите эти данные ниже.${NOCL}"
+		print_line
+
+		shadowsocks_read_config
+	fi
+
+	
+}
 
 shadowsocks_read_link(){
 
@@ -1467,7 +1522,7 @@ shadowsocks_read_link(){
 		SSR_SERVER_PASSWD=$(echo "${password}" | cut -d ":" -f 2)
 		SSR_SERVER_CRYPT=$(echo "${password}" | cut -d ":" -f 1)
 		SSR_SERVER_IP=$(echo "${SSR_LINK}" | grep -oP "(?<=@).*?(?=:)")
-		SSR_SERVER_PORT=$(echo "${SSR_LINK}" | cut -d ":" -f 3 | cut -d "#" -f 1 )
+		SSR_SERVER_PORT=$(echo "${SSR_LINK}" | sed 's/.*@.*:\([0-9]\{1,6\}\).*/\1/')
 	else
 		error "Ссылка пуста или слишком коротка! Введите корректную ссылку!"  nl
 		exit 1
@@ -1479,12 +1534,16 @@ shadowsocks_read_link(){
 	else
 
 		if [ -f "${SHADOWSOCKS_CONF}" ] ; then
+			# Экранируем символы для применения в sed
+			ESCAPED_PASSWD=$(escape_sed "$SSR_SERVER_PASSWD")
+
+			ready "Изменяем конфигурацию ${SHADOWSOCKS_CONF} для введенных данных..."
 			sed -i "s/\(\"server\":\).*/\1 \"${SSR_SERVER_IP}\",/; 			\
 					s/\(\"server_port\":\).*/\1 ${SSR_SERVER_PORT},/; 		\
 					s/\(\"local_port\":\).*/\1 $(get_config_value SSR_DNS_PORT),/; 		\
-					s/\(\"password\":\).*/\1 \"${SSR_SERVER_PASSWD}\",/; 	\
+					s/\(\"password\":\).*/\1 \"${ESCAPED_PASSWD}\",/; 	\
 					s/\(\"method\":\).*/\1 \"${SSR_SERVER_CRYPT}\",/;" 		\
-				"${SHADOWSOCKS_CONF}"
+				"${SHADOWSOCKS_CONF}" &>/dev/null && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
 		else
 			print_line
 			error "Не обнаружен файл ${SHADOWSOCKS_CONF}." nl
@@ -1495,38 +1554,7 @@ shadowsocks_read_link(){
 }
 
 
-# ------------------------------------------------------------------------------------------
-#
-#	Отключаем shadowsocks клиента
-#
-# ------------------------------------------------------------------------------------------
-shadowsocks_read_data() {
 
-	#	устанавливаем новую конфигурацию shadowsocks
-	cp -f "/opt/apps/${APP_NAME}/etc/conf/shadowsocks.json" "${SHADOWSOCKS_CONF}"
-
-	answer=''; read_ynq "У Вас имеется кодированная ss:// ссылка для ввода данных" answer
-	if [ "${answer}" = q ] ; then exit_q; exit 1; fi
-
-	{
-		if echo "${answer}" | grep -qi y ; then
-			shadowsocks_read_link
-		else
-
-			echo "Чтобы продолжить работу необходимо ввести следующие данные:"
-			echo -e "${GREEN}Хост${NOCL} сервера, его ${GREEN}порт, пароль доступа${NOCL} и ${GREEN}метод шифрования${NOCL}"
-
-			echo -e "${BLUE}Пожалуйста, последовательно введите эти данные ниже.${NOCL}"
-			print_line
-
-			shadowsocks_read_config
-		fi
-	# читаем данные и Производим замену в библиотеке ndm основных значения интерфейсов
-	} && ndm_interface_change "$(get_ssr_entware_interface)" "shadowsocks"
-
-
-
-}
 # ------------------------------------------------------------------------------------------
 #
 #	Чистим таблицу правил iptables для shadowsocks подключений
@@ -1716,7 +1744,7 @@ EOF
 	)
 	# проходимся по каждому интерфейсу
 	# ВНИМАНИЕ! inface_list - все маленькими буквами!!!
-	count=1; delay=4
+	count=1; delay=3
 	list_len=$(echo "${inface_list}" | wc -w)
 	for inface_cli in ${inface_list}; do
 #		переподключаем текущее соединение
@@ -2043,8 +2071,10 @@ dns_crypt_port_change() {
 	sed -i "s/\(^listen_addresses.=.\).*$/\1['[::]:${port_new}']/g" "${DNSCRYPT_CONFIG}" &> /dev/null
 	sed -i "s/\(@.*\)\(:[0-9]\{2,6\}\)/\1:${port_new} /g" '/opt/apps/kvas/bin/main/ipset' &> /dev/null
 
-	server_crypt_0="echo \"server=\/:.*\${host}:\/${LOCALHOST_IP}#${port_new}\" >> \/opt\/etc\/kvas.dnsmasq"
-	server_crypt_1="echo \"server=\/\${host}\/${LOCALHOST_IP}#${port_new}\" >> \/opt\/etc\/kvas.dnsmasq"
+	[ -f /opt/etc/dnsmasq.d/kvas.dnsmasq ] && {
+		server_crypt_0="echo \"server=\/:.*\${host}:\/${LOCALHOST_IP}#${port_new}\" >> \/opt\/etc\/dnsmasq.d\/kvas.dnsmasq"
+		server_crypt_1="echo \"server=\/\${host}\/${LOCALHOST_IP}#${port_new}\" >> \/opt\/etc\/dnsmasq.d\/kvas.dnsmasq"
+	}
 	sed -i '/server/d' '/opt/apps/kvas/bin/main/dnsmasq' &> /dev/null
 	sed -i "s/\(echo \"ipset=\/:.*\)/\1\n\t${server_crypt_0}/" '/opt/apps/kvas/bin/main/dnsmasq' &> /dev/null
 	sed -i "s/\(echo \"ipset=\/\$.*\)/\1\n\t${server_crypt_1}/" '/opt/apps/kvas/bin/main/dnsmasq' &> /dev/null
@@ -2076,7 +2106,7 @@ dns_crypt_port_change() {
 # ------------------------------------------------------------------------------------------
 refresh_dnsmasq_ipset_table(){
 
-		ready "${prefix}Заполняем dnsmasq таблицу данными из списка разблокировки."
+		ready "${prefix}Заполняем dnsmasq таблицу данными из защищенного списка"
 		if /opt/apps/kvas/bin/main/dnsmasq  ; then #&>/dev/null
 			when_ok "УСПЕШНО"
 		else
@@ -2200,7 +2230,8 @@ cmd_dns_crypt_on() {
 				sed -i "s/\(^cache.=.\).*$/\1false/g" '/opt/etc/dnscrypt-proxy.toml'
 				sed -i "s/\(^require_dnssec.=.\).*$/\1true/g" '/opt/etc/dnscrypt-proxy.toml'
 				sed -i "s/\(^cache_min_ttl.=.\).*$/\10/g" '/opt/etc/dnscrypt-proxy.toml'
-
+				sed -i "s/.* \(server_names =\).*/\1 ['google', 'yandex', 'cloudflare']/g" '/opt/etc/dnscrypt-proxy.toml'
+				
 				sed -i "/proxy-dnssec/d" /opt/etc/dnsmasq.conf
 				echo "proxy-dnssec" >> /opt/etc/dnsmasq.conf
 				dns_crypt_port_change "${dns_crypt_port}" restart
@@ -2309,13 +2340,13 @@ test_host() {
 add_host_to_adguard(){
 	clear_host="${1}"
 	#   AdGuardHome обработка
-	echo "${_host}" >> "${UNBLOCK_LIST_FILE}"
+	echo "${_host}" >> "${KVAS_LIST_FILE}"
 	[ -f "${ADGUARD_IPSET_FILE}" ] && cat < "${ADGUARD_IPSET_FILE}" | grep -q "${clear_host}" \
-	 		|| echo "${clear_host}/unblock" >> "${ADGUARD_IPSET_FILE}"
+	 		|| echo "${clear_host}/${IPSET_TABLE_NAME}" >> "${ADGUARD_IPSET_FILE}"
 	if echo "${host}" | grep -q '\*' ; then
-  		echo "ipset=/:.*${clear_host}:/unblock" >> "${DNSMASQ_IPSET_HOSTS}"
+  		echo "ipset=/:.*${clear_host}:/${IPSET_TABLE_NAME}" >> "${DNSMASQ_IPSET_HOSTS}"
   	else
-    	echo "ipset=/${clear_host}/unblock" >> "${DNSMASQ_IPSET_HOSTS}"
+    	echo "ipset=/${clear_host}/${IPSET_TABLE_NAME}" >> "${DNSMASQ_IPSET_HOSTS}"
   	fi
 }
 
@@ -2373,8 +2404,8 @@ host_add() {
 		_host="*${clear_host}"
 	fi
 
-	ready "Добавляем ${YELLOW}${_host}${NOCL} в список разблокировки..."
-	echo "${_host}" >> "${UNBLOCK_LIST_FILE}"
+	ready "Добавляем ${YELLOW}${_host}${NOCL} в защищенный список..."
+	echo "${_host}" >> "${KVAS_LIST_FILE}"
 
 #	если включен блокировщик рекламы
 	if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
@@ -2383,7 +2414,7 @@ host_add() {
 
 	[ "${reset}" = 'yes' ] && cmd_kvas_init  &> /dev/null
 
-	cmd_adguardhome_status | grep -q ВКЛЮЧЕН && add_host_to_adguard "${clear_host}" &> /dev/null
+	[ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ] && cmd_adguardhome_status | grep -q ВКЛЮЧЕН && add_host_to_adguard "${clear_host}" &> /dev/null
 	add_host_to_ipset "${clear_host}" &> /dev/null
 
 	[ $? = 0 ] && when_ok "ДОБАВЛЕН" || when_bad "НЕ ДОБАВЛЕН"
@@ -2391,6 +2422,7 @@ host_add() {
 
 
 }
+
 # ------------------------------------------------------------------------------------------
 #
 #	Добавляем в белый список одно доменное имя, точнее список его IP адресов
@@ -2406,36 +2438,51 @@ cmd_add_one_host() {
 	reset="${2:-yes}"
 	wild="${3}"
 
+	ip_filter='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'
+
 	# Выходим из функции при отуствии интернет-соединения или VPN
-	exit_when_no_internet_or_vpn_connected || exit 1 
+	exit_when_no_internet_or_vpn || exit 1 
 
-	# Проверяем есть ли в введенной строке имя метки или нет
-	tag_name=$("${@}" | grep -oP '(?<=-tag )\S+')
+	# Если первый параметр пуст или равен 'tags', то 
+	# делаем запрос на выбор закваски и добавляем все доменные имена из закваски в список защиты
+	[ -z "${host}" ] || [ "${host}" = tags ] && {
+		add_tag_section_to_protect_list
+		return 0
+	}
 
-	if [ -n "${tag_name}" ] ; then
+	# Проверяем есть ли в введенной строке имя метки -tag или нет
+	has_tag=$([ -n "$(echo "${*}" | grep -oP '(?<=-tag )\S+')" ])
+
+	if [ "${has_tag}" ] ; then
+		tag_name=$(echo "${*}" | sed 's/.*\-tag \(.*\)/\1/')
 		# Помечаем доменное имя тегом 
 		cmd_add_domain_to_tag_list "${tag_name}" "${host}"
-		# Если  помимо этого домена существует еще доменные с одноименным тегом
-		# то делаем запрос на их доавление.
-		local _tmpfile=$(mktemp)
-		_get_same_tag_domains_missing_in_protection_list "${host}" > "${_tmpfile}"
-		# Проверяем есть ли в этом списке домены
-		[ -s "${_tmpfile}" ] && {
-			# Если есть, то спрашивем добавить ли их
-			read_ynq "Найдены доменные имена с тегом '${tag_name}',\nкоторых пока нет в списке защищенных доменнов.\nДобавить их в список?" answer
-			[[ "$answer" =~ [qn] ]] && return 1
-			if [[ "$answer" =~ [y] ]] ; then
-				print_line
-				cmd_import_hosts "${_tmpfile}"
-			fi
-			rm -f "${_tmpfile}"
-			return 0
-		}
 	fi
 
+	
+	# Если  помимо этого домена существует еще доменные с одноименным тегом
+	# то делаем запрос на их доавление.
+	local _tmpfile=$(mktemp)
+	echo "${host}" | grep -qE "${ip_filter}" || {
+		_get_same_tag_domains_missing_in_protection_list "${host}" | sed '/$/d' > "${_tmpfile}"
+	}
+	# Проверяем есть ли в этом списке домены
+	[ -s "${_tmpfile}" ] && {
+		[ -z "${tag_name}" ] && tagname=$(_get_tagname_by_domain "${host}" | tail -1)
+		# Если есть, то спрашивем добавить ли их
+		read_ynq "Найдены доменные имена с тегом '${tag_name}',которых пока нет в списке защищенных доменнов.\nДобавить их в список?" answer
+		[[ "$answer" =~ [qn] ]] && return 1
+		if [[ "$answer" =~ [y] ]] ; then
+			print_line
+			cmd_import_hosts "${_tmpfile}"
+		fi
+		rm -f "${_tmpfile}"
+		return 0
+	}
+	
 
 	clear_host=$(echo "${host}" | sed 's/\*//')
-	ip_filter='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'
+	
 	#	формальная проверка на наличие точки в имени домена
 	if echo "${host}" | grep -q '\.' ; then
 		# если точка в имени домена есть, то проверяем на корректность IP
@@ -2458,12 +2505,12 @@ cmd_add_one_host() {
 			fi
 		else
 			# проверка на наличие домена в списке защиты доменов
-			if cat < "${UNBLOCK_LIST_FILE}" | grep -qE "^${clear_host}"; then
-				[ "${wild}" = import ] || warning "Такой домен уже есть в списке разблокировки!"
+			if cat < "${KVAS_LIST_FILE}" | grep -qE "^${clear_host}"; then
+				[ "${wild}" = import ] || warning "Такой домен уже есть в защищенном списке!"
 				if [ "${clear_host}" != "${host}" ] ; then
 					warning "Производим замену ${clear_host} на ${host}"
 					print_line
-					sed -i "/^${clear_host}$/d" "${UNBLOCK_LIST_FILE}"
+					sed -i "/^${clear_host}$/d" "${KVAS_LIST_FILE}"
 
 					if [ "${wild}" = import ]; then
 						host_add "${host}" "${reset}" "${wild}" | grep -q "ДОБАВЛЕН" && echo 1
@@ -2500,14 +2547,22 @@ cmd_add_one_host() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_del_one_host() {
-
+	
+	local host_="${1}"
 	# Выходим из функции при отуствии интернет-соединения или VPN
-	exit_when_no_internet_or_vpn_connected || exit 1 
+	exit_when_no_internet_or_vpn || exit 1 
+	
+	# Если первый параметр пуст или равен 'tags', то 
+	# делаем запрос на выбор закваски и добавляем все доменные имена из закваски в список защиты
+	[ -z "${host_}" ] || [ "${host_}" = tags ] && {
+		del_tag_section_to_protect_list
+		return 0
+	}
 
-	host_="${1}"
-	if cat < "${UNBLOCK_LIST_FILE}" | grep -qe "${host_}$" ; then
+
+	if cat < "${KVAS_LIST_FILE}" | grep -qe "${host_}$" ; then
 		ready "Удаляем ${YELLOW}${host_}${NOCL} из списка защищенных..."
-		sed -i "/${host_////\\/}/d" "${UNBLOCK_LIST_FILE}"
+		sed -i "/${host_////\\/}/d" "${KVAS_LIST_FILE}"
 
 		cmd_adguardhome_status | grep -q ВКЛЮЧЕН && sed -i "/${host_////\\/}/d" "${ADGUARD_IPSET_FILE}"
 		cmd_kvas_init  &> /dev/null
@@ -2542,10 +2597,13 @@ del_multy_hosts() {
 	else
 		for host_ in ${list_to_del}; do
 			ready "Удаляем ${YELLOW}${host_}${NOCL} из списка защищенных..."
-			if cat < "${UNBLOCK_LIST_FILE}" | grep -qe "${host_}$" ; then
+			if cat < "${KVAS_LIST_FILE}" | grep -qe "${host_}$" ; then
 				
-				sed -i "/${host_////\\/}/d" "${UNBLOCK_LIST_FILE}"
-				cmd_adguardhome_status | grep -q ВКЛЮЧЕН && sed -i "/${host_////\\/}/d" "${ADGUARD_IPSET_FILE}"
+				if cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then 
+					sed -i "/${host_////\\/}/d" "${ADGUARD_IPSET_FILE}"
+				else 
+					sed -i "/${host_////\\/}/d" "${KVAS_LIST_FILE}"
+				fi
 				[ $? = 0 ] && when_ok "УДАЛЕН" || when_bad "НЕ УДАЛЕН"
 			else 
 				when_alert "НЕТ В СПИСКЕ"
@@ -2557,6 +2615,7 @@ del_multy_hosts() {
 			/opt/apps/kvas/bin/main/adblock &> /dev/null
 			[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 		fi
+		print_line
 		ready "Перегружаем все правила конфигурации iptables и ipset"
 		cmd_kvas_init  &> /dev/null && cmd_vpn_iptable_reset &> /dev/null
 		[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
@@ -2570,26 +2629,26 @@ del_multy_hosts() {
 # ------------------------------------------------------------------------------------------
 cmd_clear_list() {
 
-	if [ -f "${UNBLOCK_LIST_FILE}" ]; then
-		if [ "$(rec_in_file "${UNBLOCK_LIST_FILE}")" = '0' ]; then
-			error "Список разблокировки не содержит записей!"
+	if [ -f "${KVAS_LIST_FILE}" ]; then
+		if [ "$(rec_in_file "${KVAS_LIST_FILE}")" = '0' ]; then
+			error "Защищенный список не содержит записей!"
 		else
 			while true; do
-				ready "Список разблокировки будет полностью очищен. Уверены?" && read -r yn
+				ready "Защищенный список будет полностью очищен. Уверены?" && read -r yn
 				case ${yn} in
 				[Yy]*)
 					# Выходим из функции при отуствии интернет-соединения или VPN
-					exit_when_no_internet_or_vpn_connected || exit 1 
+					exit_when_no_internet_or_vpn || exit 1 
 					
 					print_line
-					ready "Очищаем список разблокировки ..."
-					mv -f "${UNBLOCK_LIST_FILE}" "${KVAS_LIST_FILE_BACKUP}"
+					ready "Очищаем защищенный список..."
+					mv -f "${KVAS_LIST_FILE}" "${KVAS_LIST_FILE_BACKUP}"
 					rm -f "${ADGUARD_IPSET_FILE}"
-					touch "${UNBLOCK_LIST_FILE}"
+					touch "${KVAS_LIST_FILE}"
 					cmd_kvas_init  "update" &> /dev/null
 					[ $? = 0 ] && when_ok "ОЧИЩЕН" || when_bad "ОШИБКА"
 					print_line
-					warning "Предыдущий список разблокировки был сохранен в файл ${KVAS_LIST_FILE_BACKUP}"
+					warning "Предыдущий защищенный список был сохранен в файл ${KVAS_LIST_FILE_BACKUP}"
 					break
 					;;
 				[Nn]*)
@@ -2628,7 +2687,7 @@ rec_in_var() {
 cmd_import_hosts() {
 
 	# Выходим из функции при отуствии интернет-соединения или VPN
-	exit_when_no_internet_or_vpn_connected || exit 1 
+	exit_when_no_internet_or_vpn || exit 1 
 
 	host_list="${1}"
 	if [ -z "${host_list}" ]; then
@@ -2639,10 +2698,10 @@ cmd_import_hosts() {
 			error "Списочный файл ${host_list} не существует."
 			error "Проверьте верность написания пути и его имени."
 		else
-			ready "Импортируем хосты в список защищаемых доменов и обновляем маршруты..."
+			ready "Импортируем хосты в список защищаемых доменов..."
 			clear_file_content "${host_list}"
 
-			clear_file_content "${UNBLOCK_LIST_FILE}"
+			# clear_file_content "${KVAS_LIST_FILE}"
 
 			hosts_to_add_ubl=''
 			hosts_repeated_ubl=''
@@ -2668,7 +2727,7 @@ cmd_import_hosts() {
 
 			#     добавляем хосты в файл списочный
 			_hosts_to_add_ubl=$(echo -e "${hosts_to_add_ubl}" | sed '/^$/d; /^[-+.]/!s/\(.*\)/\1/')
-			echo -e "${_hosts_to_add_ubl}" >> "${UNBLOCK_LIST_FILE}"
+			echo -e "${_hosts_to_add_ubl}" >> "${KVAS_LIST_FILE}"
 
 			#	если включен блокировщик рекламы
 			if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
@@ -2690,12 +2749,12 @@ cmd_import_hosts() {
 			if [ "${num_to_add_ubl}" -eq 0 ]; then
 				warning "Новых записей добавлено не было!"
 			else
-				warning "В список разблокировки было добавлено ${YELLOW}${num_to_add_ubl}${GREEN} новых домена/ов:"
+				warning "В защищенный список было добавлено ${YELLOW}${num_to_add_ubl}${GREEN} новых домена/ов:"
 				print_line
 				if [ "${num_to_add_ubl}" -gt 0 ]; then
 					warning "${tab}Список добавленных доменов:"
 					print_line
-					echo -e "${hosts_to_add_ubl}" | sed 's/^$//; /^[-]/!s/\(.*\)/'"${tab}${tab}"'\1/g'
+					echo -e "${hosts_to_add_ubl}" | sed '/^$/d; /^[-]/!s/\(.*\)/'"${tab}${tab}"'\1/g'
 				fi
 			fi
 			if [ "${num_errors}" -gt 0 ]; then
@@ -2708,7 +2767,7 @@ cmd_import_hosts() {
 					echo -e "${hosts_not_added}" | sed 's/^$/'"$(print_line)"'/; /^[-]/!s/\(.*\)/'"${tab}${tab}"'\1/g'
 				fi
 				if [ "${num_repeated_ubl}" -gt 0 ]; then
-					error "${tab}Домены ниже уже присутствуют в списке разблокировки [${YELLOW}${num_repeated_ubl}${RED} шт.]"
+					error "${tab}Домены ниже уже присутствуют в защищенном списке [${YELLOW}${num_repeated_ubl}${RED} шт.]"
 					print_line
 					echo -e "${hosts_repeated_ubl}" | sed 's/^$/'"$(print_line)"'/; /^[-]/!s/\(.*\)/'"${tab}${tab}"'\1/g'
 				fi
@@ -2726,7 +2785,7 @@ cmd_import_hosts() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_export_hosts() {
-	HOSTS_LIST=$(cat < "${UNBLOCK_LIST_FILE}" | sed 's/\(^.*\)#.*$/\1/g' | grep -v '#' | tr -s '\n')
+	HOSTS_LIST=$(cat < "${KVAS_LIST_FILE}" | sed 's/\(^.*\)#.*$/\1/g' | grep -v '#' | tr -s '\n')
 	backup_name=${1}
 	if [ -z "${backup_name}" ]; then
 		error "Так как не задано имя файла для экспорта, то"
@@ -2749,27 +2808,43 @@ cmd_export_hosts() {
 # ------------------------------------------------------------------------------------------
 add_tag_section_to_protect_list() {
 
-    local section="$1"
-    local tag_selected answer
+    local tag_selected answer domains
     tag_select "добавления" tag_selected
     [ -n "${tag_selected}" ] && {
         print_line
         echo -e "В защищенный список будут добавлены следующие домены:"
         print_line
-        local domains=$(get_tag_domain_list "${tag_selected}")
-        echo -e "${domains}" | sed '$d' | sort -u  | sed = | sed 'N;s/\n/. /g'
-        print_line
-        read_ynq "Добавляем?" answer
+
+		if [ "${tag_selected}" = ALL ] ; then
+			domains=$(cat < "${TAGS_FILE}" | sed 's/\(^.*\)#.*$/\1/g' | grep -Ev '#|\[' | tr -s '\n')
+		else
+			domains=$(get_tag_domain_list "${tag_selected}")
+		fi
+#set -xeu
+		grep_list_to_add=$(echo -e "${domains}" | sed '/^$/d' | sort -u | sed -e 's/^[[:space:]]*//; s/[[:space:]]*$//' | sed 's/\(.*\)/^\1$/g' )
+		local exist_into_list=""
+
+		while IFS= read -r domain; do
+		grep -q "$domain" "${KVAS_LIST_FILE}" || exist_into_list="${exist_into_list}$(echo "${domain}\n" | sed 's/[\^]//; s/[\$]//')"
+		done <<EOF
+$grep_list_to_add
+EOF
+
+		exist_into_list=$(echo -e "${exist_into_list}" | sed '/^$/d' | sed = | sed 'N;s/\n/. /g')
+		echo "${exist_into_list}"
+		print_line
+		read_ynq "Добавляем?" answer
         if [[ "$answer" =~ [qQ] ]] ; then
-            return 0 
+            return 0
         elif [ "${answer}" = y ]; then
             print_line
             local TMPFILE=$(mktemp)
-            echo "${domains}" | sed '$d' > "${TMPFILE}"
+			echo -e "${exist_into_list}" | sed 's/^[0-9]\{1,3\}\. \(.*\)/\1/g' | sed '/^$/d' > "${TMPFILE}"
             cmd_import_hosts "${TMPFILE}"
             rm "${TMPFILE}"
         fi
     }
+
 }
 
 
@@ -2780,24 +2855,33 @@ add_tag_section_to_protect_list() {
 # ------------------------------------------------------------------------------------------
 del_tag_section_to_protect_list() {
 
-    local section="$1"
+    # local section="$1"
     local tag_selected answer
     tag_select "удаления" tag_selected
-    [ -n "${tag_selected}" ] && {
-        print_line
-        echo -e "Из защищенного списка будут удалены следующие домены:"
-        print_line
-        local domains=$(get_tag_domain_list "${tag_selected}")
-        echo -e "${domains}" | sed '$d' | sort -u  | sed = | sed 'N;s/\n/. /g'
-        print_line
-        read_ynq "Удаляем?" answer
-        if [[ "$answer" =~ [qQ] ]] ; then
-            return 0 
-        elif [ "${answer}" = y ]; then
-            print_line
-            del_multy_hosts "${domains}"
-        fi
-    }
+	[ -z "${tag_selected}" ] && return 1
+
+	print_line
+	if [ "${tag_selected}" = ALL ] ; then
+		domains=$(cat < "${TAGS_FILE}" | sed 's/\(^.*\)#.*$/\1/g' | grep -Ev '#|\[' | tr -s '\n')
+	else 
+		domains=$(get_tag_domain_list "${tag_selected}")
+	fi
+	grep_list_to_del=$(echo -e "${domains}" | sed '/^$/d' | sort -u | sed -e 's/^[[:space:]]*//; s/[[:space:]]*$//' | sed 's/\(.*\)/^\1$/g' )
+	exist_into_list=$(grep -oE "${grep_list_to_del}" "${KVAS_LIST_FILE}" | sed = | sed 'N;s/\n/. /g')
+	
+	if [ -n "${exist_into_list}" ] ; then
+		echo -e "${exist_into_list}"
+		print_line
+		read_ynq "Удаляем?" answer
+		if [[ "$answer" =~ [qQ] ]] ; then
+			return 0 
+		elif [ "${answer}" = y ]; then
+			print_line
+			del_multy_hosts "$(echo -e "${exist_into_list}" | sed 's/^[0-9]\{1,3\}\.\().*\)//g')"
+		fi
+    else
+		echo -e "Домены для удаления не обнаружены в списке защиты."
+	fi
 }
 
 
@@ -2808,26 +2892,26 @@ del_tag_section_to_protect_list() {
 #
 # ------------------------------------------------------------------------------------------
 print_host_list(){
-	warning "Список разблокировки содержит ${YELLOW}${num_plus}${GREEN} записей:"
+	warning "Защищенный список содержит ${YELLOW}${num_plus}${GREEN} записей:"
 	print_line
-	clear_content "${UNBLOCK_LIST_FILE}"
+	clear_content "${KVAS_LIST_FILE}"
 }
 
 cmd_show_list() {
 
-	if [ -f "${UNBLOCK_LIST_FILE}" ]; then
-		num_plus=$(rec_in_file "${UNBLOCK_LIST_FILE}")
+	if [ -f "${KVAS_LIST_FILE}" ]; then
+		num_plus=$(rec_in_file "${KVAS_LIST_FILE}")
 		if [ "${num_plus}" -eq 0 ]; then
-			echo -e "${RED}Список разблокировки пуст!${NOCL}"
+			echo -e "${RED}Защищенный список пуст!${NOCL}"
 #			Если список хостов пуст, то проверяем есть ли архивная копия
 			if [ -f "${KVAS_LIST_FILE_BACKUP}" ] ; then
 				print_line
-				warning "Обнаружена архивная копия списка разблокировки!"
+				warning "Обнаружена архивная копия защищенного списка!"
 				answer=''; read_ynq_timer "Восстановить данные из архива или нет [Y/N]?" answer Y 10
 				if [ "${answer}" = q ] ; then exit_q; exit 1; fi
 				if echo "${answer}" | grep -qi y ; then
-					cp "${KVAS_LIST_FILE_BACKUP}" "${UNBLOCK_LIST_FILE}"
-					warning "Список разблокировки восстановлен из архивной копии."
+					cp "${KVAS_LIST_FILE_BACKUP}" "${KVAS_LIST_FILE}"
+					warning "Защищенный список восстановлен из архивной копии."
 					print_line
 					print_host_list
 				else
@@ -2844,17 +2928,17 @@ cmd_show_list() {
 	else
 #		Если список хостов не существует, то проверяем, есть ли архивная копия
 		if [ -f "${KVAS_LIST_FILE_BACKUP}" ] ; then
-			warning "Обнаружена архивная копия списка разблокировки!"
+			warning "Обнаружена архивная копия защищенного списка!"
 				answer=''; read_ynq_timer "Восстановить данные из архива (Y) или нет (N)?" answer Y 10
 				if [ "${answer}" = q ] ; then exit_q; exit 1; fi
 				if echo "${answer}" | grep -qi y ; then
-					cp "${KVAS_LIST_FILE_BACKUP}" "${UNBLOCK_LIST_FILE}"
-					warning "Список разблокировки восстановлен из архивной копии."
+					cp "${KVAS_LIST_FILE_BACKUP}" "${KVAS_LIST_FILE}"
+					warning "Защищенный список восстановлен из архивной копии."
 					print_line
 					print_host_list
 				fi
 		else
-			error "Списка разблокировки не существует."
+			error "Защищенного списка не существует."
 			warning "Пожалуйста, добавьте в него данные при помощи 'kvas add имя_домена'"
 		fi
 	fi

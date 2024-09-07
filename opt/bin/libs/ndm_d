@@ -37,7 +37,7 @@ get_cli_iface_json(){
 # ------------------------------------------------------------------------------------------
 get_iface_description(){
 	cli_iface=${1}
-    get_cli_iface_json "${cli_iface}" | jq '.description'
+    get_cli_iface_json "${cli_iface}" | jq '.description' 2> /dev/null
 }
 # ------------------------------------------------------------------------------------------
 #
