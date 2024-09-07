@@ -19,7 +19,6 @@
 # ------------------------------------------------------------------------------------------
 
 # имя таблицы для ipset
-table_name=unblock
 
 TABLE_ID=1001
 PRIORITY=1778
@@ -191,7 +190,7 @@ ip4_firewall_vpn_mark(){
 		log_warning "Маркируем VPN подключения, когда программное и аппаратное ускорение ПОДКЛЮЧЕНО"
 
 		iptab -S ${VPN_IPTABLES_CHAIN} -t "${table}" 2>/dev/null | grep -q '\-N' || iptab -N ${VPN_IPTABLES_CHAIN} -t "${table}" &>/dev/null
-		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -m set ! --match-set "${table_name}" dst -j RETURN &>/dev/null
+		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -m set ! --match-set "${IPSET_TABLE_NAME}" dst -j RETURN &>/dev/null
 
 		# Игнорируем локальные сети и любые другие адреса, которые вы хотели бы обойти прокси
 		ip4_firewall_exclude_locals ${VPN_IPTABLES_CHAIN} "${table}"  &>/dev/null
@@ -202,8 +201,8 @@ ip4_firewall_vpn_mark(){
 		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM} &>/dev/null
 		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -j CONNMARK --save-mark &>/dev/null
 
-		ip4tables PREROUTING -t "${table}" -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
-		ip4tables OUTPUT     -t "${table}" -m set --match-set "${table_name}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
+		ip4tables PREROUTING -t "${table}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
+		ip4tables OUTPUT     -t "${table}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
 
 	} &>/dev/null || error "[${FUNCNAME}] Во время маркировки трафика для VPN соединений возникли ошибки."
 #	fi
@@ -217,14 +216,13 @@ ip4_firewall_vpn_mark(){
 # ------------------------------------------------------------------------------------------
 ip4_firewall_mark_rules_tcp_udp_on(){
 
-#	rules=$(ip4save | grep "\j MARK" | grep "${table_name}")
 
 #	if [ -z "${rules}" ] ; then
 	{
 		log_warning "Маркировка VPN подключений когда программное и аппаратное ускорение ОТКЛЮЧЕНО."
 		# Исключаем маркировку трафика для гостевой (в том числе) сети
 		_inface_ent=$(inface_ent)
-		ip4tables PREROUTING -t mangle -i "${_inface_ent}" -m set --match-set ${table_name} dst -j MARK --set-mark ${MARK_NUM}
+		ip4tables PREROUTING -t mangle -i "${_inface_ent}" -m set --match-set ${IPSET_TABLE_NAME} dst -j MARK --set-mark ${MARK_NUM}
 
 	}  &>/dev/null || error "[${FUNCNAME}] Возникла ошибка при маркировке трафика гостевой сети для tcp или udp."
 #	fi
@@ -293,11 +291,10 @@ ip4_add_selected_guest_to_ssr_network() {
 	fi
 
 	port=$(get_config_value SSR_DNS_PORT)
-#	if ! iptables-save | grep PREROUTING | grep "${net_filter}" | grep "${net_inface}" | grep unblock | grep REDIRECT | grep -q "${port}" ; then
 	log_warning "Подключаем правила маркировки гостевого трафика ${net_inface} для SHADOWSOCKS."
 
-	iptables -A PREROUTING -t nat ${net_filter} -i ${net_inface} -p tcp -m set --match-set unblock dst -j REDIRECT --to-port ${port}
-	iptables -A PREROUTING -t nat ${net_filter} -i ${net_inface} -p udp -m set --match-set unblock dst -j REDIRECT --to-port ${port}
+	iptables -A PREROUTING -t nat ${net_filter} -i ${net_inface} -p tcp -m set --match-set ${IPSET_TABLE_NAME} dst -j REDIRECT --to-port ${port}
+	iptables -A PREROUTING -t nat ${net_filter} -i ${net_inface} -p udp -m set --match-set ${IPSET_TABLE_NAME} dst -j REDIRECT --to-port ${port}
 
 #	fi
 }
@@ -374,7 +371,7 @@ ip4_firewall_set_ssr_rules(){
 	# https://github.com/shadowsocks/shadowsocks-libev/blob/master/doc/ss-redir.asciidoc?ysclid=l949tgrsfn795375643
 	# Создаем новую цепочку SHADOWSOCKS
 #	ssr_rules=$(ip4save | grep "${SSR_IPTABLES_CHAIN}" | grep -v '\[0:0\]')
-#	routing_rules=$(ip4save | grep PREROUTING | grep " ${interface} " | grep "${table_name}" | grep REDIRECT | grep "${proxy_port}")
+#	routing_rules=$(ip4save | grep PREROUTING | grep " ${interface} " | grep "${IPSET_TABLE_NAME}" | grep REDIRECT | grep "${proxy_port}")
 
 #	if [ -z "${ssr_rules}" ] || [ -z "${routing_rules}" ] ; then
 	{
@@ -389,8 +386,8 @@ ip4_firewall_set_ssr_rules(){
 		# Исключаем любые обращения к собственному адресу SHADOWSOCKS
 		ip4tables ${SSR_IPTABLES_CHAIN} -t nat -d "${ssr_ip}" -j RETURN &>/dev/null
 
-		ip4tables PREROUTING -w -t nat -i "${interface}" -p tcp -m set --match-set "${table_name}" dst -j REDIRECT --to-port "${proxy_port}" &>/dev/null
-		ip4tables PREROUTING -w -t nat -i "${interface}" -p udp -m set --match-set "${table_name}" dst -j REDIRECT --to-port "${proxy_port}" &>/dev/null
+		ip4tables PREROUTING -w -t nat -i "${interface}" -p tcp -m set --match-set "${IPSET_TABLE_NAME}" dst -j REDIRECT --to-port "${proxy_port}" &>/dev/null
+		ip4tables PREROUTING -w -t nat -i "${interface}" -p udp -m set --match-set "${IPSET_TABLE_NAME}" dst -j REDIRECT --to-port "${proxy_port}" &>/dev/null
 
 	} &>/dev/null || error "[${FUNCNAME}] Возникла ошибка при установке правил iptable для Shadowsocks подключения"
 #	fi
@@ -462,7 +459,7 @@ ip4tbl_flush_rm_pre_out(){
 
 # ------------------------------------------------------------------------------------------
 # Производим удаление правил в указанной таблице в одной из стандартных цепочек
-# c правилами содержащими '-m set --match-set ${table_name} dst'
+# c правилами содержащими '-m set --match-set ${IPSET_TABLE_NAME} dst'
 # ------------------------------------------------------------------------------------------
 ip4tbl_flush_rm_match_set(){
 
@@ -475,12 +472,12 @@ ip4tbl_flush_rm_match_set(){
 #		ip4save | grep "${route}" | grep -q "${chain}" && {
 			if [ -n "${interface}" ] && [ -n "${proxy_port}" ] ; then
 #					Для shadowsocks
-				iptab -t "${table}" -i "${interface}" -D "${route}" -p "${prot}" -m set --match-set ${table_name} dst -j "${chain}" --to-port "${proxy_port}" &>/dev/null
-				iptab -t "${table}" -i "${interface}" -D "${route}" -p "${prot}" -m set --match-set ${table_name} dst -j "${chain}" --to-port "${proxy_port}" &>/dev/null
+				iptab -t "${table}" -i "${interface}" -D "${route}" -p "${prot}" -m set --match-set ${IPSET_TABLE_NAME} dst -j "${chain}" --to-port "${proxy_port}" &>/dev/null
+				iptab -t "${table}" -i "${interface}" -D "${route}" -p "${prot}" -m set --match-set ${IPSET_TABLE_NAME} dst -j "${chain}" --to-port "${proxy_port}" &>/dev/null
 			else
 #					Для VPN
-#				iptab -t "${table}" -D "${route}" -p "${prot}" -m set --match-set ${table_name} dst -j "${chain}" &>/dev/null
-				iptab -t "${table}" -D "${route}" -m set --match-set ${table_name} dst -j "${chain}" &>/dev/null
+#				iptab -t "${table}" -D "${route}" -p "${prot}" -m set --match-set ${IPSET_TABLE_NAME} dst -j "${chain}" &>/dev/null
+				iptab -t "${table}" -D "${route}" -m set --match-set ${IPSET_TABLE_NAME} dst -j "${chain}" &>/dev/null
 			fi
 		}
 		done
@@ -560,11 +557,10 @@ ikev2_net_access_del(){
 
 		   port=$(get_config_value SSR_DNS_PORT)
 
-		   if iptables-save | grep PREROUTING | grep "${net_pool}" | grep "${ikev2_inface}" | grep unblock | grep REDIRECT | grep -q "${port}" ; then
+		   if iptables-save | grep PREROUTING | grep "${net_pool}" | grep "${ikev2_inface}" | grep ${IPSET_TABLE_NAME} | grep REDIRECT | grep -q "${port}" ; then
 
-				iptab -D PREROUTING -t nat -s ${net_pool} -p tcp -i ${ikev2_inface} -m set --match-set unblock dst -j REDIRECT --to-port ${port}
-				iptab -D PREROUTING -t nat -s ${net_pool} -p udp -i ${ikev2_inface} -m set --match-set unblock dst -j REDIRECT --to-port ${port}
-#				iptab -D PREROUTING -t nat -s ${net_pool} -i ${net_inface} -m set --match-set unblock dst -j REDIRECT --to-port ${port}
+				iptab -D PREROUTING -t nat -s ${net_pool} -p tcp -i ${ikev2_inface} -m set --match-set ${IPSET_TABLE_NAME} dst -j REDIRECT --to-port ${port}
+				iptab -D PREROUTING -t nat -s ${net_pool} -p udp -i ${ikev2_inface} -m set --match-set ${IPSET_TABLE_NAME} dst -j REDIRECT --to-port ${port}
 
 		   fi
 		else
@@ -669,8 +665,8 @@ ip4_firewall_rm_ssr_selected_guest_net(){
 	guest_inface="${1}"
 	ssr_port=$(get_config_value "SSR_DNS_PORT")
 
-	iptab -D PREROUTING -t nat -p udp -i "${guest_inface}" -m set --match-set unblock dst -j REDIRECT --to-port "${ssr_port}"
-	iptab -D PREROUTING -t nat -p tcp -i "${guest_inface}" -m set --match-set unblock dst -j REDIRECT --to-port "${ssr_port}"
+	iptab -D PREROUTING -t nat -p udp -i "${guest_inface}" -m set --match-set ${IPSET_TABLE_NAME} dst -j REDIRECT --to-port "${ssr_port}"
+	iptab -D PREROUTING -t nat -p tcp -i "${guest_inface}" -m set --match-set ${IPSET_TABLE_NAME} dst -j REDIRECT --to-port "${ssr_port}"
 }
 
 
@@ -757,9 +753,9 @@ ip4_firewall_flush_all_rules(){
 # ------------------------------------------------------------------------------------------
 ip4_flush_all_tables(){
 
-	log_warning "IPset::Производим очистку записей таблицы ${table_name}."
-	ipset flush "${table_name}"  &>/dev/null
-#	when_error "${?}" " ${IPv4} Возникла ошибка при очистке записей ipset таблицы ${table_name}"
+	log_warning "IPset::Производим очистку записей таблицы ${IPSET_TABLE_NAME}."
+	ipset flush "${IPSET_TABLE_NAME}"  &>/dev/null
+#	when_error "${?}" " ${IPv4} Возникла ошибка при очистке записей ipset таблицы ${IPSET_TABLE_NAME}"
 
 	log_warning "IPv4::Производим очистку записей таблицы маршрутизации ID#${TABLE_ID} и удалим ее."
 	ip route flush table "${TABLE_ID}" &>/dev/null
@@ -867,15 +863,15 @@ ip4_rule_del_priority(){
 
 # ------------------------------------------------------------------------------------------
 #
-# 	IPset::Cоздаем таблицу с именем '${table_name}'
+# 	IPset::Cоздаем таблицу с именем '${IPSET_TABLE_NAME}'
 #
 # ------------------------------------------------------------------------------------------
 ip4set_create_table(){
-	if ipset list ${table_name} 2>&1 | grep -q 'name does not exist' ; then
-		log_warning "IPset::Cоздаем таблицу с именем '${table_name}'."
-		ipset create ${table_name} hash:net family inet -exist &>/dev/null \
+	if ipset list ${IPSET_TABLE_NAME} 2>&1 | grep -q 'name does not exist' ; then
+		log_warning "IPset::Cоздаем таблицу с именем '${IPSET_TABLE_NAME}'."
+		ipset create ${IPSET_TABLE_NAME} hash:net family inet -exist timeout 86400&>/dev/null \
 		 || {
-			_err="Ошибка при создании таблицы с именем '${table_name}' для ipset"
+			_err="Ошибка при создании таблицы с именем '${IPSET_TABLE_NAME}' для ipset"
 			error "[${FUNCNAME}] ${_err}"
 		}
 	fi
@@ -966,9 +962,9 @@ ip6tables() (if ! /opt/sbin/ip6tables -C "$@" &>/dev/null; then ip6tables -A "$@
 ip6save() (/opt/sbin/ip6tables-save)
 
 ip6set_create_table(){
-	ipset create "${table_name}6" hash:net family inet6 -exist  &>/dev/null \
+	ipset create "${IPSET_TABLE_NAME}6" hash:net family inet6 -exist timeout 86400 &>/dev/null \
 	 || {
-			_err="${IPv6}Возникла ошибка при создании таблицы с именем '${table_name}' для ipset"
+			_err="${IPv6}Возникла ошибка при создании таблицы с именем '${IPSET_TABLE_NAME}' для ipset"
 			error "[${FUNCNAME}] ${_err}"
 		}
 }

@@ -1249,8 +1249,8 @@ dns_show() {
 vpn_off() {
 #	ready "Интерфейс vpn отключен "
 	[ -f "/opt/etc/ndm/netfilter.d/100-vpn-mark" ] && rm -f "/opt/etc/ndm/netfilter.d/100-vpn-mark"
-	[ -f /opt/etc/ndm/ifstatechanged.d/100-unblock-vpn ] && rm -f /opt/etc/ndm/ifstatechanged.d/100-unblock-vpn
-	[ -f /opt/etc/ndm/iflayerchanged.d/100-unblock-vpn ] && rm -f /opt/etc/ndm/iflayerchanged.d/100-unblock-vpn
+	[ -f /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn ] && rm -f /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
+	[ -f /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn ] && rm -f /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn
 	[ -f "/opt/etc/ndm/fs.d/100-vpn" ] && rm -f "/opt/etc/ndm/fs.d/100-vpn"
 	cmd_vpn_iptable_flush  &> /dev/null
 }
@@ -1305,8 +1305,8 @@ vpn_on() {
 #		Если версия фирменной оболочки равно или больше 4.0,
 #		то применяем механизм iflayerchanged.d, если нет, то ifstatechanged.d
 		hook_dir=$(get_hook_dir)
-		cp "/opt/apps/${APP_NAME}/etc/ndm/${hook_dir}/100-unblock-vpn" "/opt/etc/ndm/${hook_dir}/100-unblock-vpn"
-		chmod +x "/opt/etc/ndm/${hook_dir}/100-unblock-vpn"
+		cp "/opt/apps/${APP_NAME}/etc/ndm/${hook_dir}/100-kvas-vpn" "/opt/etc/ndm/${hook_dir}/100-kvas-vpn"
+		chmod +x "/opt/etc/ndm/${hook_dir}/100-kvas-vpn"
 
 		state=$(get_value_interface_field "${inface_cli}" state)
 
@@ -2295,11 +2295,11 @@ add_host_to_adguard(){
 	#   AdGuardHome обработка
 	echo "${_host}" >> "${KVAS_LIST_FILE}"
 	[ -f "${ADGUARD_IPSET_FILE}" ] && cat < "${ADGUARD_IPSET_FILE}" | grep -q "${clear_host}" \
-	 		|| echo "${clear_host}/unblock" >> "${ADGUARD_IPSET_FILE}"
+	 		|| echo "${clear_host}/${IPSET_TABLE_NAME}" >> "${ADGUARD_IPSET_FILE}"
 	if echo "${host}" | grep -q '\*' ; then
-  		echo "ipset=/:.*${clear_host}:/unblock" >> "${DNSMASQ_IPSET_HOSTS}"
+  		echo "ipset=/:.*${clear_host}:/${IPSET_TABLE_NAME}" >> "${DNSMASQ_IPSET_HOSTS}"
   	else
-    	echo "ipset=/${clear_host}/unblock" >> "${DNSMASQ_IPSET_HOSTS}"
+    	echo "ipset=/${clear_host}/${IPSET_TABLE_NAME}" >> "${DNSMASQ_IPSET_HOSTS}"
   	fi
 }
 

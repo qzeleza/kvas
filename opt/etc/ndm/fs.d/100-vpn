@@ -13,7 +13,7 @@
 #	https://github.com/ndmsystems/packages/wiki/Opkg-Component
 #	при заупске с командой start, где основными задачами являются:
 #
-#	1. Создание правил iptables для ipset для маршрутизации записей в таблице unblock
+#	1. Создание правил iptables для ipset для маршрутизации записей в таблице kvas
 #	2. Поднятие ${INFACE_CLI} интерфейса
 #	3. Создание и установка приоритета таблицы ID#${TABLE_ID} в значение ${PRIORITY}
 #	4. Очистка DNS кеша

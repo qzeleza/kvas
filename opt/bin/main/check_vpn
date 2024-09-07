@@ -52,8 +52,8 @@ get_host_ip(){
                 | grep -E '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'
 }
 
-get_ip_from_unblock(){
-        ub_tag=unblock
+get_ip_from_kvas(){
+        ub_tag=kvas
         host_list=/opt/etc/hosts.list
         num=0; ip=''
         dns=$(get_config_value DNS_DEFAULT | cut -d'#' -f1)

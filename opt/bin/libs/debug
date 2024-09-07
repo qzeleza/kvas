@@ -217,7 +217,7 @@ unblock_list_ipset_check(){
 	sleep 2
 	local bad_ipset_list=""
 	if [ -f "${KVAS_LIST_FILE}" ]; then
-		result_ipset=$(ipset list unblock | grep -vEi '^[a-z]' | sort )
+		result_ipset=$(ipset list ${IPSET_TABLE_NAME} | grep -vEi '^[a-z]' | sort )
 		if [ -n "${result_ipset}" ]; then
 			while read -r line || [ -n "${line}" ]; do
 				[  -z "${line}" ] && continue
@@ -258,7 +258,7 @@ unblock_list_ipset_check(){
 				fi
 			done < "${KVAS_LIST_FILE}"
 		else
-			error "Таблица защиты unblock отсутствует в списке ipset"
+			error "Таблица защиты ${IPSET_TABLE_NAME} отсутствует в списке ipset"
 			echo -e "Проверьте работу скрипта ${GREN}/opt/apps/kvas/bin/main/ipset${NOCL}"
 		fi
 	else
@@ -274,7 +274,7 @@ unblock_list_ipset_check(){
 		print_line
 		printf '%s' "$bad_ipset_list"
 	else 
-		echo -e "${GREEN}Все записи в таблице ${BLUE}unblock${NOCL} ${GREEN}прошли проверку.${NOCL}"
+		echo -e "${GREEN}Все записи в таблице ${BLUE}${IPSET_TABLE_NAME}${NOCL} ${GREEN}прошли проверку.${NOCL}"
 	fi 
 	
 	echo 
@@ -311,16 +311,16 @@ unblock_list_ipset_check(){
 #	 Формируем лог отладочной информации
 #
 # ------------------------------------------------------------------------------------------
-unblock_ipset_debug() {
+kvas_ipset_debug() {
 
 	result=$(cat < "/opt/apps/kvas/bin/main/ipset" | sed -n 's/.*\(@[0-9\.:]\{1,20\}\).*/\1/p' | sort -u)
 	echo_debug "DNS сервер, используемый в /opt/apps/kvas/bin/main/ipset" "${result}"
 #	/opt/apps/kvas/bin/main/ipset &>/dev/null
-	result_ipset=$(ipset list unblock | grep -vEi '^[a-z]' | sort | head -10 | sed 's/^...../*****/')
+	result_ipset=$(ipset list ${IPSET_TABLE_NAME} | grep -vEi '^[a-z]' | sort | head -10 | sed 's/^...../*****/')
 	result=$(echo "${result_ipset}" )
-	echo_debug "Таблица ipset (10 крайних записей)\nкоманда: 'ipset list unblock'" "${result}\n...\n...\n..."
+	echo_debug "Таблица ipset (10 крайних записей)\nкоманда: 'ipset list ${IPSET_TABLE_NAME}'" "${result}\n...\n...\n..."
 	print_line
-	unblock_list_ipset_check
+	kvas_list_ipset_check
 
 }
 
@@ -329,7 +329,7 @@ unblock_ipset_debug() {
 #	 Формируем лог отладочной информации
 #
 # ------------------------------------------------------------------------------------------
-unblock_dnsmasq_debug() {
+kvas_dnsmasq_debug() {
 
 	result=$(cat < "${DNSMASQ_IPSET_HOSTS}" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | sed 's/^...../*****/'  )
 	echo_debug "Защищенный список в ${DNSMASQ_IPSET_HOSTS} (все записи)" "${result}"
@@ -339,7 +339,7 @@ unblock_dnsmasq_debug() {
 #	 Формируем лог отладочной информации
 #
 # ------------------------------------------------------------------------------------------
-unblock_adguard_debug() {
+kvas_adguard_debug() {
 
 #	result=$(cat < "/opt/apps/kvas/bin/main/adguard" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
 #	echo_debug "Скрипт заполнения защищенный список /opt/apps/kvas/bin/main/dnsmasq" "${result}"
@@ -375,14 +375,14 @@ iptables_debug() {
 	if has_ssr_enable; then
 		print_line
 		cmd_shadowsocks_iptable_reset
-		result=$(/opt/sbin/iptables-save 2>/dev/null | grep -E 'unblock|SHADOWSOCKS')
+		result=$(/opt/sbin/iptables-save 2>/dev/null | grep -E ${IPSET_TABLE_NAME}'|SHADOWSOCKS')
 	else
 		print_line
 		. /opt/apps/kvas/bin/libs/ndm
 		cmd_vpn_iptable_reset
-		result=$(/opt/sbin/iptables-save | grep -E 'VPNREDIR|unblock' )
+		result=$(/opt/sbin/iptables-save | grep -E 'VPNREDIR|'${IPSET_TABLE_NAME} )
 	fi
-	echo_debug "Правила перенаправления трафика unblock в iptables\nкоманда: iptables-save | grep -E 'SHADOWSOCKS|VPNREDIR|unblock'" "${result}"
+	echo_debug "Правила перенаправления трафика ${IPSET_TABLE_NAME} в iptables\nкоманда: iptables-save | grep -E 'SHADOWSOCKS|VPNREDIR|'${IPSET_TABLE_NAME}" "${result}"
 }
 
 # ------------------------------------------------------------------------------------------

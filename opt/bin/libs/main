@@ -29,7 +29,7 @@ length=$(stty size 2>/dev/null | cut -d' ' -f2)
 PROGRESS_BAR_WIDTH=$((LENGTH-5))  # progress bar length in characters
 
 KVAS_BACKUP_PATH=/opt/etc/.kvas/backup
-
+IPSET_TABLE_NAME=kvas
 SSR_NAME=ss-redir
 SSR_CMD=/opt/bin/${SSR_NAME}
 # ssr_run()(/opt/bin/sslocal --protocol redir -c /opt/etc/shadowsocks.json ${@}) )

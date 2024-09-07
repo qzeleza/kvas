@@ -51,8 +51,8 @@ host_vpn_pass_check() {
 	extern_ip=$(get_external_ip)
 	ip_list=$(get_iplist_from_domain "${domain}" | tr '\n' ' ' )
 	for adr in ${ip_list::-1}; do
-		${IPSET} list unblock | grep -q "${adr}" || ${IPSET} -exist add unblock "${adr}"
-		${IPSET} list unblock | grep -q "${adr}" || is_ok=1
+		${IPSET} list ${IPSET_TABLE_NAME} | grep -q "${adr}" || ${IPSET} -exist add ${IPSET_TABLE_NAME} "${adr}"
+		${IPSET} list ${IPSET_TABLE_NAME} | grep -q "${adr}" || is_ok=1
 	done
 	ip_list=$(echo "${ip_list}" | tr ' ' ', ' )
 	ready "Адреса домена [${ip_list::-2}] в списке ipset"
@@ -263,7 +263,7 @@ iptable_check() {
 	ready "Наличие правил защиты в iptable"
 	count_local_nets=$(cat < "${EXCLUDED_NET_FILE}" | wc -l)
 	count_ip4tables_rules=$(/opt/sbin/iptables-save \
-		| grep -E "${table_name}|${VPN_IPTABLES_CHAIN}|${SSR_IPTABLES_CHAIN}" \
+		| grep -E "${IPSET_TABLE_NAME}|${VPN_IPTABLES_CHAIN}|${SSR_IPTABLES_CHAIN}" \
 		| grep -c '\-A')
 
 	if [ "${count_ip4tables_rules}" -gt "${count_local_nets}" ] ; then
@@ -278,7 +278,7 @@ iptable_check() {
 			ip4_mark_vpn_network
 		fi
 		ready "Повторная проверка правил защиты в iptable"
-		if /opt/sbin/iptables-save | grep -qE "${table_name}|${VPN_IPTABLES_CHAIN}|${SSR_IPTABLES_CHAIN}";  then
+		if /opt/sbin/iptables-save | grep -qE "${IPSET_TABLE_NAME}|${VPN_IPTABLES_CHAIN}|${SSR_IPTABLES_CHAIN}";  then
 			when_ok "ПРОЙДЕНА"
 		else
 			when_bad "ОШИБКА"
@@ -306,14 +306,14 @@ ipset_check() {
 	ip4set_create_table
 	sleep 3
 	/opt/apps/kvas/bin/main/ipset &> /dev/null
-	if ipset list "${table_name}" | grep -vEi '^[a-z]' &> /dev/null; then
+	if ipset list "${IPSET_TABLE_NAME}" | grep -vEi '^[a-z]' &> /dev/null; then
 		when_ok "ЗАПОЛНЕНА"
 	else
 		when_bad "ПУСТАЯ"
 		ipset_flush &> /dev/null
 		/opt/apps/kvas/bin/main/ipset &> /dev/null
 		ready "Повторная проверка заполнения ipset таблицы"
-		if ipset list "${table_name}" | grep -vEi '^[a-z]' &> /dev/null; then
+		if ipset list "${IPSET_TABLE_NAME}" | grep -vEi '^[a-z]' &> /dev/null; then
 			when_ok "ПРОЙДЕНА"
 		else
 			when_bad "ОШИБКА"
@@ -483,7 +483,7 @@ ipset_site_visit_check() {
 	/opt/apps/kvas/bin/main/ipset &> /dev/null
 	print_line
 	ready "Таблица ipset"
-	if ipset list unblock | grep -vqEi '^[a-z]'; then
+	if ipset list ${IPSET_TABLE_NAME} | grep -vqEi '^[a-z]'; then
 		when_ok "ЗАПОЛНЕНА"
 	else
 		when_bad "ПУСТА"
@@ -566,6 +566,6 @@ cmd_state_checker() {
 #
 # ------------------------------------------------------------------------------------------
 ipset_flush() {
-	ipset flush unblock
+	ipset flush ${IPSET_TABLE_NAME}
 	#  	ipset flush unblock6
 }

@@ -139,14 +139,14 @@ cmd_pause_kvas(){
 		ip4_rule_del_priority
 		
 		# Архивируем файлы механизма ndm
-		[ -f /opt/etc/ndm/iflayerchanged.d/100-unblock-vpn ] && {
-			mv /opt/etc/ndm/iflayerchanged.d/100-unblock-vpn ${KVAS_BACKUP_PATH}/100-unblock-vpn-layer
+		[ -f /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn ] && {
+			mv /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn ${KVAS_BACKUP_PATH}/100-kvas-vpn-layer
 		}
 		[ -f /opt/etc/ndm/iflayerchanged.d/kvas-ips-reset ] && {
 			mv /opt/etc/ndm/iflayerchanged.d/kvas-ips-reset ${KVAS_BACKUP_PATH}/kvas-ips-reset-layer
 		}
 		[ -f /opt/etc/ndm/ifstatechanged.d/kvas-ips-reset ] && {
-			mv /opt/etc/ndm/ifstatechanged.d/100-unblock-vpn ${KVAS_BACKUP_PATH}/100-unblock-vpn-state
+			mv /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn ${KVAS_BACKUP_PATH}/100-kvas-vpn-state
 		}
 		[ -f /opt/etc/ndm/netfilter.d/100-proxy-redirect ] && {
 			mv /opt/etc/ndm/netfilter.d/100-proxy-redirect ${KVAS_BACKUP_PATH}/100-proxy-redirect 
@@ -184,14 +184,14 @@ cmd_unpause_kvas(){
 	ready "Восстанавливаем работу Кваса после паузы..."
 	{
 		#  Восстанавливаем из архива файлы механизма ndm
-		[ -f ${KVAS_BACKUP_PATH}/100-unblock-vpn-layer ] && {
-			mv ${KVAS_BACKUP_PATH}/100-unblock-vpn-layer /opt/etc/ndm/iflayerchanged.d/100-unblock-vpn 
+		[ -f ${KVAS_BACKUP_PATH}/100-kvas-vpn-layer ] && {
+			mv ${KVAS_BACKUP_PATH}/100-kvas-vpn-layer /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn 
 		}
-		[ -f ${KVAS_BACKUP_PATH}/100-unblock-vpn-layer ] && {
-			mv ${KVAS_BACKUP_PATH}/100-unblock-vpn-layer /opt/etc/ndm/iflayerchanged.d/100-unblock-vpn 
+		[ -f ${KVAS_BACKUP_PATH}/100-kvas-vpn-layer ] && {
+			mv ${KVAS_BACKUP_PATH}/100-kvas-vpn-layer /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn 
 		}
-		[ -f ${KVAS_BACKUP_PATH}/100-unblock-vpn-state ] && {
-			mv ${KVAS_BACKUP_PATH}/100-unblock-vpn-state /opt/etc/ndm/ifstatechanged.d/100-unblock-vpn
+		[ -f ${KVAS_BACKUP_PATH}/100-kvas-vpn-state ] && {
+			mv ${KVAS_BACKUP_PATH}/100-kvas-vpn-state /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
 		}
 		[ -f ${KVAS_BACKUP_PATH}/100-proxy-redirect ] && {
 			mv ${KVAS_BACKUP_PATH}/100-proxy-redirect /opt/etc/ndm/netfilter.d/100-proxy-redirect  
@@ -298,11 +298,11 @@ rm_package_files(){
 	ready "Удаляем файлы пакета Квас" && {
 		rm_file_or_dir	/opt/etc/ndm/fs.d/100-vpn
 		rm_file_or_dir	/opt/etc/ndm/fs.d/100-ipset
-		rm_file_or_dir	/opt/etc/ndm/ifstatechanged.d/100-unblock-vpn
+		rm_file_or_dir	/opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
 		rm_file_or_dir	/opt/etc/ndm/netfilter.d/100-vpn-mark
 		rm_file_or_dir	/opt/etc/ndm/netfilter.d/100-proxy-redirect
 		rm_file_or_dir	/opt/etc/ndm/netfilter.d/100-dns-local
-		rm_file_or_dir	/opt/etc/ndm/iflayerchanged.d/100-unblock-vpn
+		rm_file_or_dir	/opt/etc/ndm/iflayerchanged.d/100-kvas-vpn
 		rm_file_or_dir	/opt/etc/ndm/iflayerchanged.d/kvas-ips-reset
 		rm_file_or_dir	/opt/etc/ndm/ifcreated.d/kvas-iface-add
 		rm_file_or_dir	/opt/etc/ndm/ifdestroyed.d/kvas-iface-del
@@ -426,7 +426,7 @@ cmd_install(){
 
 	[ -d "/opt/etc/ndm/iflayerchanged.d" ] || mkdir -p /opt/etc/ndm/iflayerchanged.d
 	hook_dir=$(get_hook_dir); home_dir=/opt/apps/kvas
-	ln -sf "${home_dir}/etc/ndm/${hook_dir}/100-unblock-vpn" "/opt/etc/ndm/${hook_dir}/100-unblock-vpn"
+	ln -sf "${home_dir}/etc/ndm/${hook_dir}/100-kvas-vpn" "/opt/etc/ndm/${hook_dir}/100-kvas-vpn"
 	ln -sf "${home_dir}/etc/ndm/iflayerchanged.d/kvas-ips-reset" "/opt/etc/ndm/iflayerchanged.d/kvas-ips-reset"
 	ln -sf "${home_dir}/etc/ndm/ifcreated.d/kvas-iface-add" "/opt/etc/ndm/ifcreated.d/kvas-iface-add"
 	ln -sf "${home_dir}/etc/ndm/ifdestroyed.d/kvas-iface-del" "/opt/etc/ndm/ifdestroyed.d/kvas-iface-del"

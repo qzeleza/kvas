@@ -7,7 +7,7 @@
 #------------------------------------------------------------------------------
 #
 #	Данный файл служит для формирования из записей hosts.list
-#	специальных записей вида "ipset=/хост/unblock"
+#	специальных записей вида "ipset=/хост/kvas"
 # 	для конфигурационного файла dnsmasq типа, которые
 # 	записыватся в /opt/etc/dnsmasq.d/kvas.dnsmasq.
 #
@@ -40,7 +40,7 @@ logger -t "kvas" "Запущен файл ${0}"
 # 	fi
 
 # }
-
+IPSET_TABLE_NAME=kvas
 ipset_file=/opt/etc/dnsmasq.d/kvas.dnsmasq
 host_list=/opt/etc/hosts.list
 #--------------------------------------------------------------
@@ -61,9 +61,9 @@ while read -r line || [ -n "${line}" ]; do
   host=$line
   if echo "${host}" | grep -q '\*' ; then
   	host=$(echo "${host}" | sed 's/\*//; s/\./\\./g;')
-  	echo "ipset=/:.*${host}:/unblock" >> "${ipset_file}"
+  	echo "ipset=/:.*${host}:/${IPSET_TABLE_NAME}" >> "${ipset_file}"
   else
-    echo "ipset=/${host}/unblock" >> "${ipset_file}"
+    echo "ipset=/${host}/${IPSET_TABLE_NAME}" >> "${ipset_file}"
   fi
 
 done < "${host_list}"
