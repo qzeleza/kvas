@@ -54,7 +54,7 @@ get_host_ip(){
 
 get_ip_from_kvas(){
         ub_tag=kvas
-        host_list=/opt/etc/hosts.list
+        host_list=/opt/etc/kvas.list
         num=0; ip=''
         dns=$(get_config_value DNS_DEFAULT | cut -d'#' -f1)
         while read -r host || [ -n "${host}" ]; do
@@ -93,7 +93,7 @@ test_connection(){
 			fi
 
 #			После проверки работоспособности кода выше этот код и участвующие в нем функции выше удалить!!!
-			#ip_to_test=$(get_ip_from_unblock)
+			#ip_to_test=$(get_ip_from_kvas)
 			#for i in {0..3}
 			#do
 			#       ps w | grep -v grep | grep -q "ping -I ${ENTWARE_INTERFACE} ${ip_to_test}" ||  ping_ip "${ip_to_test}"

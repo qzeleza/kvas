@@ -1,0 +1,112 @@
+#!/bin/sh
+# ------------------------------------------------------------------------------------------
+#
+# 	ПРОЕКТ КВАС
+#
+# 	Данный файл служит для поддержки vless протокола
+#   Реализованы такие функции:
+#		- получение списка тегов
+#		- получение списка доменных имен по тегу
+#		- добавление доменного имени по тегу в список
+#		- удаление доменного имени по тегу из списка
+#
+# ------------------------------------------------------------------------------------------
+#
+#	Разработчик: kvas@zeleza.ru
+#	Дата: 09/09/2024
+#	Лицензия: Apache License 2.0
+#
+# ------------------------------------------------------------------------------------------
+
+. /opt/apps/kvas/bin/libs/main
+
+VLESS_CONFIG_FILE=/opt/etc/xray/vless.json
+
+# ------------------------------------------------------------------------------------------
+#
+#	Обрабатываем ссылку vless:// и записываем данные в файл конфигурации
+#
+# ------------------------------------------------------------------------------------------
+_vless_link_parse() {
+
+    local link="$1"
+    local tag="${link#vless://}"
+
+    # парсим параметры из ссылки vless://
+
+    local vless_id=$(echo "${tag}" | sed 's/\(.*\)@.*:.*/\1/')
+    local vless_address=$(echo "${tag}" | sed 's/.*@\(.*\):.*/\1/')
+    local vless_port=$(echo "${tag}" | sed 's/.*@.*:\(.*\)?.*/\1/')
+    local vless_network=$(echo "${tag}" | sed 's/.*\?type=\(.*\)&.*/\1/' | cut -d'&' -f1)
+    local vless_sni=$(echo "${tag}" | sed 's/.*\?type=.*&sni=\(.*\)/\1/' | cut -d'&' -f1)
+    local vless_short_id=$(echo "${tag}" | sed 's/.*\?type=.*&sid=\(.*\)/\1/' | cut -d'&' -f1)
+    local vless_browser_fp=$(echo "${tag}" | sed 's/.*\?type=.*&fp=\(.*\)/\1/' | cut -d'&' -f1)
+    local vless_pub_key=$(echo "${tag}" | sed 's/.*\?type=.*&pbk=\(.*\)/\1/' | cut -d'&' -f1)
+    local vless_security=$(echo "${tag}" | sed 's/.*\?type=.*&security=\(.*\)/\1/' | cut -d'&' -f1)
+
+    # Проверка наличия обязательных параметров
+
+    [ "${vless_security}" = "reality" ] || {
+        error "Тип протокола ${vless_security} не поддерживается"; exit 1
+    }
+    [ -z "${vless_id}" ] || {
+        error "Не задан идентификатор пользователя"; exit 1
+    } 
+    [ -z "${vless_address}" ] || {
+        error "Не задан адрес сервера"; exit 1
+    }
+    [ -z "${vless_port}" ] || {
+        error "Не задан порт сервера"; exit 1
+    }
+    [ -z "${vless_network}" ] || {
+        error "Не задан тип сетевого соединения"; exit 1
+    }   
+    [ -z "${vless_sni}" ] || {
+        error "Не задано имя сервера"; exit 1
+    }
+    [ -z "${vless_short_id}" ] || {
+        error "Не задан сокращенный id "; exit 1
+    }
+    [ -z "${vless_browser_fp}" ] || {
+        error "Не задан тип браузера"; exit 1
+    }
+    [ -z "${vless_pub_key}" ] || {
+        error "Не задан публичный ключ сервера"; exit 1
+    }
+
+    # Меняем значения в конфигурационном файле
+    sed -i "\
+        /inbounds/,/outbounds/ {\
+            s/\(.*port\": \).*\(\,\)/\1${vless_ssr_port}\2/; \
+	    }; \
+        /outbounds/,/realitySettings/ {\
+            s/\(.*address\": \).*\(\,\)/\1\"${vless_address}\"\2/; \
+	        s/\(.*port\": \).*\(\,\)/\1${vless_port}\2/; \
+	        s/\(.*id\": \).*\(\,\)/\1\"${vless_id}\"\2/; \
+	    };  \
+        /realitySettings/,/tag/ {\
+            s/\(.*network\": \).*\(\,\)/\1\"${vless_network}\"\2/;  \
+            s/\(.*publicKey\": \).*\(\,\)/\1\"${vless_pub_key}\"\2/; \
+            s/\(.*fingerprint\": \).*\(\,\)/\1\"${vless_browser_fp}\"\2/; \
+            s/\(.*serverName\": \).*\(\,\)/\1\"${vless_sni}\"\2/;
+            s/\(.*shortId\": \).*\(\,\)/\1\"${vless_short_id}\"\2/;
+	    };"  \
+   "${VLESS_CONFIG_FILE}"
+
+}
+
+has_xray_package_installed() {
+
+    [ -d /opt/etc/xray ] || {
+        error "Пакет xray не установлен"; exit 1
+    }
+}
+
+has_proxy_package_installed() {
+
+    [ -f /etc/proxy/ ] && cat /etc/components.xml | grep -q 'Proxy client' || {
+        error "Пакет Proxy client не установлен"
+        warrning "Установите пакет Proxy client через WUI роутера. "
+        exit 1
+    }
+}

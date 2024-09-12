@@ -301,7 +301,7 @@ ipset_check() {
 	ready "Заполнение ipset таблицы скриптами КВАСа"
 	if ! [ -f "${KVAS_LIST_FILE}" ] || \
 	[ "$(grep -vcE '^$|#' "${KVAS_LIST_FILE}" )" -eq 0 ] ; then
-		cp /opt/apps/kvas/etc/conf/hosts.list "${KVAS_LIST_FILE}"
+		cp /opt/apps/kvas/etc/conf/kvas.list "${KVAS_LIST_FILE}"
 	fi
 	ip4set_create_table
 	sleep 3
@@ -328,7 +328,7 @@ ipset_check() {
 #	 Проверяем заполнение kvas.dnsmasq
 #
 # ------------------------------------------------------------------------------------------
-unblock_dnsmasq_check() {
+kvas_dnsmasq_check() {
 	ready "Список правил ipset для dnsmasq"
 	if [ "$(cat < "${DNSMASQ_IPSET_HOSTS}" | wc -l)" -gt 0 ]; then
 		when_ok "ЗАПОЛНЕН"
@@ -342,7 +342,7 @@ unblock_dnsmasq_check() {
 			when_bad "ОШИБКА"
 			print_line
 			if [ "$(cat < "${KVAS_LIST_FILE}" | wc -l)" -gt 0 ]; then
-				error "Белый список пуст - /opt/etc/hosts.list"
+				error "Белый список пуст - /opt/etc/kvas.list"
 				warning "Добавьте туда хосты командой ${BLUE}kvas add host.com"
 			else
 				error "Проверьте работу скрипта/opt/apps/kvas/bin/main/dnsmasq"
@@ -373,7 +373,7 @@ cmd_adguard_check() {
 				when_bad "ОШИБКА"
 				print_line
 				if [ "$(cat < "${KVAS_LIST_FILE}" | wc -l)" -gt 0 ]; then
-					error "Белый список пуст - /opt/etc/hosts.list"
+					error "Белый список пуст - /opt/etc/kvas.list"
 					warning "Добавьте в него хосты командой ${BLUE}kvas add имя_домена${NOCL}"
 				else
 					error "Проверьте работу скрипта/opt/apps/kvas/bin/main/adguard"
@@ -540,7 +540,7 @@ cmd_state_checker() {
 	print_line
 #
 #	Проверка наличия ip адресов хостов в таблице ipset - попытка номер раз
-	unblock_list_ipset_check
+	kvas_list_ipset_check
 	if [ "${NOT_IN_TABLE}" = true ]; then
 		print_line
 #		если хотя бы один из адресов не находится в таблице, то делаем проверку повторно
@@ -549,7 +549,7 @@ cmd_state_checker() {
 		warning "Пробуем запустить повторно."
 		print_line
 #		Проверка наличия ip адресов хостов в таблице ipset
-		unblock_list_ipset_check
+		kvas_list_ipset_check
 		NOT_IN_TABLE=false
 	fi
 	print_line
@@ -567,5 +567,5 @@ cmd_state_checker() {
 # ------------------------------------------------------------------------------------------
 ipset_flush() {
 	ipset flush ${IPSET_TABLE_NAME}
-	#  	ipset flush unblock6
+	#  	ipset flush kvas6
 }

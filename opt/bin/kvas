@@ -160,7 +160,7 @@ case "${1}" in
 		;;
 	debug)
 		case "${2}" in
-			ipset) 			unblock_list_ipset_check ;;
+			ipset) 			kvas_list_ipset_check ;;
 			*) 				cmd_print_debug "${2}"		;;
 		esac
 		;;

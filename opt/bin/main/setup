@@ -281,7 +281,7 @@ rm_package_files(){
 
 	if [ "${full}" = full ] ; then
 		ready "Удаляем архивные копии пакета Квас" && {
-			rm_file_or_dir 	/opt/etc/hosts.list
+			rm_file_or_dir 	/opt/etc/kvas.list
 			rm_file_or_dir 	/opt/tmp/adblock
 			rm_file_or_dir 	/opt/etc/kvas*
 			rm_file_or_dir 	/opt/etc/ads_exception.list

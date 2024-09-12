@@ -2,7 +2,7 @@
 
 . /opt/apps/kvas/bin/libs/main
 
-HOST_LIST=/opt/etc/hosts.list
+HOST_LIST=/opt/etc/kvas.list
 IP_FILTER='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'
 
 # ------------------------------------------------------------------------------

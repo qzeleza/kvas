@@ -22,7 +22,7 @@
 
 # Файл с тегами
 TAGS_FILE=/opt/apps/kvas/etc/conf/tags.list
-KVAS_LIST_FILE=/opt/etc/hosts.list
+KVAS_LIST_FILE=/opt/etc/kvas.list
 
 # ------------------------------------------------------------------------------------------
 #

@@ -174,7 +174,7 @@ dnscrypt_proxy_debug() {
 kvas_list_debug() {
 
 	result=$(cat < "${KVAS_LIST_FILE}" | sed 's/^\(.*\)\(#.*\)/\2/; s/^...../*****/; /^#/d; /^$/d')
-	echo_debug "Защищенный список /opt/etc/hosts.list (все записи)" "${result}"
+	echo_debug "Защищенный список /opt/etc/kvas.list (все записи)" "${result}"
 }
 
 hide_num_letters(){
@@ -209,7 +209,7 @@ check_words_in_multiline_var() {
 #	 Проверка наличия ip адресов хостов в таблице ipset
 #
 # ------------------------------------------------------------------------------------------
-unblock_list_ipset_check(){
+kvas_list_ipset_check(){
 
 	echo "Проверка наличия ip адресов хостов в таблице ipset"
 
@@ -262,7 +262,7 @@ unblock_list_ipset_check(){
 			echo -e "Проверьте работу скрипта ${GREN}/opt/apps/kvas/bin/main/ipset${NOCL}"
 		fi
 	else
-		error "Отсутствует защищенный список /opt/etc/hosts.list"
+		error "Отсутствует защищенный список /opt/etc/kvas.list"
 		echo -e "Добавьте домены в этот список командой ${GREN}kvas add <domain.ru>${NOCL}"
 	fi
 
@@ -430,7 +430,8 @@ router_info() {
 			| sed 's/:/: /; s/country/Страна/; s/ndmhwid/Модель/; s/product/Продукт/' \
 			)
 	arch=$(grep "arch" /opt/etc/entware_release | sed 's/arch=/Тип архитектуры: /')
-	result="${result}\n${arch}"
+	keenos=$(curl -s localhost:79/rci/show/version | jq -s '.[] | .title'| tr -d '"')
+	result="${result}\n${arch}\nВерсия KeenOS: ${keenos}"
 	echo_debug "Информация о роутере" "${result}"
 
 }
@@ -523,13 +524,13 @@ print_debug() {
 	show_interfaces_debug
 
 	if cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then
-		unblock_adguard_debug
+		kvas_adguard_debug
 	else
 		print_line
 		dnsmasq_debug
 		dnscrypt_proxy_debug
 		adblock_dnsmasq_debug
-		unblock_dnsmasq_debug
+		kvas_dnsmasq_debug
 	fi
 
 	print_line
@@ -541,7 +542,7 @@ print_debug() {
 #	print_line
 	iptables_debug
 	kvas_list_debug
-	unblock_ipset_debug
+	kvas_ipset_debug
 
 
 }

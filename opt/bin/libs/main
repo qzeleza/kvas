@@ -36,7 +36,7 @@ SSR_CMD=/opt/bin/${SSR_NAME}
 ssr_run()(/opt/bin/ss-redir -c /opt/etc/shadowsocks.json ${@}) 
 
 KVAS_CONF_FILE=/opt/etc/kvas.conf
-KVAS_LIST_FILE=/opt/etc/hosts.list
+KVAS_LIST_FILE=/opt/etc/kvas.list
 ADGUARDHOME_CONFIG=/opt/etc/AdGuardHome/AdGuardHome.yaml
 ADGUARD_IPSET_FILE=/opt/etc/AdGuardHome/kvas.ipset
 SHADOWSOCKS_CONF=/opt/etc/shadowsocks.json
@@ -44,11 +44,11 @@ DNSMASQ_IPSET_HOSTS=/opt/etc/dnsmasq.d/kvas.dnsmasq
 DNSMASQ_CONFIG=/opt/etc/dnsmasq.conf
 DNSCRYPT_CONFIG=/opt/etc/dnscrypt-proxy.toml
 ADBLOCK_LIST_EXCEPTION=/opt/etc/adblock/exception.list
-ADBLOCK_HOSTS_FILE=/opt/etc/adblock/ads.hosts.list
+ADBLOCK_HOSTS_FILE=/opt/etc/adblock/ads.kvas.list
 ADBLOCK_SOURCES_LIST=/opt/etc/adblock/sources.list
 
 KVAS_CONFIG_BACKUP=${KVAS_BACKUP_PATH}/kvas.conf
-KVAS_LIST_FILE_BACKUP=${KVAS_BACKUP_PATH}/hosts.list
+KVAS_LIST_FILE_BACKUP=${KVAS_BACKUP_PATH}/kvas.list
 ADGUARDHOME_CONFIG_BACKUP=${KVAS_BACKUP_PATH}/AdGuardHome.yaml
 ADGUARD_IPSET_FILE_BACKUP=${KVAS_BACKUP_PATH}/kvas.ipset
 SHADOWSOCKS_CONF_BACKUP=${KVAS_BACKUP_PATH}/shadowsocks.json
@@ -56,7 +56,7 @@ DNSMASQ_IPSET_HOSTS_BACKUP=${KVAS_BACKUP_PATH}/kvas.dnsmasq
 DNSMASQ_CONFIG_BACKUP=${KVAS_BACKUP_PATH}/dnsmasq.conf
 DNSCRYPT_CONFIG_BACKUP=${KVAS_BACKUP_PATH}/dnscrypt-proxy.toml
 ADBLOCK_LIST_EXCEPTION_BACKUP=${KVAS_BACKUP_PATH}/exception.list
-ADBLOCK_HOSTS_FILE_BACKUP=${KVAS_BACKUP_PATH}/ads.hosts.list
+ADBLOCK_HOSTS_FILE_BACKUP=${KVAS_BACKUP_PATH}/ads.kvas.list
 ADBLOCK_SOURCES_LIST_BACKUP=${KVAS_BACKUP_PATH}/sources.list
 
 ADGUARDHOME_LOG=/opt/var/log/AdGuardHome.log

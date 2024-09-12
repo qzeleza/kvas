@@ -1,0 +1,64 @@
+
+{
+    "log": {
+        "access": "/opt/etc/v2ray/access.log",
+        "error": "/opt/etc/v2ray/errors.log",
+        "loglevel": "debug"
+    },
+    "inbounds": [
+        {
+            "listen": "127.0.0.1",
+            "port": @VLESS_SSR_PORT,
+            "protocol": "socks",
+            "settings": {
+                "udp": true
+            }
+        }
+    ],
+    "outbounds": [
+        {
+            "tag": "vless-reality",
+            "protocol": "vless",
+            "settings": {
+                "vnext": [
+                    {
+                        "address": @VLESS_ADDRESS,
+                        "port": @VLESS_PORT,
+                        "users": [
+                            {
+                                "id": "@VLESS_ID",
+                                "flow": "xtls-rprx-vision",
+                                "encryption": "none",
+                                "level": 0
+                            }
+                        ]
+                    }
+                ]
+            },
+            "streamSettings": {
+                "network": "@VLESS_NETWORK",
+                "security": "reality",
+                "realitySettings": {
+                    "publicKey": "@VLESS_PUB_KEY",
+                    "fingerprint": "@VLESS_BROWSER_FP",
+                    "serverName": "@VLESS_SNI",
+                    "shortId": "@VLESS_SHORT_ID",
+                    "spiderX": "/"
+                }
+            }
+        },
+        {
+            "tag": "direct",
+            "protocol": "freedom"
+        },
+        {
+            "tag": "block",
+            "protocol": "blackhole",
+            "settings": {
+                "response": {
+                    "type": "http"
+                }
+            }
+        }
+    ]
+}
