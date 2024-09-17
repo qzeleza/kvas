@@ -174,7 +174,7 @@ select_release_from_list(){
 # Удаляем пакет nano из системы если он установлен, вместо него установим nano-full
 # ---------------------------------------------------------------------------------------------
 remove_nano(){
-	nano_name=$(opkg list-installed | grep nano | cut -d' ' -f1)
+	nano_name=$(opkg list-installed | grep 'nano ' | cut -d' ' -f1)
 	[ -n "${nano_name}" ] && opkg --force-remove --force-depends remove "${nano_name}" &> /dev/null
 }
 
@@ -206,13 +206,13 @@ sed -i 's/\(export TERM=\).*/\1xterm-256color/' /opt/etc/profile
 set_escapes
 
 #--------------------------------------------------------------------------------------------------------------
-# print_line	
+print_line	
 ready "Проверка наличия интернета"
 has_no_internet_here && {
 	when_err "ОТСУТСТВУЕТ"
 	print_error "Проверьте свое интернет соединение!"
 	exit 1
-} || when_ok "ПРИСУТСТВУЕТ"
+} || when_ok "ГОТОВО"
 
 #--------------------------------------------------------------------------------------------------------------
 # если в параметрах есть аргумент full,
@@ -282,8 +282,10 @@ print_line
 ready 'Обновляем библиотеку пакетов opkg...'
 {
 	opkg update
-	remove_nano
 } &>/dev/null && when_ok || when_err
+
+# удаляем nano, чтобы поставить nano-full
+remove_nano
 
 #--------------------------------------------------------------------------------------------------------------
 ready 'Загружаем пакет...'
@@ -328,7 +330,7 @@ connect_home_nets(){
 	# подключаем одну гостевую сеть к Квасу, если она имеется
 	ip a | grep global | grep -v br0 | grep -qE br[1-9] &&  {
 		clear
-		cmd_bridge_vpn_access_add
+		kvas vpn net add
 	}
 }
 

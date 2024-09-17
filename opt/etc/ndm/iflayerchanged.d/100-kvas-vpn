@@ -14,7 +14,7 @@
 #	Подключаем библиотеку с функциями обработки ndm
 . /opt/apps/kvas/bin/libs/ndm_d
 
-local cli_inface="$(inface_cli)"
+cli_inface="$(inface_cli)"
 
 if [ "${1}" = "hook" ] && echo "${id}" | grep -q "${cli_inface}"; then
 

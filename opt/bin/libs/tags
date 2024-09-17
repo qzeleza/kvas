@@ -375,7 +375,7 @@ EOF
             fi
 
         done
-set -xeu
+#set -xeu
         if [[ "${choice}" =~ [aA] ]] ; then
             # если выбрано все
             eval "$2=ALL"
@@ -388,5 +388,5 @@ set -xeu
     else
         error "Список заквасок пуст.\nПроверьте наличие заквасок в файле '${TAGS_FILE}'."
     fi
-set +xeu
+#set +xeu
 }

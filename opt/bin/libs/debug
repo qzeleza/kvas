@@ -249,33 +249,36 @@ kvas_list_ipset_check(){
 					fi
                    
 					if ! check_words_in_multiline_var "${result_ipset}" "${ips}" ; then
-					# 	ready "${GREEN}${hided_line}${NOCL} ${cutted}"; when_ok "В ТАБЛИЦЕ" ;
-					# else
 						bad_ipset_list="$(printf "%s" "${bad_ipset_list}\n$(ready "${RED}${line}${NOCL} ${cutted}"; when_bad "ОТСУТСТВУЕТ")")"
 						NOT_IN_TABLE=true
 					fi
 
 				fi
+				
 			done < "${KVAS_LIST_FILE}"
+
+			# Удаляем пустые строки
+			bad_ipset_list=$(printf "%s" "${bad_ipset_list}" | sed '/^$/d')
+			if [ -n "${bad_ipset_list}" ] ; then 
+				print_line
+				echo -e "${RED}ВНИМАНИЕ!${NOCL} Выводятся только записи с ошибками: ОТСУТСТВУЕТ и АДРЕСА НЕТ"
+				print_line
+				printf '%s' "$bad_ipset_list"
+			else 
+				print_line
+				echo -e "${GREEN}Все записи в таблице ${BLUE}${IPSET_TABLE_NAME}${NOCL} ${GREEN}прошли проверку.${NOCL}"
+			fi 
+
 		else
 			error "Таблица защиты ${IPSET_TABLE_NAME} отсутствует в списке ipset"
-			echo -e "Проверьте работу скрипта ${GREN}/opt/apps/kvas/bin/main/ipset${NOCL}"
+			echo -e "Проверьте работу скрипта ${GREN}/opt/apps/kvas/bin/main/ipset${NOCL}, запустив его."
 		fi
 	else
 		error "Отсутствует защищенный список /opt/etc/kvas.list"
 		echo -e "Добавьте домены в этот список командой ${GREN}kvas add <domain.ru>${NOCL}"
 	fi
 
-	# Удаляем пустые строки
-	bad_ipset_list=$(printf "%s" "${bad_ipset_list}" | sed '/^$/d')
-	if [ -n "${bad_ipset_list}" ] ; then 
-		print_line
-		echo -e "${RED}ВНИМАНИЕ!${NOCL} Выводятся только записи с ошибками: ОТСУТСТВУЕТ и АДРЕСА НЕТ"
-		print_line
-		printf '%s' "$bad_ipset_list"
-	else 
-		echo -e "${GREEN}Все записи в таблице ${BLUE}${IPSET_TABLE_NAME}${NOCL} ${GREEN}прошли проверку.${NOCL}"
-	fi 
+	
 	
 	echo 
 	[ "${HAS_NO_ADDRESS}" = true ] && {
@@ -505,9 +508,10 @@ cmd_print_debug() {
 	if [ -z "${1}" ] ; then
 		print_debug
 	else
-		ready "Записываем данные отладки в файл ${1}..."
+		# ready "Записываем данные отладки в файл ${1}..."
 		REP='_'
-		print_debug | sed -E "s/\\\033\[[0-9;]*[a-zA-Z]//g" > "${1}" && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+		print_debug | sed -E "s/\\\033\[[0-9;]*[a-zA-Z]//g" | tee "${1}" 
+		#&& when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 	fi
 }
 

@@ -427,12 +427,12 @@ adguardhome_setup() {
 
 #	в случае установленного dnsmasq останавливаем его и архивируем
 	[ -f /opt/etc/init.d/S56dnsmasq ] && {
-		/opt/etc/init.d/S56dnsmasq stop &> /dev/null
+		/opt/etc/init.d/S56dnsmasq status | grep -q alive && /opt/etc/init.d/S56dnsmasq stop &> /dev/null
 		mv -f /opt/etc/init.d/S56dnsmasq "${KVAS_BACKUP_PATH}"
 	}
 #	в случае наличия сервиса dnscrypt_proxy2 останавливаем его и архивируем
 	[ -f /opt/etc/init.d/S09dnscrypt-proxy2 ] && {
-		/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
+		/opt/etc/init.d/S09dnscrypt-proxy2 status | grep -q alive && /opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
 		mv -f /opt/etc/init.d/S09dnscrypt-proxy2 "${KVAS_BACKUP_PATH}"
 	}
 	[ -f "${ADGUARDHOME_DEMON}" ] && ${ADGUARDHOME_DEMON} stop &> /dev/null
@@ -452,7 +452,6 @@ adguardhome_setup() {
 #	если файл сервис adguard в наличии то архивируем файл конфигурации
 	if [ -f "${ADGUARDHOME_DEMON}" ] && [ -f /opt/bin/AdGuardHome.yaml ]; then
 		cp /opt/bin/AdGuardHome.yaml "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml
-		cp /opt/bin/AdGuardHome.yaml "${ADGUARDHOME_CONFIG}"
 	fi
 #	и копируем подготовленный файл сервиса adguard в папку запуска сервисов
 #	проверяем файл на оригинальность (без переделок ли он под квас)
@@ -477,6 +476,7 @@ adguardhome_setup() {
 #	Обновляем правила ip4tables для доступного соединения
 	ip4_firewall_flush_all_rules
 	ip4_firewall_set_all_rules
+	
 
 	[ -f "${ADGUARDHOME_DEMON}" ] && "${ADGUARDHOME_DEMON}" start &> /dev/null
 #	отслеживаем результат запуска сервиса adguard
@@ -532,6 +532,27 @@ cmd_adguardhome_status() {
 	fi
 
 }
+
+# ------------------------------------------------------------------------------------------
+#
+#	Проверяем порт на занятость и если он занят, то убиваем процесс 
+# 	делаем двойную проверку на всякий случай
+#
+# 	$1 - проверяемый порт
+#
+# ------------------------------------------------------------------------------------------
+check_port(){
+
+	local _port="${1}"
+	local _pid=$(netstat -tulnp | grep ":${_port} " | sed -n 's/.* \([0-9]*\)\/.*/\1/p' | head -1)
+	[ -n "${_pid}" ] && {
+		kill -9 "${_pid}"  &> /dev/null
+		_pid=$(netstat -tulnp | grep ":${_port} " | sed -n 's/.* \([0-9]*\)\/.*/\1/p' | head -1)
+		[ -n "${_pid}" ] && kill -9 "${_pid}"  &> /dev/null
+	}
+}
+
+
 # ------------------------------------------------------------------------------------------
 #
 #	 Производим настройку AdGuard Home в качестве основного DNS сервера
@@ -539,7 +560,7 @@ cmd_adguardhome_status() {
 # ------------------------------------------------------------------------------------------
 adguardhome_check_config() {
 		# Проверяем наличие	архивной копии AdGuardHome
-		if [ -f "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml ] && [ -f ${ADGUARDHOME_DEMON}]; then
+		if [ -f "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml ] && [ -f ${ADGUARDHOME_DEMON} ]; then
 			cp "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml "${ADGUARDHOME_CONFIG}"
 			"${ADGUARDHOME_DEMON}" restart  &> /dev/null
 			ip=$(get_router_ip)
@@ -586,7 +607,10 @@ adguardhome_check_config() {
 			rm -f "${log_file}" "${tmp_conf}"
 			touch "${log_file}"
 
-
+			# Проверяем стандартные порты
+			check_port 3000
+			check_port 53
+			
 #			Если случайно был уже запущен какой либо экземпляр процесса AdGuardHome, то удаляем его из памяти
 			pid_to_kill=$(ps -w | grep 'AdGuardHome -l /opt/var/log/AdGuardHome.log' | grep -v 'grep' | cut -d' ' -f1)
 			[ -n "${pid_to_kill}" ] && kill -9 "${pid_to_kill}" &> /dev/null
@@ -597,8 +621,8 @@ adguardhome_check_config() {
 
 			while true; do
 				if cat < "${log_file}" | grep 'go to http' | grep -qv ':3000' || cat < "${log_file}" | grep -q ' listen tcp 0.0.0.0:3000: bind: address already in use' ; then
-					killall AdGuardHome
 					mv "${tmp_conf}" "${ADGUARDHOME_CONFIG}"
+					killall AdGuardHome
 					adguardhome_setup
 					print_line
 					exit 0
@@ -609,6 +633,8 @@ adguardhome_check_config() {
 
 		fi
 }
+
+
 # ------------------------------------------------------------------------------------------
 #
 #	 Производим локальную установку AdGuard Home в качестве основного DNS сервера
@@ -627,6 +653,7 @@ adguardhome_install_locally() {
 		{
 			[ -f /opt/etc/init.d/S56dnsmasq ] && /opt/etc/init.d/S56dnsmasq stop &> /dev/null
 			[ -f /opt/etc/init.d/S09dnscrypt-proxy2 ] && /opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
+
 			# обнуляем файлы конфигурации 
 			> /opt/etc/dnsmasq.d/kvas.dnsmasq
 			> /opt/var/log/AdGuardHome.log
@@ -668,6 +695,8 @@ cmd_adguardhome_on() {
 	fi
 #	восстанавливаем /opt/etc/hosts
 	[ -f "${KVAS_BACKUP_PATH}/hosts" ] &&  cp -f "${KVAS_BACKUP_PATH}/hosts" /opt/etc/hosts
+
+	"${ADGUARDHOME_DEMON}" restart &> /dev/null	
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -678,7 +707,7 @@ cmd_adguardhome_off(){
 	ready "AdGuard Home в качестве DNS сервера удален"
 	[ -f "${ADGUARDHOME_CONFIG}" ] && sed -i "s/\( port:\) .*/\1 0/" "${ADGUARDHOME_CONFIG}"
 	[ -f "${ADGUARDHOME_DEMON}" ] && {
-		${ADGUARDHOME_DEMON} stop
+		${ADGUARDHOME_DEMON} stop &> /dev/null
 		kill -9 $(pgrep AdGuardHome) &> /dev/null	
 	}
 	[ -f "${ADGUARDHOME_CONFIG}" ] && mv -f "${ADGUARDHOME_CONFIG}" "${KVAS_BACKUP_PATH}/AdGuardHome.yaml"
@@ -1506,7 +1535,11 @@ shadowsocks_read_link(){
 	if [[ -n "${SSR_LINK}" && "${#SSR_LINK}" -gt 6 ]] ; then
 		SSR_LINK="$(echo "${SSR_LINK}" | sed -E 's/(.*)[#?\/]\?.*|(.*)#.*/\1\2/')"
 		password=$(echo "${SSR_LINK}" | grep -oP "(?<=ss://).*?(?=@)" | base64 -d )
-		SSR_SERVER_PASSWD=$(echo "${password}" | cut -d ":" -f 2)
+		if echo "${password}" | grep -q ":" ; then 
+			SSR_SERVER_PASSWD=$(echo "${password}" | cut -d ":" -f 2) 
+		else 
+			SSR_SERVER_PASSWD="${password}"
+		fi
 		SSR_SERVER_CRYPT=$(echo "${password}" | cut -d ":" -f 1)
 		SSR_SERVER_IP=$(echo "${SSR_LINK}" | grep -oP "(?<=@).*?(?=:)")
 		SSR_SERVER_PORT=$(echo "${SSR_LINK}" | sed 's/.*@.*:\([0-9]\{1,6\}\).*/\1/')
@@ -2750,6 +2783,7 @@ cmd_export_hosts() {
 	if [ -z "${backup_name}" ]; then
 		error "Так как не задано имя файла для экспорта, то"
 		error "Сохраняем архив в файл ${KVAS_LIST_FILE_BACKUP}"
+		backup_name=${KVAS_LIST_FILE_BACKUP}
 	else
 		mkdir -p "$(dirname "${backup_name}")" && touch "${backup_name}" &> /dev/null
 	fi
