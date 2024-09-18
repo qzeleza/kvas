@@ -104,9 +104,30 @@ has_xray_package_installed() {
 
 has_proxy_package_installed() {
 
-    [ -f /etc/proxy/ ] && cat /etc/components.xml | grep -q 'Proxy client' || {
+    [ -d /etc/proxy ] && cat /etc/components.xml | grep -q 'Proxy client' || {
         error "Пакет Proxy client не установлен"
         warrning "Установите пакет Proxy client через WUI роутера. "
-        exit 1
+        return 1
     }
+    return 0
+}
+
+install_proxy_package() {
+    if ! has_proxy_package_installed ; then 
+
+        echo -e "${GREEN}Устанавливаем пакет Proxy client...${NOCL}"
+        print_line
+        echo -e "${RED}Внимание${NOCL}"
+        echo -e "После установки пакета последует перезагрузка устройства."
+        echo -e "Далее,после перезагрузки и подключения к локальной сети "
+        echo -e "роутера Вам необходимо заново войти на устройство."
+
+        curl -s -d '{"component":"proxy"}' localhost:79/rci/components/install &>/dev/null
+        sleep 1
+        echo "kvas proxy continue" >> /opt/etc/profile
+        curl -s -d '{"component":"proxy"}' localhost:79/rci/components/commit &>/dev/null
+    else
+
+
+    fi
 }

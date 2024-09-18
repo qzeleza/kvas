@@ -23,7 +23,7 @@
 TABLE_ID=1001
 PRIORITY=1778
 MARK_NUM=0xd1000
-DNS_PORT=53
+DNS_PORT=${MAIN_DNS_PORT}
 
 
 
@@ -135,20 +135,7 @@ ip4_firewall_dns_rules_set(){
 	local_ip=$(get_router_ip)
 
 	ip4tables PREROUTING -t nat -p udp --dport ${DNS_PORT} -j DNAT --to "${local_ip}:${DNS_PORT}" &>/dev/null
-#	for protocol in tcp udp ; do
-		#	Если не заданы аргументы, то ничего не выполняем
-# 		if [ -n "${interface}" ] && [ -n "${local_ip}" ]; then
-# 			# если правила для tcp есть, то пропускаем их добавление
-# 			if ! ip4save | grep -q "${protocol} \-\-dport ${DNS_PORT} \-j DNAT" ; then
-# 				log_warning "Подключаем правила для корректной работы DNS трафика через 53 порт:"
-# 				log_warning "Интерфейс: ${interface}, IP: ${local_ip}, протокол: ${protocol}."
-# 				ip4tables PREROUTING -w -t nat -i "${interface}" --dport ${DNS_PORT} -j DNAT --to "${local_ip}" &>/dev/null
-# #					|| error "[${FUNCNAME}] Возникла ошибка в функции при установке правил iptables."
-# 			fi
-# 		else
-# 			log_error "При вызове ip4_firewall_dns_rules_set не были заданы обязательные аргументы."
-# 		fi
-#	done
+
 }
 
 
@@ -239,10 +226,7 @@ get_guest_net(){
 }
 ip4_add_selected_guest_to_vpn_network(){
 	guest_inface="${1}"
-#	rules_masq=$(ip4save  | grep "\-j MASQUERADE" | grep " ${guest_inface} ")
-#	rules_dns=$(ip4save | grep " ${guest_inface} " | grep DNAT | grep 53)
-#	if [ -z "${rules_masq}" ] ; then
-			# Маркируем трафик гостевой сети
+	# Маркируем трафик гостевой сети
 	{
 		log_warning "Подключаем правила маркировки гостевого трафика для VPN."
 		ip4tables POSTROUTING -t nat -s "$(get_guest_net "${guest_inface}")" -o "${guest_inface}" -j MASQUERADE
