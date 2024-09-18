@@ -102,6 +102,8 @@ case "${1}" in
 	hosts)
 		case "${2}" in
 			add ) 			cmd_hosts_one_add "${3}" "${4}" ;;
+			del ) 			cmd_hosts_one_del "${3}";;
+			prune ) 		cmd_hosts_prune ;;
 			edit ) 			cmd_hosts_edit ;;
 			*) 				cmd_hosts_list ;;
 		esac

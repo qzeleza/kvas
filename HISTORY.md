@@ -3,6 +3,8 @@
 - Произведена замена имени ipset таблицы unblock на фирменное название kvas и файла iflayerchanged.d/100-unblock-vpn в iflayerchanged.d/100-kvas-vpn
 - Произведена замена файла hosts.list на kvas.list
 - Удалено регулярное 5 мин. добавление в ipset таблицу адресов, вместо этого изменен параметр ttl для ipset таблицы и DNS-серверов (Благодарность [avn](https://forum.keenetic.com/profile/16836-avn/)).
+- Небольшие правки кода по issue #[162](https://github.com/qzeleza/kvas/issues/162)
+- Добавлены команды для работы с файлом /opt/etc/hosts: hosts del ip|domain и hosts prune  
 
 ## 1.1.9 release 2
 
