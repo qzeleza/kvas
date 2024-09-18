@@ -5,6 +5,8 @@
 - Удалено регулярное 5 мин. добавление в ipset таблицу адресов, вместо этого изменен параметр ttl для ipset таблицы и DNS-серверов (Благодарность [avn](https://forum.keenetic.com/profile/16836-avn/)).
 - Небольшие правки кода по issue #[162](https://github.com/qzeleza/kvas/issues/162)
 - Добавлены команды для работы с файлом /opt/etc/hosts: hosts del ip|domain и hosts prune  
+- Из-за высокого уровня загрузки процессора, секция server_names = ['google', 'yandex', 'cloudflare'] в dnscrypt-proxy2 теперь отключена по умолчанию, каждый сам может ее активировать в настройках /opt/etc/dnscrypt-proxy2.toml.
+
 
 ## 1.1.9 release 2
 
