@@ -609,7 +609,7 @@ adguardhome_check_config() {
 
 			# Проверяем стандартные порты
 			check_port 3000
-			check_port 53
+			check_port ${MAIN_DNS_PORT}
 			
 #			Если случайно был уже запущен какой либо экземпляр процесса AdGuardHome, то удаляем его из памяти
 			pid_to_kill=$(ps -w | grep 'AdGuardHome -l /opt/var/log/AdGuardHome.log' | grep -v 'grep' | cut -d' ' -f1)
@@ -1706,6 +1706,7 @@ shadowsocks_on() {
 
 	# меняем данные в файлах shadowsocks
 	sed -i 's/ss-local/ss-redir/g' "/opt/etc/init.d/S22shadowsocks"
+	
 	#	включаем shadowsocks службу
 	print_line
 	ready "Запускаем сервис shadowsocks..."

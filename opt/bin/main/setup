@@ -430,7 +430,7 @@ cmd_install(){
 	ln -sf "${home_dir}/etc/ndm/iflayerchanged.d/kvas-ips-reset" "/opt/etc/ndm/iflayerchanged.d/kvas-ips-reset"
 	ln -sf "${home_dir}/etc/ndm/ifcreated.d/kvas-iface-add" "/opt/etc/ndm/ifcreated.d/kvas-iface-add"
 	ln -sf "${home_dir}/etc/ndm/ifdestroyed.d/kvas-iface-del" "/opt/etc/ndm/ifdestroyed.d/kvas-iface-del"
-
+	
 	setup_test_provider_dns
 
 	[ -f "${KVAS_START_FILE}" ] || cp -f /opt/apps/kvas/etc/init.d/S96kvas "${KVAS_START_FILE}"
