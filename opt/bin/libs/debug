@@ -21,55 +21,60 @@
 # ------------------------------------------------------------------------------------------
 dnsmasq_debug() {
 
-	warning "Состояние службы dnsmasq по команде "
-	ready "/opt/etc/init.d/S56dnsmasq status"
-	if /opt/etc/init.d/S56dnsmasq status &> /dev/null; then
-		when_ok "ЗАПУЩЕНА"
-	else
-		when_bad "ОСТАНОВЛЕНА"
-		print_line
-		result=$(/opt/sbin/dnsmasq)
-		case "${result}" in
-		0) warning "Dnsmasq успешно повторно запущен." ;;
-		1)
-			error "Обнаружена проблема с файлом конфигурации"
-			error "Запускаем проверку файла конфигурации dnsmasq"
+	[ -f /opt/etc/init.d/S56dnsmasq ] && {
+
+		warning "Состояние службы dnsmasq по команде "
+		
+		ready "/opt/etc/init.d/S56dnsmasq status"
+		if /opt/etc/init.d/S56dnsmasq status &> /dev/null; then
+			when_ok "ЗАПУЩЕНА"
+		else
+			when_bad "ОСТАНОВЛЕНА"
 			print_line
-			/opt/sbin/dnsmasq --test
-			print_line
-			warning "Файл конфигурации dnsmasq"
-			print_line
-			cat < "/opt/etc/dnsmasq.conf" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d'
-			print_line
-			exit 1
-			;;
-		2)
-			error "Возникла проблема с доступом к сети"
-			error "используемый адрес, попытка использовать "
-			error "привилегированные порты без разрешения"
-			exit 1
-			;;
-		3)
-			error "Возникла проблема при обращении к файловой системе"
-			error "отсутствующий файл /каталог или разрешения на них."
-			exit 1
-			;;
-		4)
-			error "Сбой выделения памяти."
-			exit 1
-			;;
-		5)
-			error "Невыявленная проблема."
-			exit 1
-			;;
-		11 | *)
-			error "[${result}] Проблемы при выделении адресов для аренды DHCP "
-			exit 1
-			;;
-		esac
-	fi
-	result=$(cat < /opt/etc/dnsmasq.conf | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
-	echo_debug "Выборка из файла конфигурации dnsmasq: /opt/etc/dnsmasq.conf" "${result}"
+			result=$(/opt/sbin/dnsmasq)
+			case "${result}" in
+			0) warning "Dnsmasq успешно повторно запущен." ;;
+			1)
+				error "Обнаружена проблема с файлом конфигурации"
+				error "Запускаем проверку файла конфигурации dnsmasq"
+				print_line
+				/opt/sbin/dnsmasq --test
+				print_line
+				warning "Файл конфигурации dnsmasq"
+				print_line
+				cat < "/opt/etc/dnsmasq.conf" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d'
+				print_line
+				exit 1
+				;;
+			2)
+				error "Возникла проблема с доступом к сети"
+				error "используемый адрес, попытка использовать "
+				error "привилегированные порты без разрешения"
+				exit 1
+				;;
+			3)
+				error "Возникла проблема при обращении к файловой системе"
+				error "отсутствующий файл /каталог или разрешения на них."
+				exit 1
+				;;
+			4)
+				error "Сбой выделения памяти."
+				exit 1
+				;;
+			5)
+				error "Невыявленная проблема."
+				exit 1
+				;;
+			11 | *)
+				error "[${result}] Проблемы при выделении адресов для аренды DHCP "
+				exit 1
+				;;
+			esac
+		fi
+		result=$(cat < /opt/etc/dnsmasq.conf | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
+		echo_debug "Выборка из файла конфигурации dnsmasq: /opt/etc/dnsmasq.conf" "${result}"
+
+	}
 }
 
 # ------------------------------------------------------------------------------------------

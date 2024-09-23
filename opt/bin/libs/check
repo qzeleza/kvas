@@ -96,29 +96,32 @@ dns_override_check() {
 # ------------------------------------------------------------------------------------------
 dnsmasq_check() {
 
-	! [ -f "${DNSMASQ_IPSET_HOSTS}" ] && /opt/apps/kvas/bin/main/dnsmasq &> /dev/null
-	ready "Состояние службы dnsmasq"
-	if /opt/etc/init.d/S56dnsmasq status | grep -q alive ; then
-		when_ok "ЗАПУЩЕНА"
-	else
-		when_bad "ОСТАНОВЛЕНА"
-		ready "Перезапускаем еще раз dnsmasq"
-		if /opt/etc/init.d/S56dnsmasq restart &> /dev/null; then
-			when_ok "УСПЕШНО"
+	[ -f /opt/etc/init.d/S56dnsmasq ] && {
+	
+		! [ -f "${DNSMASQ_IPSET_HOSTS}" ] && /opt/apps/kvas/bin/main/dnsmasq &> /dev/null
+		ready "Состояние службы dnsmasq"
+		if /opt/etc/init.d/S56dnsmasq status | grep -q alive ; then
+			when_ok "ЗАПУЩЕНА"
 		else
-			when_bad "ОШИБКА"
-			error "Запустите диагностику командой kvas debug"
+			when_bad "ОСТАНОВЛЕНА"
+			ready "Перезапускаем еще раз dnsmasq"
+			if /opt/etc/init.d/S56dnsmasq restart &> /dev/null; then
+				when_ok "УСПЕШНО"
+			else
+				when_bad "ОШИБКА"
+				error "Запустите диагностику командой kvas debug"
+				exit 1
+			fi
+		fi
+		port=$(get_config_value DNSMASQ_PORT)
+		ready "Отслеживание порта #${port} сервисом dnsmasq"
+		if netstat -ltunp 2> /dev/null | grep -E "(${port}|dnsmasq)" &> /dev/null; then
+			when_ok "СЛЕДИМ"
+		else
+			when_bad "НЕТ ЗАПИСИ"
 			exit 1
 		fi
-	fi
-	port=$(get_config_value DNSMASQ_PORT)
-	ready "Отслеживание порта #${port} сервисом dnsmasq"
-	if netstat -ltunp 2> /dev/null | grep -E "(${port}|dnsmasq)" &> /dev/null; then
-		when_ok "СЛЕДИМ"
-	else
-		when_bad "НЕТ ЗАПИСИ"
-		exit 1
-	fi
+	}
 }
 # ------------------------------------------------------------------------------------------
 #

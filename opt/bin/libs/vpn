@@ -1706,10 +1706,7 @@ shadowsocks_on() {
 
 	# меняем данные в файлах shadowsocks
 	sed -i 's/ss-local/ss-redir/g' "/opt/etc/init.d/S22shadowsocks"
-
-	# в случае отсуствия библиотеки libmbedtls - устанавливаем библиотеку 
-	check_crypto_ssr_libs
-
+	
 	#	включаем shadowsocks службу
 	print_line
 	ready "Запускаем сервис shadowsocks..."

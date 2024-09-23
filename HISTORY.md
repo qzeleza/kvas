@@ -1,4 +1,4 @@
-## 1.1.10 release 1
+## 1.1.10 betta 4
 
 - Произведена замена имени ipset таблицы unblock на фирменное название kvas и файла iflayerchanged.d/100-unblock-vpn в iflayerchanged.d/100-kvas-vpn
 - Произведена замена файла hosts.list на kvas.list
@@ -7,6 +7,9 @@
 - Добавлены команды для работы с файлом /opt/etc/hosts: hosts del ip|domain и hosts prune  
 - Из-за высокого уровня загрузки процессора, секция server_names = ['google', 'yandex', 'cloudflare'] в dnscrypt-proxy2 теперь отключена по умолчанию, каждый сам может ее активировать в настройках /opt/etc/dnscrypt-proxy2.toml.
 - Добавлена закваска для Telegram
+- Добавлены закваски по различным тематикам
+- Добавлена проверка наличия библиотеки libmbedtls
+- Добавлена возможность при сканировании интерфейсов отображать OpenConnect
 
 ## 1.1.9 release 2
 
