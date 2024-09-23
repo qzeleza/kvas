@@ -609,7 +609,7 @@ adguardhome_check_config() {
 
 			# Проверяем стандартные порты
 			check_port 3000
-			check_port 53
+			check_port ${MAIN_DNS_PORT}
 			
 #			Если случайно был уже запущен какой либо экземпляр процесса AdGuardHome, то удаляем его из памяти
 			pid_to_kill=$(ps -w | grep 'AdGuardHome -l /opt/var/log/AdGuardHome.log' | grep -v 'grep' | cut -d' ' -f1)
@@ -1706,6 +1706,10 @@ shadowsocks_on() {
 
 	# меняем данные в файлах shadowsocks
 	sed -i 's/ss-local/ss-redir/g' "/opt/etc/init.d/S22shadowsocks"
+
+	# в случае отсуствия библиотеки libmbedtls - устанавливаем библиотеку 
+	check_crypto_ssr_libs
+
 	#	включаем shadowsocks службу
 	print_line
 	ready "Запускаем сервис shadowsocks..."
@@ -2439,7 +2443,6 @@ cmd_add_one_host() {
 	# Если первый параметр пуст или равен 'tags', то 
 	# делаем запрос на выбор закваски и добавляем все доменные имена из закваски в список защиты
 	[ -z "${host}" ] || [ "${host}" = tags ] && {
-		
 		add_tag_section_to_protect_list
 		return 0
 	}
@@ -2828,16 +2831,16 @@ EOF
 		exist_into_list=$(echo -e "${exist_into_list}" | sed '/^$/d' | sed = | sed 'N;s/\n/. /g')
 		echo "${exist_into_list}"
 		print_line
-		# read_ynq "Добавляем?" answer
-        # if [[ "$answer" =~ [qQ] ]] ; then
-        #     return 0
-        # elif [ "${answer}" = y ]; then
-        #     print_line
-		local TMPFILE=$(mktemp)
-		echo -e "${exist_into_list}" | sed 's/^[0-9]\{1,3\}\. \(.*\)/\1/g' | sed '/^$/d' > "${TMPFILE}"
-		cmd_import_hosts "${TMPFILE}"
-		rm "${TMPFILE}"
-        # fi
+		read_ynq "Добавляем?" answer
+        if [[ "$answer" =~ [qQ] ]] ; then
+            return 0
+        elif [ "${answer}" = y ]; then
+            print_line
+            local TMPFILE=$(mktemp)
+			echo -e "${exist_into_list}" | sed 's/^[0-9]\{1,3\}\. \(.*\)/\1/g' | sed '/^$/d' > "${TMPFILE}"
+            cmd_import_hosts "${TMPFILE}"
+            rm "${TMPFILE}"
+        fi
     }
 
 }

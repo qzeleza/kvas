@@ -96,6 +96,39 @@ MINUS=9
 
 #-------------------------------------------------------------------------------
 # 
+#	Функция проверяет установку пакета libmbedtls
+# 
+#-------------------------------------------------------------------------------
+
+check_crypto_ssr_libs(){
+
+	[ -f /opt/lib/libmbedcrypto.so.16 ] || {
+		opkg install libmbedtls &> /dev/null
+		local libmbedcrypto=$(find /opt/lib/ -type f -name "libmbedcrypto.so*" | head -1)
+		[ -n "${libmbedcrypto}" ] && ln -sf "${libmbedcrypto}" /opt/lib/libmbedcrypto.so.16
+	}
+		
+}
+
+#-------------------------------------------------------------------------------
+# 
+#	Функция отправляет запросы к API Keenetic
+# 
+#-------------------------------------------------------------------------------
+post_api_query(){
+	local _query=${1}
+	local _data=${2:-}
+	local _result
+
+	if [ -z "${_data}" ]; then 
+		curl -s "localhost:79/rci/${_query}" && _result=true || _result=false
+	else
+		curl -s -d "${_data}" "localhost:79/rci/${_query}" && _result=true || _result=false
+	fi
+	return ${result}
+}
+#-------------------------------------------------------------------------------
+# 
 #	Функция которая экранирует спец символы для sed
 # 
 #-------------------------------------------------------------------------------
