@@ -1771,6 +1771,11 @@ EOF
 		reset_connection "${inface_cli}" "${delay}"
 		# получаем описание интерфейса
 		description=$(get_value_interface_field "${inface_cli}" description | sed 's|\/|\\/|g')
+
+		# Ищем интерфейс ProxyVless0 в списке и обновляем его описание 
+		# данное имя (ProxyVless0) дается интерфейсу при его создании и оно уникально, чтобы не спутать его с другими Proxy
+		[[ "${inface_cli}" == "ProxyVless0" ]] && description="${description} [vless]"
+
 		# вставляем описание в файл /opt/etc/inface_equals
 		[ -n "${description}" ] && \
 			sed -i 's/\('"${inface_cli}"'.*\)/\1|'"${description}"'/' "${INFACE_NAMES_FILE}"

@@ -436,6 +436,8 @@ cmd_install(){
 	[ -f "${KVAS_START_FILE}" ] || cp -f /opt/apps/kvas/etc/init.d/S96kvas "${KVAS_START_FILE}"
 	chmod +x "${KVAS_START_FILE}"
 
+	# Создаем ссылку на наш скрипт для запуска xray в /opt/etc/init.d 
+	[ -f "/opt/sbin/xray" ] || ln -s /opt/apps/kvas/etc/init.d/S97xray /opt/etc/init.d/S97xray
 	#------------------------------------------------------
 	# Отключаем IPv6
 	#------------------------------------------------------
