@@ -1,7 +1,7 @@
 #!/bin/sh
+source /opt/apps/kvas/bin/libs/main
 
 EQUALS_INTERFACE_FILE=/opt/etc/inface_equals
-
 
 get_config_value(){
         grep "${1}" /opt/etc/kvas.conf | cut -d'=' -f2
@@ -82,8 +82,8 @@ test_connection(){
         if echo "${ENTWARE_INTERFACE}" | grep -q ezcfg ; then
         	ssr_ip=$(cat < "${SHADOWSOCKS_CONF}" | grep '"server"'| sed 's/.*:.*"\(.*\)".*/\1/')
         	# если пинг на сервер ssr не проходит или статус сервиса отличен от alive, то перезапускаем сервис ssr
-            if ! ping -c1 -A | "${ssr_ip}" | grep -q 'seq=' || /opt/etc/init.d/S22shadowsocks status | grep -vq alive ; then
-                        reset_ssr_connection
+            if ! ping -c1 -A "${ssr_ip}" | grep -q 'seq=' || /opt/etc/init.d/S22shadowsocks status | grep -vq alive ; then
+                        restart_ssr_connection
             fi
         else
 #        	если соединение отлично от ssr и его состояния: state и link отличны от up,
