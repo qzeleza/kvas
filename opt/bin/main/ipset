@@ -26,7 +26,8 @@ logger -t "КВАС" "Запущен файл ${0}"
 
 
 # проверяем доступность сети
-until ADDRS=$(kdig +short ya.ru @localhost ) && [ -n "${ADDRS}" ] > /dev/null 2>&1; do sleep 5; done
+# until ADDRS=$(kdig +short ya.ru @localhost ) && [ -n "${ADDRS}" ] > /dev/null 2>&1; do sleep 5; done
+until ADDRS=$(kdig +short ya.ru @127.0.0.1:9153) && [ -n "${ADDRS}" ] || /opt/etc/init.d/S09dnscrypt-proxy2 restart &>/dev/null ; do sleep 10; done
 
 # обновляем таблицу ipset данными из файла с доменными именами, IP и сетями
 while read -r line || [ -n "${line}" ]; do
