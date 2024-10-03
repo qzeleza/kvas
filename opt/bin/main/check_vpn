@@ -1,20 +1,18 @@
 #!/bin/sh
 source /opt/apps/kvas/bin/libs/main
 
-EQUALS_INTERFACE_FILE=/opt/etc/inface_equals
-
 get_config_value(){
         grep "${1}" /opt/etc/kvas.conf | cut -d'=' -f2
 }
 get_current_entware_vpn_interface() {
         inface_entware=$(get_config_value INFACE_ENT)
-        inface=$(grep "${inface_entware}" "${EQUALS_INTERFACE_FILE}" | cut -d'|' -f2)
+        inface=$(grep "${inface_entware}" "${INFACE_NAMES_FILE}" | cut -d'|' -f2)
         echo "${inface}"
 }
 
 get_current_cli_vpn_interface() {
         inface_entware=$(get_config_value INFACE_ENT)
-        inface=$(grep "${inface_entware}" "${EQUALS_INTERFACE_FILE}"  | cut -d'|' -f1)
+        inface=$(grep "${inface_entware}" "${INFACE_NAMES_FILE}"  | cut -d'|' -f1)
         echo "${inface}"
 }
 
