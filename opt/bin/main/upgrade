@@ -266,10 +266,13 @@ fi
 # получаем из имени файла его номер версии
 version=$(echo "${package_name}" | sed 's/kvas_\(.*\)_all.*/\1/; s/-/ /g; s/_/-/' )
 
-
-print_line
+# если в параметрах нет аргумента rollback, то выводим линию
+echo "${*}" | grep -q 'rollback' && CL_VER=${RED} || { 
+	print_line
+	CL_VER=${BLUE}
+}
 # запускаем этап установки пакета
-echo -e "${GREEN}Установка пакета КВАС версии ${BLUE}[${version}]${NOCL}"
+echo -e "${GREEN}Установка пакета КВАС версии ${CL_VER}[${version}]${NOCL}"
 
 # в случае отсутствия возможности создания новой папки
 cd /opt && mkdir -p /opt/packages || {
