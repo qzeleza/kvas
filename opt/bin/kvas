@@ -64,7 +64,7 @@ case "${1}" in
 							echo "Для удаления пакета наберите 'kvas uninstall'"
 							;;
 
-	vless) 					cmd_install_vless_proxy ;;
+	vless) 					cmd_install_proxy_package ;;
 	pause|freeze)           cmd_pause_kvas ;;
 	unpause|unfreeze)       cmd_unpause_kvas ;;
 	

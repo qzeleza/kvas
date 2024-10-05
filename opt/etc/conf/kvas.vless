@@ -1,23 +1,24 @@
 
 {
     "log": {
-        "access": "/opt/etc/v2ray/access.log",
-        "error": "/opt/etc/v2ray/errors.log",
+        "access": "/opt/etc/xray/access.log",
+        "error": "/opt/etc/xray/errors.log",
         "loglevel": "debug"
+    },
+    "routing": {
+        "rules": [],
+        "domainStrategy": "AsIs"
     },
     "inbounds": [
         {
             "listen": "127.0.0.1",
             "port": @VLESS_SSR_PORT,
-            "protocol": "socks",
-            "settings": {
-                "udp": true
-            }
+            "protocol": "socks"
         }
     ],
     "outbounds": [
         {
-            "tag": "vless-reality",
+            "tag": "vless",
             "protocol": "vless",
             "settings": {
                 "vnext": [
@@ -28,8 +29,7 @@
                             {
                                 "id": "@VLESS_ID",
                                 "flow": "xtls-rprx-vision",
-                                "encryption": "none",
-                                "level": 0
+                                "encryption": "none"
                             }
                         ]
                     }
@@ -44,19 +44,11 @@
                     "serverName": "@VLESS_SNI",
                     "shortId": "@VLESS_SHORT_ID",
                     "spiderX": "/"
-                }
-            }
-        },
-        {
-            "tag": "direct",
-            "protocol": "freedom"
-        },
-        {
-            "tag": "block",
-            "protocol": "blackhole",
-            "settings": {
-                "response": {
-                    "type": "http"
+                },
+                "tcpSettings": {
+                    "header": {
+                        "type": "none"
+                    }
                 }
             }
         }
