@@ -468,7 +468,6 @@ _cmd_remove_vless_proxy(){
         #  Ставим пакет proxy в очередь на удаление  
         system_package_action remove proxy
 
-
     }
 
 }
