@@ -1,0 +1,124 @@
+pipeline {
+    agent any
+
+    parameters {
+        string(name: 'VERSION', defaultValue: '1.1.1', description: 'Текущая версия пакета')
+        string(name: 'STAGE',   defaultValue: 'beta_1', description: 'Текущая стадия разработки')
+        booleanParam(name: 'FORCE_TOOLCHAIN_REBUILD', defaultValue: false, description: 'Принудительная пересборка toolchain')
+    }
+
+    environment {
+        SYSTEM = 'Entware' 
+        BUILDING_PATH = '/home/master/entware'
+        ENTWARE_REPO_URL = 'https://github.com/Entware/Entware.git'
+        DOCKER_IMAGE = 'entware-build-env'
+        USER_NAME = "master"
+        GITHUB_REPO = 'https://github.com/qzeleza/kvas.git'
+        ROUTER_IP = credentials('jenkins-ssh-key')
+        ROUTER_PORT = '1221'
+    }
+    
+    
+    options {
+        timestamps()
+        timeout(time: 2, unit: 'HOURS')
+        disableConcurrentBuilds()
+    }
+
+    stages {
+
+        stage("Очистка рабочей области Jenkins") {
+            steps {
+                cleanWs()
+            }
+        }
+        
+        stage('Клонирование') {
+            steps {
+                git branch: 'main', 
+                url: env.GITHUB_REPO
+            }
+        }
+
+        stage("Сборка Entware образа") {
+            steps {
+                script {
+                    if ( isDockerImageExists(env.DOCKER_IMAGE)) {
+                        try {
+                            docker.build(env.DOCKER_IMAGE, "--build-arg USER_NAME=${env.USER_NAME} --build-arg APP_PATH=/home/${env.USER_NAME}/${env.JOB_NAME} --build-arg BUILDING_PATH=${env.BUILDING_PATH} --pull --tag ${env.DOCKER_IMAGE}  -f ./builder/Dockerfile .")
+                        } catch (err) {
+                                echo "Ошибка сборки ${env.SYSTEM} образа: ${err}"
+                                currentBuild.result = 'FAILURE'
+                                throw err 
+                        }
+                    }
+                }
+            }
+        }
+        stage("Сборка инструментария Entware и самого пакета") {
+            steps {
+                script{
+                    try {
+                        docker.image(env.DOCKER_IMAGE).inside("--mount type=bind,source=/opt/develop/kvas,target=/home/master/kvas -u \$(id -u):\$(id -g) -e HOME=/home/${env.USER_NAME}") { 
+                                sh """
+                                    ${env.FORCE_TOOLCHAIN_REBUILD} == 'true' && {
+                                        chown -R ${env.USER_NAME}:${env.USER_NAME} ${env.BUILDING_PATH}
+                                        builder/builder tools ${env.JOB_NAME} ${env.BUILDING_PATH} ${env.ENTWARE_REPO_URL} 
+                                    } 
+                                    builder/builder app ${env.JOB_NAME} ${env.BUILDING_PATH} 
+                                """
+                        }
+                    } catch (err) {
+                        echo "Ошибка сборки пакета под entware: ${err}"
+                        currentBuild.result = 'FAILURE'
+                        throw err // Прерывает pipeline в случае ошибки
+                    }
+                }
+            }
+        }
+        stage('Копирование на роутер и запуск текстов') {
+            parallel {
+                stage('Deploy to Router') {
+                    steps {
+                        sshagent(credentials: ['ssh-key-for-router']) {
+                            sh "scp /app/${env.JOB_NAME}/packages/${env.JOB_NAME}.*.ipk root@${env.ROUTER_IP}:/opt/tmp/"
+                            sh "ssh root@${env.ROUTER_IP} opkg install /opt/tmp/${env.JOB_NAME}.*.ipk"
+                        }
+                    }
+                }
+                stage('Run Tests') {
+                    steps {
+                        sh "./tests/run_tests.sh"
+                    }
+                }
+            }
+        }
+        stage('Run Package') {
+            steps {
+                sshagent(credentials: ['ssh-key-for-router']) {
+                    sh "ssh user@${env.ROUTER_IP} /etc/init.d/your_service start"
+                }
+            }
+        }
+    }
+    post {
+        success {
+            script {
+                echo "Build successful, sending notifications"
+                // Здесь добавьте команды для отправки уведомлений в Telegram и email
+            }
+        }
+        failure {
+            script {
+                echo "Build failed, sending error notifications"
+                // Здесь добавьте команды для отправки уведомлений об ошибке
+            }
+        }
+    }
+}
+
+// Определение функции для проверки наличия образа Docker
+boolean isDockerImageExists(String imageName) {
+    // Выполнение команды Docker и возврат кода состояния
+    return sh(script: "docker images -q ${imageName}", returnStatus: true) == 0
+}

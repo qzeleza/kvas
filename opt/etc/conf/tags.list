@@ -69,26 +69,26 @@ sydney.bing.com
 th.bing.com
 
 [youtube]
-*googlevideo.com
+googlevideo.com
 yt3.ggpht.com
-*youtube.com
+youtube.com
 i.ytimg.com
 youtubei.googleapis.com
 yt3.googleusercontent.com
 m.youtube.com
-*google.com
+google.com
 googleapis.com
 gstatic.com
 play.google.com
 s.youtube.com
 www.youtube.com
 youtu.be
-*ggpht.com
-*ytimg.com
+ggpht.com
+ytimg.com
 nhacmp3youtube.com
-*googleusercontent.com
+googleusercontent.com
 googleapis.com
-*l.google
+l.google
 
 [docker]
 hub.docker.com
@@ -110,9 +110,9 @@ clashofclans.inbox.supercell.com
 supercell.com
 game.clashroyaleapp.com
 brawlstars.com
-*.wbagora.com
-*.wbinsights.com
-*wbgames.com
+wbagora.com
+wbinsights.com
+wbgames.com
 
 [openai]
 ab.chatgpt.com

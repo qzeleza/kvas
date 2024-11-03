@@ -1,0 +1,60 @@
+#!/bin/bash 
+
+command=${1}
+app_name=${2}
+build_path=${3}
+env_repo_url=${4}
+
+
+make_clean_toolchain(){
+
+    {
+        # Очищаем систему сборки, если она была
+        
+        cd / && [ -d ${build_path} ] && rm -rf ${build_path}
+        mkdir ${build_path} && cd ${build_path}
+        # клонируем 
+        git clone ${env_repo_url} ${build_path}
+        cd ${build_path}
+        git fetch  
+        # обновляем источники 
+        scripts/feeds update -a
+        scripts/feeds install -a 
+        # формируем файл конфигурации
+        cp -vf configs/aarch64-*.config .config 
+        make defconfig
+        # запускаем сборку инструментария
+        make -j12 toolchain/install
+    } || exit 1
+}
+
+make_app(){
+
+    {
+        cd ${build_path}
+        # git clone https://github.com/qzeleza/kvas.git /apps/${app_name}
+        ls -lai ${build_path}
+        ls -lai /home/master/${app_name}
+        cat /etc/passwd
+        cat /etc/group
+        grep -q ${app_name} ${build_path}/.config || sudo echo "CONFIG_PACKAGE_${app_name}=m" >> ${build_path}/.config
+        grep -q ${app_name} ${build_path}/.feeds 2>/dev/null || sudo echo "src-link ${app_name} feeds/packages/${app_name}" >> ${build_path}/.feeds
+        sudo ln -sf /home/master/${app_name} ${build_path}/feeds/packages/
+        sudo ${build_path}/scripts/feeds update packages ${app_name}
+        sudo ${build_path}/scripts/feeds install -a ${app_name}
+        sudo make defconfig
+        sudo make package/${app_name}/compile V=sc 
+        sudo mkdir -p /home/master/${app_name}/packages/
+        sudo cp ${build_path}/bin/targets/aarch-*/generic-glibc/packages/${app_name}.*.ipk /home/master/${app_name}/packages/
+    } || exit 1
+
+}
+
+case "${command}" in 
+    all)    make_clean_toolchain && make_app ;;
+    tools)  make_clean_toolchain ;;
+    app)    make_app ;;
+    *)      exit 1 ;;
+esac
+exit 0
+

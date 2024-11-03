@@ -402,6 +402,12 @@ setup_print_finish(){
 	echo -e "Для общей справки наберите ${BLUE}kvas help${NOCL}"
 }
 
+remove_prev_versions_files(){
+
+	[ -f /opt/etc/cron.5mins/ipset.kvas ] && rm -fr /opt/etc/cron.5mins/ipset.kvas
+	
+
+}
 
 cmd_install(){
 
@@ -422,6 +428,8 @@ cmd_install(){
 	mkdir -p "${KVAS_BACKUP_PATH}"
 	cat /dev/null > "${INSTALL_LOG}"
 
+	remove_prev_versions_files
+	
 	# ln -sf /opt/apps/kvas/bin/main/ipset /opt/etc/cron.5mins/ipset.kvas
 
 	[ -d "/opt/etc/ndm/iflayerchanged.d" ] || mkdir -p /opt/etc/ndm/iflayerchanged.d
