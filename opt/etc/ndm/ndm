@@ -129,12 +129,12 @@ ip4_flush_cache(){
 # ------------------------------------------------------------------------------------------
 # Подключаем правила для корректной работы DNS трафика через 53 порт
 # ------------------------------------------------------------------------------------------
-ip4_firewall_dns_rules_set(){
+# ip4_firewall_dns_rules_set(){
 
-	interface=$(get_local_inface)
-	local_ip=$(get_router_ip)
+# 	interface=$(get_local_inface)
+# 	local_ip=$(get_router_ip)
 
-	ip4tables PREROUTING -t nat -p udp --dport ${DNS_PORT} -j DNAT --to "${local_ip}:${DNS_PORT}" &>/dev/null
+# 	ip4tables PREROUTING -t nat -p udp --dport ${DNS_PORT} -j DNAT --to "${local_ip}:${DNS_PORT}" &>/dev/null
 #	for protocol in tcp udp ; do
 		#	Если не заданы аргументы, то ничего не выполняем
 # 		if [ -n "${interface}" ] && [ -n "${local_ip}" ]; then
@@ -150,7 +150,23 @@ ip4_firewall_dns_rules_set(){
 # 		fi
 #	done
 }
+ip4_firewall_dns_rules_set() {
+	local router_ip=$(get_router_ip)
+	local submessage=" DNS трафика домашней сети в ${router_ip}:${DNS_PORT}."
 
+	log_warning "Подключаем перенаправление${submessage}"
+	for protocol in tcp udp ; do
+		local iptables_rule=" -i br0 -p ${protocol} -m ${protocol} --dport 53 -j DNAT --to-destination ${router_ip}:${DNS_PORT}"
+
+		if ip4save | grep -Fq -- "${iptables_rule}" ; then
+			continue
+		fi
+
+		# без echo дублирование пробелов (что даёт warning и проблему наличия)
+		iptables -A PREROUTING -t nat$(echo "${iptables_rule}") &>/dev/null \
+		 || echo "[${FUNCNAME}] Возникла ошибка при подключении перенаправления ${protocol}${submessage}"
+	done
+}
 
 # ------------------------------------------------------------------------------------------
 # Подключаем Firewall правила, которые исключают из работы локальные запросы
@@ -201,8 +217,10 @@ ip4_firewall_vpn_mark(){
 		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM} &>/dev/null
 		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -j CONNMARK --save-mark &>/dev/null
 
-		ip4tables PREROUTING -t "${table}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
-		ip4tables OUTPUT     -t "${table}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
+		ip4tables PREROUTING -t "${table}" -i br0 -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_IPTABLES_CHAIN}" &>/dev/null
+
+		# ip4tables PREROUTING -t "${table}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
+		# ip4tables OUTPUT     -t "${table}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
 
 	} &>/dev/null || error "[${FUNCNAME}] Во время маркировки трафика для VPN соединений возникли ошибки."
 #	fi
@@ -237,23 +255,89 @@ ip4_firewall_mark_rules_tcp_udp_on(){
 get_guest_net(){
 	ip addr show "${1}" | grep global | sed 's/^.*inet \(.*\).*/\1/' | cut -d' ' -f1
 }
-ip4_add_selected_guest_to_vpn_network(){
-	guest_inface="${1}"
-#	rules_masq=$(ip4save  | grep "\-j MASQUERADE" | grep " ${guest_inface} ")
-#	rules_dns=$(ip4save | grep " ${guest_inface} " | grep DNAT | grep 53)
-#	if [ -z "${rules_masq}" ] ; then
-			# Маркируем трафик гостевой сети
-	{
-		log_warning "Подключаем правила маркировки гостевого трафика для VPN."
-		ip4tables POSTROUTING -t nat -s "$(get_guest_net "${guest_inface}")" -o "${guest_inface}" -j MASQUERADE
 
-	} &>/dev/null
-	rules_masq=$(ip4save | grep "\-j MASQUERADE" | grep " ${guest_inface} ")
-	if [ -z "${rules_masq}" ] ; then
-		error "[${FUNCNAME}] Возникла ошибка при маркировке гостевого трафика ${guest_inface} [$(guest_net "${guest_inface}")] для VPN."
-	fi
-#	fi
+
+
+# Перенаправляем dns-запросы в dnsmasq
+#Example input param:-s 192.168.3.0/24 -i eth3
+#Example input param:-i sstp+
+#TODO: в ip4_firewall_dns_rules_set использовать вызов этой обёртки
+ip4_add_to_dns_routing() {
+
+	local iptables_filter="${1}"
+
+	local router_ip=$(get_router_ip)
+	for protocol in tcp udp ; do
+		if ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${protocol}" | grep -F 53 | grep -F 'DNAT' | grep -F "${router_ip}" | grep -Fq "${DNS_PORT}" ; then
+			continue
+		fi
+
+		# без echo дублирование пробелов (что даёт warning и проблему наличия)
+		iptables -A PREROUTING -w -t nat $(echo "${iptables_filter}") -p "${protocol}" --dport 53 -j DNAT --to-destination "${router_ip}":"${DNS_PORT}"
+	done
 }
+
+ip4_add_selected_guest_to_vpn_network() {
+
+	local net_interface="${1}"
+	if [ -z "${net_interface}" ] ; then
+		error "[${FUNCNAME}] Не передан обязательный параметр — имя интерфейса"
+	fi
+
+	if echo "${net_interface}" | grep -q ikev2 ; then
+		net_interface=$(get_entware_ikev2_inface)
+
+		# IKEv2 не имеет отдельного сетевого интерфейса, поэтому запишем и что добавляем, и используемый СИ
+		local submessage="IKEv2 (${net_interface} "
+		local net_pool=$(get_ikev2_net_pool)
+		local iptables_filter="-s ${net_pool} "
+	else
+		local submessage="${net_interface} ("
+		local net_pool=$(get_guest_net "${net_interface}")
+		local iptables_filter=''
+	fi
+	iptables_filter="${iptables_filter}-i ${net_interface}"
+
+	log_warning "Подключаем правила гостевого трафика ${submessage}${net_pool}) для VPN."
+	ip4_add_to_dns_routing "${iptables_filter}"
+	if fastnet_enabled ; then
+		if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_IPTABLES_CHAIN}" ; then
+			# без echo дублирование пробелов (что даёт warning и проблему наличия)
+			iptables -A PREROUTING -w -t mangle $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_IPTABLES_CHAIN}"
+		fi
+	else
+		if [ -z "${net_pool}" ] ; then
+			error "[${FUNCNAME}] От функции get_guest_net не получен обязательный результат — пул адресов"
+		fi
+
+		# случай основного VPN и отключенного ускорения требует дополнительной проверки
+		# но именно таким код был изначально, т.е. он точно не "ухудшится"
+		if ! iptables-save | grep -F 'POSTROUTING' | grep -F "${net_pool}" | grep -F "${net_interface}" | grep -Fq 'MASQUERADE' ; then
+			iptables -A POSTROUTING -w -t nat -s "${net_pool}" -o "${net_interface}" -j MASQUERADE
+		fi
+	fi
+}
+
+
+
+
+# ip4_add_selected_guest_to_vpn_network(){
+# 	guest_inface="${1}"
+# #	rules_masq=$(ip4save  | grep "\-j MASQUERADE" | grep " ${guest_inface} ")
+# #	rules_dns=$(ip4save | grep " ${guest_inface} " | grep DNAT | grep 53)
+# #	if [ -z "${rules_masq}" ] ; then
+# 			# Маркируем трафик гостевой сети
+# 	{
+# 		log_warning "Подключаем правила маркировки гостевого трафика для VPN."
+# 		ip4tables POSTROUTING -t nat -s "$(get_guest_net "${guest_inface}")" -o "${guest_inface}" -j MASQUERADE
+
+# 	} &>/dev/null
+# 	rules_masq=$(ip4save | grep "\-j MASQUERADE" | grep " ${guest_inface} ")
+# 	if [ -z "${rules_masq}" ] ; then
+# 		error "[${FUNCNAME}] Возникла ошибка при маркировке гостевого трафика ${guest_inface} [$(guest_net "${guest_inface}")] для VPN."
+# 	fi
+# #	fi
+# }
 ip4_add_guest_to_vpn_network(){
 
         for guest_inface in $(get_guest_inface_list_from_config)
@@ -539,93 +623,140 @@ ip4_firewall_ssr_prune(){
 	} &>/dev/null
 }
 
-
-ikev2_net_access_del(){
-
-	ikev2=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
-	net_pool=$(echo "${ikev2}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-
-	ikev2_setup "${ikev2}"
-
+ikev2_net_access_del() {
 	ready "Удаление интерфейса \"VPN-сервер IKEv2\" завершено" && {
-
-		net_ip=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.1/')
-		net_pool=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/')
-		ikev2_inface=$(get_entware_ikev2_inface)
-
-		if has_ssr_enable ;then
-
-		   port=$(get_config_value SSR_DNS_PORT)
-
-		   if iptables-save | grep PREROUTING | grep "${net_pool}" | grep "${ikev2_inface}" | grep ${IPSET_TABLE_NAME} | grep REDIRECT | grep -q "${port}" ; then
-
-				iptab -D PREROUTING -t nat -s ${net_pool} -p tcp -i ${ikev2_inface} -m set --match-set ${IPSET_TABLE_NAME} dst -j REDIRECT --to-port ${port}
-				iptab -D PREROUTING -t nat -s ${net_pool} -p udp -i ${ikev2_inface} -m set --match-set ${IPSET_TABLE_NAME} dst -j REDIRECT --to-port ${port}
-
-		   fi
+		if has_ssr_enable ; then
+			ip4_firewall_rm_ssr_selected_guest_net 'ikev2'
 		else
-			if iptables-save | grep POSTROUTING | grep "${net_pool}" | grep "${ikev2_inface}" | grep -q MASQUERADE ; then
-				   iptab -D POSTROUTING -t nat -s "${net_pool}" -o "${ikev2_inface}" -j MASQUERADE
-			fi
+			ip4_firewall_rm_vpn_selected_guest_net 'ikev2'
 		fi
-		[ -z "${1}" ] && del_ikev2_net_from_config
-
 	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
-
 }
 
+# ikev2_net_access_del(){
 
-ikev2_setup(){
+# 	ikev2=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
+# 	net_pool=$(echo "${ikev2}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
 
-	ikev2_data="${1}"; enable=${2:-true}
+# 	ikev2_setup "${ikev2}"
+
+# 	ready "Удаление интерфейса \"VPN-сервер IKEv2\" завершено" && {
+
+# 		net_ip=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.1/')
+# 		net_pool=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/')
+# 		ikev2_inface=$(get_entware_ikev2_inface)
+
+# 		if has_ssr_enable ;then
+
+# 		   port=$(get_config_value SSR_DNS_PORT)
+
+# 		   if iptables-save | grep PREROUTING | grep "${net_pool}" | grep "${ikev2_inface}" | grep ${IPSET_TABLE_NAME} | grep REDIRECT | grep -q "${port}" ; then
+
+# 				iptab -D PREROUTING -t nat -s ${net_pool} -p tcp -i ${ikev2_inface} -m set --match-set ${IPSET_TABLE_NAME} dst -j REDIRECT --to-port ${port}
+# 				iptab -D PREROUTING -t nat -s ${net_pool} -p udp -i ${ikev2_inface} -m set --match-set ${IPSET_TABLE_NAME} dst -j REDIRECT --to-port ${port}
+
+# 		   fi
+# 		else
+# 			if iptables-save | grep POSTROUTING | grep "${net_pool}" | grep "${ikev2_inface}" | grep -q MASQUERADE ; then
+# 				   iptab -D POSTROUTING -t nat -s "${net_pool}" -o "${ikev2_inface}" -j MASQUERADE
+# 			fi
+# 		fi
+# 		[ -z "${1}" ] && del_ikev2_net_from_config
+
+# 	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+
+# }
+ikev2_setup() {
+	ikev2_data="${1}"
+	enable=${2:-true}
 
 	ikev2_dns=$(get_router_ip)
-	dns_server=$(echo "${ikev2_data}" | grep dns-server | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-	enable=$(echo "${ikev2_data}" | grep enable | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-	nat=$(echo "${ikev2_data}" | grep nat | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+	#TODO: вынести получение параметра в функцию
+	dns_server=$(echo "${ikev2_data}" | grep -F -- 'dns-server' | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+	enable=$(echo "${ikev2_data}"     | grep -F    'enable'     | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+	nat=$(echo "${ikev2_data}"        | grep -F    'nat'        | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+	if [ "${dns_server}" != "${ikev2_dns}" ] || [ "${enable}" != true ] || [ "${nat}" != true ] ; then
+		# Если DNS отличен от IP роутера, или интерфейс, или NAT отключены
+		pool_size=$(echo "${ikev2_data}"   | grep -F -- 'pool-size'   | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+		pool_start=$(echo "${ikev2_data}"  | grep -F -- 'pool-start'  | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+		multi_login=$(echo "${ikev2_data}" | grep -F -- 'multi-login' | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+		sa_compat=$(echo "${ikev2_data}"   | grep -F -- 'sa-compat'   | cut -d':' -f2 | sed 's/[\,\" ]//g;')
 
-	if [ "${dns_server}" != "${ikev2_dns}" ] || [ "${enable}" != true ] || [ "${nat}" != true ] ;then
-	#	Если DNS отличен от IP роутера или интерфейс отключен
-        pool_size=$(echo "${ikev2_data}" | grep pool-size | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-        pool_start=$(echo "${ikev2_data}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-        multi_login=$(echo "${ikev2_data}" | grep multi-login | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-        sa_compat=$(echo "${ikev2_data}" | grep sa-compat | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-		ikev2_dns=$(get_router_ip)
 		curl -s -d '{"enable": '"${enable}"', "nat": true, "dns-server": "'"${ikev2_dns}"'", "pool-size": "'"${pool_size}"'", "pool-start": "'"${pool_start}"'", "multi-login": "'"${multi_login}"'", "sa-compat": "'"${sa_compat}"'"}' \
-			"${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2" &> /dev/null
+		 "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2" &> /dev/null
 		sleep 1
 	fi
-
 }
 
+# ikev2_setup(){
+
+# 	ikev2_data="${1}"; enable=${2:-true}
+
+# 	ikev2_dns=$(get_router_ip)
+# 	dns_server=$(echo "${ikev2_data}" | grep dns-server | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+# 	enable=$(echo "${ikev2_data}" | grep enable | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+# 	nat=$(echo "${ikev2_data}" | grep nat | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+
+# 	if [ "${dns_server}" != "${ikev2_dns}" ] || [ "${enable}" != true ] || [ "${nat}" != true ] ;then
+# 	#	Если DNS отличен от IP роутера или интерфейс отключен
+#         pool_size=$(echo "${ikev2_data}" | grep pool-size | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+#         pool_start=$(echo "${ikev2_data}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+#         multi_login=$(echo "${ikev2_data}" | grep multi-login | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+#         sa_compat=$(echo "${ikev2_data}" | grep sa-compat | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+# 		ikev2_dns=$(get_router_ip)
+# 		curl -s -d '{"enable": '"${enable}"', "nat": true, "dns-server": "'"${ikev2_dns}"'", "pool-size": "'"${pool_size}"'", "pool-start": "'"${pool_start}"'", "multi-login": "'"${multi_login}"'", "sa-compat": "'"${sa_compat}"'"}' \
+# 			"${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2" &> /dev/null
+# 		sleep 1
+# 	fi
+
+# }
 
 
+ikev2_net_access_add() {
+	local ikev2_settings=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
 
-ikev2_net_access_add(){
-#set -x
+	# вероятное изменение настроек роутера
+	ikev2_setup "${ikev2_settings}"
 
-	ikev2=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
-	net_pool=$(echo "${ikev2}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-
-	ikev2_setup "${ikev2}"
-
+	local net_pool=$(echo "${ikev2_settings}" | grep -F -- 'pool-start' | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+	
 	ready "Добавление гостевого интерфейса \"VPN-сервер IKEv2\" [${net_pool}] завершено" && {
-
-		net_ip=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.1/')
-		net_pool=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/')
-
-		if has_ssr_enable ;then
-			ip4_add_selected_guest_to_ssr_network ikev2 "${net_pool}"
-			add_ikev2_net_to_config
+		if has_ssr_enable ; then
+			ip4_add_selected_guest_to_ssr_network 'ikev2'
 		else
-			ikev2_inface=$(get_entware_ikev2_inface)
-			if ! iptables-save | grep POSTROUTING | grep "${net_pool}" | grep "${ikev2_inface}" | grep -q MASQUERADE ; then
-				iptables -A POSTROUTING -t nat -s "${net_pool}" -o "${ikev2_inface}" -j MASQUERADE
-				add_ikev2_net_to_config
-			fi
+			ip4_add_selected_guest_to_vpn_network 'ikev2'
 		fi
 
+		# сохранение в конфигурацию КВАС
+		add_ikev2_net_to_config
 	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+}
+
+# ikev2_net_access_add(){
+# #set -x
+
+# 	ikev2=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
+# 	net_pool=$(echo "${ikev2}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+
+# 	ikev2_setup "${ikev2}"
+
+# 	ready "Добавление гостевого интерфейса \"VPN-сервер IKEv2\" [${net_pool}] завершено" && {
+
+# 		net_ip=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.1/')
+# 		net_pool=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/')
+
+# 		if has_ssr_enable ;then
+# 			ip4_add_selected_guest_to_ssr_network ikev2 "${net_pool}"
+# 			add_ikev2_net_to_config
+# 		else
+# 			ikev2_inface=$(get_entware_ikev2_inface)
+# 			if ! iptables-save | grep POSTROUTING | grep "${net_pool}" | grep "${ikev2_inface}" | grep -q MASQUERADE ; then
+# 				iptables -A POSTROUTING -t nat -s "${net_pool}" -o "${ikev2_inface}" -j MASQUERADE
+# 				add_ikev2_net_to_config
+# 			fi
+# 		fi
+
+# 	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 
 #set +x
 }
@@ -637,15 +768,72 @@ ikev2_net_access_add(){
 # которые были добавлены при работе пакета в старой редакции
 #
 # ------------------------------------------------------------------------------------------
-# для одного гостевого интерфейса
-ip4_firewall_rm_vpn_selected_guest_net(){
-	guest_inface="${1}"
-	if echo "${guest_inface}" | grep -q ikev2 ; then
-		ikev2_net_access_del dont_del_config
+# Отключение перехвата dns-запросов в dnsmasq
+#Example input param:-s 192.168.3.0/24 -i eth3
+#Example input param:-i sstp+
+ip4_delete_from_dns_routing() {
+	local iptables_filter="${1}"
+
+	local router_ip=$(get_router_ip)
+	for protocol in tcp udp ; do
+		if ! ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${protocol}" | grep -F 53 | grep -F 'DNAT' | grep -F "${router_ip}" | grep -Fq "${DNS_PORT}" ; then
+			continue
+		fi
+
+		# без echo дублирование пробелов (что даёт warning и проблему наличия)
+		iptables -D PREROUTING -w -t nat $(echo "${iptables_filter}") -p "${protocol}" --dport 53 -j DNAT --to-destination "${router_ip}":"${DNS_PORT}"
+	done
+}
+
+ip4_firewall_rm_vpn_selected_guest_net() {
+	local net_interface="${1}"
+	if [ -z "${net_interface}" ] ; then
+		error "[${FUNCNAME}] Не передан обязательный параметр — имя интерфейса"
+	fi
+
+	if echo "${net_interface}" | grep -q ikev2 ; then
+		net_interface=$(get_entware_ikev2_inface)
+
+		# IKEv2 не имеет отдельного сетевого интерфейса, поэтому запишем и что добавляем, и используемый СИ
+		local submessage="IKEv2 (${net_interface} "
+		local net_pool=$(get_ikev2_net_pool)
+		local iptables_filter="-s ${net_pool} "
 	else
-		iptab -D POSTROUTING -t nat -s "$(guest_net "${guest_inface}")" -o "${guest_inface}" -j MASQUERADE
+		local submessage="${net_interface} ("
+		local net_pool=$(get_guest_net "${net_interface}")
+		local iptables_filter=''
+	fi
+	iptables_filter="${iptables_filter}-i ${net_interface}"
+
+	log_warning "Отключаем правила гостевого трафика ${submessage}${net_pool}) для VPN."
+	ip4_delete_from_dns_routing "${iptables_filter}"
+	if fastnet_enabled ; then
+		if iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_IPTABLES_CHAIN}" ; then
+			# без echo дублирование пробелов (что даёт warning и проблему наличия)
+			iptables -D PREROUTING -w -t mangle $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_IPTABLES_CHAIN}"
+		fi
+	else
+		if [ -z "${net_pool}" ] ; then
+			error "[${FUNCNAME}] От функции get_guest_net не получен обязательный результат — пул адресов"
+		fi
+
+		# случай основного VPN и отключенного ускорения требует дополнительной проверки
+		# но именно таким код был изначально, т.е. он точно не "ухудшится"
+		if iptables-save | grep -F 'POSTROUTING' | grep -F "${net_pool}" | grep -F "${net_interface}" | grep -Fq 'MASQUERADE' ; then
+			iptables -D POSTROUTING -w -t nat -s "${net_pool}" -o "${net_interface}" -j MASQUERADE
+		fi
 	fi
 }
+
+# для одного гостевого интерфейса
+# ip4_firewall_rm_vpn_selected_guest_net(){
+# 	guest_inface="${1}"
+# 	if echo "${guest_inface}" | grep -q ikev2 ; then
+# 		ikev2_net_access_del dont_del_config
+# 	else
+# 		iptab -D POSTROUTING -t nat -s "$(guest_net "${guest_inface}")" -o "${guest_inface}" -j MASQUERADE
+# 	fi
+# }
 # для всех гостевых интерфейсов
 ip4_firewall_flush_vpn_guest_rules(){
 	for guest_inface in $(get_guest_inface_list_from_config)

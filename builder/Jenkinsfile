@@ -2,20 +2,26 @@ pipeline {
     agent any
 
     parameters {
+        string(name: 'TELEGRAM_TOKEN', defaultValue: '', description: 'Токет телеграм бота для уведомлений')
+        string(name: 'TELEGRAM_CHAT_ID', defaultValue: '', description: 'ID канала телеграм бота для уведомлений')
         string(name: 'VERSION', defaultValue: '1.1.1', description: 'Текущая версия пакета')
-        string(name: 'STAGE',   defaultValue: 'beta_1', description: 'Текущая стадия разработки')
+        choice(name: 'STAGE',   choices: ['alpha', 'beta', 'final'], description: 'Текущая стадия разработки')
+        string(name: 'BUILD',   defaultValue: '1', description: 'Текущая версия сборки')
         booleanParam(name: 'FORCE_TOOLCHAIN_REBUILD', defaultValue: false, description: 'Принудительная пересборка toolchain')
     }
 
     environment {
         SYSTEM = 'Entware' 
-        BUILDING_PATH = '/home/master/entware'
         ENTWARE_REPO_URL = 'https://github.com/Entware/Entware.git'
         DOCKER_IMAGE = 'entware-build-env'
         USER_NAME = "master"
-        GITHUB_REPO = 'https://github.com/qzeleza/kvas.git'
-        ROUTER_IP = credentials('jenkins-ssh-key')
+        GITHUB_REPO = 'git@github.com:qzeleza/kvas.git'
+        ROUTER_IP = credentials('ssh-github-key')
         ROUTER_PORT = '1221'
+        BUILD_PATH = "/build/entware 
+        USER_ID = 115
+        GROUP_ID = 123
+        APP_VERSION="${params.VERSION}-${params.STAGE}${params.BUILD}"
     }
     
     
@@ -33,24 +39,32 @@ pipeline {
             }
         }
         
-        stage('Клонирование') {
-            steps {
-                git branch: 'main', 
-                url: env.GITHUB_REPO
-            }
-        }
+        // stage('Клонирование') {
+        //     steps {
+        //         git branch: 'main', 
+        //         url: env.GITHUB_REPO
+        //     }
+        // }
+
 
         stage("Сборка Entware образа") {
             steps {
                 script {
+                    
                     if ( isDockerImageExists(env.DOCKER_IMAGE)) {
-                        try {
-                            docker.build(env.DOCKER_IMAGE, "--build-arg USER_NAME=${env.USER_NAME} --build-arg APP_PATH=/home/${env.USER_NAME}/${env.JOB_NAME} --build-arg BUILDING_PATH=${env.BUILDING_PATH} --pull --tag ${env.DOCKER_IMAGE}  -f ./builder/Dockerfile .")
-                        } catch (err) {
-                                echo "Ошибка сборки ${env.SYSTEM} образа: ${err}"
-                                currentBuild.result = 'FAILURE'
-                                throw err 
-                        }
+                        docker.build(env.DOCKER_IMAGE, "--build-arg USER_NAME=${env.USER_NAME} --build-arg APP_PATH=/home/${env.USER_NAME}/${env.JOB_NAME} --build-arg BUILDING_PATH=${BUILD_PATH} --pull --tag ${env.DOCKER_IMAGE}  -f builder/Dockerfile .")
+                    }
+                }
+            }
+            post {
+                success {
+                    script {
+                        sendTelegramMessage("✅ Образ ${env.SYSTEM} собран успешно")
+                    }
+                }
+                failure {
+                    script {
+                        sendTelegramMessage("❌ Ошибка сборки ${env.SYSTEM} образа!")
                     }
                 }
             }
@@ -58,37 +72,66 @@ pipeline {
         stage("Сборка инструментария Entware и самого пакета") {
             steps {
                 script{
-                    try {
-                        docker.image(env.DOCKER_IMAGE).inside("--mount type=bind,source=/opt/develop/kvas,target=/home/master/kvas -u \$(id -u):\$(id -g) -e HOME=/home/${env.USER_NAME}") { 
-                                sh """
-                                    ${env.FORCE_TOOLCHAIN_REBUILD} == 'true' && {
-                                        chown -R ${env.USER_NAME}:${env.USER_NAME} ${env.BUILDING_PATH}
-                                        builder/builder tools ${env.JOB_NAME} ${env.BUILDING_PATH} ${env.ENTWARE_REPO_URL} 
-                                    } 
-                                    builder/builder app ${env.JOB_NAME} ${env.BUILDING_PATH} 
-                                """
-                        }
-                    } catch (err) {
-                        echo "Ошибка сборки пакета под entware: ${err}"
-                        currentBuild.result = 'FAILURE'
-                        throw err // Прерывает pipeline в случае ошибки
+                    docker.image("${env.DOCKER_IMAGE}").withRun("--mount type=bind,source=${env.WORKSPACE}/output,target=/output --mount type=bind,source=${env.WORKSPACE}/build,target=/build") {
+                    sh """
+                        if [ ${params.FORCE_TOOLCHAIN_REBUILD} == 'true' ]; then 
+                            # удаляем папку сборки, чтобы начать пересборку заново
+                            rm -rf ${env.BUILD_PATH} 
+                        fi
+                        builder/builder all ${env.JOB_NAME} ${env.BUILD_PATH} ${env.ENTWARE_REPO_URL}
+                    """
+                }
+            }
+            post {
+                success {
+                    script {
+                        sendTelegramMessage("✅ Пакет собран успешно: ${params.VERSION}-${params.STAGE}")
+                    }
+                }
+                failure {
+                    script {
+                        sendTelegramMessage("❌ Пакет собран с ошибками: ${params.VERSION}-${params.STAGE}")
                     }
                 }
             }
         }
-        stage('Копирование на роутер и запуск текстов') {
-            parallel {
-                stage('Deploy to Router') {
-                    steps {
-                        sshagent(credentials: ['ssh-key-for-router']) {
-                            sh "scp /app/${env.JOB_NAME}/packages/${env.JOB_NAME}.*.ipk root@${env.ROUTER_IP}:/opt/tmp/"
-                            sh "ssh root@${env.ROUTER_IP} opkg install /opt/tmp/${env.JOB_NAME}.*.ipk"
-                        }
+        stage('Копирование пакета на роутер') {
+            steps {
+                sshagent(credentials: ['ssh-key-for-router']) {
+                    sh "scp /app/${env.JOB_NAME}/packages/${env.JOB_NAME}.*.ipk root@${env.ROUTER_IP}:/opt/tmp/"
+                    sh "ssh root@${env.ROUTER_IP} opkg install /opt/tmp/${env.JOB_NAME}.*.ipk"
+                }
+            }
+            post {
+                success {
+                    script {
+                        sendTelegramMessage("✅ Пакет собран успешно: ${params.VERSION}-${params.STAGE}")
                     }
                 }
-                stage('Run Tests') {
-                    steps {
-                        sh "./tests/run_tests.sh"
+                failure {
+                    script {
+                        sendTelegramMessage("❌ Пакет собран с ошибками: ${params.VERSION}-${params.STAGE}")
+                    }
+                }
+            }
+        }
+        stage('Run Tests') {
+            steps {
+                sshagent(['router-ssh-key']) {
+                    sh """
+                        ssh -p ${params.ROUTER_PORT} root@${params.ROUTER_IP} '/usr/bin/test-package'
+                    """
+                }
+            }
+            post {
+                success {
+                    script {
+                        sendTelegramMessage("✅ Пакет собран успешно: ${params.VERSION}-${params.STAGE}")
+                    }
+                }
+                failure {
+                    script {
+                        sendTelegramMessage("❌ Пакет собран с ошибками: ${params.VERSION}-${params.STAGE}")
                     }
                 }
             }
@@ -99,26 +142,97 @@ pipeline {
                     sh "ssh user@${env.ROUTER_IP} /etc/init.d/your_service start"
                 }
             }
+            post {
+                success {
+                    script {
+                        sendTelegramMessage("✅ Пакет собран успешно: ${params.VERSION}-${params.STAGE}")
+                    }
+                }
+                failure {
+                    script {
+                        sendTelegramMessage("❌ Пакет собран с ошибками: ${params.VERSION}-${params.STAGE}")
+                    }
+                }
+            }
+        }
+        stage('Release to GitHub') {
+            when {
+                expression { currentBuild.resultIsBetterOrEqualTo('SUCCESS') }
+            }
+            steps {
+                script {
+                    def releaseData = """
+                        {
+                            "tag_name": "v${PACKAGE_VERSION}",
+                            "name": "Release ${PACKAGE_VERSION}",
+                            "body": "Automated release ${PACKAGE_VERSION}"
+                        }
+                    """
+                    
+                    // Создание релиза на GitHub
+                    def response = sh(script: """
+                        curl -X POST \
+                            -H "Authorization: token ${GITHUB_TOKEN}" \
+                            -H "Content-Type: application/json" \
+                            -d '${releaseData}' \
+                            https://api.github.com/repos/owner/repo/releases
+                    """, returnStdout: true)
+
+                    // Загрузка артефакта
+                    def releaseId = sh(script: "echo '${response}' | jq -r .id", returnStdout: true).trim()
+                    sh """
+                        curl -X POST \
+                            -H "Authorization: token ${GITHUB_TOKEN}" \
+                            -H "Content-Type: application/octet-stream" \
+                            --data-binary @output/*.ipk \
+                            https://uploads.github.com/repos/owner/repo/releases/${releaseId}/assets?name=package-${PACKAGE_VERSION}.ipk
+                    """
+                }
+            }
+            post {
+                success {
+                    script {
+                        sendTelegramMessage("🚀 Successfully released to GitHub: ${PACKAGE_VERSION}")
+                    }
+                }
+                failure {
+                    script {
+                        sendTelegramMessage("❌ Package build failed: ${PACKAGE_VERSION}")
+                    }
+                }
+            }
         }
     }
     post {
         success {
+            // Уведомление об успешной сборке в Телеграм
             script {
-                echo "Build successful, sending notifications"
-                // Здесь добавьте команды для отправки уведомлений в Telegram и email
+                def mess = "✅ Сборка пакета ${params.VERSION}-${params.STAGE} успешно завершена!"
+                sendTelegramMessage(mess)
+                echo ${mess}
             }
         }
         failure {
             script {
-                echo "Build failed, sending error notifications"
                 // Здесь добавьте команды для отправки уведомлений об ошибке
+                def mess = "❌ Сборка пакета: ${params.VERSION}-${params.STAGE} завершена c ошибками!"
+                sendTelegramMessage(mess)
+                echo ${mess}
             }
         }
+        unstable {
+            // Уведомление о нестабильной сборке
+            script {
+                // Здесь добавьте команды для отправки уведомлений об ошибке
+                def mess = "Сборка пакета завершена с предупреждениями."
+                sendTelegramMessage(mess)
+                echo ${mess}
+            }
+        }
+        always {
+            // Архивируем все артефакты и очищаем рабочую директорию
+            archiveArtifacts artifacts: '**/*.ipk', allowEmptyArchive: true
+            cleanWs() // Очищаем рабочую директорию
+        }
     }
-}
-
-// Определение функции для проверки наличия образа Docker
-boolean isDockerImageExists(String imageName) {
-    // Выполнение команды Docker и возврат кода состояния
-    return sh(script: "docker images -q ${imageName}", returnStatus: true) == 0
 }

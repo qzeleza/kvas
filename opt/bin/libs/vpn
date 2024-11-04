@@ -748,7 +748,12 @@ bridge_vpn_access_del() {
 		ready "Удаление гостевого интерфейса '${cli_inface}' завершено"
 		{
 
-#                ip4_firewall_rm_selected_guest_net "${guest_bridge_id}"
+				if has_ssr_enable ; then
+					ip4_firewall_rm_ssr_selected_guest_net "${guest_bridge_id}"
+				else
+					ip4_firewall_rm_vpn_selected_guest_net "${guest_bridge_id}"
+				fi
+
                 #       Слушаем 53 порт гостевого интерфейса
                 guest_net_ip=$(ip a | grep global | grep -E ' '"${guest_bridge_id}" | sed 's/inet \(.*\)\/.*/\1/' | tr -d ' ')
                 if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
@@ -916,6 +921,7 @@ cmd_bridge_vpn_access_del() {
 	if [ -n "${guest_bridge_id}" ]; then
 #			проверяем, есть ли в списке ikev2
 		if echo "${guest_bridge_id}" | grep -iq ikev2 ; then
+			del_ikev2_net_from_config
 			ikev2_net_access_del
 		else
 			bridge_vpn_access_del "${guest_bridge_id}"
@@ -2262,6 +2268,7 @@ cmd_dns_crypt_on() {
 #				sed -i "s/\(^cache.=.\).*$/\1${dns_cache_enabled}/g" '/opt/etc/dnscrypt-proxy.toml'
 #				оставляем кеш выключенным за счет работы механизма кеширвоания dnsmasq
 				sed -i "s/\(^cache.=.\).*$/\1false/g" '/opt/etc/dnscrypt-proxy.toml'
+				sed -i "s/\(^doh_servers.=.\).*$/\1false/g" '/opt/etc/dnscrypt-proxy.toml'
 				sed -i "s/\(^require_dnssec.=.\).*$/\1true/g" '/opt/etc/dnscrypt-proxy.toml'
 				sed -i "s/\(^cache_min_ttl.=.\).*$/\10/g" '/opt/etc/dnscrypt-proxy.toml'
 				# sed -i "s/.* \(server_names =\).*/\1 ['google', 'yandex', 'cloudflare']/g" '/opt/etc/dnscrypt-proxy.toml'
@@ -2470,7 +2477,7 @@ cmd_add_one_host() {
 
 	host=$(echo "${1}" | sed 's|http[s]\{,1\}://||;')
 	reset="${2:-yes}"
-	wild="${3}"
+	wild="${3:-}"
 
 	ip_filter='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'
 

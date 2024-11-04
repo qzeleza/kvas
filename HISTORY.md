@@ -1,4 +1,13 @@
-## 1.1.10 betta 4
+## 1.1.9 beta 7
+
+- Внесены изменния, в правила переадресации DNS трафка (см. issue #[195](https://github.com/qzeleza/kvas/issues/195)), отдельное спасибо [AltGrF13](https://github.com/AltGrF13).
+- Внесены изменния, в функцию cmd_add_one_host, чтобы исключить потерю wildcard у хостов при импорте или добавлении (см. заявка #[189](https://github.com/qzeleza/kvas/issues/189)), отдельное спасибо [AltGrF13](https://github.com/AltGrF13).
+- Внесены изменния, в код по добавлению гостевых сетей (см. issue #[199](https://github.com/qzeleza/kvas/issues/199)), отдельное спасибо [AltGrF13](https://github.com/AltGrF13).
+- Внесены изменния, в код get_entware_ikev2_inface по определению интерфейса для IKEv2 (см. issue #[194](https://github.com/qzeleza/kvas/issues/194)), отдельное спасибо [AltGrF13](https://github.com/AltGrF13).
+
+
+
+## 1.1.9 beta 6
 
 - Произведена замена имени ipset таблицы unblock на фирменное название kvas и файла iflayerchanged.d/100-unblock-vpn в iflayerchanged.d/100-kvas-vpn
 - Произведена замена файла hosts.list на kvas.list

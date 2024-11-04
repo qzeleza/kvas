@@ -268,10 +268,42 @@ get_hook_dir(){
 	get_firmware_version | grep -q '4.' && echo "iflayerchanged.d" ||  echo "ifstatechanged.d"
 }
 
-get_entware_ikev2_inface(){
-#	net_inface_last=$(ip a| grep global | sed 's/.*\(eth[0-9]\{1,3\}\).*/\1/g' | sort | tail -n1)
-#	echo $((net_inface_last + 1))
-	ip a | grep -q 'global eth3' && echo eth3 || echo eth2.2
+# get_entware_ikev2_inface(){
+# #	net_inface_last=$(ip a| grep global | sed 's/.*\(eth[0-9]\{1,3\}\).*/\1/g' | sort | tail -n1)
+# #	echo $((net_inface_last + 1))
+# 	ip a | grep -q 'global eth3' && echo eth3 || echo eth2.2
+# }
+
+function is_ip_private() {
+	if echo "$1" | grep -qE '^(192\.168\.|10\.|172\.1[6789]\.|172\.2[0-9]\.|172\.3[01]\.)'; then
+		return
+	fi
+
+	false
+}
+
+get_entware_ikev2_inface() {
+	
+	local interfaces=$( ip a )
+
+	for interface in eth3 eth2.2 ppp0 ppp1 ; do
+		local interface_address=$( echo "$interfaces" | grep "global ${interface}" | tr -s ' ' | cut -d ' ' -f 3 )
+		if [ -z "${interface_address}" ]; then
+			continue
+		fi
+		if is_ip_private $interface_address; then
+			continue
+		fi
+
+		# в этом интерфейсе есть global и нет private IP
+		# в идеале можно ещё проверить, что это вообще IP или диапазон
+		echo "${interface}"
+		return						 
+	done
+
+	log_error 'Сетевой интерфейс для IKEv2 найти не удалось, для исправления обратитесь в https://t.me/kvas_pro'
+	# чтобы остальной код продолжал работать, вернём точно имеющийся интерфейс
+	echo 'br0'
 }
 
 get_ip_list(){
