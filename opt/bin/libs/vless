@@ -20,15 +20,14 @@
 
 . /opt/apps/kvas/bin/libs/main
 
-VLESS_CONFIG_FILE=/opt/etc/xray/.json
 XRAY=/opt/sbin/xray
-XRAY_INIT=/opt/etc/init.d/S97xray
+XRAY_INIT=/opt/etc/init.d/S24xray
 
 VLESS_CONFIG_FILE=/opt/etc/xray/kvas.json
 VLESS_CONFIG_ORIGINAL_FILE=/opt/apps/kvas/etc/conf/kvas.vless
 VLESS_CONFIG_FILE_BACKUP=${KVAS_BACKUP_PATH}/kvas.json
 
-PROXY_VLESS_DESC="Vless Proxy Kvas connection"
+PROXY_VLESS_DESC="Kvas proxy-vless-connection"
 PROXY_LOCAL_IP="127.0.0.1"
 PROXY_INFACE_NUMEBER=21
 PROXY_VLESS_NAME=Proxy${PROXY_INFACE_NUMEBER}
@@ -37,19 +36,38 @@ PROXY_VLESS_PROTO=socks5
 DOMAIN_FOR_CHECK="ifconfig.me"
 
 
-has_xray_enable(){  
+has_package_installed() {
+#-------------------------------------------------------------------------------
+#
+#	Функция проверяет установлен ли пакет Proxy
+#
+#-------------------------------------------------------------------------------
+    grep -q "<name>${1}</name>" /etc/components.xml
+}
+
+has_package_uninstalled() {
+#-------------------------------------------------------------------------------
+#
+#       Функция проверяет установлен ли пакет Proxy
+#
+#-------------------------------------------------------------------------------
+    ! grep -q "<name>${1}</name>" /etc/components.xml
+}
+
+has_xray_enable(){
 #-------------------------------------------------------------------------------
 #
 #	Функция проверяет, включен ли Xray
 #
 #-------------------------------------------------------------------------------
-    [ -x "${XRAY}" ] && [ -f "${XRAY_INIT}" ] && [ "$("${XRAY_INIT}" status)" = 'alive' ]
+    # [ -x "${XRAY}" ] && [ -f "${XRAY_INIT}" ] && [ "$("${XRAY_INIT}" status)" = 'alive' ]
+    [ -f "${XRAY_INIT}" ] && [ "$("${XRAY_INIT}" status)" = 'alive' ]
 }
 
 has_proxy_inface_selected(){
 #-------------------------------------------------------------------------------
 #
-#	Функция проверяет, является ли интерфейс Proxy Vless Kvas 
+#	Функция проверяет, является ли интерфейс Proxy Vless Kvas
 #   выбранным соединением или нет
 #
 #-------------------------------------------------------------------------------
@@ -70,9 +88,9 @@ api_post_query(){
 	local _result
 
 	if [ -z "${_data}" ]; then
-		curl -s "localhost:79/rci/${_query}" 
+		curl -s "localhost:79/rci/${_query}"
 	else
-		curl -s -d "${_data}" "localhost:79/rci/${_query}" 
+		curl -s -d "${_data}" "localhost:79/rci/${_query}"
 	fi
 
 }
@@ -118,12 +136,12 @@ vless_link_parse() {
         error "Тип протокола ${vless_security} не поддерживается"; exit 1
     }
     [ -z "${vless_id}" ] && {
-	vless_id=$(echo "${tag}" | sed 's/\(.*\)@.*:.*/\1/')
-	[ -z "${vless_id}" ] && {
-        	error "Не задан идентификатор пользователя"; exit 1
-	}
+        vless_id=$(echo "${tag}" | sed 's/\(.*\)@.*:.*/\1/')
+        [ -z "${vless_id}" ] && {
+                error "Не задан идентификатор пользователя"; exit 1
+        }
     }
-   [ -z "${vless_address}" ] && {
+    [ -z "${vless_address}" ] && {
         error "Не задан адрес сервера"; exit 1
     }
     [ -z "${vless_port}" ] && {
@@ -169,19 +187,11 @@ vless_link_parse() {
 }
 
 
-has_proxy_package_installed() {
-#-------------------------------------------------------------------------------
-#
-#	Функция проверяет установлен ли пакет Proxy
-#
-#-------------------------------------------------------------------------------
-    grep -q 'Proxy client' /etc/components.xml 
-}
 
 set_cursor_to_line_above() {
 #-------------------------------------------------------------------------------
 #
-#	Функция устанавливает курсор на одну строку вверх на первую позицию 
+#	Функция устанавливает курсор на одну строку вверх на первую позицию
 #   и стираем содержимое строки выше
 #
 #-------------------------------------------------------------------------------
@@ -207,18 +217,18 @@ cmd_install_proxy_package() {
 #	Функция устанавливает пакет Proxy
 #
 #-------------------------------------------------------------------------------
-    if ! has_proxy_package_installed ; then
+    if ! has_package_installed 'Proxy client' ; then
 
-        echo -e "${GREEN}Устанавливаем пакет Proxy client...${NOCL}"
-        print_line
-        echo -e "${RED}Внимание${NOCL}"
-        echo -e "После установки пакета последует перезагрузка устройства."
-        echo -e "Далее,после перезагрузки и подключения к локальной сети "
-        echo -e "роутера Вам необходимо заново войти на устройство через ssh."
-        print_line
+        # echo -e "${GREEN}Устанавливаем пакет Proxy client...${NOCL}"
+        # print_line
+        # echo -e "${RED}Внимание${NOCL}"
+        # echo -e "После установки пакета последует перезагрузка устройства."
+        # echo -e "Далее,после перезагрузки и подключения к локальной сети "
+        # echo -e "роутера Вам необходимо заново войти на устройство через ssh."
+        # print_line
 
         # Ожидаем ответа на вопрос о продолжении установки Proxy клиента
-        # read_ynq "Продолжить установку Proxy клиента?" q && { 
+        # read_ynq "Продолжить установку Proxy клиента?" q && {
         #     [[ "${q}" =~ [qQ] ]] && exit 0
         # }
 
@@ -227,12 +237,11 @@ cmd_install_proxy_package() {
         echo "kvas vless" >> /opt/etc/profile
         # echo "/opt/root/vless.dev" >> /opt/etc/profile
 
-        #  Ставим пакет proxy в очередь на установку  
-        system_package_action install proxy
-        return 1
+        #  Ставим пакет proxy в очередь на установку
+        system_packages_action install proxy opkg-kmod-netfilter opkg-kmod-netfilter-addons && create_proxy_interface || return 1
 
     else
-        
+
         # продолжение установки Proxy клиента
 # UDP вариант
         # data='{
@@ -248,41 +257,53 @@ cmd_install_proxy_package() {
         #         }
         #     }
         # }'
-
-        delete_proxy_interface
-
-        data='[{
-            "interface": {
-                "name": "'${PROXY_VLESS_NAME}'",
-                "description": "'${PROXY_VLESS_DESC}'",
-                "proxy": {
-                    "protocol": {
-                        "proto": "'${PROXY_VLESS_PROTO}'"
-                    },
-                    "upstream": {
-                        "host": "'${PROXY_LOCAL_IP}'",
-                        "port": "'${PROXY_VLESS_PORT}'"
-                    }
-                }
-            },
-            "system": {
-                "configuration": {
-                    "save": true
-                }
-            }
-        }]'
-
-        # создаем интерфейс для Proxy клиента и задает ему его свойства по умолчанию
-        api_post_query "${data}" "" #&> /dev/null
-
-        # удаляем запись в файле /opt/etc/profile, чтобы прекратить повторную установку Proxy клиента
-        # DEBUG - восстановить после отладки
-        sed -i '/kvas vless/d' /opt/etc/profile
-        # sed -i '/\/opt\/root\/vless.dev/d' /opt/etc/profile
+        create_proxy_interface
+        
 
         return 0
     fi
 set +xeu
+}
+
+
+create_proxy_interface(){
+#-------------------------------------------------------------------------------
+#
+#   Функция для создания интерфейса для Proxy клиента и задает ему его свойства по умолчанию
+#
+#-------------------------------------------------------------------------------
+
+    delete_proxy_interface
+
+    data='[{
+        "interface": {
+            "name": "'${PROXY_VLESS_NAME}'",
+            "description": "'${PROXY_VLESS_DESC}'",
+            "proxy": {
+                "protocol": {
+                    "proto": "'${PROXY_VLESS_PROTO}'"
+                },
+                "upstream": {
+                    "host": "'${PROXY_LOCAL_IP}'",
+                    "port": "'${PROXY_VLESS_PORT}'"
+                }
+            }
+        },
+        "system": {
+            "configuration": {
+                "save": true
+            }
+        }
+    }]'
+
+    # создаем интерфейс для Proxy клиента и задает ему его свойства по умолчанию
+    api_post_query "${data}" "" &> /dev/null
+
+    # удаляем запись в файле /opt/etc/profile, чтобы прекратить повторную установку Proxy клиента
+    # DEBUG - восстановить после отладки
+    sed -i '/kvas vless/d' /opt/etc/profile
+    # sed -i '/\/opt\/root\/vless.dev/d' /opt/etc/profile
+
 }
 
 has_xray_installed(){
@@ -304,53 +325,56 @@ proxy_package_progress(){
 #
 #-------------------------------------------------------------------------------
     local action="$1"
-    
-# set -xeu    
-    local act_text="Установка"
-    [ "${action}" = "remove" ] && act_text="Удаление"
+    local sys_text="системных пакетов"
+
+# set -xeu
+    local act_text="Установка"; done_txt="а"
+    [ "${action}" = "remove" ] && {
+        act_text="Удаление"; done_txt="о"
+    }
 
     # Ожидаем завершения установки Proxy клиента
-    local progress=0 
-    api_get_query "show/components/status"
-    print_line
-    ready "${GREEN}${act_text} Proxy клиента${NOCL}" && when_alert "ЗАПУСКАЕМ"
-    print_line
-    sleep 3
+    local progress=0
+    
+    ready "${GREEN}${act_text} ${sys_text}${NOCL}" && when_alert "ЗАПУСКАЕМ"
 
-    until status=$( api_get_query "show/components/status" | grep -q pending ) && [ -n "${status}" ] > /dev/null 2>&1; do sleep 2; done
+    until status=$(api_get_query "show/components/status") && ! echo "${status}" | grep -q pending ; do sleep 3; done
+    set_cursor_to_line_above
 
     # цикл выполняется до 100%
-    while [ "${progress}" != "null" ]; do
-        # получаем текущее состояние установки
-        progress=$(api_get_query "show/components/status" | jq -r '.update["progress"]' )
-echo "${progress}"        
+    while progress=$(api_get_query "show/components/status" | jq -r '.update["progress"]' ) && [ "${progress}" != "null" ]; do
+
         # на предыдущей позиции выводим прогресс выполнения установки пакета
-        ready "${BLUE}${act_text} Proxy клиента${NOCL}" && when_alert "${progress}%"
+        ready "${BLUE}${act_text} ${sys_text}${NOCL}" && when_alert "${progress}%"
+
+        # Ждем 1 секунду
+        sleep 1
+
         # Переводим курсор на одну строку вверх на первую позицию и стираем содержимое строки выше
         set_cursor_to_line_above
 
-        # Ждем 0,3 секунды
-        sleep 1
     done
-
-    print_line
-    ready "${GREEN}${act_text} Proxy клиента завершена${NOCL}" && when_ok "УСПЕШНО"
+    # set_cursor_to_line_above
+    ready "${GREEN}${act_text} ${sys_text} завершен${done_txt}${NOCL}" && when_ok "УСПЕШНО"
     print_line
     echo -e "${RED}Сейчас устройство будет перезагружено...${NOCL}"
-    print_line
+    
 set +xeu
 
 }
 
-system_package_action(){
+system_packages_action(){
 #-------------------------------------------------------------------------------
 #
 #	Функция производит действия с системным пакетом
 #
-#-------------------------------------------------------------------------------    
+#-------------------------------------------------------------------------------
 
-    local action="$1"
-    local package_name="$2"
+    local action="$1"; shift
+    local packages="$@"
+
+    local act_text="установлен"
+    [ "${action}" = "remove" ] && act_text="удален"
 
     # local data='[
     #     {
@@ -362,28 +386,65 @@ system_package_action(){
     #         }
     #     }
     # ]'
+# set -xeu
+    # Проверяем интернет подключение
+    has_no_internet_here && {
+        error "Интернет не доступен. Проверьте свое интернет продключение. "
+        exit 1
+    }
+# set -xeu
+    local printline=false
+    local acted=false
+    local _list_to_act=""
+    # Проверяем, что пакеты установлены
+    for package in ${packages}; do
+        if [ "${action}" = "remove" ] ; then
+            has_package_uninstalled "${package}" && acted=true
+        else
+            has_package_installed "${package}" && acted=true
+        fi
+        if [ "${acted}" = true ] ; then
+            warning "Пакет ${package} уже ${act_text}."
+            printline=true
+            acted=false
+        else
+            _list_to_act="${_list_to_act} ${package}"
+        fi
+    done
 
-    local cmd_query
-    # local data='{"'${action}'": {"component": "'${package_name}'"}}'
-    # local data1='{"commit": {"component": "'${package_name}'"}}'
-    # local data1='{"commit": true}'
-    # local data2='[{"components": {"'${action}'": {"component": "'${package_name}'"}}}]'
-    local data='[{"components": {"'${action}'": {"component": "'${package_name}'"},"commit": true}}]'
-    echo "${data}"
-    # echo "${data1}"
-    # Выполняем запрос 
-    out=$(api_post_query "${data}")
-    # out1=$(api_post_query "${data1}" components)
-    echo "${out}"
-    # echo "${out1}"
-    echo "${out}" | grep -q " is unavailable" && {
-        error "Пакет ${package_name} не доступен."
+    [ "${printline}" = "true" ] && print_line
+
+    # если не все пакеты обработаны (установлены ли удалены)
+    if [ -n "${_list_to_act}" ]; then
+set +xeu
+        # Заправшиваем список установленных пакетов
+        until status=$( api_post_query "{}" "components/list" ) && ! echo "${status}" | grep -q continued; do sleep 3; done
+# set -xeu
+        for package in ${_list_to_act}; do
+            local data='[{"components": {"'${action}'": {"component": "'${package// /}'"}}}]'
+            out=$(api_post_query "${data}")
+            echo "${out}" | grep -q " is unavailable" && {
+                data='[{"components": {"'${action}'": {"component": "'${package// /}'"}}}]'
+                out=$(api_post_query "${data}")
+                echo "${out}" | grep -q " is unavailable" && {
+                    error "Пакет ${package} не доступен. Проверьте правильность написания пакета."
+                    return 1
+                }
+            }
+        done
+
+        # Подтверждаем установку или удаление пакетов
+        api_post_query '[{"components": {"commit": true}}]' &> /dev/null
+
+        # Отрисовываем индикатор процесса установки пакетов
+        # и ожидаем его завершения
+        proxy_package_progress "${action}"
         return 1
-     } #&> /dev/null
+    else 
+        return 0
+    fi
 
-    # Отрисовываем индикатор процесса установки Proxy клиента 
-    # и ожидаем его завершения
-    proxy_package_progress "${action}" 
+set +xeu
 }
 
 
@@ -392,15 +453,17 @@ test_vless_proxy() {
 #
 #	Функция проверяет работу Proxy Vless на доступность доменного имени
 #
-#-------------------------------------------------------------------------------     
+#-------------------------------------------------------------------------------
+    local _inface=${1}
     # iface=$(ip a | grep global | grep t2s_br${PROXY_INFACE_NUMEBER} | sed 's/.*\(t2s_br'${PROXY_INFACE_NUMEBER}'\)/\1/g')
-    ready "Соединение ${PROXY_VLESS_DESC} работает..."
-    if curl -i t2s_br${PROXY_INFACE_NUMEBER} ${DOMAIN_FOR_CHECK} && echo | tail -n 1 | grep -q ${IP_FILTER} ; then
-        when_ok "ХОРОШО"
-    else  
-        when_bad "С ОШИБКАМИ" 
+    ready "Проверка соединения ${PROXY_VLESS_DESC} к ${DOMAIN_FOR_CHECK}"
+    local _out=$(curl -s --interface ${_inface} ${DOMAIN_FOR_CHECK})
+    if echo "${_out}" | tail -n 1 | grep -qE "${IP_FILTER}" ; then
+        when_ok "УСПЕШНО"
+    else
+        when_bad "С ОШИБКАМИ"
         print_line
-        curl -i t2s_br${PROXY_INFACE_NUMEBER} ${DOMAIN_FOR_CHECK} && echo
+        echo "${_out}" && echo
         print_line
     fi
 }
@@ -419,9 +482,9 @@ _cmd_install_vless_proxy(){
     #read_value "Введите vless ссылку: " vless_ln string
 
     # DEBUG - восстановить после отладки
-    # cp "${VLESS_CONFIG_ORIGINAL_FILE}" "${VLESS_CONFIG_FILE}"   
+    # cp "${VLESS_CONFIG_ORIGINAL_FILE}" "${VLESS_CONFIG_FILE}"
     cp ~/kvas.vless "${VLESS_CONFIG_FILE}"
-    
+
     . /opt/apps/kvas/.env
     vless_ln="${VLESS_LINK}"
 
@@ -433,7 +496,7 @@ _cmd_install_vless_proxy(){
 
     if echo "${check_xray_config}" | grep -q "Configuration OK." ; then
         # Запуск xray в случае, если конфигурация xray не содержит ошибок
-        ${XRAY_INIT} restart && kvas vpn set 
+        ${XRAY_INIT} restart && kvas vpn set
     else
         # В случае если есть ошибки выводим их в консоль
         echo -e "${BLUE}В файле ${VLESS_CONFIG_FILE} обнаружены следующие ошибки:${NOCL}"
@@ -447,12 +510,12 @@ _cmd_install_vless_proxy(){
 _cmd_remove_vless_proxy(){
 #-------------------------------------------------------------------------------
 #
-#	Функция удаляет Proxy Vless пакеты и конфигурацию, 
+#	Функция удаляет Proxy Vless пакеты и конфигурацию,
 #   чтоб привести Квас к базовому состоянию для отладки пакета
 #
 #-------------------------------------------------------------------------------
     # Удаляем пакет xray
-    has_proxy_package_installed && {
+    has_package_installed 'Proxy client' && {
 
         # Останавливаем службу xray
         ${XRAY_INIT} stop &> /dev/null
@@ -466,17 +529,16 @@ _cmd_remove_vless_proxy(){
         # Удаляем конфигурацию профиля Proxy
         delete_proxy_interface
 
-        #  Ставим пакет proxy в очередь на удаление  
-        system_package_action remove proxy
+        #  Ставим пакет proxy в очередь на удаление
+        system_packages_action remove proxy
 
     }
 
 }
 
 
-#_cmd_remove_vless_proxy
-_cmd_install_proxy_package
+#system_packages_action remove proxy opkg-kmod-netfilter opkg-kmod-netfilter-addons
+# system_packages_action install proxy opkg-kmod-netfilter opkg-kmod-netfilter-addons
 # cmd_install_vless_proxy
 # ifs=$(ip a | grep global | grep t2s_ | sed 's/.*\(t2s_.*\)/\1/g')
 # curl -v -i ${ifs} ifconfig.me && echo
-

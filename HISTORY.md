@@ -12,6 +12,7 @@
 - [#209](https://github.com/qzeleza/kvas/issues/209) Оптимизация работы с IP в списке. 
   Отдельная благодарность [AltGrF13](https://github.com/AltGrF13).
 - Добавлена закваска для xbox, отдельное спасибо [ssavickiy](https://t.me/ssavickiy)
+- Доработана поддержка протокола vless 
 
 
 

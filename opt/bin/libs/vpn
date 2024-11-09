@@ -1852,9 +1852,9 @@ EOF
 			# получаем описание интерфейса
 			description=$(get_value_interface_field "${inface_cli}" description | sed 's|\/|\\/|g')
 
-			# Ищем интерфейс ProxyVless0 в списке и обновляем его описание 
-			# данное имя (ProxyVless0) дается интерфейсу при его создании и оно уникально, чтобы не спутать его с другими Proxy
-			# [[ "${inface_cli}" == "ProxyVless0" ]] && description="${description} [vless]"
+			# Ищем интерфейс PROXY_VLESS_NAME в списке и обновляем его описание 
+			# данное имя (PROXY_VLESS_NAME) дается интерфейсу при его создании и оно уникально, чтобы не спутать его с другими Proxy
+			[[ "${inface_cli}" == "${PROXY_VLESS_NAME}" ]] && description="${description} [vless]"
 
 			# вставляем описание в файл /opt/etc/inface_equals
 			[ -n "${description}" ] && \
@@ -1986,8 +1986,8 @@ show_interface_name_list_process(){
 			if echo "${answer}" | grep -qi y ; then
 				update_interface_name_list
 			fi
-		# else
-		# 	update_interface_name_list
+		elif [ "${answer}" = yes ] ; then
+			update_interface_name_list
 		fi
 	else
 		update_interface_name_list
@@ -2050,6 +2050,16 @@ cmd_interface_change() {
 	
 }
 
+
+create_vless_config(){
+	local vless_link=''
+	read_value "Ведите ссылку в формате 'vless://[данные]' :" vless_link
+	[ -f "${VLESS_CONFIG_FILE}" ] || cp "${VLESS_CONFIG_ORIGINAL_FILE}" "${VLESS_CONFIG_FILE}" 
+	# Считываем данные из ссылки в файл proxy vless конфигурации
+	vless_link_parse "${vless_link}" "${VLESS_CONFIG_FILE}"
+}
+
+
 switch_vpn_on(){
 #	entware интерфейс
 	inface_entware=${1}
@@ -2067,30 +2077,27 @@ switch_vpn_on(){
 
 	else
 		shadowsocks_off &> /dev/null
+		
 		# Если выбран proxy vless kvas интерфейс
-		if [ "${inface_entware}" = "${PROXY_VLESS_NAME}" ] ; then
+		if [ "${cli_inface}" = "${PROXY_VLESS_NAME}" ] ; then
 			
 			# Если нет файла конфигурации proxy vless
 			# то запросим ссылку и создаем его
-			[ -f ${VLESS_CONFIG_FILE} ] || {
-				local vless_link=''
-				read_value "Ведите ссылку на proxy vless reality в формате 'vless://[данные]' :" vless_link password
-				# Считываем данные из ссылки в файл proxy vless конфигурации
-				vless_link_parse "${vless_ln}" "${VLESS_CONFIG_FILE}"
-			}
+			[ -f ${VLESS_CONFIG_FILE} ] || create_vless_config
+			grep -q @ ${VLESS_CONFIG_FILE} && create_vless_config
 			
 			# Проверка конфигурации xray
 			check_xray_config=$(${XRAY} run -test -c ${VLESS_CONFIG_FILE})
 
-			if echo "${check_xray_config}" | grep -q "Configuration OK." ; then
+			if echo "${check_xray_config}" | grep -q "Configuration OK" ; then
 
 				# Запуск xray в случае, если конфигурация xray не содержит ошибок
 				ready "Запускаем xray сервис..."
-				service_action xray start && {
+				service_action S97xray start && {
 					when_ok "УСПЕШНО" 
 					vpn_on "${inface_entware}"
 					# Тестируем работу proxy vless
-					test_vless_proxy
+					test_vless_proxy "${inface_entware}"
 				} || {
 					when_bad "ОШИБКА" 
 					exit 1
@@ -2156,11 +2163,12 @@ select_vpn_interface() {
 			print_line
 			set_config_value "ADDR_MAN" ""
 			if [[ "$num_vpn_inface" -ge 1 && "$num_vpn_inface" -le "$total" ]]; then
-#			Если выбрали уже интерфейс
-	#		Меняем интерфейс в файле ndm
-			inface_entware=$(get_vpn_interface_by_num "${num_vpn_inface}")
-			cli_inface=$(echo "${INFACE_NAMES_FILE}" | grep "${inface_entware}" | cut -d"|" -f1)
-			switch_vpn_on "${inface_entware}" "${cli_inface}"
+# set -x
+	#			Если выбрали уже интерфейс
+		#		Меняем интерфейс в файле ndm
+				inface_entware=$(get_vpn_interface_by_num "${num_vpn_inface}")
+				cli_inface=$(grep "${inface_entware}" "${INFACE_NAMES_FILE}" | cut -d"|" -f1)
+				switch_vpn_on "${inface_entware}" "${cli_inface}"
 
 			else
 				error "Число должно быть в пределах от 1 до ${total}"
