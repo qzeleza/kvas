@@ -20,7 +20,7 @@
 
 . /opt/apps/kvas/bin/libs/main
 
-VLESS_CONFIG_FILE=/opt/etc/xray/vless.json
+VLESS_CONFIG_FILE=/opt/etc/xray/.json
 
 # ------------------------------------------------------------------------------------------
 #

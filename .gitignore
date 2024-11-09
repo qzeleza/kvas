@@ -6,6 +6,8 @@
 .DS_Store
 .idea/
 .env
+.builded
+packages/
 
 ## User-specific stuff
 #.idea/**/workspace.xml

@@ -11,9 +11,10 @@
 #	с командой start
 #
 # ------------------------------------------------------------------------------
-if [ "${1}" = "start" ] ; then
+if [ "$1" = 'start' ] ; then
 	. /opt/apps/kvas/bin/libs/ndm
-#	logger -t "КВАС" "Запущен файл ${0}"
-	ip4set_create_table &> /dev/null
-	# ip6set_create_table
+	# Создаем талицу IP адресов для  VPN подключения отличного от shadowsocks
+	ip4_add_route_table &> /dev/null
+	# Устанавливаем приоритет таблицы
+	ip4_rule_set_priority &> /dev/null
 fi

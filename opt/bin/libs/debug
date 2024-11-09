@@ -21,60 +21,55 @@
 # ------------------------------------------------------------------------------------------
 dnsmasq_debug() {
 
-	[ -f /opt/etc/init.d/S56dnsmasq ] && {
-
-		warning "Состояние службы dnsmasq по команде "
-		
-		ready "/opt/etc/init.d/S56dnsmasq status"
-		if /opt/etc/init.d/S56dnsmasq status &> /dev/null; then
-			when_ok "ЗАПУЩЕНА"
-		else
-			when_bad "ОСТАНОВЛЕНА"
+	warning "Состояние службы dnsmasq по команде "
+	ready "/opt/etc/init.d/S56dnsmasq status"
+	if /opt/etc/init.d/S56dnsmasq status &> /dev/null; then
+		when_ok "ЗАПУЩЕНА"
+	else
+		when_bad "ОСТАНОВЛЕНА"
+		print_line
+		result=$(/opt/sbin/dnsmasq)
+		case "${result}" in
+		0) warning "Dnsmasq успешно повторно запущен." ;;
+		1)
+			error "Обнаружена проблема с файлом конфигурации"
+			error "Запускаем проверку файла конфигурации dnsmasq"
 			print_line
-			result=$(/opt/sbin/dnsmasq)
-			case "${result}" in
-			0) warning "Dnsmasq успешно повторно запущен." ;;
-			1)
-				error "Обнаружена проблема с файлом конфигурации"
-				error "Запускаем проверку файла конфигурации dnsmasq"
-				print_line
-				/opt/sbin/dnsmasq --test
-				print_line
-				warning "Файл конфигурации dnsmasq"
-				print_line
-				cat < "/opt/etc/dnsmasq.conf" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d'
-				print_line
-				exit 1
-				;;
-			2)
-				error "Возникла проблема с доступом к сети"
-				error "используемый адрес, попытка использовать "
-				error "привилегированные порты без разрешения"
-				exit 1
-				;;
-			3)
-				error "Возникла проблема при обращении к файловой системе"
-				error "отсутствующий файл /каталог или разрешения на них."
-				exit 1
-				;;
-			4)
-				error "Сбой выделения памяти."
-				exit 1
-				;;
-			5)
-				error "Невыявленная проблема."
-				exit 1
-				;;
-			11 | *)
-				error "[${result}] Проблемы при выделении адресов для аренды DHCP "
-				exit 1
-				;;
-			esac
-		fi
-		result=$(cat < /opt/etc/dnsmasq.conf | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
-		echo_debug "Выборка из файла конфигурации dnsmasq: /opt/etc/dnsmasq.conf" "${result}"
-
-	}
+			/opt/sbin/dnsmasq --test
+			print_line
+			warning "Файл конфигурации dnsmasq"
+			print_line
+			cat < "/opt/etc/dnsmasq.conf" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d'
+			print_line
+			exit 1
+			;;
+		2)
+			error "Возникла проблема с доступом к сети"
+			error "используемый адрес, попытка использовать "
+			error "привилегированные порты без разрешения"
+			exit 1
+			;;
+		3)
+			error "Возникла проблема при обращении к файловой системе"
+			error "отсутствующий файл /каталог или разрешения на них."
+			exit 1
+			;;
+		4)
+			error "Сбой выделения памяти."
+			exit 1
+			;;
+		5)
+			error "Невыявленная проблема."
+			exit 1
+			;;
+		11 | *)
+			error "[${result}] Проблемы при выделении адресов для аренды DHCP "
+			exit 1
+			;;
+		esac
+	fi
+	result=$(cat < /opt/etc/dnsmasq.conf | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
+	echo_debug "Выборка из файла конфигурации dnsmasq: /opt/etc/dnsmasq.conf" "${result}"
 }
 
 # ------------------------------------------------------------------------------------------
@@ -197,7 +192,7 @@ check_words_in_multiline_var() {
 
     echo "${multiline_var}" | while IFS= read -r line; do
         for word in $words; do
-            if [[ ! "$line" == *"$word"* ]]; then
+            if [[ ! "${line//timeout*/}" == *"$word"* ]]; then
                 # echo "Слово '$word' не найдено в переменной."
                 return 1
             fi
@@ -205,6 +200,18 @@ check_words_in_multiline_var() {
     done
 	# echo "Слово '$word' найдено в переменной."
     return 0
+}
+
+# ------------------------------------------------------------------------------------------
+#
+#	 Печатаем текущую конфигурацию Кваса
+#
+# ------------------------------------------------------------------------------------------
+print_curent_congiguration() {
+	
+	echo "Текущая конфигурация Кваса"
+	print_line
+	
 }
 
 
@@ -240,7 +247,7 @@ kvas_list_ipset_check(){
 					ips="${ips::-1}"
 				fi
 				if [ -z "$ips" ] || [ "${ips}" = 0.0.0.0 ]; then
-                	bad_ipset_list="$(printf "%s" "${bad_ipset_list}\n$(ready "${BLUE}${line}${NOCL}" && when_alert "АДРЕСА НЕТ")")"
+                	bad_ipset_list="$(printf "%s\n%s%s" "${bad_ipset_list}" "$(ready "${BLUE}${line}${NOCL}")" "$(when_alert "АДРЕСА НЕТ")")"
 					HAS_NO_ADDRESS=true
 	            else
 					line_ips="${hided_line} ${ips}"
@@ -254,7 +261,7 @@ kvas_list_ipset_check(){
 					fi
                    
 					if ! check_words_in_multiline_var "${result_ipset}" "${ips}" ; then
-						bad_ipset_list="$(printf "%s" "${bad_ipset_list}\n$(ready "${RED}${line}${NOCL} ${cutted}"; when_bad "ОТСУТСТВУЕТ")")"
+						bad_ipset_list="$(printf "%s\n%s%s" "${bad_ipset_list}" "$(ready "${RED}${line}${NOCL} ${cutted}")" "$( when_bad "ОТСУТСТВУЕТ")")"
 						NOT_IN_TABLE=true
 					fi
 
@@ -283,9 +290,6 @@ kvas_list_ipset_check(){
 		echo -e "Добавьте домены в этот список командой ${GREN}kvas add <domain.ru>${NOCL}"
 	fi
 
-	
-	
-	echo 
 	[ "${HAS_NO_ADDRESS}" = true ] && {
 		print_line
 		echo -e "Значение ${BLUE}АДРЕСА НЕТ${NOCL} - это может говорить о том, что адрес этого"
@@ -455,7 +459,6 @@ date_info() {
 	version
 	print_line
 	echo "Текущая дата и время $(date)"
-	echo ''
 }
 
 show_install_log(){
@@ -522,9 +525,10 @@ cmd_print_debug() {
 
 print_debug() {
 	internet_check
-	dns_override_check
+	# dns_override_check
 	date_info
 	router_info
+	print_curent_congiguration
 #	ping_debug
 	show_install_log
 #	 show_services_status

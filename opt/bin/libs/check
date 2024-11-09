@@ -465,24 +465,31 @@ hosts_list_check(){
 # ------------------------------------------------------------------------------------------
 ipset_site_visit_check() {
 	echo -e "${RED}ВНИМАНИЕ, прежде, чем приступить к дальнейшим действиям${NOCL}, сделайте следующее:"
-	echo
 	echo "1. Очистите кеш на Ваших клиентах, которые подключены к роутеру:"
 	echo -e "\t${BLUE}macOS  : ${YELLOW}sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder${NOCL}"
 	echo -e "\t${BLUE}Linux  : ${YELLOW}sudo systemd-resolve --flush-caches или sudo resolvectl flush-caches${NOCL}"
 	echo -e "\t${BLUE}Windows: ${YELLOW}ipconfig /flushdns${NOCL}"
 	echo "2. Обязательно проверьте, что адрес DNS клиента идентичен адресу вашего роутера!"
 	echo "3. Далее, очистите все куки в бразуре, в котором хотите увидеть результат!"
-	echo
+	print_line
 	echo "Для продолжения нажмите на любую клавишу."
 	print_line
 	pause
-	warning "Проверяем заполнения ipset таблицы при посещении сайта."
+	echo -e  "${GREEN}Проверяем заполнения ipset таблицы при посещении сайта.${NOCL}"
 	print_line
 	echo "Сейчас, для проверки заполнения, откройте на компьютере браузер"
 	echo -e "Затем зайдите на сайт ${BLUE}https://ifconfig.me${NOCL} в режиме ${RED}ИНКОГНИТО.${NOCL}"
 	echo -e "На странице должен появиться ${BLUE}IP Вашего VDS/VPN провайдера${NOCL}."
 	echo -n "После чего вновь перейдите сюда и нажмите на любую клавишу."
 	pause
+	
+	#  Проверяем наличие в защищенном списке ifconfig.me
+	grep -q ifconfig.me ${KVAS_LIST_FILE} || {
+		# если домена в списке нет, то добавляем его
+		cmd_add_one_host ifconfig.me no '' &> /dev/null
+	}
+
+
 	/opt/apps/kvas/bin/main/ipset &> /dev/null
 	print_line
 	ready "Таблица ipset"
@@ -506,7 +513,7 @@ cmd_state_checker() {
 #	проверяем интернет
 	internet_check
 #	Проверяем включен ли dns-override (отключены ли DNS провайдера)
-	dns_override_check
+	# dns_override_check
 #	Проверяем наличие самого списочного файла и число записей в нем
 	hosts_list_check
 # Проверяем подключен ли AdGuard Home
@@ -539,7 +546,7 @@ cmd_state_checker() {
 #	Проверяем правила в таблице iptable
 	iptable_check
 #	Проверяем таблицу ipset
-	ipset_check
+	# ipset_check
 	print_line
 #
 #	Проверка наличия ip адресов хостов в таблице ipset - попытка номер раз

@@ -5,6 +5,7 @@
 . /opt/apps/kvas/bin/libs/adblock
 . /opt/apps/kvas/bin/libs/tags
 
+MINUS=10
 
 # Убираем ошибки связанные с отсутствием /opt/etc/hosts
 [ -f /opt/etc/hosts ] || touch /opt/etc/hosts
@@ -510,7 +511,7 @@ get_adguardhome_ip_port() {
 cmd_adguardhome_status() {
 	local local_ip=""
 	if [ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ] ; then 
-		local_ip="[$(grep address /opt/etc/AdGuardHome/AdGuardHome.yaml | cut -d":" -f2)]"
+		local_ip="[$(grep address /opt/etc/AdGuardHome/AdGuardHome.yaml | cut -d":" -f2) ]"
 	fi
 	ready "Сервис AdGuard Home ${local_ip}"
 	# Проверяем наличие исполняемого файла AdGuardHome
@@ -528,7 +529,13 @@ cmd_adguardhome_status() {
 			when_bad "НЕ НАСТРОЕН"
 		fi
 	else
-		when_bad "НЕ УСТАНОВЛЕН"
+		local _dns_ip=$(get_config_value DNS_DEFAULT)
+		local _router_ip=$(get_router_ip)
+		if [ "${_dns_ip//[#:]*/}" = "${_router_ip//[#:]*/}" ] ; then 
+			when_bad "НЕ УСТАНОВЛЕН"
+		else
+			when_bad "ВНЕШНИЙ"
+		fi
 	fi
 
 }
@@ -560,8 +567,8 @@ check_port(){
 # ------------------------------------------------------------------------------------------
 adguardhome_check_config() {
 		# Проверяем наличие	архивной копии AdGuardHome
-		if [ -f "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml ] && [ -f ${ADGUARDHOME_DEMON} ]; then
-			cp "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml "${ADGUARDHOME_CONFIG}"
+		if [ -f "${KVAS_BACKUP_PATH}/AdGuardHome.yaml" ] && [ -f ${ADGUARDHOME_DEMON} ]; then
+			cp "${KVAS_BACKUP_PATH}/AdGuardHome.yaml" "${ADGUARDHOME_CONFIG}"
 			"${ADGUARDHOME_DEMON}" restart  &> /dev/null
 			ip=$(get_router_ip)
 			port=$(cat < "${ADGUARDHOME_CONFIG}" | grep '^bind_port: ' | cut -d':' -f2 | tr -d ' \n')
@@ -587,17 +594,21 @@ adguardhome_check_config() {
 				cp /opt/bin/AdGuardHome.yaml "${ADGUARDHOME_CONFIG}"
 #				"${ADGUARDHOME_DEMON}" restart  &> /dev/null
 			fi
-			error "Проверьте, что сеть WIFI/Ethernet, с которой Вы заходите на роутер - " no_nln
-			error "та же самая, что и сеть с которой Вы открываете страницу браузера." no_nln
+			error "Проверьте, что сеть WIFI/Ethernet, с которой Вы заходите " no_nln
+			error "на роутер - та же самая, что и сеть с которой Вы " no_nln
+			error "открываете страницу браузера." no_nln
 			print_line
-			warning "Сейчас, перейдите на клиентское устройство в своем браузере "
-			warning "и зайдите на страницу http://$(get_router_ip):3000 для настройки AdGuardHome"
+			warning "Сейчас, перейдите на клиентское устройство в своем"
+			warning "браузере и зайдите на страницу http://$(get_router_ip):3000 для"
+			warning "настройки AdGuardHome..."
 			print_line
-			warning "В поле 'Веб-интерфейс администрирования' выберите IP своего роутера выше"
-			warning "В поле 'DNS-сервер' выберите пункт 'Все интерфейсы' и на следующем шаге"
-			warning "введите имя и дважды пароль для входа в интерфейс AdGuardHome"
-			warning "Далее, на следующей странице, нажмите на 'Открыть Панель Управления'."
-			warning "После чего, установка AdGuard на роутере завершится автоматически."
+			warning "В поле 'Веб-интерфейс администрирования' выберите IP "
+			warning "своего роутера выше. В поле 'DNS-сервер' выберите пункт"
+			warning "'Все интерфейсы' и на следующем шаге введите имя и "
+			warning "дважды пароль для входа в интерфейс AdGuardHome Далее, "
+			warning "на следующей странице, нажмите на 'Открыть Панель "
+			warning "Управления'. После чего, установка AdGuard на роутере "
+			warning "завершится автоматически."
 			print_line
 
 #			Совершенно новая установка пакета и его настройка
@@ -649,7 +660,7 @@ adguardhome_install_locally() {
 		echo "запустите команду ${GREEN}kvas adguard on${NOCL}."
 	else
 	
-		ready "Устанавливаем пакет AdGuard Home на роутер (~ 1-2 мин.)..."
+		ready "Устанавливаем пакет AdGuard Home на роутер..."
 		{
 			[ -f /opt/etc/init.d/S56dnsmasq ] && /opt/etc/init.d/S56dnsmasq stop &> /dev/null
 			[ -f /opt/etc/init.d/S09dnscrypt-proxy2 ] && /opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
@@ -672,6 +683,34 @@ adguardhome_install_locally() {
 	fi
 }
 
+
+# ------------------------------------------------------------------------------------------
+#
+#	 Производим подключение к AdGuard Home на удаленном устройстве
+#
+# ------------------------------------------------------------------------------------------
+dns_server_install_remotely(){
+	local _ip_port=${1}
+	
+	[ -z "${_ip_port}" ] && read_value "Введите IP:PORT для DNS сервера на другом устройстве:" _ip_port
+
+	[ -z "${_ip_port}" ] && exit 1
+	[ "${_ip_port}" = "q" ] && exit_q; exit 1
+	if echo "${_ip_port}" | grep -q "${IP_PORT_FILTER}" ; then 
+		nslookup ya.ru ${_ip_port/#/:/} &> /dev/null
+		[ $? -eq 0 ] || error "Введенный адрес ${_ip_port/#/:/} недоступен." && exit 1
+		ready "Подключаем DNS сервер на удаленном устройстве..."
+		{
+			cmd_dns_crypt_off
+			cmd_dnsmasq_dns_change "${_ip_port/:/#/}" 
+
+		} &> /dev/null && when_ok "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+	else 
+		error "Введен недопустимый IP:PORT для DNS сервера" 
+		exit 1
+	fi
+}
+
 # ------------------------------------------------------------------------------------------
 #
 #	 Включаем работу AdGuard Home в качестве основного DNS сервера
@@ -679,24 +718,33 @@ adguardhome_install_locally() {
 # ------------------------------------------------------------------------------------------
 cmd_adguardhome_on() {
 
-	status=$(cmd_adguardhome_status)
-	if echo "${status}" | grep -q "НЕ УСТАНОВЛЕН" ; then
-		error "Пакет AdGuard Home не установлен на роутере." no_newline
-		print_line
-		adguardhome_install_locally
-#		fi
-	elif echo "${status}" | grep -q "НЕ НАСТРОЕН" ; then
-		adguardhome_check_config
-		adguardhome_setup
-	elif  echo "${status}" | grep -q "НУЖНО ПЕРЕУСТАНОВИТЬ" ; then
-		adguardhome_install_locally
-	else
-		adguardhome_setup
-	fi
-#	восстанавливаем /opt/etc/hosts
-	[ -f "${KVAS_BACKUP_PATH}/hosts" ] &&  cp -f "${KVAS_BACKUP_PATH}/hosts" /opt/etc/hosts
+	read_ynq "Хотите подключить AdGuardHome на удаленном устройстве?" answer
+	echo "${answer}" | grep -qi q && exit_q ; exit 1
+	if echo "${answer}" | grep -qi n; then
 
-	"${ADGUARDHOME_DEMON}" restart &> /dev/null	
+		echo -e "${GREEN}AdGuard Home${NOCL} будет установлен локально"
+		print_line
+		status=$(cmd_adguardhome_status)
+		if echo "${status}" | grep -q "НЕ УСТАНОВЛЕН" ; then
+			error "Пакет AdGuard Home не установлен на роутере." no_newline
+			print_line
+			adguardhome_install_locally
+	#		fi
+		elif echo "${status}" | grep -q "НЕ НАСТРОЕН" ; then
+			adguardhome_check_config
+			adguardhome_setup
+		elif  echo "${status}" | grep -q "НУЖНО ПЕРЕУСТАНОВИТЬ" ; then
+			adguardhome_install_locally
+		else
+			adguardhome_setup
+		fi
+	#	восстанавливаем /opt/etc/hosts
+		[ -f "${KVAS_BACKUP_PATH}/hosts" ] &&  cp -f "${KVAS_BACKUP_PATH}/hosts" /opt/etc/hosts
+
+		"${ADGUARDHOME_DEMON}" restart &> /dev/null	
+	else
+		dns_server_install_remotely
+	fi
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -748,29 +796,27 @@ bridge_vpn_access_del() {
 		ready "Удаление гостевого интерфейса '${cli_inface}' завершено"
 		{
 
-				if has_ssr_enable ; then
-					ip4_firewall_rm_ssr_selected_guest_net "${guest_bridge_id}"
-				else
-					ip4_firewall_rm_vpn_selected_guest_net "${guest_bridge_id}"
-				fi
+			if has_ssr_enable ; then
+				ip4_firewall_rm_ssr_selected_guest_net "${guest_bridge_id}"
+			else
+				ip4_firewall_rm_vpn_selected_guest_net "${guest_bridge_id}"
+			fi
 
-                #       Слушаем 53 порт гостевого интерфейса
-                guest_net_ip=$(ip a | grep global | grep -E ' '"${guest_bridge_id}" | sed 's/inet \(.*\)\/.*/\1/' | tr -d ' ')
-                if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
-        #               Если доступен ADGUARDHOME
-                        sed -i -e '/bind_hosts/,/port/{ /- '"${guest_net_ip}"'/d }' "${ADGUARDHOME_CONFIG}"
+			#       Слушаем 53 порт гостевого интерфейса
+			guest_net_ip=$(/opt/sbin/ip a | grep global | grep -E ' '"${guest_bridge_id}" | sed 's/inet \(.*\)\/.*/\1/' | tr -d ' ')
+			if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
+	#               Если доступен ADGUARDHOME
+					sed -i -e '/bind_hosts/,/port/{ /- '"${guest_net_ip}"'/d }' "${ADGUARDHOME_CONFIG}"
 #                       grep -v '    -'"${guest_net_ip}" /opt/tmp/agh.conf
 #                       mv -f /opt/tmp/agh.conf "${ADGUARDHOME_CONFIG}"
-                else
-        #               Если сейчас работает только dnsmasq
-                        sed -i -e '/listen-address/,/port/{ /listen-address='"${guest_net_ip}"'/d}' "${DNSMASQ_CONFIG}"
+			else
+	#               Если сейчас работает только dnsmasq
+					sed -i -e '/listen-address/,/port/{ /listen-address='"${guest_net_ip}"'/d}' "${DNSMASQ_CONFIG}"
 #                       grep -v 'listen-address='"${guest_net_ip}" "${DNSMASQ_CONFIG}" > /opt/tmp/dnsmasq.conf
 #                       mv -f /opt/tmp/dnsmasq.conf "${DNSMASQ_CONFIG}"
-                fi
+			fi
         } && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 }
-
-
 
 # ------------------------------------------------------------------------------------------
 #
@@ -781,11 +827,12 @@ ikev2_include_to_list(){
         if [ -n "${ikev2}" ]; then
                 net_pool=$(echo "${ikev2}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
                 echo "${ikev2}" | grep enable | grep -q true && status="ВКЛ. " || status="ОТКЛ."
-		echo "${ikev2}" | grep enable | grep -q true && color="${GREEN}" || color="${RED}"
-		txt="1. Сеть \"VPN-сервер\" IKEv2 [${net_pool}]"
-		prn="$(_join_ready "${txt}" "${status}" "${color}" $((LENGTH - MINUS)))"
+				echo "${ikev2}" | grep enable | grep -q true && color="${GREEN}" || color="${RED}"
+				
+				txt="1. Сеть \"VPN-сервер\" IKEv2 [${net_pool}]"
+				prn="$(_join_ready "${txt}" "${status}" "${color}" $((LENGTH - MINUS)))"
                 ready "${prn}"
-                cat < "/opt/etc/kvas.conf" | grep 'INFACE_GUEST_ENT=' | grep -q "[^_]ikev2" && when_ok "ДОБАВЛЕНА" || when_alert "НЕ ДОБАВЛЕНА"
+                cat < "${KVAS_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -q "[^_]ikev2" && when_ok "ДОБАВЛЕНА" || when_alert "НЕ ДОБАВЛЕНА"
         fi
 
 }
@@ -803,7 +850,7 @@ guest_include_to_list(){
 	desc_full=${2}
 	ent_inf=${3}
 
-	MINUS=10
+
 	
 	echo "${desc_full}" | grep -q 'is up' && color=${GREEN} || color=${RED}
 	echo "${desc_full}" | grep -q 'is up' && status="ВКЛ. " || status="ОТКЛ."
@@ -812,7 +859,7 @@ guest_include_to_list(){
 #       отображаем все гостевые интерфейсы
 	prn="$(_join_ready "${num}. Сеть ${_desc}" "${status}" ${color} $((LENGTH - MINUS)))"
         ready "${prn}"
-        cat < "/opt/etc/kvas.conf" | grep 'INFACE_GUEST_ENT=' | grep -q "[^_]${ent_inf}" && when_ok "ДОБАВЛЕНА" || when_alert "НЕ ДОБАВЛЕНА"
+        cat < "${KVAS_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -q "[^_]${ent_inf}" && when_ok "ДОБАВЛЕНА" || when_alert "НЕ ДОБАВЛЕНА"
 }
 
 warning_info(){
@@ -887,7 +934,7 @@ cmd_bridge_vpn_access_list() {
 		
 			if echo "${desc_full}" | grep -q Bridge ; then
 				net_ip=$(echo "${desc_full}" | sed 's/.*\[\([0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\)\].*/\1/')
-				ent_inf=$(ip a | grep global | grep "${net_ip}" | sed 's/.* \(.*\)$/\1/')
+				ent_inf=$(/opt/sbin/ip a | grep global | grep "${net_ip}" | sed 's/.* \(.*\)$/\1/')
 			else
 				desc=$(echo "${desc_full}" | sed 's|\"\(.*\)\".*|\1|')
 				ent_inf=$(cat /opt/etc/inface_equals | grep "${desc}" | cut -d'|' -f2)
@@ -964,7 +1011,7 @@ bridge_access_add() {
 		}
 
 #       Слушаем 53 порт гостевого интерфейса
-        guest_net_ip=$(ip a | grep global | grep -E ' '"${guest_bridge_id}" | sed 's/inet \(.*\)\/.*/\1/' | tr -d ' ')
+        guest_net_ip=$(/opt/sbin/ip a | grep global | grep -E ' '"${guest_bridge_id}" | sed 's/inet \(.*\)\/.*/\1/' | tr -d ' ')
         if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
 #           Если доступен ADGUARDHOME
 			grep -q "\- ${guest_net_ip}" "${ADGUARDHOME_CONFIG}" || \
@@ -1138,7 +1185,7 @@ dnsmasq_install(){
 	cp /opt/apps/kvas/etc/conf/dnsmasq.conf /opt/etc/dnsmasq.conf 1> /dev/null 2> "${ERROR_LOG_FILE}"
 	ready_status "${?}" "Проблемы при замене в файле конфигурации dnsmasq"
 
-	dnsmasq_install_wildcard_support
+	# dnsmasq_install_wildcard_support
 
 	uplevel_dns=$(get_config_value DNS_DEFAULT)
 	local_ip=$(get_router_ip)
@@ -1254,9 +1301,9 @@ cmd_dnsmasq_port_show() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_dns_test() {
-	domain=${1:-google.com}
-	ready "Тестируем получение адреса домена ${domain}"
-	result=$(test_host "${domain}" ip)
+	local _domain=${1:-google.com}
+	ready "Тестируем получение адреса для домена ${_domain}"
+	result=$(test_host "${_domain}" ip)
 	[ -n "${result}" ] && when_alert "${result}" || when_bad "ПУСТО"
 }
 # ------------------------------------------------------------------------------------------
@@ -1773,28 +1820,42 @@ EOF
 	# очищаем файл с именами интерфейсов
 	echo "shadowsocks|$(get_ssr_entware_interface)|shadowsocks" > "${INFACE_NAMES_FILE}"
 	# обозначаем список типов обрабатываемых VPN интерфейсов
-	types_inface='"OpenVPN","Wireguard","IKE","SSTP","PPPOE","L2TP","PPTP","Proxy"'
+	types_inface_included='"OpenVPN","Wireguard","IKE","SSTP","PPPOE","L2TP","PPTP","Proxy", "OpenConnect" '
 #	архивный вариант с выключенными интерфейсами сотовых операторов
 #	types_inface='"OpenVPN","Wireguard","IKE","SSTP","PPPOE","L2TP","CdcEthernet","UsbLte"'
 	# получаем список ID интерфейсов в наличии на роутере через пробел
 	inface_list=$(
 		curl -s "${INFACE_REQUEST}" \
-			| jq -r '.[] | select([.type]| inside(['"${types_inface}"'])) | select(.defaultgw!=true) | .id' \
+			| jq -r '.[] | select([.type]| inside(['"${types_inface_included}"'])) | select(.defaultgw!=true) | .id' \
 			| tr '\n' ' ' | sed 's/[ ]$//g' \
 	)
 	# проходимся по каждому интерфейсу
 	# ВНИМАНИЕ! inface_list - все маленькими буквами!!!
-	count=1; delay=3
-	list_len=$(echo "${inface_list}" | wc -w)
+
+	delay=3
 	for inface_cli in ${inface_list}; do
-#		переподключаем текущее соединение
+		# переподключаем текущее соединение
 		reset_connection "${inface_cli}" "${delay}"
-		# получаем описание интерфейса
-		description=$(get_value_interface_field "${inface_cli}" description | sed 's|\/|\\/|g')
-		# вставляем описание в файл /opt/etc/inface_equals
-		[ -n "${description}" ] && \
-			sed -i 's/\('"${inface_cli}"'.*\)/\1|'"${description}"'/' "${INFACE_NAMES_FILE}"
-		count=$((count + 1))
+	done
+	for inface_cli in ${inface_list}; do
+		# максимальное количество попыток (секунд) для ожидания отработки хука
+		# если при ежесекундной проверке интерфейс в файле появится, то ожидание прервётся
+		# если он уже на месте, задержки не будет
+		attempt=10
+		while [[ $attempt -gt 0 ]] && ! $(grep -Fq "${inface_cli}" "${INFACE_NAMES_FILE}"); do
+			sleep 1
+			attempt=$(( $attempt - 1 ))
+		done
+
+		if [[ $attempt -gt 0 ]]; then
+			# получаем описание интерфейса
+			description=$(get_value_interface_field "${inface_cli}" description | sed 's|\/|\\/|g')
+			# вставляем описание в файл /opt/etc/inface_equals
+			[ -n "${description}" ] && \
+				sed -i 's/\('"${inface_cli}"'.*\)/\1|'"${description}"'/' "${INFACE_NAMES_FILE}"
+		else
+			log_error "Сетевой интерфейс для ${inface_cli} получить не удалось."
+		fi
 	done
 	rm -f "${HOOK_INFACE_FILE}"
 }
@@ -1834,7 +1895,8 @@ get_vpn_interface_by_num() {
 #
 # ------------------------------------------------------------------------------------------
 get_current_vpn_interface() {
-	type="${1}"
+	local type="${1}"
+	local inface=""
 	if has_ssr_enable; then
 		inface='shadowsocks'
 	else
@@ -1845,7 +1907,7 @@ get_current_vpn_interface() {
 			*) col=1 ;;
 		esac
 		inface_entware=$(get_config_value "INFACE_ENT")
-		inface=$(grep "${inface_entware}" "${INFACE_NAMES_FILE}" | cut -d'|' -f"${col}")
+		[ -n "${inface_entware}" ] && inface=$(grep "${inface_entware}" "${INFACE_NAMES_FILE}" | cut -d'|' -f"${col}")
 	fi
 	echo "${inface}"
 }
@@ -1872,7 +1934,7 @@ is_vpn_interface_connected() {
 #
 # ------------------------------------------------------------------------------------------
 show_vpn_list() {
-
+# set -xeu
 	inface_entware=$(get_current_vpn_interface 'entware')
 	num=0;
 
@@ -1896,6 +1958,7 @@ show_vpn_list() {
 		ready "${mess}"
 		if [ "${connected}" = "on" ]; then when_ok "В СЕТИ"; else when_bad "ОТКЛЮЧЕН"; fi
 	done <${INFACE_NAMES_FILE}
+# set +xeu
 }
 
 # ------------------------------------------------------------------------------------------
@@ -1917,8 +1980,8 @@ show_interface_name_list_process(){
 			if echo "${answer}" | grep -qi y ; then
 				update_interface_name_list
 			fi
-		else
-			update_interface_name_list
+		# else
+		# 	update_interface_name_list
 		fi
 	else
 		update_interface_name_list
@@ -1930,20 +1993,33 @@ show_interface_name_list_process(){
 #------------------------------------------------------------------------------------------
 cmd_manual_gateway_set() {
 
-		print_line
-		echo -en "${BLUE}Введите адрес шлюза :${NOCL} "
-		read -r addr_gateway 
-		echo -en "${BLUE}Введите интерфейс, к которому подключен шлюз(Если он в локальной сети, то это интерфейс br0) | Q-выход:${NOCL} "
-		read -r inface_gateway
+		local _ip=${1}
 
-		if [[ "$addr_gateway" =~ ^[Qq]$ ]] || [[ "$inface_gateway" =~ ^[Qq]$ ]]; then
+		[ -z "${_ip}" ] && {
+			echo -en "${BLUE}Введите адрес шлюза :${NOCL} "
+			read -r addr_gateway 
+		}
+		
+		echo "${addr_gateway}" | grep -qE "${IP_FILTER}" || { 
+			error "Введен неправильный адрес шлюза!"; 
+			exit 1; 
+		}
+
+		local _inface_gateway=$(/opt/sbin/ip a | grep "${addr_gateway}" | sed 's/.* \(.*\)$/\1/')
+		
+		[ -z "${_inface_gateway}" ] && { 
+			error "Не удалось найти интерфейс с данным адресом. Проверьте правильность ввода адреса шлюза!"; 
+			exit 1; 
+		}
+
+		if [[ "$addr_gateway" =~ ^[Qq]$ ]] || [[ "$_inface_gateway" =~ ^[Qq]$ ]]; then
 			print_line
 #			Если нажали на q
 			echo -e "${RED}Процедура настройки прервана пользователем!${NOCL}"
 			print_line
 		else
 			ndm_gateway_change ${addr_gateway}
-			switch_vpn_on "${inface_gateway}" "Gateway"
+			switch_vpn_on "${_inface_gateway}" "Gateway"
 			cmd_kvas_init "update"
 		fi
 
@@ -1959,7 +2035,7 @@ cmd_manual_gateway_set() {
 # ------------------------------------------------------------------------------------------
 cmd_interface_change() {
 
-	answer="${1}"
+	answer="${1:-no}"
 	is_install_stage="${2:-no}"
     
 		show_interface_name_list_process "${answer}"
@@ -2108,7 +2184,7 @@ dns_crypt_port_change() {
 	ready "Замена локального порта на ${port_new} в dnscrypt_proxy2 завершена"
 
 	set_config_value DNS_CRYPT_PORT "${port_new}"
-	sed -i "s/\(^listen_addresses.=.\).*$/\1['[::]:${port_new}']/g" "${DNSCRYPT_CONFIG}" &> /dev/null
+	sed -i "s/\(^listen_addresses.=.\).*$/\1['127.0.0.1:${port_new}']/g" "${DNSCRYPT_CONFIG}" &> /dev/null
 	sed -i "s/\(@.*\)\(:[0-9]\{2,6\}\)/\1:${port_new} /g" '/opt/apps/kvas/bin/main/ipset' &> /dev/null
 
 	[ -f /opt/etc/dnsmasq.d/kvas.dnsmasq ] && {
@@ -2268,11 +2344,14 @@ cmd_dns_crypt_on() {
 #				sed -i "s/\(^cache.=.\).*$/\1${dns_cache_enabled}/g" '/opt/etc/dnscrypt-proxy.toml'
 #				оставляем кеш выключенным за счет работы механизма кеширвоания dnsmasq
 				sed -i "s/\(^cache.=.\).*$/\1false/g" '/opt/etc/dnscrypt-proxy.toml'
-				sed -i "s/\(^doh_servers.=.\).*$/\1false/g" '/opt/etc/dnscrypt-proxy.toml'
+				sed -i "s/\(^block_ipv6.=.\).*$/\1true/g" '/opt/etc/dnscrypt-proxy.toml'
+				sed -i "s/^[# ]\{0,1\}[ ]\{0,1\}\(doh_servers.=.\).*$/\1false/g" '/opt/etc/dnscrypt-proxy.toml'
+				sed -i "s/\(^ipv6_servers.=.\).*$/\1false/g" '/opt/etc/dnscrypt-proxy.toml'
 				sed -i "s/\(^require_dnssec.=.\).*$/\1true/g" '/opt/etc/dnscrypt-proxy.toml'
+				sed -i "s/\(^listen_addresses.=.\).*$/\1['127.0.0.1:${crypt_port}'.*]/g" "${DNSCRYPT_CONFIG}" &> /dev/null
 				sed -i "s/\(^cache_min_ttl.=.\).*$/\10/g" '/opt/etc/dnscrypt-proxy.toml'
-				# sed -i "s/.* \(server_names =\).*/\1 ['google', 'yandex', 'cloudflare']/g" '/opt/etc/dnscrypt-proxy.toml'
-				
+				sed -i "s/\(^cache_max_ttl.=.\).*$/\10/g" '/opt/etc/dnscrypt-proxy.toml'
+				sed -i "s/.* \(server_names =\).*/\1 ['google', 'yandex', 'cloudflare']/g" '/opt/etc/dnscrypt-proxy.toml'
 				sed -i "/proxy-dnssec/d" /opt/etc/dnsmasq.conf
 				echo "proxy-dnssec" >> /opt/etc/dnsmasq.conf
 				dns_crypt_port_change "${dns_crypt_port}" restart
@@ -2477,9 +2556,9 @@ cmd_add_one_host() {
 
 	host=$(echo "${1}" | sed 's|http[s]\{,1\}://||;')
 	reset="${2:-yes}"
-	wild="${3:-}"
+	wild="${3:-}"	 
 
-	ip_filter='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'
+	ip_filter="[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}"
 
 	# Выходим из функции при отуствии интернет-соединения или VPN
 	exit_when_no_internet_or_vpn || exit 1 
@@ -2504,7 +2583,7 @@ cmd_add_one_host() {
 	# Если  помимо этого домена существует еще доменные с одноименным тегом
 	# то делаем запрос на их доавление.
 	local _tmpfile=$(mktemp)
-	echo "${host}" | grep -qE "${ip_filter}" || {
+	echo "${host}" | grep -qE "${IP_FILTER}" || {
 		_get_same_tag_domains_missing_in_protection_list "${host}" | sed '/$/d' > "${_tmpfile}"
 	}
 	# Проверяем есть ли в этом списке домены
@@ -2527,26 +2606,25 @@ cmd_add_one_host() {
 	#	формальная проверка на наличие точки в имени домена
 	if echo "${host}" | grep -q '\.' ; then
 		# если точка в имени домена есть, то проверяем на корректность IP
-		if echo "${clear_host}" | grep -qE "${ip_filter}*" ; then
-
+		if echo "${clear_host}" | grep -qE "${IP_FILTER}*" ; then
 			# если точка в имени домена есть, то проверяем на корректность IP
-			if echo "${clear_host}" | grep -qE "^${ip_filter}/[0-9]{1,2}$|^${ip_filter}$|^${ip_filter}-${ip_filter}$"; then
+			if echo "${clear_host}" | grep -qE "^${IP_FILTER}/[0-9]{1,2}$|^${IP_FILTER}$|^${IP_FILTER}-${ip_filter}$" ; then
 				# если включен режим импорта
-				if [ "${wild}" = import ]; then
-					host_add "${host}" "${reset}" "${wild}" | grep -q "ДОБАВЛЕН" && echo +
+				if [ "${wild}" = import ] ; then
+					host_add "${host}" "${reset}" "${wild}" | grep -q "ДОБАВЛЕН" && echo "+"
 				else
 					host_add "${host}" "${reset}" "${wild}"
 				fi
 			else
-				if [ "${wild}" = import ]; then
-					echo 2
+				if [ "${wild}" = import ] ; then
+					echo "2"
 				else
 					error "Введенный IP адрес или диапазон IP-адресов имеет некорректный формат." nl
 				fi
 			fi
 		else
 			# проверка на наличие домена в списке защиты доменов
-			if cat < "${KVAS_LIST_FILE}" | grep -qE "^${clear_host}"; then
+			if cat < "${KVAS_LIST_FILE}" | grep -qE "^${clear_host}" ; then
 				[ "${wild}" = import ] || warning "Такой домен уже есть в защищенном списке!"
 				if [ "${clear_host}" != "${host}" ] ; then
 					warning "Производим замену ${clear_host} на ${host}"
@@ -2554,18 +2632,18 @@ cmd_add_one_host() {
 					sed -i "/^${clear_host}$/d" "${KVAS_LIST_FILE}"
 
 					if [ "${wild}" = import ]; then
-						host_add "${host}" "${reset}" "${wild}" | grep -q "ДОБАВЛЕН" && echo 1
+						host_add "${host}" "${reset}" "${wild}" | grep -q "ДОБАВЛЕН" && echo "1"
 					else
 						host_add "${host}" "${reset}" "${wild}"
 					fi
 				else
-					[ "${wild}" = import ] && echo -
+					[ "${wild}" = import ] && echo "-"
 				fi
 
 			else
 
 				if [ "${wild}" = import ]; then
-					host_add "${host}" "${reset}" "${wild}" | grep -q "ДОБАВЛЕН" && echo +
+					host_add "${host}" "${reset}" "${wild}" | grep -q "ДОБАВЛЕН" && echo "+"
 				else
 					host_add "${host}" "${reset}" "${wild}"
 				fi
@@ -2573,7 +2651,7 @@ cmd_add_one_host() {
 		fi
 	else
 		if [ "${wild}" = import ]; then
-			echo 2
+			echo "2"
 		else
 			error "Некорректно указано имя домена - ${1}." no_nln
 		fi
@@ -2630,7 +2708,7 @@ cmd_del_one_host() {
 #
 # ------------------------------------------------------------------------------------------
 del_multy_hosts() {
-	list_to_del="$1"
+	list_to_del="$(echo "$1" | sed 's/^[0-9]\{1,2\}\. //g')"
 
 	if [ -z "${list_to_del}" ]; then
 		error "Список пуст!" 
@@ -2668,42 +2746,122 @@ del_multy_hosts() {
 #	Очищаем полностью белый список
 #
 # ------------------------------------------------------------------------------------------
-cmd_clear_list() {
+get_regexp_ip_or_range() {
+	echo "^(${IP_FILTER}|${IP_FILTER}-${IP_FILTER}|${IP_FILTER}/[0-9]{1,2})$"
+}
 
-	if [ -f "${KVAS_LIST_FILE}" ]; then
-		if [ "$(rec_in_file "${KVAS_LIST_FILE}")" = '0' ]; then
-			error "Защищенный список не содержит записей!"
-		else
-			while true; do
-				ready "Защищенный список будет полностью очищен. Уверены?" && read -r yn
-				case ${yn} in
-				[Yy]*)
-					# Выходим из функции при отуствии интернет-соединения или VPN
-					exit_when_no_internet_or_vpn || exit 1 
-					
-					print_line
-					ready "Очищаем защищенный список..."
+cmd_clear_list() {
+	if ! [ -f "${KVAS_LIST_FILE}" ]; then
+		error 'Списочный файл не существует!'
+		exit 1
+	fi
+	#if [ "$(rec_in_file "${KVAS_LIST_FILE}")" = '0' ]; then
+	# Предыдущий код закомментирован выше. Сортировать и чистить /opt/etc/kvas.list 
+	# (который итак упорядочен и отфильтрован, это же не пользовательские данные) 
+	# только для проверки на пустоту — крайне затратная операция при большом размере.
+	# Условность для ускорения: если есть IP или доменное имя, то должна быть точка.
+	if ! grep -Fq '.' "${KVAS_LIST_FILE}"; then
+		error 'Защищённый список уже пуст.'
+		exit 1
+	fi
+
+	if [ -z "${1}" ]; then
+		local clear_format='all'
+	else
+		local clear_format="${1}"
+	fi
+	if [ "${clear_format}" = 'all' ]; then
+		local submessage='целиком'
+	elif [ "${clear_format}" = 'ip' ]; then
+		local submessage='от IP'
+	else
+		error 'Формат очистки неизвестен.'
+		exit 3
+	fi
+
+	while true; do
+		ready "Защищённый список будет очищен ${submessage}. Уверены?" && read -r yn
+		case ${yn} in
+			[Yy]*)
+				print_line
+				exit_when_no_internet_or_vpn || exit 2
+
+				submessage="Очищаем защищённый список ${submessage}..."
+				if [ "${clear_format}" = 'all' ]; then
+					# изначальный код
+					ready "${submessage}"
+
 					mv -f "${KVAS_LIST_FILE}" "${KVAS_LIST_FILE_BACKUP}"
 					rm -f "${ADGUARD_IPSET_FILE}"
 					touch "${KVAS_LIST_FILE}"
-					cmd_kvas_init  "update" &> /dev/null
-					[ $? = 0 ] && when_ok "ОЧИЩЕН" || when_bad "ОШИБКА"
+
+					cmd_kvas_init 'update' &> /dev/null
+					[ $? = 0 ] && when_ok 'ОЧИЩЕН' || when_bad 'ОШИБКА'
+
 					print_line
-					warning "Предыдущий защищенный список был сохранен в файл ${KVAS_LIST_FILE_BACKUP}"
-					break
-					;;
-				[Nn]*)
-					break
-					;;
-				*)
-					please_repeat
-					;;
-				esac
-			done
-		fi
-	else
-		error "Списочный файл не существует!"
-	fi
+					warning "Предыдущий защищённый список был сохранён в файл ${KVAS_LIST_FILE_BACKUP}"
+				elif [ "${clear_format}" = 'ip' ]; then
+					echo -n "${submessage}"
+					local tmp_file='/opt/tmp/without_ip.txt'
+					>"${tmp_file}"
+					local regexp_ip=$(get_regexp_ip_or_range)
+					local readed_count=0
+					local deleted_count=0
+					local saved_count=0
+					local lines_cache=''
+					while read line; do
+						# скорее всего, лишний блок
+						if [ -z "${line}" ]; then
+							continue
+						fi
+
+						# заменитель шкалы прогресса, каждые 50 записей
+						readed_count=$((readed_count + 1))
+						if [ "$(( ${readed_count} % 50 ))" -eq 0 ]; then
+							echo -n '.'
+						fi
+
+						# IP вычищаем из ipset и считаем
+						if echo "${line}" | grep -qE -- "${regexp_ip}"; then
+							ipset -exist del "${IPSET_TABLE_NAME}" "${line}"
+							deleted_count=$((deleted_count + 1))
+							continue
+						fi
+
+						# неIP в новый файл не построчно, а блоками
+						lines_cache="${lines_cache}${line}"$'\n'
+						saved_count=$((saved_count + 1))
+						if [ "$(( ${saved_count} % 50 ))" -eq 0 ]; then
+							echo -n "${lines_cache}" >>"${tmp_file}"
+							lines_cache=''
+						fi
+					done <"${KVAS_LIST_FILE}"
+					echo -n 'удалено '
+					if [ -n "${lines_cache}" ]; then
+						echo -n "${lines_cache}" >>"${tmp_file}"
+					fi
+					echo "${deleted_count}."
+
+					echo -n 'Предыдущий защищённый список сохранён в '
+					mv -f "${KVAS_LIST_FILE}" "${KVAS_LIST_FILE_BACKUP}"
+					mv "${tmp_file}" "${KVAS_LIST_FILE}"
+					echo "${KVAS_LIST_FILE_BACKUP}"
+
+					# из списка были вычищены лишь IP, не требуются
+					# refresh_dnsmasq_ipset_table или refresh_adguard_ipset_table
+					# и рестарты
+				fi
+
+				break
+				;;
+			[NnQq]*)
+				break
+				;;
+			*)
+				please_repeat
+				;;
+		esac
+	done
 }
 
 # ------------------------------------------------------------------------------------------
@@ -2724,95 +2882,157 @@ rec_in_var() {
 #		 одно имя - одна строка в списочном файле
 #
 # ------------------------------------------------------------------------------------------
-
 cmd_import_hosts() {
+	user_list="${1}"
+	if [ -z "${user_list}" ]; then
+		error 'Не задан файл для импорта!'
+		error 'Укажите его вторым аргументом при запуске.'
+		exit 1
+	fi
+	if ! [ -f "${user_list}" ]; then
+		error "Не найден файл ${user_list}!"
+		error 'Проверьте верность написания пути и его имени.'
+		exit 1
+	fi
+	# Условность для ускорения: если есть IP или доменное имя, то должна быть и точка
+	if ! grep -Fq '.' "${user_list}"; then
+		error "Не найдены IP или имена доменов в файле ${user_list}!"
+		error 'Заполните его данными.'
+		exit 1
+	fi
 
-	# Выходим из функции при отуствии интернет-соединения или VPN
-	exit_when_no_internet_or_vpn || exit 1 
+	# Выходим из функции при отсутствии интернет-соединения или VPN
+	exit_when_no_internet_or_vpn || exit 2
 
-	host_list="${1}"
-	if [ -z "${host_list}" ]; then
-		error "Не задано имя файла для импорта."
-		error "Укажите его вторым аргументом при запуске!"
-	else
-		if ! [ -f "${host_list}" ]; then
-			error "Списочный файл ${host_list} не существует."
-			error "Проверьте верность написания пути и его имени."
-		else
-			ready "Импортируем хосты в список защищаемых доменов..."
-			clear_file_content "${host_list}"
+	regexp_ip=$(get_regexp_ip_or_range)
+	if ! grep -vEq -- "${regexp_ip}" "${user_list}"; then
+		# альтернативный оптимизированный код для списка IP
+		# благодаря верхней проверке, мы знаем, что комментариев и пустых строк уже нет
+		# проверку на уникальность сделаем на лету, сортировку в финале
 
-			# clear_file_content "${KVAS_LIST_FILE}"
+		#sort -o не поддерживается, поэтому через временный файл
+		local tmp_file='/opt/tmp/sorted_list.txt'
+		cp -f "${KVAS_LIST_FILE}" "${tmp_file}"
 
-			hosts_to_add_ubl=''
-			hosts_repeated_ubl=''
-			hosts_not_added=''
-			hosts_errors=''
-
-			while read -r line || [ -n "${line}" ]; do
-				# удаляем из строки комментарии - все что встречается после символа # и сам символ
-				host=$(echo "${line}" | sed 's/#.*$//g' | tr -s ' ')
-				#  пропускаем пустые строки и строки с комментариями
-				[ -z "${host}" ] && continue
-				#  пропускаем строки с комментариями
-				[ "${host:0:1}" = "#" ] && continue
-
-				case "$(cmd_add_one_host "${host}" "no" "import")" in
-				0) hosts_not_added="${hosts_not_added}${host}\n" ;;
-				1) hosts_repeated_bl="${hosts_repeated_bl}${host}\n" ;;
-				+) hosts_to_add_ubl="${hosts_to_add_ubl}${host}\n" ;;
-				2) hosts_errors="${hosts_errors}${host}\n";;
-				*) ;;
-				esac
-			done < "${host_list}"
-
-			#     добавляем хосты в файл списочный
-			_hosts_to_add_ubl=$(echo -e "${hosts_to_add_ubl}" | sed '/^$/d; /^[-+.]/!s/\(.*\)/\1/')
-			echo -e "${_hosts_to_add_ubl}" >> "${KVAS_LIST_FILE}"
-
-			#	если включен блокировщик рекламы
-			if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
-				ads_list_hosts_update &> /dev/null
+		echo -n 'Импортируем IP в список защиты..'
+		local readed_count=0
+		local added_count=0
+		local lines_cache=''
+		while read line; do
+			# заменитель шкалы прогресса, каждые 50 записей
+			readed_count=$((readed_count + 1))
+			if [ "$(( ${readed_count} % 50 ))" -eq 0 ]; then
+				echo -n '.'
 			fi
 
-			cmd_kvas_init  "update" &> /dev/null
+			# уже добавлен, уникализация добавляемого
+			if grep -Fq -- "${line}" "${tmp_file}"; then
+				continue
+			fi
 
-			[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+			# IP не умеют самовосстанавливаться, ttl бесконечность
+			ipset -exist add "${IPSET_TABLE_NAME}" "${line}" timeout 0
 
-			num_not_added=$(rec_in_var "${hosts_not_added}")
-			num_repeated_ubl=$(rec_in_var "${hosts_repeated_ubl}")
-			num_to_add_ubl=$(rec_in_var "${hosts_to_add_ubl}")
-			num_errors=$(rec_in_var "${hosts_errors}")
+			lines_cache="${lines_cache}${line}"$'\n'
+			added_count=$((added_count + 1))
+			if [ "$(( ${added_count} % 50 ))" -eq 0 ]; then
+				# пишем в файл не построчно, а блоками
+				echo -n "${lines_cache}" >>"${tmp_file}"
+				lines_cache=''
+			fi
+		done <"${user_list}"
+		echo -n 'добавлено '
+		if [ -n "${lines_cache}" ]; then
+			echo -n "${lines_cache}" >>"${tmp_file}"
+		fi
+		echo "${added_count}."
 
-			num_errors=$((num_not_added + num_repeated_ubl + num_errors))
-			tab="    "
+		echo -n 'Предыдущий защищённый список сохранён в '
+		mv -f "${KVAS_LIST_FILE}" "${KVAS_LIST_FILE_BACKUP}"
+		echo "${KVAS_LIST_FILE_BACKUP}"
+
+		echo -n 'Сортируем список защиты...'
+		sort "${tmp_file}" >"${KVAS_LIST_FILE}"
+		rm -f "${tmp_file}"
+		echo 'сделано.'
+
+		# в список были добавлены лишь IP, не требуются
+		# refresh_dnsmasq_ipset_table или refresh_adguard_ipset_table
+		# и рестарты
+		return
+	fi
+
+	# изначальный код без изменений
+	ready 'Импортируем хосты в список защищаемых доменов...'
+	clear_file_content "${user_list}"
+	#clear_file_content "${KVAS_LIST_FILE}"
+
+	hosts_to_add_ubl=''
+	hosts_repeated_ubl=''
+	hosts_not_added=''
+	hosts_errors=''
+	while read -r line || [ -n "${line}" ]; do
+		# удаляем из строки комментарии - все что встречается после символа # и сам символ
+		host=$(echo "${line}" | sed 's/#.*$//g' | tr -s ' ')
+		#  пропускаем пустые строки и строки с комментариями
+		[ -z "${host}" ] && continue
+		#  пропускаем строки с комментариями
+		[ "${host:0:1}" = "#" ] && continue
+
+		case "$(cmd_add_one_host "${host}" "no" "import")" in
+		0) hosts_not_added="${hosts_not_added}${host}\n" ;;
+		1) hosts_repeated_bl="${hosts_repeated_bl}${host}\n" ;;
+		+) hosts_to_add_ubl="${hosts_to_add_ubl}${host}\n" ;;
+		2) hosts_errors="${hosts_errors}${host}\n";;
+		*) ;;
+		esac
+	done < "${user_list}"
+
+	# добавляем хосты в файл списочный
+	_hosts_to_add_ubl=$(echo -e "${hosts_to_add_ubl}" | sed '/^$/d; /^[-+.]/!s/\(.*\)/\1/')
+	echo -e "${_hosts_to_add_ubl}" >> "${KVAS_LIST_FILE}"
+
+	# если включен блокировщик рекламы
+	if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
+		ads_list_hosts_update &> /dev/null
+	fi
+
+	cmd_kvas_init  "update" &> /dev/null
+	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+
+	num_not_added=$(rec_in_var "${hosts_not_added}")
+	num_repeated_ubl=$(rec_in_var "${hosts_repeated_ubl}")
+	num_to_add_ubl=$(rec_in_var "${hosts_to_add_ubl}")
+	num_errors=$(rec_in_var "${hosts_errors}")
+
+	num_errors=$((num_not_added + num_repeated_ubl + num_errors))
+	tab="    "
+	# print_line
+	if [ "${num_to_add_ubl}" -gt 0 ]; then
+		# :
+		#warning "Новых записей добавлено не было!"
+	# else
+		warning "В защищенный список было добавлено ${YELLOW}${num_to_add_ubl}${GREEN} новых домена/ов:"
+		print_line
+		if [ "${num_to_add_ubl}" -gt 0 ]; then
+			warning "${tab}Список добавленных доменов:"
 			print_line
-			if [ "${num_to_add_ubl}" -eq 0 ]; then
-				warning "Новых записей добавлено не было!"
-			else
-				warning "В защищенный список было добавлено ${YELLOW}${num_to_add_ubl}${GREEN} новых домена/ов:"
-				print_line
-				if [ "${num_to_add_ubl}" -gt 0 ]; then
-					warning "${tab}Список добавленных доменов:"
-					print_line
-					echo -e "${hosts_to_add_ubl}" | sed '/^$/d; /^[-]/!s/\(.*\)/'"${tab}${tab}"'\1/g'
-				fi
-			fi
-			if [ "${num_errors}" -gt 0 ]; then
-				echo
-				error "В ходе импорта возникли ошибки ${YELLOW}${num_errors}${RED} шт.:"
-				print_line
-				if [ "${num_not_added}" -gt 0 ]; then
-					error "${tab}Проблем в написании или недоступности доменов выявлено ${YELLOW}${num_not_added}${RED} шт."
-					print_line
-					echo -e "${hosts_not_added}" | sed 's/^$/'"$(print_line)"'/; /^[-]/!s/\(.*\)/'"${tab}${tab}"'\1/g'
-				fi
-				if [ "${num_repeated_ubl}" -gt 0 ]; then
-					error "${tab}Домены ниже уже присутствуют в защищенном списке [${YELLOW}${num_repeated_ubl}${RED} шт.]"
-					print_line
-					echo -e "${hosts_repeated_ubl}" | sed 's/^$/'"$(print_line)"'/; /^[-]/!s/\(.*\)/'"${tab}${tab}"'\1/g'
-				fi
-			fi
+			echo -e "${hosts_to_add_ubl}" | sed '/^$/d; /^[-]/!s/\(.*\)/'"${tab}${tab}"'\1/g'
+		fi
+	fi
+	if [ "${num_errors}" -gt 0 ]; then
+		echo
+		error "В ходе импорта возникли ошибки ${YELLOW}${num_errors}${RED} шт.:"
+		print_line
+		if [ "${num_not_added}" -gt 0 ]; then
+			error "${tab}Проблем в написании или недоступности доменов выявлено ${YELLOW}${num_not_added}${RED} шт."
+			print_line
+			echo -e "${hosts_not_added}" | sed 's/^$/'"$(print_line)"'/; /^[-]/!s/\(.*\)/'"${tab}${tab}"'\1/g'
+		fi
+		if [ "${num_repeated_ubl}" -gt 0 ]; then
+			error "${tab}Домены ниже уже присутствуют в защищенном списке [${YELLOW}${num_repeated_ubl}${RED} шт.]"
+			print_line
+			echo -e "${hosts_repeated_ubl}" | sed 's/^$/'"$(print_line)"'/; /^[-]/!s/\(.*\)/'"${tab}${tab}"'\1/g'
 		fi
 	fi
 }
@@ -2858,7 +3078,7 @@ add_tag_section_to_protect_list() {
         print_line
 
 		if [ "${tag_selected}" = ALL ] ; then
-			domains=$(cat < "${TAGS_FILE}" | sed 's/\(^.*\)#.*$/\1/g' | grep -Ev '#|\[' | tr -s '\n')
+			domains=$(cat < "${TAGS_FILE}" | sed 's/\(^.*\)#. *$/\1/g' | grep -Ev '#|\[' | tr -s '\n')
 		else
 			domains=$(get_tag_domain_list "${tag_selected}")
 		fi
@@ -2867,7 +3087,7 @@ add_tag_section_to_protect_list() {
 		local exist_into_list=""
 
 		while IFS= read -r domain; do
-		grep -q "$domain" "${KVAS_LIST_FILE}" || exist_into_list="${exist_into_list}$(echo "${domain}\n" | sed 's/[\^]//; s/[\$]//')"
+			grep -q "$domain" "${KVAS_LIST_FILE}" || exist_into_list="${exist_into_list}$(echo "${domain}\n" | sed 's/[\^]//; s/[\$]//')"
 		done <<EOF
 $grep_list_to_add
 EOF
@@ -2875,16 +3095,16 @@ EOF
 		exist_into_list=$(echo -e "${exist_into_list}" | sed '/^$/d' | sed = | sed 'N;s/\n/. /g')
 		echo "${exist_into_list}"
 		print_line
-		read_ynq "Добавляем?" answer
-        if [[ "$answer" =~ [qQ] ]] ; then
-            return 0
-        elif [ "${answer}" = y ]; then
-            print_line
-            local TMPFILE=$(mktemp)
-			echo -e "${exist_into_list}" | sed 's/^[0-9]\{1,3\}\. \(.*\)/\1/g' | sed '/^$/d' > "${TMPFILE}"
-            cmd_import_hosts "${TMPFILE}"
-            rm "${TMPFILE}"
-        fi
+		# read_ynq "Добавляем?" answer
+        # if [[ "$answer" =~ [qQ] ]] ; then
+        #     return 0
+        # elif [ "${answer}" = y ]; then
+		# print_line
+		local TMPFILE=$(mktemp)
+		echo -e "${exist_into_list}" | sed 's/^[0-9]\{1,3\}\. \(.*\)/\1/g' | sed '/^$/d' > "${TMPFILE}"
+		cmd_import_hosts "${TMPFILE}"
+		rm "${TMPFILE}"
+        # fi
     }
 
 }
@@ -2904,7 +3124,7 @@ del_tag_section_to_protect_list() {
 
 	print_line
 	if [ "${tag_selected}" = ALL ] ; then
-		domains=$(cat < "${TAGS_FILE}" | sed 's/\(^.*\)#.*$/\1/g' | grep -Ev '#|\[' | tr -s '\n')
+		domains=$(cat < "${TAGS_FILE}" | sed 's/\(^.*\)#. *$/\1/g' | grep -Ev '#|\[' | tr -s '\n')
 	else 
 		domains=$(get_tag_domain_list "${tag_selected}")
 	fi

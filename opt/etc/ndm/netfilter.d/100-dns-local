@@ -17,9 +17,6 @@
 # ------------------------------------------------------------------------------
 if [ "${type}" = "iptables" ] && [ "${table}" = "nat" ] ; then
 	. /opt/apps/kvas/bin/libs/ndm
-#        logger -t "КВАС"  "Запущен файл ${0} [type=${type} и table=${table}]"
+	# перенаправляем dns-запросы в dnsmasq
 	ip4_firewall_dns_rules_set &> /dev/null
-        #	в случае наличия гостевой сети
-#	set_guest_nets_rules &> /dev/null
 fi
-

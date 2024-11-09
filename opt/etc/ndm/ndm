@@ -23,7 +23,7 @@
 TABLE_ID=1001
 PRIORITY=1778
 MARK_NUM=0xd1000
-DNS_PORT=53
+DNS_PORT=9753
 
 
 
@@ -44,8 +44,8 @@ ip4() (/opt/sbin/ip -4 "$@")
 ip4tables() (/opt/sbin/iptables -C "$@" &>/dev/null || /opt/sbin/iptables -A "$@")
 iptab() (/opt/sbin/iptables "$@")
 ip4save() (/opt/sbin/iptables-save | grep -vE '\-A _')
-get_gw4()([ "${1}" ] && ip addr show "${1}" | grep -Po "(?<=inet ).*(?=/)")
-version_os()(ndmc -c show version | grep version | head -1 | cut -d: -f2| tr -d ' ')
+get_gw4()([ "${1}" ] && /opt/sbin/ip addr show "${1}" | grep -Po "(?<=inet ).*(?=/)")
+version_os()(ndmc -c show version | grep -F 'version' | grep -oE '[0-9]\.[0-9\.]*[0-9]' | head -1)
 is_os_4()([[ "$(version_os)" =~ 4.* ]])
 
 #как пример гостевая сеть br3, которой необходимо обеспечить доступ к VPN
@@ -71,19 +71,22 @@ fastnet_enabled()(fast_hw_enabled || fast_sw_enabled)
 # ------------------------------------------------------------------------------------------
 cmd_vpn_iptable_reset() {
 	if [ -f /opt/etc/ndm/fs.d/100-vpn ] ; then
+		
 		ready "Переустановка iptables для vpn завершена"
-		cmd_vpn_iptable_flush  &> /dev/null
+		{
+			cmd_vpn_iptable_flush  #&> /dev/null
 
-#		В качестве экперимента !!!!!
-		ip4set_create_table &> /dev/null
+	#		В качестве экперимента !!!!!
+			ip4set_create_table #&> /dev/null
 
-		ip4_add_route_table &> /dev/null
-	#	Устанавливаем приоритет таблицы
-		ip4_rule_set_priority &> /dev/null
-	#	Создаем правила iptables
-		ip4_mark_vpn_network &> /dev/null
+			ip4_add_route_table #&> /dev/null
+		#	Устанавливаем приоритет таблицы
+			ip4_rule_set_priority #&> /dev/null
+		#	Создаем правила iptables
+			ip4_mark_vpn_network #&> /dev/null
 
-		[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
+		} &> /dev/null && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
+		
 	else
 		warning "VPN соединение не активно!"
 	fi
@@ -121,7 +124,7 @@ add_ikev2_net_to_config(){
 # ------------------------------------------------------------------------------------------
 ip4_flush_cache(){
 	log_warning "Проводим очистку кеша маршрутизации."
-	ip route flush cache 1> /dev/null 2> "${ERROR_LOG_FILE}"
+	/opt/sbin/ip route flush cache 1> /dev/null 2> "${ERROR_LOG_FILE}"
 #		|| error "[${FUNCNAME}] Возникла ошибка при очистки кеша маршрутизации."
 }
 
@@ -129,27 +132,6 @@ ip4_flush_cache(){
 # ------------------------------------------------------------------------------------------
 # Подключаем правила для корректной работы DNS трафика через 53 порт
 # ------------------------------------------------------------------------------------------
-# ip4_firewall_dns_rules_set(){
-
-# 	interface=$(get_local_inface)
-# 	local_ip=$(get_router_ip)
-
-# 	ip4tables PREROUTING -t nat -p udp --dport ${DNS_PORT} -j DNAT --to "${local_ip}:${DNS_PORT}" &>/dev/null
-#	for protocol in tcp udp ; do
-		#	Если не заданы аргументы, то ничего не выполняем
-# 		if [ -n "${interface}" ] && [ -n "${local_ip}" ]; then
-# 			# если правила для tcp есть, то пропускаем их добавление
-# 			if ! ip4save | grep -q "${protocol} \-\-dport ${DNS_PORT} \-j DNAT" ; then
-# 				log_warning "Подключаем правила для корректной работы DNS трафика через 53 порт:"
-# 				log_warning "Интерфейс: ${interface}, IP: ${local_ip}, протокол: ${protocol}."
-# 				ip4tables PREROUTING -w -t nat -i "${interface}" --dport ${DNS_PORT} -j DNAT --to "${local_ip}" &>/dev/null
-# #					|| error "[${FUNCNAME}] Возникла ошибка в функции при установке правил iptables."
-# 			fi
-# 		else
-# 			log_error "При вызове ip4_firewall_dns_rules_set не были заданы обязательные аргументы."
-# 		fi
-#	done
-}
 ip4_firewall_dns_rules_set() {
 	local router_ip=$(get_router_ip)
 	local submessage=" DNS трафика домашней сети в ${router_ip}:${DNS_PORT}."
@@ -167,6 +149,7 @@ ip4_firewall_dns_rules_set() {
 		 || echo "[${FUNCNAME}] Возникла ошибка при подключении перенаправления ${protocol}${submessage}"
 	done
 }
+
 
 # ------------------------------------------------------------------------------------------
 # Подключаем Firewall правила, которые исключают из работы локальные запросы
@@ -214,7 +197,7 @@ ip4_firewall_vpn_mark(){
 		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -j CONNMARK --restore-mark &>/dev/null
 		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -m mark --mark ${MARK_NUM} -j RETURN &>/dev/null
 		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" --syn -j MARK --set-mark ${MARK_NUM} &>/dev/null
-		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM} &>/dev/null
+		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM} &>/dev/nullcd
 		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -j CONNMARK --save-mark &>/dev/null
 
 		ip4tables PREROUTING -t "${table}" -i br0 -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_IPTABLES_CHAIN}" &>/dev/null
@@ -253,17 +236,23 @@ ip4_firewall_mark_rules_tcp_udp_on(){
 #
 # ------------------------------------------------------------------------------------------
 get_guest_net(){
-	ip addr show "${1}" | grep global | sed 's/^.*inet \(.*\).*/\1/' | cut -d' ' -f1
+	# ip addr show "${1}" | grep global | sed 's/^.*inet \(.*\).*/\1/' | cut -d' ' -f1
+	/opt/sbin/ip addr show "${1}" | grep global | sed 's|^.*inet \([0-9\.\/]*\).*|\1|' | sed 's|[0-9]*\/|0\/|'
 }
 
-
-
+# Получение маски локальной подсети клиентов IKEv2
+#Example: 192.168.3.0/24
+get_ikev2_net_pool() {
+	ikev2_settings=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
+	pool_start=$(echo "${ikev2_settings}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+	echo "${pool_start}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/'
+}
+ 
 # Перенаправляем dns-запросы в dnsmasq
 #Example input param:-s 192.168.3.0/24 -i eth3
 #Example input param:-i sstp+
 #TODO: в ip4_firewall_dns_rules_set использовать вызов этой обёртки
 ip4_add_to_dns_routing() {
-
 	local iptables_filter="${1}"
 
 	local router_ip=$(get_router_ip)
@@ -278,7 +267,6 @@ ip4_add_to_dns_routing() {
 }
 
 ip4_add_selected_guest_to_vpn_network() {
-
 	local net_interface="${1}"
 	if [ -z "${net_interface}" ] ; then
 		error "[${FUNCNAME}] Не передан обязательный параметр — имя интерфейса"
@@ -319,25 +307,6 @@ ip4_add_selected_guest_to_vpn_network() {
 }
 
 
-
-
-# ip4_add_selected_guest_to_vpn_network(){
-# 	guest_inface="${1}"
-# #	rules_masq=$(ip4save  | grep "\-j MASQUERADE" | grep " ${guest_inface} ")
-# #	rules_dns=$(ip4save | grep " ${guest_inface} " | grep DNAT | grep 53)
-# #	if [ -z "${rules_masq}" ] ; then
-# 			# Маркируем трафик гостевой сети
-# 	{
-# 		log_warning "Подключаем правила маркировки гостевого трафика для VPN."
-# 		ip4tables POSTROUTING -t nat -s "$(get_guest_net "${guest_inface}")" -o "${guest_inface}" -j MASQUERADE
-
-# 	} &>/dev/null
-# 	rules_masq=$(ip4save | grep "\-j MASQUERADE" | grep " ${guest_inface} ")
-# 	if [ -z "${rules_masq}" ] ; then
-# 		error "[${FUNCNAME}] Возникла ошибка при маркировке гостевого трафика ${guest_inface} [$(guest_net "${guest_inface}")] для VPN."
-# 	fi
-# #	fi
-# }
 ip4_add_guest_to_vpn_network(){
 
         for guest_inface in $(get_guest_inface_list_from_config)
@@ -352,37 +321,48 @@ ip4_add_guest_to_vpn_network(){
 #
 # ------------------------------------------------------------------------------------------
 ip4_add_selected_guest_to_ssr_network() {
-	net_inface=${1}
-	net_pool=${2}
+	local net_interface="${1}"
+	local net_pool=${2}
 
-	[ -z "${net_inface}" ] && {
-		error "[${FUNCNAME}] Отсутствует обязательный параметр сетевой интерфейс."
+	[ -z "${net_interface}" ] && {
+		error "[${FUNCNAME}] Отсутствует обязательный параметр — имя сетевого интерфейса"
 		exit 1
 	}
 
-	if [ "${net_inface}" = ikev2 ] ; then
-		net_inface=$(get_entware_ikev2_inface)
-
+	if echo "${net_interface}" | grep -Fq 'ikev2' ; then
+		net_interface=$(get_entware_ikev2_inface)
 		[ -z "${net_pool}" ] && {
-			ikev2_settings=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
-			pool_start=$(echo "${ikev2_settings}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-			net_pool=$(echo "${pool_start}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/')
+			net_pool=$(get_ikev2_net_pool)
 		}
 
-		net_filter=" -s ${net_pool}"
+		# IKEv2 не имеет отдельного сетевого интерфейса, поэтому запишем и что добавляем, и используемый СИ
+		local submessage="IKEv2 (${net_interface} "
+		local iptables_filter="-s ${net_pool} "
 	else
-		net_filter=""
+		[ -z "${net_pool}" ] && {
+			# в случае SS+неIKEv2 используется лишь в лог-сообщении для единобразия
+			net_pool=$(get_guest_net "${net_interface}")
+		}
+
+		local submessage="${net_interface} ("
+		local iptables_filter=''
 	fi
+	iptables_filter="${iptables_filter}-i ${net_interface}"
 
-	port=$(get_config_value SSR_DNS_PORT)
-	log_warning "Подключаем правила маркировки гостевого трафика ${net_inface} для SHADOWSOCKS."
+	log_warning "Подключаем правила гостевого трафика ${submessage}${net_pool}) для ShadowSocks."
 
-	iptables -A PREROUTING -t nat ${net_filter} -i ${net_inface} -p tcp -m set --match-set ${IPSET_TABLE_NAME} dst -j REDIRECT --to-port ${port}
-	iptables -A PREROUTING -t nat ${net_filter} -i ${net_inface} -p udp -m set --match-set ${IPSET_TABLE_NAME} dst -j REDIRECT --to-port ${port}
+	ip4_add_to_dns_routing "${iptables_filter}"
 
-#	fi
+	local ss_port=$(get_config_value SSR_DNS_PORT)
+	for protocol in tcp udp ; do
+		if ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${protocol}" | grep -F "${IPSET_TABLE_NAME}" | grep -F 'REDIRECT' | grep -Fq "${ss_port}" ; then
+			continue
+		fi
+
+		# без echo дублирование пробелов (что даёт warning и проблему наличия)
+		iptables -A PREROUTING -w -t nat $(echo "${iptables_filter}") -p "${protocol}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j REDIRECT --to-port ${ss_port}
+	done
 }
-
 
 ip4_add_guest_to_ssr_network(){
         for guest_inface in $(get_guest_inface_list_from_config)
@@ -437,7 +417,7 @@ ip4_mark_vpn_network(){
 	fi
 
 #	в случае наличия гостевой сети
-	set_guest_nets_rules
+	set_guest_nets_rules &>/dev/null
 }
 
 # ------------------------------------------------------------------------------------------
@@ -547,24 +527,25 @@ ip4tbl_flush_rm_pre_out(){
 # ------------------------------------------------------------------------------------------
 ip4tbl_flush_rm_match_set(){
 
-	table="${1}"; chain="${2}"; route="${3}"; interface=${4}; proxy_port=${5}
+	table="${1}"; chain="${2}"; route="${3}"; interface=${4:-''}; proxy_port=${5:-''}
+
 	if [ -n "${table}" ] && [ -n "${chain}" ] && [ -n "${route}" ] ; then
+
 		log_warning "Производим удаление правил match-set в таблице ${table}, цепочке ${route} для ${chain}"
 
-		for prot in tcp udp; do
-		ip4save | grep "${route}" | grep "${chain}" | grep -q "${prot}" && {
-#		ip4save | grep "${route}" | grep -q "${chain}" && {
-			if [ -n "${interface}" ] && [ -n "${proxy_port}" ] ; then
+		if [ -n "${proxy_port}" ] ; then 
+			for prot in tcp udp; do
+				ip4save | grep "${route}" | grep "${chain}" | grep -q "${prot}" && {
 #					Для shadowsocks
-				iptab -t "${table}" -i "${interface}" -D "${route}" -p "${prot}" -m set --match-set ${IPSET_TABLE_NAME} dst -j "${chain}" --to-port "${proxy_port}" &>/dev/null
-				iptab -t "${table}" -i "${interface}" -D "${route}" -p "${prot}" -m set --match-set ${IPSET_TABLE_NAME} dst -j "${chain}" --to-port "${proxy_port}" &>/dev/null
-			else
-#					Для VPN
-#				iptab -t "${table}" -D "${route}" -p "${prot}" -m set --match-set ${IPSET_TABLE_NAME} dst -j "${chain}" &>/dev/null
-				iptab -t "${table}" -D "${route}" -m set --match-set ${IPSET_TABLE_NAME} dst -j "${chain}" &>/dev/null
-			fi
-		}
-		done
+					iptab -t "${table}" -i "${interface}" -D "${route}" -p "${prot}" -m set --match-set ${IPSET_TABLE_NAME} dst -j "${chain}" --to-port "${proxy_port}" &>/dev/null
+					iptab -t "${table}" -i "${interface}" -D "${route}" -p "${prot}" -m set --match-set ${IPSET_TABLE_NAME} dst -j "${chain}" --to-port "${proxy_port}" &>/dev/null
+				}
+			done
+			
+		else 
+#			Для VPN
+			iptab -t "${table}" -D "${route}" -m set --match-set ${IPSET_TABLE_NAME} dst -j "${chain}" &>/dev/null
+		fi
 	else
 		log_error "При вызове ${FUNCNAME} не были заданы обязательные аргументы."
 	fi
@@ -623,6 +604,7 @@ ip4_firewall_ssr_prune(){
 	} &>/dev/null
 }
 
+
 ikev2_net_access_del() {
 	ready "Удаление интерфейса \"VPN-сервер IKEv2\" завершено" && {
 		if has_ssr_enable ; then
@@ -658,14 +640,21 @@ ikev2_net_access_del() {
 # 		   fi
 # 		else
 # 			if iptables-save | grep POSTROUTING | grep "${net_pool}" | grep "${ikev2_inface}" | grep -q MASQUERADE ; then
-# 				   iptab -D POSTROUTING -t nat -s "${net_pool}" -o "${ikev2_inface}" -j MASQUERADE
+# 				log_warning "Отключаем правила гостевого трафика IKEv2 (${ikev2_inface} ${net_pool}) для VPN."
+# 				iptab -D POSTROUTING -t nat -s "${net_pool}" -o "${ikev2_inface}" -j MASQUERADE
 # 			fi
+
+# 			# if iptables-save | grep POSTROUTING | grep "${net_pool}" | grep "${ikev2_inface}" | grep -q MASQUERADE ; then
+# 			# 	   iptab -D POSTROUTING -t nat -s "${net_pool}" -o "${ikev2_inface}" -j MASQUERADE
+# 			# fi
 # 		fi
 # 		[ -z "${1}" ] && del_ikev2_net_from_config
 
 # 	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 
 # }
+
+
 ikev2_setup() {
 	ikev2_data="${1}"
 	enable=${2:-true}
@@ -688,29 +677,6 @@ ikev2_setup() {
 	fi
 }
 
-# ikev2_setup(){
-
-# 	ikev2_data="${1}"; enable=${2:-true}
-
-# 	ikev2_dns=$(get_router_ip)
-# 	dns_server=$(echo "${ikev2_data}" | grep dns-server | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-# 	enable=$(echo "${ikev2_data}" | grep enable | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-# 	nat=$(echo "${ikev2_data}" | grep nat | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-
-# 	if [ "${dns_server}" != "${ikev2_dns}" ] || [ "${enable}" != true ] || [ "${nat}" != true ] ;then
-# 	#	Если DNS отличен от IP роутера или интерфейс отключен
-#         pool_size=$(echo "${ikev2_data}" | grep pool-size | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-#         pool_start=$(echo "${ikev2_data}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-#         multi_login=$(echo "${ikev2_data}" | grep multi-login | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-#         sa_compat=$(echo "${ikev2_data}" | grep sa-compat | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-# 		ikev2_dns=$(get_router_ip)
-# 		curl -s -d '{"enable": '"${enable}"', "nat": true, "dns-server": "'"${ikev2_dns}"'", "pool-size": "'"${pool_size}"'", "pool-start": "'"${pool_start}"'", "multi-login": "'"${multi_login}"'", "sa-compat": "'"${sa_compat}"'"}' \
-# 			"${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2" &> /dev/null
-# 		sleep 1
-# 	fi
-
-# }
-
 
 ikev2_net_access_add() {
 	local ikev2_settings=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
@@ -719,7 +685,6 @@ ikev2_net_access_add() {
 	ikev2_setup "${ikev2_settings}"
 
 	local net_pool=$(echo "${ikev2_settings}" | grep -F -- 'pool-start' | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-	
 	ready "Добавление гостевого интерфейса \"VPN-сервер IKEv2\" [${net_pool}] завершено" && {
 		if has_ssr_enable ; then
 			ip4_add_selected_guest_to_ssr_network 'ikev2'
@@ -730,35 +695,6 @@ ikev2_net_access_add() {
 		# сохранение в конфигурацию КВАС
 		add_ikev2_net_to_config
 	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
-}
-
-# ikev2_net_access_add(){
-# #set -x
-
-# 	ikev2=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
-# 	net_pool=$(echo "${ikev2}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-
-# 	ikev2_setup "${ikev2}"
-
-# 	ready "Добавление гостевого интерфейса \"VPN-сервер IKEv2\" [${net_pool}] завершено" && {
-
-# 		net_ip=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.1/')
-# 		net_pool=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/')
-
-# 		if has_ssr_enable ;then
-# 			ip4_add_selected_guest_to_ssr_network ikev2 "${net_pool}"
-# 			add_ikev2_net_to_config
-# 		else
-# 			ikev2_inface=$(get_entware_ikev2_inface)
-# 			if ! iptables-save | grep POSTROUTING | grep "${net_pool}" | grep "${ikev2_inface}" | grep -q MASQUERADE ; then
-# 				iptables -A POSTROUTING -t nat -s "${net_pool}" -o "${ikev2_inface}" -j MASQUERADE
-# 				add_ikev2_net_to_config
-# 			fi
-# 		fi
-
-# 	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
-
-#set +x
 }
 
 
@@ -825,15 +761,6 @@ ip4_firewall_rm_vpn_selected_guest_net() {
 	fi
 }
 
-# для одного гостевого интерфейса
-# ip4_firewall_rm_vpn_selected_guest_net(){
-# 	guest_inface="${1}"
-# 	if echo "${guest_inface}" | grep -q ikev2 ; then
-# 		ikev2_net_access_del dont_del_config
-# 	else
-# 		iptab -D POSTROUTING -t nat -s "$(guest_net "${guest_inface}")" -o "${guest_inface}" -j MASQUERADE
-# 	fi
-# }
 # для всех гостевых интерфейсов
 ip4_firewall_flush_vpn_guest_rules(){
 	for guest_inface in $(get_guest_inface_list_from_config)
@@ -849,14 +776,49 @@ ip4_firewall_flush_vpn_guest_rules(){
 #
 # ------------------------------------------------------------------------------------------
 # для одного гостевого интерфейса
-ip4_firewall_rm_ssr_selected_guest_net(){
-	guest_inface="${1}"
-	ssr_port=$(get_config_value "SSR_DNS_PORT")
+ip4_firewall_rm_ssr_selected_guest_net() {
+	local net_interface="${1}"
+	local net_pool=${2}
 
-	iptab -D PREROUTING -t nat -p udp -i "${guest_inface}" -m set --match-set ${IPSET_TABLE_NAME} dst -j REDIRECT --to-port "${ssr_port}"
-	iptab -D PREROUTING -t nat -p tcp -i "${guest_inface}" -m set --match-set ${IPSET_TABLE_NAME} dst -j REDIRECT --to-port "${ssr_port}"
+	[ -z "${net_interface}" ] && {
+		error "[${FUNCNAME}] Отсутствует обязательный параметр — имя сетевого интерфейса"
+		exit 1
+	}
+
+	if echo "${net_interface}" | grep -Fq 'ikev2' ; then
+		net_interface=$(get_entware_ikev2_inface)
+		[ -z "${net_pool}" ] && {
+			net_pool=$(get_ikev2_net_pool)
+		}
+
+		# IKEv2 не имеет отдельного сетевого интерфейса, поэтому запишем и что добавляем, и используемый СИ
+		local submessage="IKEv2 (${net_interface} "
+		local iptables_filter="-s ${net_pool} "
+	else
+		[ -z "${net_pool}" ] && {
+			# в случае SS+неIKEv2 используется лишь в лог-сообщении для единобразия
+			net_pool=$(get_guest_net "${net_interface}")
+		}
+
+		local submessage="${net_interface} ("
+		local iptables_filter=''
+	fi
+	iptables_filter="${iptables_filter}-i ${net_interface}"
+
+	log_warning "Отключаем правила гостевого трафика ${submessage}${net_pool}) для ShadowSocks."
+
+	ip4_delete_from_dns_routing "${iptables_filter}"
+
+	local ss_port=$(get_config_value SSR_DNS_PORT)
+	for protocol in tcp udp ; do
+		if ! ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${protocol}" | grep -F "${IPSET_TABLE_NAME}" | grep -F 'REDIRECT' | grep -Fq "${ss_port}" ; then
+			continue
+		fi
+
+		# без echo дублирование пробелов (что даёт warning и проблему наличия)
+		iptables -D PREROUTING -w -t nat $(echo "${iptables_filter}") -p "${protocol}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j REDIRECT --to-port ${ss_port}
+	done
 }
-
 
 
 # для всех гостевых интерфейсов
@@ -946,8 +908,8 @@ ip4_flush_all_tables(){
 #	when_error "${?}" " ${IPv4} Возникла ошибка при очистке записей ipset таблицы ${IPSET_TABLE_NAME}"
 
 	log_warning "IPv4::Производим очистку записей таблицы маршрутизации ID#${TABLE_ID} и удалим ее."
-	ip route flush table "${TABLE_ID}" &>/dev/null
-	ip rule del table "${TABLE_ID}"  &>/dev/null
+	/opt/sbin/ip route flush table "${TABLE_ID}" &>/dev/null
+	/opt/sbin/ip rule del table "${TABLE_ID}"  &>/dev/null
 #	when_error "${?}" " ${IPv4} Возникла ошибка при очистке таблицы маршрутизации ID#${TABLE_ID}"
 
 	ip4_flush_cache &>/dev/null
@@ -956,10 +918,10 @@ ip4_flush_all_tables(){
 
 route_del(){
 	inface_ent=${1}
-	_route=$(ip route show table ${TABLE_ID})
+	_route=$(/opt/sbin/ip route show table ${TABLE_ID})
 	inface=$(echo ${_route} | grep default | cut -d' ' -f5)
 	if [[ -n "${_route}" ]] && ! [[ "${inface}" = "$(inface_ent)" ]]; then
-		ip route del table ${TABLE_ID} default via "$(inface_gw4)" dev $(inface_ent) &>/dev/null
+		/opt/sbin/ip route del table ${TABLE_ID} default via "$(inface_gw4)" dev $(inface_ent) &>/dev/null
 	fi
 
 }
@@ -983,15 +945,15 @@ ip4_add_route_table(){
 #		rm -f "${ERROR_LOG_FILE}"
 		route_del "${_inface_ent}"
 
-		_ip_gw=$(ip a | grep global | grep "${_inface_ent}" | sed 's|.*inet \(.*\).*\/.* scope.*|\1|' | cut -d' ' -f1)
+		_ip_gw=$(/opt/sbin/ip a | grep global | grep "${_inface_ent}" | sed 's|.*inet \(.*\).*\/.* scope.*|\1|' | cut -d' ' -f1)
 
 		[ -z "${_ip_gw}" ] && {
 			error "Не удалось определить IP шлюза для соединения ${_inface_ent}"
 			exit 1
 		}
 
-		! ip route show table ${TABLE_ID} | grep -q default && {
-			if ip route add table ${TABLE_ID} default via ${_ip_gw} dev ${_inface_ent} 2>&1 | grep -vq 'File exists' ; then
+		! /opt/sbin/ip route show table ${TABLE_ID} | grep -q default && {
+			if /opt/sbin/ip route add table ${TABLE_ID} default via ${_ip_gw} dev ${_inface_ent} 2>&1 | grep -vq 'File exists' ; then
 				error "[${FUNCNAME}] Ошибка при создании таблицы маршрутизации ID#${TABLE_ID} для '${_inface_cli}' интерфейса."
 			fi
 #			log_error "${IPv4} Возникла ошибка при создании таблицы маршрутизации ID#${TABLE_ID} для '${_inface_cli}' интерфейса"
@@ -999,12 +961,12 @@ ip4_add_route_table(){
 
 #		Добавляем сеть vpn соединения.
 		_net="$(echo "${_ip_gw}" | cut -d'.' -f1-3).0/24"
-		if ip route add ${_net} via ${_ip_gw} table ${TABLE_ID} 2>&1 | grep -vq 'File exists' ; then
+		if /opt/sbin/ip route add ${_net} via ${_ip_gw} table ${TABLE_ID} 2>&1 | grep -vq 'File exists' ; then
 			error "[${FUNCNAME}] Ошибка при добавлении маршрута ${_net} через ${_ip_gw} в таблицу ${TABLE_ID}"
 		fi
 
 #		Проверяем на число записей в таблице ${TABLE_ID} - их должно быть больше чем одна запись
-		if [ "$(ip route show table ${TABLE_ID} | grep -c dev)" -le 1 ] ; then
+		if [ "$(/opt/sbin/ip route show table ${TABLE_ID} | grep -c dev)" -le 1 ] ; then
 			_err="В таблицу с ID#${TABLE_ID} НЕ БЫЛИ скопированы записи из таблицы main!"
 			error "[${FUNCNAME}] ${_err}"
 		fi
@@ -1020,15 +982,15 @@ ip4_add_route_table(){
 
 			{
 
-			! ip route show table ${TABLE_ID} | grep -q default && {
-				if ip route add table ${TABLE_ID} default via ${addr_gateway} dev ${_inface_ent} 2>&1 | grep -vq 'File exists' ; then
+			! /opt/sbin/ip route show table ${TABLE_ID} | grep -q default && {
+				if /opt/sbin/ip route add table ${TABLE_ID} default via ${addr_gateway} dev ${_inface_ent} 2>&1 | grep -vq 'File exists' ; then
 					error "[${FUNCNAME}] Ошибка при создании таблицы маршрутизации ID#${TABLE_ID} для '${_inface_ent}' интерфейса."
 				fi
 			}
 
 
 #		Проверяем на число записей в таблице ${TABLE_ID} - должна быть хотя бы одна запись
-			if [ "$(ip route show table ${TABLE_ID} | grep -c dev)" -le 0 ] ; then
+			if [ "$(/opt/sbin/ip route show table ${TABLE_ID} | grep -c dev)" -le 0 ] ; then
 				_err="В таблицу с ID#${TABLE_ID} НЕ БЫЛИ скопированы записи из таблицы main!"
 				error "[${FUNCNAME}] ${_err}"
 			fi
@@ -1044,14 +1006,14 @@ ip4_add_route_table(){
 # ------------------------------------------------------------------------------------------
 ip4_rule_set_priority(){
 
-	if ! ip rule show | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID}"  ; then
+	if ! /opt/sbin/ip rule show | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID}"  ; then
 		log_warning "IPv4::Устанавливаем приоритет таблицы ID#${TABLE_ID} в значение ${PRIORITY}"
 		ip4set_create_table
-		if ip rule add fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID} priority ${PRIORITY} 2>&1 | grep -vq 'File exists'; then
+		if /opt/sbin/ip rule add fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID} priority ${PRIORITY} 2>&1 | grep -vq 'File exists'; then
 				error "[${FUNCNAME}] Ошибка при установке приоритета таблицы с ID#${TABLE_ID} в значение ${PRIORITY}."
 		fi
                 if [[ -z "$addr_gateway" ]]; then
-		    if ip route add default dev $(inface_ent) table ${TABLE_ID} 2>&1 | grep -vq 'File exists' ; then
+		    if /opt/sbin/ip route add default dev $(inface_ent) table ${TABLE_ID} 2>&1 | grep -vq 'File exists' ; then
 				error "[${FUNCNAME}] Ошибка при установке маршрута по умолчанию таблицы с ID#${TABLE_ID}."
 		    fi
 		fi
@@ -1068,9 +1030,9 @@ ip4_rule_set_priority(){
 # ------------------------------------------------------------------------------------------
 ip4_rule_del_priority(){
 
-	if ip rule show | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID}"  ; then
+	if /opt/sbin/ip rule show | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID}"  ; then
 		log_warning "IPv4::Обнуляем приоритет таблицы ID#${TABLE_ID}"
-		ip rule del fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID} priority ${PRIORITY} &>/dev/null
+		/opt/sbin/ip rule del fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID} priority ${PRIORITY} &>/dev/null
 #		when_error "${?}" " ${IPv4} Обнуление приоритета таблицы с ID#${TABLE_ID}"
 	fi
 
@@ -1087,7 +1049,7 @@ ip4set_create_table(){
 	if ipset list ${IPSET_TABLE_NAME} 2>&1 | grep -q 'name does not exist' ; then
 		log_warning "IPset::Cоздаем таблицу с именем '${IPSET_TABLE_NAME}'."
 		ttl_timeout=$(get_config_value TTL_TIMEOUT)
-		ipset create ${IPSET_TABLE_NAME} hash:net family inet -exist timeout ${ttl_timeout}&>/dev/null \
+		ipset create ${IPSET_TABLE_NAME} hash:net family inet -exist timeout ${ttl_timeout} &>/dev/null \
 		 || {
 			_err="Ошибка при создании таблицы с именем '${IPSET_TABLE_NAME}' для ipset"
 			error "[${FUNCNAME}] ${_err}"

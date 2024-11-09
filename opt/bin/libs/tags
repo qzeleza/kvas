@@ -308,37 +308,37 @@ tag_select() {
         if [ ${res} -gt 1 ] ; then
 
             if [ "${action}" = "add" ] ; then
-		i=$((i+1))
+		        i=$((i+1))
                 ask_list="${ask_list}$(ready "$i. $tag")"
                 [ "${res}" -eq 2 ] && ask_list="${ask_list}$(when_bad "ОТСУТСТВУЕТ")"
                 [ "${res}" -eq 3 ] && ask_list="${ask_list}$(when_alert "ЧАСТИЧНО")"
                 ask_list="${ask_list}\n"
 
             else
-		if [ "${res}" -eq 2 ]; then
-			# Переводим в список отсутсвующих
-			#res=1
-			added_list="${added_list}$(ready "$tag")"
-			added_list="${added_list}$(when_alert "ОТСУТСТВУЕТ")\n"
+                if [ "${res}" -eq 2 ]; then
+                    # Переводим в список отсутсвующих
+                    #res=1
+                    added_list="${added_list}$(ready "$tag")"
+                    added_list="${added_list}$(when_alert "ОТСУТСТВУЕТ")\n"
                 else
-			i=$((i+1))
-			added_list="${added_list}$(ready "$i. $tag")"
-			added_list="${added_list}$(when_alert "ЧАСТИЧНО")"
-			added_list="${added_list}\n"
-		fi
+                    i=$((i+1))
+                    ask_list="${ask_list}$(ready "$i. $tag")"
+                    ask_list="${ask_list}$(when_alert "ЧАСТИЧНО")"
+                    ask_list="${ask_list}\n"
+                fi
             fi
 
         fi
-	if [ ${res} = 1 ]; then
+        if [ ${res} = 1 ]; then
             # если домен уже есть в списке
             if [ "${action}" = "add" ] ; then
                 added_list="${added_list}$(ready "$tag" && when_ok "ДОБАВЛЕН")\n"
             else
-		i=$((i+1))
-		ask_list="${ask_list}$(ready "$i. $tag")"
-		if [ "${res}" -eq 1 ]; then
-                	ask_list="${ask_list}$(when_bad "В СПИСКЕ")\n"
-		fi
+                i=$((i+1))
+                ask_list="${ask_list}$(ready "$i. $tag")"
+                if [ "${res}" -eq 1 ]; then
+                    ask_list="${ask_list}$(when_bad "В СПИСКЕ")\n"
+                fi
             fi
         fi
     done <<EOF
@@ -352,9 +352,8 @@ EOF
         	[ -n "${ask_list}" ] && print_line
     	}
     	[ -n "${ask_list}" ] && {
-#		[ -n "${added_list}" ] && print_line
-		echo -e "${ask_list}" | sed '/^$/d'
-	}
+            echo -e "${ask_list}" | sed '/^$/d'
+        }
 
 #    score=$(echo -e "${ask_list}" | wc -l)
 
@@ -386,7 +385,47 @@ EOF
         fi
 
     else
-        error "Список заквасок пуст.\nПроверьте наличие заквасок в файле '${TAGS_FILE}'."
+        if [  $(cat < "${TAGS_FILE}" | wc -l) -le 1 ] ; then 
+            error "Список заквасок пуст.\nПроверьте наличие заквасок в файле '${TAGS_FILE}'."
+        else 
+            print_line
+            error "Заквасок для удаления не найдено."
+        fi
     fi
 #set +xeu
+}
+
+# --------------------------------------------------------------------------------------------
+#
+#   Функция для обновления списка заквасок с github
+#
+# ------------------------------------------------------------------------------------------
+cmd_update_tags_domain_list() {
+
+    local _force=${1:-no}
+    ready "Обновление списка заквасок с ${BLUE}GitHub${NOCL}  прошло" 
+
+    curl -so /opt/tmp/tags.list https://raw.githubusercontent.com/qzeleza/kvas/refs/heads/main/opt/etc/conf/tags.list && when_ok "УСПЕШНО" || {
+        error "Не удалось обновить список заквасок с ${BLUE}GitHub${NOCL}."
+        error "Пожалуйста, проверьте интернет соединение."
+        return 1
+    }
+    
+    if [ "${_force}" = force ] ; then
+        mv -f /opt/tmp/tags.list /opt/apps/kvas/etc/conf/tags.list
+    else
+        local _diff=$(diff /opt/apps/kvas/etc/conf/tags.list  /opt/tmp/tags.list  | grep -E '^\+\[' | tr -d +)
+        if [ -n "${_diff}" ] ; then
+            print_line
+            echo -e "В список были добавлены следущие закваски:\n${_diff}"
+            print_line
+            printf "%s" "${_diff}"
+            mv -f /opt/tmp/tags.list /opt/apps/kvas/etc/conf/tags.list
+        else
+            print_line
+            echo -e "В удаленном списке на ${BLUE}GitHub${NOCL} новых заквасок ${RED}не обнаружено${NOCL}."
+            rm -f /opt/tmp/tags.list
+        fi
+
+    fi
 }

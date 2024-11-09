@@ -10,6 +10,7 @@ if [ "${1}" = "hook" ] && [ "${change}" = "link" ] ; then
 		#	проще говоря, в случае если подключение к интернету осуществляется
 		#	через PPTP|L2TP соединение и оно прервалось	- ставим флаг, в виде создания файла
 		tmp_file=/opt/tmp/sub_connection
+		
 		case "${connected}-${link}-${up}" in
 			"no-down-down" )
 				touch "${tmp_file}"

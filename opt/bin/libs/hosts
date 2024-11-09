@@ -83,7 +83,7 @@ cmd_hosts_one_add(){
 cmd_hosts_one_del(){
 
 	if [ -f ${HOSTS_FILE} ] ; then 
-		if [ -n "${1}" ] then
+		if [ -n "${1}" ]; then
 			sed -i "/${1}/d" ${HOSTS_FILE}
 		else
 			error "Аргумент не задан" nl

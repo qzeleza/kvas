@@ -111,6 +111,7 @@ case "${1}" in
 
 	dns)
 		case "${2}" in
+			server) 		dns_server_install_remotely "${3}" ;;
 			test) 			cmd_dns_test "${3}";;
 			*) 				cmd_dnsmasq_dns_change "${2}" ;;
 		esac
@@ -118,8 +119,8 @@ case "${1}" in
 
 	vpn)
 		case "${2}" in
-			set) 			cmd_interface_change skip && cmd_vpn_iptable_reset &> /dev/null ;;
-			gateway) 		cmd_manual_gateway_set && cmd_vpn_iptable_reset &> /dev/null ;;
+			set) 			cmd_interface_change no && cmd_vpn_iptable_reset &> /dev/null ;;
+			gateway) 		cmd_manual_gateway_set "${3}" && cmd_vpn_iptable_reset &> /dev/null ;;
 			reset) 			cmd_vpn_iptable_reset && all_services_restart;;
 			net | guest)
 				case "${3}" in
@@ -158,6 +159,7 @@ case "${1}" in
 			list) 			cmd_show_tags_domain_list "${3}" ;;
 			add)			cmd_add_domain_to_tag_list "${3}" "${4}" ;;
 			del)			cmd_del_domain_to_tag_list "${3}" "${4}" ;;
+			update)			cmd_update_tags_domain_list "${3}";;
 			*) 				cmd_show_tags_domain_list "${2}" ;;
 		esac
 		;;

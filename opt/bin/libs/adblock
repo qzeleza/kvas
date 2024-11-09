@@ -111,11 +111,11 @@ ads_request_to_upload() {
 
 	answer="${1}"
 	sources_name_file=adblock.sources
-	if [ -f "${ADBLOCK_SOURCES_LIST}" ]; then
-		ready "Загрузка источников рекламы по умолчанию"
-		cp -f "/opt/apps/kvas/etc/conf/${sources_name_file}" "${ADBLOCK_SOURCES_LIST}"
-		[ $? = 0 ] && when_ok "УДАЧНО" || when_bad "С ОШИБКОЙ"
-	else
+	if ! [ -f "${ADBLOCK_SOURCES_LIST}" ]; then
+	# 	ready "Загрузка источников рекламы по умолчанию"
+	# 	cp -f "/opt/apps/kvas/etc/conf/${sources_name_file}" "${ADBLOCK_SOURCES_LIST}"
+	# 	[ $? = 0 ] && when_ok "УДАЧНО" || when_bad "С ОШИБКОЙ"
+	# else
 		if [ -f "${ADBLOCK_SOURCES_LIST_BACKUP}" ]; then
 			warning "Обнаружен архивный файл с источниками обновления рекламы."
 			[ "${answer}" = ask ] && read_ynq_timer "Восстановить данный файл" answer Y 12

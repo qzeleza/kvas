@@ -242,11 +242,11 @@ if echo "${*}" | grep -qv 'force' ; then
 		select_release_from_list package_url
 		package_name=$(get_package_name "${package_url}")
 
-	elif [ -f /opt/bin/kvas ] && [ -f /opt/etc/kvas.conf ]; then
+	elif [ -f /opt/bin/kvas ] && [ -f ${kvas_conf} ]; then
 	#	Если это не форсированная установка и не откат, то
 	#	проверяем - обнаружена ли предыдущая версия Кваса
 	#	и сравниваем ее версию с новой версией
-		prev_ver=$(cat < /opt/etc/kvas.conf \
+		prev_ver=$(cat < ${kvas_conf} \
 					| grep -E 'VERSION|RELEASE' \
 					| tr -d '\n' | tr '-' '_' \
 					| sed 's/^APP_VERSION=\(.*\)APP_RELEASE=\(.*\)/\1-\2\n/')
@@ -331,7 +331,7 @@ ready "Устанавливаем новую версию пакета [${versio
 #--------------------------------------------------------------------------------------------------------------
 connect_home_nets(){
 	# подключаем одну гостевую сеть к Квасу, если она имеется
-	ip a | grep global | grep -v br0 | grep -qE br[1-9] &&  {
+	/opt/sbin/ip a | grep global | grep -v br0 | grep -qE br[1-9] &&  {
 		clear
 		kvas vpn net add
 	}

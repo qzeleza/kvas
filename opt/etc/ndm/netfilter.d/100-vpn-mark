@@ -22,16 +22,26 @@
 #	Лицензия: Apache License 2.0
 # ------------------------------------------------------------------------------
 
-
-# Пропускаем обработку, если тип подключения отличен от iptables
-# а сама талица отлична от mangle
-if [ "${type}" = "iptables" ] ; then
-
+# IPv4
+if [ "${type}" = 'iptables' ] ; then
 	. /opt/apps/kvas/bin/libs/ndm
-	# Создаем таблицу kvas для ipset ip4
+
+	# использует только команды ipset
 	ip4set_create_table &> /dev/null
-	#	маркируем правила
-	[ "${table}" = mangle ] && ip4_mark_vpn_network
+
+	# обе функции используют только mangle
+	# кроме маркировки включают обход br0
+	if [ "${table}" = 'mangle' ] ; then
+		if fastnet_enabled ; then
+			ip4_firewall_vpn_mark &>/dev/null
+		else
+			ip4_firewall_mark_rules_tcp_udp_on &>/dev/null
+		fi
+	fi
+
+	# обход с ускорением использует mangle
+	# роутинг DNS гостевых и обход без ускорения используют nat
+	if [ "${table}" = 'mangle' ] || [ "${table}" = 'nat' ] ; then
+		set_guest_nets_rules &>/dev/null
+	fi
 fi
-
-

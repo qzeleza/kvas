@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=kvas
 PKG_VERSION:=1.1.9
-PKG_RELEASE:=beta_3
+PKG_RELEASE:=beta_7
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)-$(PKG_RELEASE)
 
 include $(INCLUDE_DIR)/package.mk
@@ -61,7 +61,7 @@ NOCL="\033[m";
 print_line()(printf "%83s\n" | tr " " "=")
 
 chmod -R +x /opt/apps/kvas/bin/*
-chmod -R +x /opt/apps/kvas/sbin/dnsmasq/*
+# chmod -R +x /opt/apps/kvas/sbin/dnsmasq/*
 chmod -R +x /opt/apps/kvas/etc/init.d/*
 chmod -R +x /opt/apps/kvas/etc/ndm/*
 

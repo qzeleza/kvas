@@ -22,7 +22,7 @@
 app_name="КВАС"
 logger -t "${app_name}" "Запущен файл ${0}"
 
-IPSET_TABLE_NAME=kvas
+IPSET_TABLE_NAME=kvas_ipset
 adguard_config=/opt/etc/AdGuardHome/AdGuardHome.yaml
 adguard_ipset_file=/opt/etc/AdGuardHome/kvas.ipset
 host_list=/opt/etc/kvas.list

@@ -29,7 +29,7 @@ length=$(stty size 2>/dev/null | cut -d' ' -f2)
 PROGRESS_BAR_WIDTH=$((LENGTH-5))  # progress bar length in characters
 
 KVAS_BACKUP_PATH=/opt/etc/.kvas/backup
-IPSET_TABLE_NAME=kvas
+IPSET_TABLE_NAME=kvas_ipset
 SSR_NAME=ss-redir
 SSR_CMD=/opt/bin/${SSR_NAME}
 # ssr_run()(/opt/bin/sslocal --protocol redir -c /opt/etc/shadowsocks.json ${@}) )
@@ -65,6 +65,7 @@ DNSMASQ_DEMON=/opt/etc/init.d/S56dnsmasq
 HOME_PATH=/opt/apps/kvas
 
 
+
 ADS_MAIN_SCRIPT=/opt/apps/kvas/bin/main/adblock
 APP_NAME=kvas
 INSTALL_LOG=/opt/tmp/kvas.install.log
@@ -82,17 +83,20 @@ KVAS_START_FILE=/opt/etc/init.d/S96kvas
 EXCLUDED_NET_FILE=/opt/apps/kvas/etc/conf/excluded.net
 
 IP_FILTER='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'
+IP_DEVICE_FILTER='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[1-9]{1,3}' # на конце любая цифра, кроме 0
+IP_PORT_FILTER="[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[1-9]{1,3}[:#][0-9]{2,5}" # на конце любая цифра, кроме 0
 NET_FILTER='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{1,3}'
 
 ERROR_LOG_FILE=/opt/tmp/kvas.err.log
 APP_NAME_DESC=КВАС
 
-MAIN_DNS_PORT=53
+MAIN_DNS_PORT=9753
 LOCALHOST_IP=127.0.0.1
 INFACE_REQUEST="${LOCALHOST_IP}:79/rci/show/interface"
 INFACE_PART_REQUEST="${LOCALHOST_IP}:79/rci/interface"
 SSR_ENTWARE_TEMPL=ezcfg
 MINUS=9
+
 
 #-------------------------------------------------------------------------------
 # 
@@ -112,23 +116,6 @@ check_crypto_ssr_libs(){
 
 #-------------------------------------------------------------------------------
 # 
-#	Функция отправляет запросы к API Keenetic
-# 
-#-------------------------------------------------------------------------------
-post_api_query(){
-	local _query=${1}
-	local _data=${2:-}
-	local _result
-
-	if [ -z "${_data}" ]; then 
-		curl -s "localhost:79/rci/${_query}" && _result=true || _result=false
-	else
-		curl -s -d "${_data}" "localhost:79/rci/${_query}" && _result=true || _result=false
-	fi
-	return ${result}
-}
-#-------------------------------------------------------------------------------
-# 
 #	Функция которая экранирует спец символы для sed
 # 
 #-------------------------------------------------------------------------------
@@ -144,10 +131,13 @@ is_dns_server_online(){
 # 	пример: 8.8.8.8#53
 #---------------------------------------------------------------------------------
 
-    local dns_server=${1}
-    stat=$(netstat -tunl | grep -E "${dns_server/#/:}")
-    [ -n "${stat}" ]
+    local dns_port=$(echo "${1/#/:}" | cut -d ":" -f2 )
+    netstat -tunpxl | grep -q ":${dns_port} "
 }
+
+# доступность DNS сервера
+DNS_ENABLE=false
+DNS_DEFAULT=''
 
 get_iplist_from_domain(){
 #---------------------------------------------------------------------------------
@@ -157,35 +147,49 @@ get_iplist_from_domain(){
 #   $3 - количество попыток
 #---------------------------------------------------------------------------------
 
-	dns_default=$(get_config_value DNS_DEFAULT)
+	[ -z "${DNS_DEFAULT}" ] && DNS_DEFAULT=$(get_config_value DNS_DEFAULT)
 
     local host=${1}
-    local dns_server=${2:-${dns_default}}
-    local retry=${3:-6}
+    local dns_server=${2:-${DNS_DEFAULT}}
+    local retry=${3:-3}
 
 	# Проверяем доступность DNS сервера
-    is_dns_server_online ${dns_server} || {
-        echo "DNS сервер ${dns_server/#*/} не доступен на ${dns_server/*#/} порту."
-        exit 1
-    }
+    if [ ${DNS_ENABLE} = fasle ]; then
+		if is_dns_server_online ${dns_server} ; then 
+			DNS_ENABLE=true
+		else
+			DNS_ENABLE=false
+			echo "DNS сервер ${dns_server/#*/} не доступен на ${dns_server/*#/} порту."
+			exit 1
+		fi
+    fi
 
+	local all_ip_list=''
 	# Получаем список ip
     for dns_try in $(seq 1 "${retry}"); do
 		# Пытаемся получить список ip
-        ip_list=$(kdig +retry=3 +timeout=1 +short ${host} "@$dns_server")
+        ip_list=$(kdig +retry=3 +timeout=1 +short ${host} "@$dns_server" 2>/dev/null)
         # если список пустой - переходим дальше по циклу
 		[ -z "$ip_list" ] && continue
         for ip in ${ip_list}; do
+			
+			# если при запросе ip мы получаем другие хосты, то 
+			host=$(echo "${ip}" | grep -Ev "${IP_FILTER}" | sed 's/\.$//') 
+			[ -z "${host}" ] || get_iplist_from_domain "${host}" "${dns_server}" || continue
+
 			# Проверяем, что ip не 0.0.0.0 и что его нет в списке ip_list
-            sep='\n'; [[ "${all_ip_list}" =~ ${ip} ]] || {
+            sep='\n'; [[ "${all_ip_list//timeout*/}" =~ ${ip} ]] || {
                 [ -z "${all_ip_list}" ] && sep=''
 				# Добавляем ip в список, при прохождении всех условий
                 all_ip_list="$(printf "%s${sep}%s" "${all_ip_list}" "${ip}" \
 					| grep -Eo "${IP_FILTER}" | grep -v '0.0.0.0')"
             }
         done
+		# Выходим из цикла если список имеет значение
+		[ -n "$all_ip_list" ] && break
         # echo "${dns_try} ${ip_list/\n/ /}"
     done
+
 	# Возвращаем список ip
     echo "${all_ip_list}"
 }
@@ -268,11 +272,27 @@ get_hook_dir(){
 	get_firmware_version | grep -q '4.' && echo "iflayerchanged.d" ||  echo "ifstatechanged.d"
 }
 
-# get_entware_ikev2_inface(){
-# #	net_inface_last=$(ip a| grep global | sed 's/.*\(eth[0-9]\{1,3\}\).*/\1/g' | sort | tail -n1)
-# #	echo $((net_inface_last + 1))
-# 	ip a | grep -q 'global eth3' && echo eth3 || echo eth2.2
-# }
+is_os_below_4_2() {
+	if [ -n "${1}" ]; then
+		local os_version="${1}"
+	else
+		local os_version="$(version_os)"
+	fi
+
+	local os_subversion=$(echo "${os_version}" | cut -d '.' -f 1)
+	if [ "${os_subversion}" -lt 4 ]; then
+		return
+	fi
+
+	if [ "${os_subversion}" -eq 4 ]; then
+		os_subversion=$(echo "${os_version}" | cut -d '.' -f 2)
+		if [ "${os_subversion}" -lt 2 ]; then
+			return
+		fi
+	fi
+
+	false
+}
 
 function is_ip_private() {
 	if echo "$1" | grep -qE '^(192\.168\.|10\.|172\.1[6789]\.|172\.2[0-9]\.|172\.3[01]\.)'; then
@@ -283,9 +303,14 @@ function is_ip_private() {
 }
 
 get_entware_ikev2_inface() {
-	
-	local interfaces=$( ip a )
+	if ! is_os_below_4_2 ; then
+		# на последних прошивках IKEv2 на этом интерфейсе, но у всех ли?
+		echo 'xfrms+'
+		return
+	fi
 
+	local interfaces=$( /opt/sbin/ip a )
+	# внешние интерфейсы для проверки
 	for interface in eth3 eth2.2 ppp0 ppp1 ; do
 		local interface_address=$( echo "$interfaces" | grep "global ${interface}" | tr -s ' ' | cut -d ' ' -f 3 )
 		if [ -z "${interface_address}" ]; then
@@ -298,10 +323,10 @@ get_entware_ikev2_inface() {
 		# в этом интерфейсе есть global и нет private IP
 		# в идеале можно ещё проверить, что это вообще IP или диапазон
 		echo "${interface}"
-		return						 
+		return
 	done
 
-	log_error 'Сетевой интерфейс для IKEv2 найти не удалось, для исправления обратитесь в https://t.me/kvas_pro'
+	log_error 'Сетевой интерфейс для IKEv2 найти не удалось'
 	# чтобы остальной код продолжал работать, вернём точно имеющийся интерфейс
 	echo 'br0'
 }
@@ -418,7 +443,7 @@ pause()(read -r pause &> /dev/null)
 #
 # ------------------------------------------------------------------------------------------
 get_config_value() {
-	grep "${1}=" "${KVAS_CONF_FILE}" | cut -d'=' -f2
+	grep "${1}=" "${KVAS_CONF_FILE}" | sed 's/.*=\(.*\).*/\1/'
 }
 
 APP_VERSION=$(get_config_value APP_VERSION)

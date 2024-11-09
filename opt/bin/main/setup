@@ -17,23 +17,24 @@ log_in_file(){
 # Проверяем отключено ли использование DNS провайдера
 setup_test_provider_dns(){
 
-	has_dns_override || {
-		ready "Отключаем DNS провайдера..."
-		rci_post '[{"opkg": {"dns-override": true}},{"system": {"configuration": {"save": true}}}]' &>/dev/null && when_ok || when_err
+	has_dns_override && {
+		echo "Подключаем DNS провайдера..."
+		echo "В случае, выхода из сессии, зайдите снова по ssh и выполните команду 'kvas setup'"
+		post_api_query '[{"opkg": {"no dns-override": true}},{"system": {"configuration": {"save": true}}}]' &>/dev/null && when_ok || when_err
 	} 
-	if ! has_dns_override ; then
-		cli="$(get_router_host)/a"
-		log_in_file "ОШИБКА: Не отключено использование DNS провайдера."
-		echo -e "${RED}Для корректной работы DNS сервера необходимо отключить использование DNS провайдера!${NOCL}"
-		echo -e "С этой целью зайдите в админ панель роутера по адресу: ${GREEN}${cli}${NOCL}"
-		echo "и выполните последовательно три следующих команды: "
-		print_line
-		echo -e "1. ${GREEN}opkg dns-override${NOCL}           - отключаем использование DNS провайдера,"
-		echo -e "2. ${GREEN}system configuration save${NOCL}   - сохраняем изменения,"
-		echo -e "3. ${GREEN}system reboot${NOCL}               - перегружаем роутер."
-		print_line
-		exit 1
-	fi
+	# if ! has_dns_override ; then
+	# 	cli="$(get_router_host)/a"
+	# 	log_in_file "ОШИБКА: Не отключено использование DNS провайдера."
+	# 	echo -e "${RED}Для корректной работы DNS сервера необходимо отключить использование DNS провайдера!${NOCL}"
+	# 	echo -e "С этой целью зайдите в админ панель роутера по адресу: ${GREEN}${cli}${NOCL}"
+	# 	echo "и выполните последовательно три следующих команды: "
+	# 	print_line
+	# 	echo -e "1. ${GREEN}opkg dns-override${NOCL}           - отключаем использование DNS провайдера,"
+	# 	echo -e "2. ${GREEN}system configuration save${NOCL}   - сохраняем изменения,"
+	# 	echo -e "3. ${GREEN}system reboot${NOCL}               - перегружаем роутер."
+	# 	print_line
+	# 	exit 1
+	# fi
 }
 
 setup_print_welcome(){
@@ -402,12 +403,6 @@ setup_print_finish(){
 	echo -e "Для общей справки наберите ${BLUE}kvas help${NOCL}"
 }
 
-remove_prev_versions_files(){
-
-	[ -f /opt/etc/cron.5mins/ipset.kvas ] && rm -fr /opt/etc/cron.5mins/ipset.kvas
-	
-
-}
 
 cmd_install(){
 
@@ -428,8 +423,6 @@ cmd_install(){
 	mkdir -p "${KVAS_BACKUP_PATH}"
 	cat /dev/null > "${INSTALL_LOG}"
 
-	remove_prev_versions_files
-	
 	# ln -sf /opt/apps/kvas/bin/main/ipset /opt/etc/cron.5mins/ipset.kvas
 
 	[ -d "/opt/etc/ndm/iflayerchanged.d" ] || mkdir -p /opt/etc/ndm/iflayerchanged.d
@@ -439,10 +432,13 @@ cmd_install(){
 	ln -sf "${home_dir}/etc/ndm/ifcreated.d/kvas-iface-add" "/opt/etc/ndm/ifcreated.d/kvas-iface-add"
 	ln -sf "${home_dir}/etc/ndm/ifdestroyed.d/kvas-iface-del" "/opt/etc/ndm/ifdestroyed.d/kvas-iface-del"
 
+	#  удаляем из крона задачу от предыдущих версий Кваса
+	[ -f /opt/etc/cron.5mins/ipset.kvas ] && rm -f /opt/etc/cron.5mins/ipset.kvas
+
 	# в случае отсуствия библиотеки
 	check_crypto_ssr_libs
 
-	setup_test_provider_dns
+	# setup_test_provider_dns
 
 	[ -f "${KVAS_START_FILE}" ] || cp -f /opt/apps/kvas/etc/init.d/S96kvas "${KVAS_START_FILE}"
 	chmod +x "${KVAS_START_FILE}"
@@ -483,17 +479,17 @@ cmd_install(){
 #		Проверяем были ли внесены изменения в файл конфигурации
 		if [ -z "${inface_entware}" ] || [ -z "${cli_inface}" ] ; then
 			echo -e "${BLUE}Информация об интерфейсах отсутствует!${NOCL}"
-			echo -e "${BLUE}Инициируем процедуру выбора интерфейсов...${NOCL}"
+			echo -e "${BLUE}Запускаем процедуру выбора интерфейсов...${NOCL}"
 			print_line
-			#	запрашиваем выбор интерфейса
-			cmd_interface_change skip install
+			#	производим сканирование интерфейсов
+			cmd_interface_change no install
 		else
 #			Если изменений не было, то восстанавливаем соединение
 			switch_vpn_on "${inface_entware}" "${cli_inface}"
 		fi
 
 	else
-#		запрашиваем выбор интерфейса
+#		производим сканирование интерфейсов
 		cmd_interface_change no install
 	fi
 	log_in_file "$(cmd_vpn_status)"
@@ -537,7 +533,26 @@ cmd_install(){
 	#	fi
 	fi
 
-	
+	# Удаляем если есть от старых версий
+	[ -f /opt/etc/cron.5mins/ipset.kvas ] && rm -f /opt/etc/cron.5mins/ipset.kvas
+
+	# Подключаем библиотеку keen_api
+	source /opt/apps/kvas/bin/libs/keen_api
+	# Устанавливаем DNS роутера и порт по умолчанию
+	set_dns_router_server_ip "$(get_router_ip)" "${MAIN_DNS_PORT}"
+
+	# Закрываем снаружи DNS порты для всех вншних сетей
+	# deny_firewall_port "53" "tcp" "Квас: закрываем снаружи 53/TCP DNS порт"
+	# deny_firewall_port "53" "udp" "Квас: закрываем снаружи 53/UDP DNS порт"
+	# allow_firewall_local_net_to_port "53" "tcp" "Квас: разрешаем локальной сети обращения в 53/TCP DNS порт"
+	# allow_firewall_local_net_to_port "53" "udp" "Квас: разрешаем локальной сети обращения в 53/UDP DNS порт"
+	# # Устанавливаем вышесозданные правила на первое место в списке правил
+	# set_firewall_order_for_rule "53" "tcp" "deny" "0"
+	# set_firewall_order_for_rule "53" "udp" "deny" "0"
+	# set_firewall_order_for_rule "53" "udp" "permit" "0"
+	# set_firewall_order_for_rule "53" "udp" "permit" "0"
+	# Записываем изменения в конфиг
+	save_system_configuration_by_api
 
 	#------------------------------------------------------
 	# 	Запускаем КВАС в работу
@@ -564,9 +579,9 @@ cmd_install(){
 	log_alert "УСТАНОВКА ПАКЕТА КВАС ЗАВЕРШЕНА!" "${LOG_HEADER}"
 }
 
-WGET='/opt/bin/wget -q --no-check-certificate'
+# WGET='/opt/bin/wget -q --no-check-certificate'
 # Вы полняем команду отключения DNS провайдера без перезагрузки и выхода из сессии
-rci_post()($WGET -qO - --post-data="$1" localhost:79/rci/ > /dev/null 2>&1)
+# rci_post()($WGET -qO - --post-data="$1" localhost:79/rci/ > /dev/null 2>&1)
 
 
 #------------------------------------------------------
@@ -679,8 +694,27 @@ cmd_uninstall() {
 				}
 			fi
 		fi
+
+		# Подключаем библиотеку keen_api
+		source /opt/apps/kvas/bin/libs/keen_api
+		# Удаляем DNS сервера, установленне для Кваса
+		del_dns_router_server_ip $(get_router_ip) ${MAIN_DNS_PORT}
+
+		# Удаляем правила в брандмауэре, установленные при инсталяции Кваса
+		# del_firewall_rules 53 tcp "deny"
+		# del_firewall_rules 53 udp "deny"
+
+		# Удаляем правила в брандмауэре, установленные при инсталяции Кваса
+		# local _local_net="$(get_router_ip | cut -d'.' -f1-3).0"
+		# del_firewall_rules 53 tcp "permit" "${_local_net}"
+		# del_firewall_rules 53 udp "permit" "${_local_net}"
+		
+		# Сохраняем конфигурацию
+		save_system_configuration_by_api
+
 		ready "Удаляем пакет Квас..."
-		opkg remove kvas --autoremove &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+		opkg remove kvas --autoremove &> /dev/null 
+		when_ok "УСПЕШНО" 
 
 #		print_line
 #		

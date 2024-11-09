@@ -1,0 +1,352 @@
+#!/bin/sh
+# ------------------------------------------------------------------------------------------
+#
+# 	ПРОЕКТ КВАС
+#
+# ------------------------------------------------------------------------------------------
+# 	Данный файл служит библиотекой работы с Keenetic API для пакета КВАС
+# ------------------------------------------------------------------------------------------
+#	Разработчик: mail@zeleza.ru
+#	Дата: 24/10/2024
+#	Лицензия: Apache License 2.0
+# ------------------------------------------------------------------------------------------
+
+ACL=_WEBADMIN_ISP
+
+
+#-------------------------------------------------------------------------------
+# 
+#	Функция получения названия WAN-интерфейса в терминах CLI
+# 
+#-------------------------------------------------------------------------------
+get_wan_cli_interface(){
+	curl -s http://localhost:79/rci/interface | jq -r 'to_entries[] | select(.value.mac.address.factory.wan == true) | .key' 
+}
+
+
+#-------------------------------------------------------------------------------
+# 
+#	Функция отправляет запросы к API Keenetic
+# 
+#-------------------------------------------------------------------------------
+post_api_query(){
+# set -xeu
+	local _query=${2:-''}
+	local _data=${1}
+	local _result=1
+
+	if [ -z "${_data}" ]; then 
+		curl -s "localhost:79/rci/${_query}" && _result=0 || _result=1
+	else
+		curl -s -d "${_data}" "localhost:79/rci/${_query}" && _result=0 || _result=1
+	fi
+	return ${_result}
+# set +xeu
+}
+
+
+#-------------------------------------------------------------------------------
+# 
+#	Функция получает индекс ранее созданного iptables правила по 
+#	порту и протоколу и действию
+#   
+#	$1 - порт
+#	$2 - протокол
+#	$3 - действие
+# 
+#-------------------------------------------------------------------------------
+get_firewall_rule_index_hash(){
+
+	local _port="${1}"
+	local _protocol="${2}"
+	local _action="${3}"
+
+	[ -z "${_port}" ] && [ -z "${_protocol}" ] && [ -z "${_action}" ] && {
+		error "Не задан параметр порта или протокола или действия"
+		exit 1
+	}
+
+	post_api_query "" "access-list" \
+	| jq -r '.[] | select(.protocol == "'${_protocol}'" and ."destination-port" == "'${_port}'" and .action == "'${_action}'") | .index' 
+
+}
+
+
+#-------------------------------------------------------------------------------
+# 
+#	Функция устанавливает заданное index правило 
+# 	для iptables при помощи POST запроса на указанное место в списке
+# 	правил iptables. Нумерация порядка начинается с 0
+#   
+#	$1 - порт
+#	$2 - протокол
+#	$3 - действие
+#	$4 - хеш индекса правила
+#	$5 - новый номер в списке правил iptables
+# 
+#-------------------------------------------------------------------------------
+set_firewall_order_for_rule(){
+
+	local _port="${1}"
+	local _protocol="${2}"
+	local _action="${3}"
+	local _new_index="${4}"
+
+	[ -z "${_port}" ] && [ -z "${_protocol}" ] && [ -z "${_index}" ] && [ -z "${_new_index}" ] && {
+		error "Не задан один из папраметров установки порядка правила по API"
+		exit 1
+	}
+
+	local _index_hash=$(get_firewall_rule_index_hash "${_port}" "${_protocol}" "${_action}")
+
+	[ -z "${_index_hash}" ] && {
+		error "Не удалось получить хеш индекса правила ${_port}/${_protocol}/${_action} по API"
+		exit 1
+	}
+
+	local _post_request='
+	{
+		"rule": {
+			"acl": "'${ACL}'",
+			"index": "'${_index_hash}'",
+			"new-index": "'${_new_index}'"
+		}
+	}
+	'
+	post_api_query "${_post_request}" "access-list" &> /dev/null || {
+		error "Не удалось изменить порядок правила ${_port}/${_protocol}/${_action} по API"
+		exit 1
+	}
+	
+}
+
+
+#-------------------------------------------------------------------------------
+# 
+#	Функция создает правило для iptables при помощи POST запроса
+#   
+#	$1 - порт
+#	$2 - тип протокола
+#	$3 - описание
+# 
+#-------------------------------------------------------------------------------
+deny_firewall_port(){
+	
+	local _port="${1}"
+	local _protocol="${2}"
+	local _description="${3}"
+
+	[ -z "${_port}" ] && [ -z "${_protocol}" ] && {
+		error "Не задан порт или протокол по установки правил по API"
+		exit 1
+	}
+
+        # Проверка на существование правила, если правило существует - выходимаем
+    [ -n "$(get_firewall_rule_index_hash "${_port}" "${_protocol}" "permit")" ] && return 0
+
+	local _post_request='
+	{
+		"acl": "'${ACL}'",
+		"action": "deny",
+		"protocol": "'${_protocol}'",
+		"source": "0.0.0.0",
+		"source-mask": "0.0.0.0",
+		"destination": "0.0.0.0",
+		"destination-mask": "0.0.0.0",
+		"dst-port-operator": "eq",
+		"destination-port": "'${_port}'",
+		"description": "'${_description}'"
+	}
+	'
+	post_api_query "${_post_request}" "access-list" &> /dev/null || {
+		error "Не удалось создать правило ${_port}/${_protocol} по API"
+		exit 1
+	}
+}
+
+
+#-------------------------------------------------------------------------------
+# 
+#	Функция создает правило для iptables при помощи POST запроса
+#   
+#	$1 - порт
+#	$2 - тип протокола
+#	$3 - описание
+# 
+#-------------------------------------------------------------------------------
+allow_firewall_local_net_to_port(){
+	
+	local _port="${1}"
+	local _protocol="${2}"
+	local _description="${3}"
+
+	[ -z "${_port}" ] && [ -z "${_protocol}" ] && {
+		error "Не задан порт или протокол по установки правил по API"
+		exit 1
+	}
+
+    local _local_net="$(get_router_ip | cut -d'.' -f1-3).0"
+
+    [ "${_local_net}" = '.0' ] && {
+        error "Не удалось определить локальную сеть при установке правил по API"
+        exit 1
+    }
+
+    # Проверка на существование правила, если правило существует - выходимаем
+    [ -n "$(get_firewall_rule_index_hash "${_port}" "${_protocol}" "permit")" ] && return 0
+
+	local _post_request='
+	{
+		"acl": "'${ACL}'",
+		"action": "permit",
+		"protocol": "'${_protocol}'",
+		"source": "'${_local_net}'",
+		"source-mask": "255.255.255.0",
+		"destination": "0.0.0.0",
+		"destination-mask": "0.0.0.0",
+		"dst-port-operator": "eq",
+		"destination-port": "'${_port}'",
+		"description": "'${_description}'"
+	}
+	'
+	post_api_query "${_post_request}" "access-list" &> /dev/null || {
+		error "Не удалось создать правило ${_port}/${_protocol} по API"
+		exit 1
+	}
+}
+
+#-------------------------------------------------------------------------------
+# 
+#	Функция устанавливает DNS роутера через API Keenetic
+#	$1 - IP адрес роутера, по умолчанию берется из get_router_ip (IP роутера)
+#	$2 - порт, по умолчанию равен MAIN_DNS_PORT
+# 
+#-------------------------------------------------------------------------------
+set_dns_router_server_ip(){
+
+	local _wan=$(get_wan_cli_interface)
+	local _router_local_ip=${1:-$(get_router_ip)}
+	local _router_port=${2:-${MAIN_DNS_PORT}}
+
+	local _post_request='
+	{
+		"'${_wan}'": {
+			"ip": {
+			"name-server": [
+				{
+					"name-server": "'${_router_local_ip}'",
+					"port": "'${_router_port}'"
+				}
+			],
+			"name-servers": false
+			}
+		}
+	}
+	'
+	post_api_query "${_post_request}" "interface" &> /dev/null || {
+		error "Не удалось установить DNS роутера по API"
+		exit 1
+	}
+
+}
+
+
+#-------------------------------------------------------------------------------
+# 
+#	Функция удаляет DNS роутера через API Keenetic
+#	$1 - IP адрес роутера, по умолчанию берется из get_router_ip (IP роутера)
+#	$2 - порт, по умолчанию равен MAIN_DNS_PORT
+# 
+#-------------------------------------------------------------------------------
+del_dns_router_server_ip(){
+
+	local _wan=$(get_wan_cli_interface)
+	local _router_local_ip=${1:-$(get_router_ip)}
+	local _router_port=${2:-${MAIN_DNS_PORT}}
+
+	local _post_request='
+	{
+		"'${_wan}'": {
+			"ip": {
+				"name-server": [
+				{
+					"name-server": "'${_router_local_ip}'",
+					"port": "'${_router_port}'"
+				},{ "no": "true"}
+				]
+			}
+		}
+	}
+	'
+	post_api_query "${_post_request}" "interface" &> /dev/null || {
+		error "Не удалось удалить DNS роутера по API"
+		exit 1
+	}
+
+}
+
+
+
+#-------------------------------------------------------------------------------
+# 
+#	Функция создает правило для iptables при помощи POST запроса
+#   
+#	$1 - порт
+#	$2 - тип протокола
+#	$3 - действие
+# 
+#-------------------------------------------------------------------------------
+del_firewall_rule(){
+	
+	local _port="${1}"
+	local _protocol="${2}"
+	local _action="${3}"
+    local _local_net="${4}"
+    local _net_mask="0.0.0.0"
+
+	[ -z "${_port}" ] && [ -z "${_protocol}" ] && [ -z "${_action}" ]  && {
+		error "Не задан порт, протокол или действие по удалению правила по API"
+		exit 1
+	}
+
+    if [ -z "${_local_net}" ] ; then
+        _local_net="0.0.0.0"
+        _net_mask="0.0.0.0"
+    else
+        _net_mask="255.255.255.0"
+    fi
+    
+
+	local _post_request='
+	{
+		"acl": "'${ACL}'",
+		"action": "'${_action}'",
+		"protocol": "'${_protocol}'",
+        "source": "'${_local_net}'",
+		"source-mask": "'${_net_mask}'",
+		"destination": "0.0.0.0",
+		"destination-mask": "0.0.0.0",
+		"dst-port-operator": "eq",
+		"destination-port": "'${_port}'",
+        "no": true
+	}
+	'
+	post_api_query "${_post_request}" "access-list" &> /dev/null || {
+		error "Не удалось удалить правило ${_port}/${_protocol}/${_action} по API"
+		exit 1
+	}
+}
+
+
+#-------------------------------------------------------------------------------
+# 
+#	Функция служит для сохранения конфигурации при внесении изменений при 
+#	помощи Keenetic API. 
+#
+#-------------------------------------------------------------------------------
+save_system_configuration_by_api(){
+    post_api_query "" "system/configuration/save" &> /dev/null || {
+        error "Не удалось сохранить конфигурацию по API"
+        exit 1
+    }
+}

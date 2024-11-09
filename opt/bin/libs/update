@@ -51,7 +51,7 @@ cmd_adguard_update(){
 			error "Для Вашей архитектуры процессора '${arch}' обновления не найдены." nl
 		fi
 	else
-		error "Сервис AdGuard Home ОТКЛЮЧЕН. Для продолжения необходимо запустить команду kvas adguard on"
+		error "Сервис AdGuard Home ОТКЛЮЧЕН. Для продолжения необходимо\nзапустить команду kvas adguard on"
 	fi
 
 }

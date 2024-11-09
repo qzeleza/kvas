@@ -26,8 +26,8 @@ logger -t "КВАС" "Запущен файл ${0}"
 
 
 # проверяем доступность сети
-# until ADDRS=$(kdig +short ya.ru @localhost ) && [ -n "${ADDRS}" ] > /dev/null 2>&1; do sleep 5; done
-until ADDRS=$(kdig +short ya.ru @127.0.0.1:9153) && [ -n "${ADDRS}" ] || /opt/etc/init.d/S09dnscrypt-proxy2 restart &>/dev/null ; do sleep 10; done
+until ADDRS=$(kdig +short ya.ru @localhost ) && [ -n "${ADDRS}" ] > /dev/null 2>&1; do sleep 5; done
+# until ADDRS=$(kdig +short ya.ru @127.0.0.1:9153) && [ -n "${ADDRS}" ] || /opt/etc/init.d/S09dnscrypt-proxy2 restart &>/dev/null ; do sleep 10; done
 
 # обновляем таблицу ipset данными из файла с доменными именами, IP и сетями
 while read -r line || [ -n "${line}" ]; do
@@ -42,10 +42,9 @@ while read -r line || [ -n "${line}" ]; do
 	host=$(echo "${line}" | sed 's/#.*$//g' | tr -s ' ' | sed 's/\*//')
 
 	# если строка начинается с IP, то проводим обработку по IP
+	# если строка IP, диапазон или маска; то добавляем напрямую и без ttl
 	if echo "${host}" | grep -qoE "${IP_FILTER}|${IP_FILTER}-${IP_FILTER}|${IP_FILTER}/[0-9]{1,2}"; then
-		ipset -exist add "${TABLE_NAME}" "${host}" &>/dev/null || true
-	else
-		add_host_by_iplist_to_ipset "${host}" || true
+		ipset -exist add "${IPSET_TABLE_NAME}" "${host}" timeout 0 &>/dev/null || true
 	fi
 
 done < "${HOST_LIST}"

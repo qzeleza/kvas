@@ -1,9 +1,17 @@
 ## 1.1.9 beta 7
 
-- Внесены изменния, в правила переадресации DNS трафка (см. issue #[195](https://github.com/qzeleza/kvas/issues/195)), отдельное спасибо [AltGrF13](https://github.com/AltGrF13).
-- Внесены изменния, в функцию cmd_add_one_host, чтобы исключить потерю wildcard у хостов при импорте или добавлении (см. заявка #[189](https://github.com/qzeleza/kvas/issues/189)), отдельное спасибо [AltGrF13](https://github.com/AltGrF13).
-- Внесены изменния, в код по добавлению гостевых сетей (см. issue #[199](https://github.com/qzeleza/kvas/issues/199)), отдельное спасибо [AltGrF13](https://github.com/AltGrF13).
-- Внесены изменния, в код get_entware_ikev2_inface по определению интерфейса для IKEv2 (см. issue #[194](https://github.com/qzeleza/kvas/issues/194)), отдельное спасибо [AltGrF13](https://github.com/AltGrF13).
+- Внесены изменния по заявкам:
+- [#189](https://github.com/qzeleza/kvas/issues/189) 1.1.9-beta_6: wildcard у хостов при импорте или добавлении теряется,
+- [#194](https://github.com/qzeleza/kvas/issues/194) IKEv2 не работает в некоторых случаях,
+- [#195](https://github.com/qzeleza/kvas/issues/195) 1.1.9-beta_6: вопросы DNS, 
+- [#199](https://github.com/qzeleza/kvas/issues/199) Расшаривание гостевых, 
+- [#205](https://github.com/qzeleza/kvas/issues/205) Определение версии прошивки, 
+- [#206](https://github.com/qzeleza/kvas/issues/206) 1.1.9-beta_6: триггерные файлы, 
+- [#207](https://github.com/qzeleza/kvas/issues/207) 1.1.9-beta_6: Межсетевой экран, 
+- [#208](https://github.com/qzeleza/kvas/issues/208) Оптимизация старта списка, 
+- [#209](https://github.com/qzeleza/kvas/issues/209) Оптимизация работы с IP в списке. 
+  Отдельная благодарность [AltGrF13](https://github.com/AltGrF13).
+- Добавлена закваска для xbox, отдельное спасибо [ssavickiy](https://t.me/ssavickiy)
 
 
 
