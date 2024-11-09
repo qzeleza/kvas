@@ -4,6 +4,7 @@
 . /opt/apps/kvas/bin/libs/ndm
 . /opt/apps/kvas/bin/libs/adblock
 . /opt/apps/kvas/bin/libs/tags
+. /opt/apps/kvas/bin/libs/vless
 
 MINUS=10
 
@@ -1850,6 +1851,11 @@ EOF
 		if [[ $attempt -gt 0 ]]; then
 			# получаем описание интерфейса
 			description=$(get_value_interface_field "${inface_cli}" description | sed 's|\/|\\/|g')
+
+			# Ищем интерфейс ProxyVless0 в списке и обновляем его описание 
+			# данное имя (ProxyVless0) дается интерфейсу при его создании и оно уникально, чтобы не спутать его с другими Proxy
+			# [[ "${inface_cli}" == "ProxyVless0" ]] && description="${description} [vless]"
+
 			# вставляем описание в файл /opt/etc/inface_equals
 			[ -n "${description}" ] && \
 				sed -i 's/\('"${inface_cli}"'.*\)/\1|'"${description}"'/' "${INFACE_NAMES_FILE}"
@@ -2050,14 +2056,57 @@ switch_vpn_on(){
 	cli_inface=${2}
 #	Меняем интерфейс в файле ndm
 	ndm_interface_change "${inface_entware}" "${cli_inface}"
+	
+	# Останавливаем xray, если запушен	
+	${XRAY_INIT} stop &> /dev/null
 
 	if [[ "${inface_entware}" =~ ${SSR_ENTWARE_TEMPL} ]]; then
 		vpn_off &> /dev/null
 		shadowsocks_backup
 		shadowsocks_on
+
 	else
 		shadowsocks_off &> /dev/null
-		vpn_on "${inface_entware}"
+		# Если выбран proxy vless kvas интерфейс
+		if [ "${inface_entware}" = "${PROXY_VLESS_NAME}" ] ; then
+			
+			# Если нет файла конфигурации proxy vless
+			# то запросим ссылку и создаем его
+			[ -f ${VLESS_CONFIG_FILE} ] || {
+				local vless_link=''
+				read_value "Ведите ссылку на proxy vless reality в формате 'vless://[данные]' :" vless_link password
+				# Считываем данные из ссылки в файл proxy vless конфигурации
+				vless_link_parse "${vless_ln}" "${VLESS_CONFIG_FILE}"
+			}
+			
+			# Проверка конфигурации xray
+			check_xray_config=$(${XRAY} run -test -c ${VLESS_CONFIG_FILE})
+
+			if echo "${check_xray_config}" | grep -q "Configuration OK." ; then
+
+				# Запуск xray в случае, если конфигурация xray не содержит ошибок
+				ready "Запускаем xray сервис..."
+				service_action xray start && {
+					when_ok "УСПЕШНО" 
+					vpn_on "${inface_entware}"
+					# Тестируем работу proxy vless
+					test_vless_proxy
+				} || {
+					when_bad "ОШИБКА" 
+					exit 1
+				}
+
+			else
+				# В случае, если есть ошибки в файле конфигурации, выводим их в консоль
+				echo -e "${BLUE}В файле ${VLESS_CONFIG_FILE} обнаружены следующие ошибки:${NOCL}"
+				print_line
+				echo -e "${RED}${check_xray_config}${NOCL}"
+				exit 1
+			fi
+		else
+			# Если выбран другой VPN интерфейс 
+			vpn_on "${inface_entware}"
+		fi
 	fi
 	[ "${is_install_stage}" = no ] && cmd_kvas_init "no" &> /dev/null
 

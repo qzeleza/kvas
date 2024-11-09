@@ -1,6 +1,7 @@
 #!/bin/sh
 . /opt/apps/kvas/bin/libs/main
 . /opt/apps/kvas/bin/libs/vpn
+. /opt/apps/kvas/bin/libs/vless
 
 # В случае проблем с инсталляцией пакета ставим в значение true
 ANSWER_AGH=n
@@ -163,14 +164,18 @@ cmd_pause_kvas(){
 restart_all_services(){
 
 	if cmd_adguardhome_status | grep -qE "(ВКЛЮЧЕН|ОТКЛЮЧЕН)" ; then
-		/opt/etc/init.d/S99adguardhome restart &> /dev/null 
+		service_action dnsmasq stop
+		service_action shadowsocks stop 
+		service_action adguardhome restart 
 	else
 		if has_ssr_enable ; then
-			/opt/etc/init.d/S22shadowsocks restart &> /dev/null 
+			service_action xray stop
+			service_action shadowsocks restart 
 		else
-			/opt/etc/init.d/S56dnsmasq restart &> /dev/null 
+			service_action xray restart 
+			service_action dnsmasq restart 
 			get_dns_crypt_status | grep -q "on" && {
-				/opt/etc/init.d/S09dnscrypt-proxy2 restart &> /dev/null 
+				service_action dnscrypt-proxy2 restart  
 			}
 		fi
 
@@ -238,7 +243,7 @@ stop_dnsmasq(){
 
 	if /opt/etc/init.d/S56dnsmasq status | grep -q "alive"; then
 		ready "Останавливаем службу dnsmasq "
-		/opt/etc/init.d/S56dnsmasq stop &> /dev/null
+		service_action dnsmasq stop &> /dev/null
 		[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 	fi
 	ready "Архивируем файл службы S56dnsmasq"
@@ -256,7 +261,7 @@ stop_dnsmasq(){
 stop_crypt(){
 	if /opt/etc/init.d/S09dnscrypt-proxy2 status | grep -q "alive"; then
 		ready "Останавливаем службу dnscrypt-proxy2 "
-		/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
+		service_action dnscrypt-proxy2 stop &> /dev/null
 		[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 	fi
 
@@ -363,6 +368,8 @@ restore_backups(){
 	restore_backup "${DNSMASQ_CONFIG_BACKUP}" "${DNSMASQ_CONFIG}" "конфигурации dnsmasq"
 	restore_backup "${DNSMASQ_IPSET_HOSTS_BACKUP}" "${DNSMASQ_IPSET_HOSTS}" "списка ipset для dnsmasq"
 
+	restore_backup "${VLESS_CONFIG_FILE_BACKUP}" "${VLESS_CONFIG_FILE}" "конфигурации xray vless"
+
 	restore_backup "${DNSCRYPT_CONFIG_BACKUP}" "${DNSCRYPT_CONFIG}" "конфигурации dnscrypt_proxy2"
 	restore_backup "${ADBLOCK_LIST_EXCEPTION_BACKUP}" "${ADBLOCK_LIST_EXCEPTION}" "списка хостов-исключений для блокировки рекламы"
 	restore_backup "${ADBLOCK_HOSTS_FILE_BACKUP}" "${ADBLOCK_HOSTS_FILE}" "списка хостов для блокировки рекламы"
@@ -384,6 +391,8 @@ save_backups(){
 
 	backup_copy "${DNSMASQ_CONFIG}" "${DNSMASQ_CONFIG_BACKUP}"
 	backup_copy "${DNSMASQ_IPSET_HOSTS}" "${DNSMASQ_IPSET_HOSTS_BACKUP}"
+
+	backup_copy "${VLESS_CONFIG_FILE}" "${VLESS_CONFIG_FILE_BACKUP}"
 
 	backup_copy "${DNSCRYPT_CONFIG}" "${DNSCRYPT_CONFIG_BACKUP}"
 
@@ -419,6 +428,9 @@ cmd_install(){
 	opkg list-installed | grep -q 'nano ' && opkg remove nano &> /dev/null
 	opkg install iptables nano-full &> /dev/null
 
+	# Устанавливаем прокси пакет
+	cmd_install_proxy_package || return 1
+
 	[ "${update_mode}" ] || setup_print_welcome
 	mkdir -p "${KVAS_BACKUP_PATH}"
 	cat /dev/null > "${INSTALL_LOG}"
@@ -443,12 +455,18 @@ cmd_install(){
 	[ -f "${KVAS_START_FILE}" ] || cp -f /opt/apps/kvas/etc/init.d/S96kvas "${KVAS_START_FILE}"
 	chmod +x "${KVAS_START_FILE}"
 
+	# Если не установлен xray - устанавливаем его
+	has_xray_installed || opkg install xray &> /dev/null
+	# Создаем ссылку на наш скрипт для запуска xray в /opt/etc/init.d 
+	[ -f "${XRAY_INIT}" ] || ln -s /opt/apps/kvas/etc/init.d/S97xray ${XRAY_INIT}
+
 	#------------------------------------------------------
 	# Отключаем IPv6
 	#------------------------------------------------------
 	if [ "$(ipv6_status)" = 0 ]; then
 		ipv6_inface_off "$(get_defaultgw_interface)"
 	fi
+
 
 	local_ip=$(get_router_ip)
 	set_config_value DNSMASQ_LISTEN_IP "${local_ip}"

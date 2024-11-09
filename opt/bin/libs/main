@@ -114,6 +114,39 @@ check_crypto_ssr_libs(){
 		
 }
 
+#	Функция производит действия над определенными службами в фоне (демонами)
+# 
+#-------------------------------------------------------------------------------
+service_action(){
+
+	local _service=${1}
+	local _action=${2:-stop}
+	
+	# если нет демона - выходим
+	[ -z "${_service}" ] && return 1
+	# если демон есть - выполняем действия
+	find /opt/etc/init.d/ -name *"${_service}"* | xargs -n 1 ${_action} &> /dev/null && return 0 || return 1
+
+}
+
+
+#-------------------------------------------------------------------------------
+# 
+#	Функция отправляет запросы к API Keenetic
+# 
+#-------------------------------------------------------------------------------
+post_api_query(){
+	local _query=${1}
+	local _data=${2:-}
+	local _result
+
+	if [ -z "${_data}" ]; then 
+		curl -s "localhost:79/rci/${_query}" && _result=true || _result=false
+	else
+		curl -s -d "${_data}" "localhost:79/rci/${_query}" && _result=true || _result=false
+	fi
+	return ${result}
+}
 #-------------------------------------------------------------------------------
 # 
 #	Функция которая экранирует спец символы для sed

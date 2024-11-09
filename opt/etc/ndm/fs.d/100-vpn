@@ -32,5 +32,5 @@ if [ "$1" = "start" ] ; then
 #	Устанавливаем приоритет таблицы
 	ip4_rule_set_priority &> /dev/null
 #	Создаем правила iptables
-	ip4_mark_vpn_network &> /dev/null
+	# ip4_mark_vpn_network &> /dev/null
 fi
