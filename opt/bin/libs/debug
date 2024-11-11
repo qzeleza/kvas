@@ -213,8 +213,17 @@ print_curent_congiguration() {
 	print_line
 	
 }
+cmd_check_ikev2_routing(){
 
-
+        local _result=$(iptables-save | grep -F 53 | grep -Fv _NDM | grep -Fv :INPUT | grep -Fv :PREROUTING | grep -Fv :OUTPUT) 
+        ready "Версия ndw3" && when_ok "$(get_version)"
+        ready "Версия ndw4" && when_ok "$(version_os)"
+        ready "Название IKEv2 интерфеса" && when_ok "$(get_entware_ikev2_inface)"
+		echo
+        echo_debug "Проверка работы IKEv2 роутинга DNS" "${_result}"
+        _result=$(iptables-save | grep -F kvas_ipset)
+        echo_debug "Проверка IKEv2 роутинга трафика" "${_result}"
+}
 
 # ------------------------------------------------------------------------------------------
 #
@@ -291,7 +300,7 @@ kvas_list_ipset_check(){
 	fi
 
 	[ "${HAS_NO_ADDRESS}" = true ] && {
-		print_line
+		echo; print_line
 		echo -e "Значение ${BLUE}АДРЕСА НЕТ${NOCL} - это может говорить о том, что адрес этого"
 		echo -e "домена не определяется утилитами ${BLUE}kdig${NOCL} или ${BLUE}dig${NOCL}."
 		echo ''

@@ -150,7 +150,7 @@ cmd_kvas_init(){
 	update_adblock
 
 	ip4_add_route_table
-
+	/opt/apps/kvas/bin/main/ipset
 #	ready "${prefix}Создаем таблицу маршрутизации ID#${TABLE_ID} для '$(inface_cli)'."
 #	#	Создаем таблицу IP адресов для  VPN подключения отличного от shadowsocks
 #
@@ -691,12 +691,17 @@ adguardhome_install_locally() {
 #
 # ------------------------------------------------------------------------------------------
 dns_server_install_remotely(){
+
 	local _ip_port=${1}
 	
-	[ -z "${_ip_port}" ] && read_value "Введите IP:PORT для DNS сервера на другом устройстве:" _ip_port
+	[ -z "${_ip_port}" ] && {
+		print_line
+		read_value "Введите IP:PORT для DNS сервера на другом устройстве:" _ip_port
+	}
 
 	[ -z "${_ip_port}" ] && exit 1
-	[ "${_ip_port}" = "q" ] && exit_q; exit 1
+	if [ "${_ip_port}" = q ] ; then exit_q; print_line; exit 1; fi
+
 	if echo "${_ip_port}" | grep -q "${IP_PORT_FILTER}" ; then 
 		nslookup ya.ru ${_ip_port/#/:/} &> /dev/null
 		[ $? -eq 0 ] || error "Введенный адрес ${_ip_port/#/:/} недоступен." && exit 1
@@ -719,9 +724,14 @@ dns_server_install_remotely(){
 # ------------------------------------------------------------------------------------------
 cmd_adguardhome_on() {
 
-	read_ynq "Хотите подключить AdGuardHome на удаленном устройстве?" answer
-	echo "${answer}" | grep -qi q && exit_q ; exit 1
-	if echo "${answer}" | grep -qi n; then
+	local _answer
+	read_ynq "Хотите подключить AdGuardHome на удаленном устройстве?" _answer
+	if [ "${_answer}" = q ] ; then exit_q; print_line; exit 1; fi
+	if echo "${_answer}" | grep -qi y; then
+		# Если выбрали установку на удаленном устройсвте
+		dns_server_install_remotely ""
+
+	elif echo "${_answer}" | grep -qi n; then
 
 		echo -e "${GREEN}AdGuard Home${NOCL} будет установлен локально"
 		print_line
@@ -743,8 +753,7 @@ cmd_adguardhome_on() {
 		[ -f "${KVAS_BACKUP_PATH}/hosts" ] &&  cp -f "${KVAS_BACKUP_PATH}/hosts" /opt/etc/hosts
 
 		"${ADGUARDHOME_DEMON}" restart &> /dev/null	
-	else
-		dns_server_install_remotely
+
 	fi
 }
 # ------------------------------------------------------------------------------------------
@@ -1439,7 +1448,7 @@ vpn_on() {
 active_backup_config(){
 	echo "Обнаружен архивный файл конфигурации shadowsocks."
 	answer=''; read_ynq_timer "Удалить его и создать новый" answer N 6
-	if [ "${answer}" = q ] ; then exit_q; exit 1; fi
+	if [ "${answer}" = q ] ; then exit_q; print_line; exit 1; fi
 	if echo "${answer}" | grep -qi y ; then
 		ready "Удаляем архивный файл конфигурации shadowsocks..."
 		rm -f "${SHADOWSOCKS_CONF}.kvas"
@@ -1573,7 +1582,7 @@ shadowsocks_read_data() {
 	cp -f "/opt/apps/${APP_NAME}/etc/conf/shadowsocks.json" "${SHADOWSOCKS_CONF}"
 
 	answer=''; read_ynq "У Вас имеется кодированная ss:// ссылка для ввода данных" answer
-	if [ "${answer}" = q ] ; then exit_q; exit 1; fi
+	if [ "${answer}" = q ] ; then exit_q; print_line; exit 1; fi
 
 	if echo "${answer}" | grep -qi y ; then
 		shadowsocks_read_link
@@ -1601,7 +1610,9 @@ shadowsocks_read_link(){
 
 	if [[ -n "${SSR_LINK}" && "${#SSR_LINK}" -gt 6 ]] ; then
 		SSR_LINK="$(echo "${SSR_LINK}" | sed -E 's/(.*)[#?\/]\?.*|(.*)#.*/\1\2/')"
-		password=$(echo "${SSR_LINK}" | grep -oP "(?<=ss://).*?(?=@)" | base64 -d )
+		# password=$(echo "${SSR_LINK}" | grep -oP "(?<=ss://).*?(?=@)" | base64 -d )
+		password=$(echo "${SSR_LINK}" | awk -F'[/:@]' '{print $(NF-2)}' | base64 -d )
+		
 		if echo "${password}" | grep -q ":" ; then 
 			SSR_SERVER_PASSWD=$(echo "${password}" | cut -d ":" -f 2) 
 		else 
@@ -1724,7 +1735,7 @@ cmd_shadowsocks_local_port_change() {
 		answer=''
 		error "shadowsocks клиент не выбран в настройках"
 		read_ynq_timer "Включить его вместо текущего соединения" answer Y 6
-		if [ "${answer}" = q ] ; then exit_q; exit 1; fi
+		if [ "${answer}" = q ] ; then exit_q; print_line; exit 1; fi
 		echo "${answer}" | grep -qi y && shadowsocks_on; cmd_shadowsocks_local_port_change "${port_new}"
 	fi
 }
@@ -1844,7 +1855,7 @@ EOF
 		# если он уже на месте, задержки не будет
 		attempt=10
 		while [[ $attempt -gt 0 ]] && ! $(grep -Fq "${inface_cli}" "${INFACE_NAMES_FILE}"); do
-			sleep 1
+			sleep 3
 			attempt=$(( $attempt - 1 ))
 		done
 
@@ -1976,18 +1987,20 @@ show_vpn_list() {
 show_interface_name_list_process(){
 
 #	[ -f "${INFACE_NAMES_FILE}" ] || update_interface_name_list
-	answer="${1}"
+	local answer="${1}"
+	local _ans
 
-	if [ -f "${INFACE_NAMES_FILE}" ]; then
+	if [ "${answer}" = yes ] ; then
+		update_interface_name_list
+
+	elif [ -f "${INFACE_NAMES_FILE}" ]; then
 		if [ "${answer}" = ask ] ; then
-			read_ynq_timer "Обновить список интерфейсов" answer N
-			if [ "${answer}" = q ] ; then exit_q; exit 1; fi
+			read_ynq_timer "Обновить список интерфейсов" _ans N
+			if [ "${_ans}" = q ] ; then exit_q; print_line; exit 1; fi
 			print_line
-			if echo "${answer}" | grep -qi y ; then
+			if echo "${_ans}" | grep -qi y ; then
 				update_interface_name_list
-			fi
-		elif [ "${answer}" = yes ] ; then
-			update_interface_name_list
+			fi			
 		fi
 	else
 		update_interface_name_list
@@ -2057,6 +2070,7 @@ create_vless_config(){
 	[ -f "${VLESS_CONFIG_FILE}" ] || cp "${VLESS_CONFIG_ORIGINAL_FILE}" "${VLESS_CONFIG_FILE}" 
 	# Считываем данные из ссылки в файл proxy vless конфигурации
 	vless_link_parse "${vless_link}" "${VLESS_CONFIG_FILE}"
+	print_line
 }
 
 
@@ -2205,7 +2219,7 @@ select_vpn_interface() {
 			exit
 		elif [[ "$num_vpn_inface" =~ ^[Ss]$ ]]; then
 			print_line
-			cmd_interface_change "no" "${is_install_stage}"
+			cmd_interface_change "yes" "${is_install_stage}"
 		else
 			error "Введите цифру 1-${total} или S - сканирование, Q - выход."
 			continue
@@ -2408,9 +2422,9 @@ cmd_dns_crypt_on() {
 				sed -i "s/\(^listen_addresses.=.\).*$/\1['127.0.0.1:${crypt_port}'.*]/g" "${DNSCRYPT_CONFIG}" &> /dev/null
 				sed -i "s/\(^cache_min_ttl.=.\).*$/\10/g" '/opt/etc/dnscrypt-proxy.toml'
 				sed -i "s/\(^cache_max_ttl.=.\).*$/\10/g" '/opt/etc/dnscrypt-proxy.toml'
-				sed -i "s/.* \(server_names =\).*/\1 ['google', 'yandex', 'cloudflare']/g" '/opt/etc/dnscrypt-proxy.toml'
-				sed -i "/proxy-dnssec/d" /opt/etc/dnsmasq.conf
-				echo "proxy-dnssec" >> /opt/etc/dnsmasq.conf
+				sed -i "s/^\(server_names =.*\)/# \1/g" '/opt/etc/dnscrypt-proxy.toml'
+				# sed -i "/proxy-dnssec/d" /opt/etc/dnsmasq.conf
+				# echo "proxy-dnssec" >> /opt/etc/dnsmasq.conf
 				dns_crypt_port_change "${dns_crypt_port}" restart
 
 			} 1> /dev/null 2> "${ERROR_LOG_FILE}"
@@ -2527,14 +2541,6 @@ add_host_to_adguard(){
   	fi
 }
 
-add_host_to_ipset(){
-	clear_host="${1}"
-	. /opt/apps/kvas/bin/libs/ipset
-	#
-#	# если строка начинается с IP, то проводим обработку по IP
-		add_host_by_iplist_to_ipset "${clear_host}" &> /dev/null
-}
-
 # ------------------------------------------------------------------------------------------
 #
 # 	Добавляем один хост
@@ -2564,13 +2570,14 @@ host_add() {
 		else
 #			Если третий параметр был задан как 'yes|y|wild' то, добавляем * без вопросов
 			if echo "${wild}" | grep -qiE 'yes|y|wild' ; then
-				answer=y
+				# answer=y
+				answer=n # изменено для 1.1.9b8
 			else
-				answer='';
+				answer='n';
 #				Задаем вопрос о необходимости поддержки режима wildcard и ждем 6 сек на ответ
 # 				если ответа не поступило, то по умолчанию ответ 'Y'
-				read_ynq_timer "Добавить хост с поддоменами wildcard [Y] или нет [N]?" answer Y 6
-				if [ "${answer}" = q ] ; then exit_q; exit 1; fi
+				# read_ynq_timer "Добавить хост с поддоменами wildcard [Y] или нет [N]?" answer Y 6
+				# if [ "${answer}" = q ] ; then exit_q; print_line; exit 1; fi
 				print_line
 			fi
 		fi
@@ -2578,7 +2585,7 @@ host_add() {
 
 #	Проверяем на необходимость поддержки wildcard
 	if echo "${answer}" | grep -qiE 'y|yes' ; then
-		_host="*${clear_host}"
+		_host="${clear_host}"
 	fi
 
 	ready "Добавляем ${YELLOW}${_host}${NOCL} в защищенный список..."
@@ -2592,7 +2599,6 @@ host_add() {
 	[ "${reset}" = 'yes' ] && cmd_kvas_init  &> /dev/null
 
 	[ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ] && cmd_adguardhome_status | grep -q ВКЛЮЧЕН && add_host_to_adguard "${clear_host}" &> /dev/null
-	add_host_to_ipset "${clear_host}" &> /dev/null
 
 	[ $? = 0 ] && when_ok "ДОБАВЛЕН" || when_bad "НЕ ДОБАВЛЕН"
 
@@ -3227,7 +3233,7 @@ cmd_show_list() {
 				print_line
 				warning "Обнаружена архивная копия защищенного списка!"
 				answer=''; read_ynq_timer "Восстановить данные из архива или нет [Y/N]?" answer Y 10
-				if [ "${answer}" = q ] ; then exit_q; exit 1; fi
+				if [ "${answer}" = q ] ; then exit_q; print_line; exit 1; fi
 				if echo "${answer}" | grep -qi y ; then
 					cp "${KVAS_LIST_FILE_BACKUP}" "${KVAS_LIST_FILE}"
 					warning "Защищенный список восстановлен из архивной копии."
@@ -3249,7 +3255,7 @@ cmd_show_list() {
 		if [ -f "${KVAS_LIST_FILE_BACKUP}" ] ; then
 			warning "Обнаружена архивная копия защищенного списка!"
 				answer=''; read_ynq_timer "Восстановить данные из архива (Y) или нет (N)?" answer Y 10
-				if [ "${answer}" = q ] ; then exit_q; exit 1; fi
+				if [ "${answer}" = q ] ; then exit_q; print_line; exit 1; fi
 				if echo "${answer}" | grep -qi y ; then
 					cp "${KVAS_LIST_FILE_BACKUP}" "${KVAS_LIST_FILE}"
 					warning "Защищенный список восстановлен из архивной копии."

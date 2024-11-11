@@ -118,6 +118,7 @@ vless_link_parse() {
     local link="$1"
     local tag="${link/vless://}"
     local _vless_file=${2:-$VLESS_CONFIG_FILE}
+    
     # парсим параметры из ссылки vless://
 
     local vless_id=$(echo "${tag}" | sed 's/.*\/\/\(.*\)@.*/\1/' )

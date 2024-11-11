@@ -119,7 +119,7 @@ ads_request_to_upload() {
 		if [ -f "${ADBLOCK_SOURCES_LIST_BACKUP}" ]; then
 			warning "Обнаружен архивный файл с источниками обновления рекламы."
 			[ "${answer}" = ask ] && read_ynq_timer "Восстановить данный файл" answer Y 12
-			if [ "${answer}" = q ] ; then exit_q; exit 1; fi
+			if [ "${answer}" = q ] ; then exit_q; print_line; exit 1; fi
 			if echo "${answer}" | grep -qi y ; then
 				ready "Восстановление архива с источниками рекламы завершено"
 				mv -f "${ADBLOCK_SOURCES_LIST_BACKUP}" "${ADBLOCK_SOURCES_LIST}"
@@ -136,7 +136,7 @@ ads_request_to_upload() {
 	fi
 	if [ -f "${ADBLOCK_HOSTS_FILE}" ]; then
 		[ "${answer}" = ask ] && read_ynq_timer "Обновить списки блокировки рекламы" answer N 6
-		if [ "${answer}" = q ] ; then exit_q; exit 1; fi
+		if [ "${answer}" = q ] ; then exit_q; print_line; exit 1; fi
 		echo "${answer}" | grep -qi y && /opt/apps/kvas/bin/main/adblock
 	else
 		/opt/apps/kvas/bin/main/adblock

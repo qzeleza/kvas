@@ -327,7 +327,7 @@ is_os_below_4_2() {
 	false
 }
 
-function is_ip_private() {
+is_ip_private() {
 	if echo "$1" | grep -qE '^(192\.168\.|10\.|172\.1[6789]\.|172\.2[0-9]\.|172\.3[01]\.)'; then
 		return
 	fi
@@ -902,7 +902,7 @@ read_value() {
 				echo -e "${RED}Попробуйте ввести его снова...${NOCL}"
 				print_line
 		else
-				eval "${2}=${value}"
+				eval "${2}=\"${value}\""
 				break
 		fi
 	done

@@ -168,6 +168,7 @@ case "${1}" in
 	debug)
 		case "${2}" in
 			ipset) 			kvas_list_ipset_check ;;
+			ikev2)			cmd_check_ikev2_routing ;;
 			*) 				cmd_print_debug "${2}"		;;
 		esac
 		;;
