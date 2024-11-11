@@ -40,12 +40,12 @@ while read -r line || [ -n "${line}" ]; do
 	# удаляем из строки комментарии - все что встречается после символа # и сам символ
 	# удаляем *
 	host=$(echo "${line}" | sed 's/#.*$//g' | tr -s ' ' | sed 's/\*//')
-
+	add_host_by_iplist_to_ipset "${host}"
 	# если строка начинается с IP, то проводим обработку по IP
 	# если строка IP, диапазон или маска; то добавляем напрямую и без ttl
-	if echo "${host}" | grep -qoE "${IP_FILTER}|${IP_FILTER}-${IP_FILTER}|${IP_FILTER}/[0-9]{1,2}"; then
-		ipset -exist add "${IPSET_TABLE_NAME}" "${host}" timeout 0 &>/dev/null || true
-	fi
+	# if echo "${host}" | grep -qoE "${IP_FILTER}|${IP_FILTER}-${IP_FILTER}|${IP_FILTER}/[0-9]{1,2}"; then
+	# 	ipset -exist add "${IPSET_TABLE_NAME}" "${host}" timeout 0 &>/dev/null || true
+	# fi
 
 done < "${HOST_LIST}"
 
