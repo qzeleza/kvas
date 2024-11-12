@@ -288,8 +288,7 @@ rm_package_files(){
 		
 		ready "Удаляем архивные копии пакета Квас" && {
 
-			find /opt  ! -path "/opt/packages/*" ! -path "/opt/lib/opkg/*" \( -type f -name '*kvas*' ! -regex '.*/kvas[a-zA-Z].*' \) -exec rm -f {} +
-			find /opt  ! -path "/opt/packages/*" ! -path "/opt/lib/opkg/*" \( -type d -name '*kvas*' ! -regex '.*/kvas[a-zA-Z].*' \) -exec rm -rf {} +
+			find /opt ! -path "/opt/packages/*" ! -path "/opt/lib/opkg/*" -name '*kvas*' ! -regex '.*/kvas[a-zA-Z].*' -exec rm -rf {} +
 			
 			rm_file /opt/tmp/adblock
 			rm_file /opt/etc/ads_exception.list

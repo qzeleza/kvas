@@ -223,6 +223,8 @@ cmd_check_ikev2_routing(){
         echo_debug "Проверка работы IKEv2 роутинга DNS" "${_result}"
         _result=$(iptables-save | grep -F kvas_ipset)
         echo_debug "Проверка IKEv2 роутинга трафика" "${_result}"
+		_result=$(ipset list kvas_ipset | wc -l)
+		echo_debug "Число записей в ipset в таблице kvas_ipset" "${_result}"
 }
 
 # ------------------------------------------------------------------------------------------

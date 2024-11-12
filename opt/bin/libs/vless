@@ -27,7 +27,7 @@ VLESS_CONFIG_FILE=/opt/etc/xray/kvas.json
 VLESS_CONFIG_ORIGINAL_FILE=/opt/apps/kvas/etc/conf/kvas.vless
 VLESS_CONFIG_FILE_BACKUP=${KVAS_BACKUP_PATH}/kvas.json
 
-PROXY_VLESS_DESC="Kvas proxy-vless-connection"
+PROXY_VLESS_DESC="Kvas-proxy-vless"
 PROXY_LOCAL_IP="127.0.0.1"
 PROXY_INFACE_NUMEBER=21
 PROXY_VLESS_NAME=Proxy${PROXY_INFACE_NUMEBER}
@@ -118,18 +118,18 @@ vless_link_parse() {
     local link="$1"
     local tag="${link/vless://}"
     local _vless_file=${2:-$VLESS_CONFIG_FILE}
-    
+
     # парсим параметры из ссылки vless://
 
     local vless_id=$(echo "${tag}" | sed 's/.*\/\/\(.*\)@.*/\1/' )
     local vless_address=$(echo "${tag}" | sed 's/.*@\(.*\):.*/\1/')
     local vless_port=$(echo "${tag}" | sed 's/.*@.*:\(.*\)?.*/\1/')
-    local vless_network=$(echo "${tag}" | sed 's/.*\?type=\(.*\)&.*/\1/' | cut -d'&' -f1)
-    local vless_sni=$(echo "${tag}" | sed 's/.*\?type=.*&sni=\(.*\)/\1/' | cut -d'&' -f1)
-    local vless_short_id=$(echo "${tag}" | sed 's/.*\?type=.*&sid=\(.*\)/\1/' | cut -d'&' -f1)
-    local vless_browser_fp=$(echo "${tag}" | sed 's/.*\?type=.*&fp=\(.*\)/\1/' | cut -d'&' -f1)
-    local vless_pub_key=$(echo "${tag}" | sed 's/.*\?type=.*&pbk=\(.*\)/\1/' | cut -d'&' -f1)
-    local vless_security=$(echo "${tag}" | sed 's/.*\?type=.*&security=\(.*\)/\1/' | cut -d'&' -f1)
+    local vless_network=$(echo "${tag}" | sed 's/.*type=\(.*\)&.*/\1/' | cut -d'&' -f1)
+    local vless_sni=$(echo "${tag}" | sed 's/.*\?.*sni=\(.*\)/\1/' | cut -d'&' -f1)
+    local vless_short_id=$(echo "${tag}" | sed 's/.*\?.*sid=\(.*\)/\1/' | cut -d'&' -f1)
+    local vless_browser_fp=$(echo "${tag}" | sed 's/.*\?.*fp=\(.*\)/\1/' | cut -d'&' -f1)
+    local vless_pub_key=$(echo "${tag}" | sed 's/.*\?.*pbk=\(.*\)/\1/' | cut -d'&' -f1)
+    local vless_security=$(echo "${tag}" | sed 's/.*\?.*security=\(.*\)/\1/' | cut -d'&' -f1)
 
     # Проверка наличия обязательных параметров
 
@@ -220,19 +220,6 @@ cmd_install_proxy_package() {
 #-------------------------------------------------------------------------------
     if ! has_package_installed 'Proxy client' ; then
 
-        # echo -e "${GREEN}Устанавливаем пакет Proxy client...${NOCL}"
-        # print_line
-        # echo -e "${RED}Внимание${NOCL}"
-        # echo -e "После установки пакета последует перезагрузка устройства."
-        # echo -e "Далее,после перезагрузки и подключения к локальной сети "
-        # echo -e "роутера Вам необходимо заново войти на устройство через ssh."
-        # print_line
-
-        # Ожидаем ответа на вопрос о продолжении установки Proxy клиента
-        # read_ynq "Продолжить установку Proxy клиента?" q && {
-        #     [[ "${q}" =~ [qQ] ]] && exit 0
-        # }
-
         # Создаем запись в файле /opt/etc/profile для продолжения установки Proxy клиента
         # DEBUG - восстановить после отладки
         echo "kvas vless" >> /opt/etc/profile
@@ -244,20 +231,7 @@ cmd_install_proxy_package() {
     else
 
         # продолжение установки Proxy клиента
-# UDP вариант
-        # data='{
-        #     "name": "'${PROXY_VLESS_NAME}'",
-        #     "proxy": {
-        #         "protocol": {
-        #             "proto": "'${PROXY_VLESS_PROTO}'",
-        #         },
-        #         "socks5-udp": '${PROXY_VLESS_UDP}'
-        #         "udpgw-upstream": {
-        #             "host": "127.0.0.1",
-        #             "port": "'${PROXY_VLESS_PORT}'"
-        #         }
-        #     }
-        # }'
+
         create_proxy_interface
         
 
@@ -457,15 +431,17 @@ test_vless_proxy() {
 #-------------------------------------------------------------------------------
     local _inface=${1}
     # iface=$(ip a | grep global | grep t2s_br${PROXY_INFACE_NUMEBER} | sed 's/.*\(t2s_br'${PROXY_INFACE_NUMEBER}'\)/\1/g')
-    ready "Проверка соединения ${PROXY_VLESS_DESC} к ${DOMAIN_FOR_CHECK}"
-    local _out=$(curl -s --interface ${_inface} ${DOMAIN_FOR_CHECK})
+    ready "Проверка соединения \"${PROXY_VLESS_DESC}\" к ${DOMAIN_FOR_CHECK}"
+    local _out=$(curl -s --interface ${_inface} ${DOMAIN_FOR_CHECK} 2>&1)
     if echo "${_out}" | tail -n 1 | grep -qE "${IP_FILTER}" ; then
         when_ok "УСПЕШНО"
     else
-        when_bad "С ОШИБКАМИ"
-        print_line
-        echo "${_out}" && echo
-        print_line
+        when_bad "ОШИБКА"
+        [ -n "${_out}" ] && {
+            print_line
+            echo "${_out}" && echo
+        }
+        
     fi
 }
 

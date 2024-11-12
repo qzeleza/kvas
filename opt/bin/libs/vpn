@@ -1432,7 +1432,7 @@ vpn_on() {
 #		if [ "${connected}" = 'no' ]; then
 		if [ "${connected}" = 'down' ]; then
 
-			when_bad "С ОШИБКАМИ"
+			when_bad "ОШИБКА"
 			error "Возникла ошибка при подключении интерфейса ${inface_entware}!"
 			error "Проверьте доступность сервера и настройки клиента!"
 			exit 1
@@ -1522,8 +1522,8 @@ shadowsocks_read_config(){
 	# Экранируем символы для применения в sed
 	ESCAPED_PASSWD=$(escape_sed "$SSR_SERVER_PASSWD")
 	if [ -f "${SHADOWSOCKS_CONF}" ] ; then
-
-		ready "Изменяем конфигурацию ${SHADOWSOCKS_CONF} для введенных данных..."
+		print_line
+		ready "Изменяем конфигурацию ${SHADOWSOCKS_CONF}..."
 		sed -i "s/\(\"server\":\).*/\1 \"${SSR_SERVER_IP}\",/; 			\
 				s/\(\"server_port\":\).*/\1 ${SSR_SERVER_PORT},/; 		\
 				s/\(\"local_port\":\).*/\1 $(get_config_value SSR_DNS_PORT),/; 		\
@@ -1634,8 +1634,8 @@ shadowsocks_read_link(){
 		if [ -f "${SHADOWSOCKS_CONF}" ] ; then
 			# Экранируем символы для применения в sed
 			ESCAPED_PASSWD=$(escape_sed "$SSR_SERVER_PASSWD")
-
-			ready "Изменяем конфигурацию ${SHADOWSOCKS_CONF} для введенных данных..."
+			print_line
+			ready "Изменяем конфигурацию ${SHADOWSOCKS_CONF}..."
 			sed -i "s/\(\"server\":\).*/\1 \"${SSR_SERVER_IP}\",/; 			\
 					s/\(\"server_port\":\).*/\1 ${SSR_SERVER_PORT},/; 		\
 					s/\(\"local_port\":\).*/\1 $(get_config_value SSR_DNS_PORT),/; 		\
@@ -2073,7 +2073,34 @@ create_vless_config(){
 	print_line
 }
 
+start_vless(){
+	local _inface_entware=${1}
+	# Если нет файла конфигурации proxy vless
+	# то запросим ссылку и создаем его
+	[ -f ${VLESS_CONFIG_FILE} ] || create_vless_config
+	grep -q @ ${VLESS_CONFIG_FILE} && create_vless_config
+	
+	# Проверка конфигурации xray
+	check_xray_config=$(${XRAY} run -test -c ${VLESS_CONFIG_FILE})
 
+	if echo "${check_xray_config}" | grep -q "Configuration OK" ; then
+
+		# Запуск xray в случае, если конфигурация xray не содержит ошибок
+		ready "Запускаем xray сервис..."
+		service_action S97xray start && when_ok "УСПЕШНО" 
+		vpn_on "${_inface_entware}" &> /dev/null
+		# Тестируем работу proxy vless
+		test_vless_proxy "${_inface_entware}"
+		
+
+	else
+		# В случае, если есть ошибки в файле конфигурации, выводим их в консоль
+		echo -e "${BLUE}В файле ${VLESS_CONFIG_FILE} обнаружены следующие ошибки:${NOCL}"
+		print_line
+		echo -e "${RED}${check_xray_config}${NOCL}"
+		exit 1
+	fi
+}
 switch_vpn_on(){
 #	entware интерфейс
 	inface_entware=${1}
@@ -2094,36 +2121,7 @@ switch_vpn_on(){
 		
 		# Если выбран proxy vless kvas интерфейс
 		if [ "${cli_inface}" = "${PROXY_VLESS_NAME}" ] ; then
-			
-			# Если нет файла конфигурации proxy vless
-			# то запросим ссылку и создаем его
-			[ -f ${VLESS_CONFIG_FILE} ] || create_vless_config
-			grep -q @ ${VLESS_CONFIG_FILE} && create_vless_config
-			
-			# Проверка конфигурации xray
-			check_xray_config=$(${XRAY} run -test -c ${VLESS_CONFIG_FILE})
-
-			if echo "${check_xray_config}" | grep -q "Configuration OK" ; then
-
-				# Запуск xray в случае, если конфигурация xray не содержит ошибок
-				ready "Запускаем xray сервис..."
-				service_action S97xray start && {
-					when_ok "УСПЕШНО" 
-					vpn_on "${inface_entware}"
-					# Тестируем работу proxy vless
-					test_vless_proxy "${inface_entware}"
-				} || {
-					when_bad "ОШИБКА" 
-					exit 1
-				}
-
-			else
-				# В случае, если есть ошибки в файле конфигурации, выводим их в консоль
-				echo -e "${BLUE}В файле ${VLESS_CONFIG_FILE} обнаружены следующие ошибки:${NOCL}"
-				print_line
-				echo -e "${RED}${check_xray_config}${NOCL}"
-				exit 1
-			fi
+			start_vless "${inface_entware}"
 		else
 			# Если выбран другой VPN интерфейс 
 			vpn_on "${inface_entware}"

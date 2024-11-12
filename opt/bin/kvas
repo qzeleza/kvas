@@ -64,7 +64,16 @@ case "${1}" in
 							echo "Для удаления пакета наберите 'kvas uninstall'"
 							;;
 
-	vless) 					cmd_install_proxy_package ;;
+	vless) 					
+		case "${2}" in
+			new) 	rm -f "${VLESS_CONFIG_FILE}" 
+					start_vless "$(cat ${INFACE_NAMES_FILE} | grep vless | cut -d'|' -f2)"
+				;;
+			*) 		cmd_install_proxy_package 
+				;;
+		esac	
+			;;
+
 	pause|freeze)           cmd_pause_kvas ;;
 	unpause|unfreeze)       cmd_unpause_kvas ;;
 	
