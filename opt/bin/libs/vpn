@@ -150,7 +150,6 @@ cmd_kvas_init(){
 	update_adblock
 
 	ip4_add_route_table
-	/opt/apps/kvas/bin/main/ipset
 #	ready "${prefix}Создаем таблицу маршрутизации ID#${TABLE_ID} для '$(inface_cli)'."
 #	#	Создаем таблицу IP адресов для  VPN подключения отличного от shadowsocks
 #
@@ -702,13 +701,13 @@ dns_server_install_remotely(){
 	[ -z "${_ip_port}" ] && exit 1
 	if [ "${_ip_port}" = q ] ; then exit_q; print_line; exit 1; fi
 
-	if echo "${_ip_port}" | grep -q "${IP_PORT_FILTER}" ; then 
+	if echo "${_ip_port}" | grep -qE "${IP_PORT_FILTER}" ; then 
 		nslookup ya.ru ${_ip_port/#/:/} &> /dev/null
-		[ $? -eq 0 ] || error "Введенный адрес ${_ip_port/#/:/} недоступен." && exit 1
+		[ $? -eq 0 ] || { error "Введенный адрес ${_ip_port/#/:/} недоступен."; exit 1; }
 		ready "Подключаем DNS сервер на удаленном устройстве..."
 		{
 			cmd_dns_crypt_off
-			cmd_dnsmasq_dns_change "${_ip_port/:/#/}" 
+			cmd_dnsmasq_dns_change "${_ip_port/:/#}" 
 
 		} &> /dev/null && when_ok "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 	else 
