@@ -176,9 +176,9 @@ case "${1}" in
 		;;
 	debug)
 		case "${2}" in
-			ipset) 			kvas_list_ipset_check ;;
-			iptables)			cmd_debug_iptables ;;
-			*) 				cmd_print_debug "${2}"		;;
+			ipset)    kvas_list_ipset_check  ;;
+			iptables) cmd_debug_iptables     ;;
+			*)        cmd_print_debug "${2}" ;;
 		esac
 		;;
 	test | check)			cmd_state_checker "${2}"
