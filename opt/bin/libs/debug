@@ -237,14 +237,27 @@ cmd_debug_iptables() {
 }
 
 cmd_debug_ipset() {
-	local output=$(ipset list kvas_ipset | wc -l)
+	local output=$(ipset list kvas_ipset | grep -vF ':' | wc -l)
 	ready 'Количество записей' && when_ok "${output}"
 	echo
 
-	local count=$(ipset list kvas_ipset | grep -F 'timeout 0' | wc -l)
-	if [ "$count" -gt 1 ]; then
+	local cached=$(ipset list kvas_ipset | grep -vF 'timeout 0' | grep -vF ':')
+	local count=$(echo "${cached}" | wc -l)
+	if [ "$count" -gt 0 ]; then
+		# геморрой из-за неподдержки -k в sort
+		output=''
+		for ttl in $(echo "${cached}" | cut -d' ' -f3 | sort -n -r -u | head -n 10); do
+			output="${output}"$(echo "${cached}" | grep -F "${ttl}" | cut -d' ' -f1 | sort)$'\n'
+		done
+		output=${output:0:-1}
+
+		echo_debug "Для доменов ${count}, последние:" "${output}"
+	fi
+
+	count=$(ipset list kvas_ipset | grep -F 'timeout 0' | wc -l)
+	if [ "$count" -gt 0 ]; then
 		output=$(ipset list kvas_ipset | grep -F 'timeout 0' | head -n 15 | cut -d' ' -f1)
-		echo_debug "IP ${count}" "${output}"
+		echo_debug "IP ${count}, произвольные 15:" "${output}"
 	fi
 }
 
