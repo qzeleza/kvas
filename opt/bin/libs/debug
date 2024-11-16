@@ -239,6 +239,13 @@ cmd_debug_iptables() {
 cmd_debug_ipset() {
 	local output=$(ipset list kvas_ipset | wc -l)
 	ready 'Количество записей' && when_ok "${output}"
+	echo
+
+	local count=$(ipset list kvas_ipset | grep -F 'timeout 0' | wc -l)
+	if [ "$count" -gt 1 ]; then
+		output=$(ipset list kvas_ipset | grep -F 'timeout 0' | head -n 15 | cut -d' ' -f1)
+		echo_debug "IP ${count}" "${output}"
+	fi
 }
 
 # ------------------------------------------------------------------------------------------
