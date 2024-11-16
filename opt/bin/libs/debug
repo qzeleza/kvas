@@ -229,8 +229,8 @@ cmd_debug_iptables() {
 	_result=$(iptables-save | grep -F kvas_ipset)
 	echo_debug 'Проверка IKEv2 роутинга трафика' "${_result}"
 
-	_result=$(ipset list kvas_ipset | wc -l)
-	echo_debug 'Число записей в ipset в таблице kvas_ipset' "${_result}"
+	_result=$(ip route)
+	echo_debug 'Маршруты (подключитесь к гостевой заранее)' "${_result}"
 }
 
 # ------------------------------------------------------------------------------------------
