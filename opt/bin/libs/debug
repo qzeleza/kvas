@@ -257,6 +257,12 @@ cmd_debug_ipset() {
 				fi
 			done
 			echo 'сделано.'
+
+			echo
+			echo 'На ПК запустите cmd от администратора и выполните там ipconfig /flushdns'
+			echo 'После этого перезапустите командную строку и браузер.'
+			echo 'В командной строке введите nslookup myip2.ru'
+			echo 'Проверьте заполнение списка через kvas debug ipset'
 		else
 			if [ "${1}" = 'myip2' ]; then
 				local ip="${IP_MYIP2}"
@@ -266,6 +272,8 @@ cmd_debug_ipset() {
 				local ip="${1}"
 			else
 				error "Параметр ${1} не известен."
+				echo 'Можете передать clear или flush для очистки; '
+				echo ' myip2, ifconfig или любой IP для добавления в целях теста тоннеля.'
 				print_line
 				exit 1
 			fi
