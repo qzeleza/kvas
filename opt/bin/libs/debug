@@ -213,7 +213,7 @@ print_curent_congiguration() {
 	print_line
 	
 }
-cmd_check_ikev2_routing(){
+cmd_debug_iptables() {
 
         local _result=$(iptables-save | grep -F 53 | grep -Fv _NDM | grep -Fv :INPUT | grep -Fv :PREROUTING | grep -Fv :OUTPUT) 
         ready "Версия ndw3" && when_ok "$(get_version)"
