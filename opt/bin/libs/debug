@@ -242,11 +242,11 @@ cmd_debug_ipset() {
 
 	if [ -n "${1}" ]; then
 		if [ "${1}" = 'clear' ] || [ "${1}" = 'flush' ]; then
-			echo 'Очистка IPSet...'
+			echo -n 'Очистка IPSet...'
 			ipset flush kvas_ipset
 			echo 'сделана.'
 
-			echo 'Заполнение IPSet IP из списка...'
+			echo -n 'Заполнение IPSet IP из списка...'
 			/opt/apps/kvas/bin/main/ipset &> /dev/null
 			echo 'сделано.'
 		else
@@ -262,7 +262,7 @@ cmd_debug_ipset() {
 				exit 1
 			fi
 
-			echo "Добавление ${ip} в IPSet..."
+			echo -n "Добавление ${ip} в IPSet..."
 			ipset -exist add kvas_ipset "${ip}"
 			echo 'сделано.'
 		fi
