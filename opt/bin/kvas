@@ -176,7 +176,7 @@ case "${1}" in
 		;;
 	debug)
 		case "${2}" in
-			ipset)    cmd_debug_ipset        ;;
+			ipset)    cmd_debug_ipset "${3}" ;;
 			iptables) cmd_debug_iptables     ;;
 			*)        cmd_print_debug "${2}" ;;
 		esac

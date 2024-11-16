@@ -240,6 +240,23 @@ cmd_debug_ipset() {
 	local IP_MYIP2='81.90.181.105'
 	local IP_IFCONFIG='34.160.111.145'
 
+	if [ -n "${1}" ]; then
+		if [ "${1}" = 'clear' ] || [ "${1}" = 'flush' ]; then
+			echo 'Очистка IPSet...'
+			ipset flush kvas_ipset
+			echo 'сделана.'
+	
+			echo 'Заполнение IPSet IP из списка...'
+			/opt/apps/kvas/bin/main/ipset &> /dev/null
+			echo 'сделано.'
+		else
+			#TODO: добавление IP
+			error "Параметр ${1} не известен."
+			print_line
+			exit 1
+		fi
+	fi
+
 	local output=$(ipset list kvas_ipset | grep -vF ':' | wc -l)
 	ready 'Количество записей' && when_ok "${output}"
 
