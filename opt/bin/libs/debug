@@ -215,7 +215,7 @@ print_curent_congiguration() {
 }
 
 cmd_debug_iptables() {
-	local _result=$(ip route)
+	local output=$(ip route)
 
 	ready 'Модель роутера' && when_ok "$(get_model)"
 	ready 'Версия ndw' && when_ok "$(get_version)"
@@ -224,13 +224,16 @@ cmd_debug_iptables() {
 	ready 'IKEv2 интерфейс' && when_ok "$(get_entware_ikev2_inface)"
 	echo
 
-	echo_debug 'Маршруты (подключитесь к гостевой заранее)' "${_result}"
+	echo_debug 'Маршруты (подключитесь к гостевой заранее)' "${output}"
 
-	_result=$(iptables-save | grep -F kvas_ipset)
-	echo_debug 'Роутинг подсетей' "${_result}"
+	output=$(iptables-save | grep -F kvas_ipset)
+	echo_debug 'Роутинг подсетей' "${output}"
 
-	_result=$(iptables-save | grep -F 53 | grep -Fv _NDM | grep -Fv :INPUT | grep -Fv :PREROUTING | grep -Fv :OUTPUT)
-	echo_debug 'Роутинг DNS' "${_result}"
+	output=$(iptables-save | grep -F 53 | grep -Fv _NDM | grep -Fv :INPUT | grep -Fv :PREROUTING | grep -Fv :OUTPUT)
+	echo_debug 'Роутинг DNS' "${output}"
+
+	output=$(iptables -L -t nat)
+	echo_debug 'Остальной NAT' "${output}"
 }
 
 # ------------------------------------------------------------------------------------------
