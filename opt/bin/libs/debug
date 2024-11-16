@@ -224,10 +224,10 @@ cmd_debug_iptables() {
 	ready 'IKEv2 интерфейс' && when_ok "$(get_entware_ikev2_inface)"
 	echo
 
-	echo_debug 'Проверка работы IKEv2 роутинга DNS' "${_result}"
+	echo_debug 'Роутинг DNS' "${_result}"
 
 	_result=$(iptables-save | grep -F kvas_ipset)
-	echo_debug 'Проверка IKEv2 роутинга трафика' "${_result}"
+	echo_debug 'Роутинг подсетей' "${_result}"
 
 	_result=$(ip route)
 	echo_debug 'Маршруты (подключитесь к гостевой заранее)' "${_result}"
