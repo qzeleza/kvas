@@ -238,6 +238,7 @@ cmd_debug_iptables() {
 
 cmd_debug_ipset() {
 	local IP_MYIP2='81.90.181.105'
+	local IP_IFCONFIG='34.160.111.145'
 
 	local output=$(ipset list kvas_ipset | grep -vF ':' | wc -l)
 	ready 'Количество записей' && when_ok "${output}"
@@ -248,6 +249,13 @@ cmd_debug_ipset() {
 		output='нет'
 	fi
 	ready 'myip2.ru' && when_ok "${output}"
+
+	if ipset list kvas_ipset | grep -qF "${IP_IFCONFIG}"; then
+		output='есть'
+	else
+		output='нет'
+	fi
+	ready 'ifconfig.me' && when_ok "${output}"
 
 	echo
 
