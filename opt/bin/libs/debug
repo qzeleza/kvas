@@ -245,16 +245,28 @@ cmd_debug_ipset() {
 			echo 'Очистка IPSet...'
 			ipset flush kvas_ipset
 			echo 'сделана.'
-	
+
 			echo 'Заполнение IPSet IP из списка...'
 			/opt/apps/kvas/bin/main/ipset &> /dev/null
 			echo 'сделано.'
 		else
-			#TODO: добавление IP
-			error "Параметр ${1} не известен."
-			print_line
-			exit 1
+			if [ "${1}" = 'myip2' ]; then
+				local ip="${IP_MYIP2}"
+			elif [ "${1}" = 'ifconfig' ]; then
+				local ip="${IP_IFCONFIG}"
+			elif echo "${1}" | grep -qE -- "${IP_FILTER}"; then
+				local ip="${1}"
+			else
+				error "Параметр ${1} не известен."
+				print_line
+				exit 1
+			fi
+
+			echo "Добавление ${ip} в IPSet..."
+			ipset -exist add kvas_ipset "${ip}"
+			echo 'сделано.'
 		fi
+		echo
 	fi
 
 	local output=$(ipset list kvas_ipset | grep -vF ':' | wc -l)
@@ -281,7 +293,7 @@ cmd_debug_ipset() {
 	if [ "$count" -gt 0 ]; then
 		# геморрой из-за неподдержки -k в sort
 		output=''
-		for ttl in $(echo "${cached}" | cut -d' ' -f3 | sort -n -r -u | head -n 10); do
+		for ttl in $(echo "${cached}" | cut -d' ' -f3 | sort -n -r -u | head -n 7); do
 			output="${output}"$(echo "${cached}" | grep -F "${ttl}" | cut -d' ' -f1 | sort)$'\n'
 		done
 		output=${output:0:-1}
