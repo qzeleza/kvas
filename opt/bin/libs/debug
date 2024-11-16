@@ -217,7 +217,8 @@ print_curent_congiguration() {
 cmd_debug_iptables() {
 	local _result=$(iptables-save | grep -F 53 | grep -Fv _NDM | grep -Fv :INPUT | grep -Fv :PREROUTING | grep -Fv :OUTPUT)
 
-	ready 'Версия ndw3' && when_ok "$(get_version)"
+	ready 'Модель роутера' && when_ok "$(get_model)"
+	ready 'Версия ndw' && when_ok "$(get_version)"
 	ready 'Версия ndw4' && when_ok "$(version_os)"
 	ready 'Название IKEv2 интерфеса' && when_ok "$(get_entware_ikev2_inface)"
 	echo
