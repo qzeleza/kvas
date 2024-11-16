@@ -236,6 +236,11 @@ cmd_debug_iptables() {
 	echo_debug 'Остальной NAT' "${output}"
 }
 
+cmd_debug_ipset() {
+	local output=$(ipset list kvas_ipset | wc -l)
+	ready 'Количество записей' && when_ok "${output}"
+}
+
 # ------------------------------------------------------------------------------------------
 #
 #	 Проверка наличия ip адресов хостов в таблице ipset
