@@ -246,8 +246,16 @@ cmd_debug_ipset() {
 			ipset flush kvas_ipset
 			echo 'сделана.'
 
-			echo -n 'Заполнение IPSet IP из списка...'
-			/opt/apps/kvas/bin/main/ipset &> /dev/null
+			echo -n 'Заполнение IPSet IP из списка..'
+			local count=0
+			for ip_or_range in $(grep -E -- "$(get_regexp_ip_or_range)" '/opt/etc/kvas.list'); do
+				ipset -exist add "${IPSET_TABLE_NAME}" "${ip_or_range}" timeout 0
+
+				count=$((count + 1))
+				if [ "$(( ${count} % 50 ))" -eq 0 ]; then
+					echo -n '.'
+				fi
+			done
 			echo 'сделано.'
 		else
 			if [ "${1}" = 'myip2' ]; then
