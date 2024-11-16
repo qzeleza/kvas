@@ -237,8 +237,18 @@ cmd_debug_iptables() {
 }
 
 cmd_debug_ipset() {
+	local IP_MYIP2='81.90.181.105'
+
 	local output=$(ipset list kvas_ipset | grep -vF ':' | wc -l)
 	ready 'Количество записей' && when_ok "${output}"
+
+	if ipset list kvas_ipset | grep -qF "${IP_MYIP2}"; then
+		output='есть'
+	else
+		output='нет'
+	fi
+	ready 'myip2.ru' && when_ok "${output}"
+
 	echo
 
 	local cached=$(ipset list kvas_ipset | grep -vF 'timeout 0' | grep -vF ':')
