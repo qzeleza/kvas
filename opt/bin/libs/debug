@@ -220,7 +220,8 @@ cmd_debug_iptables() {
 	ready 'Модель роутера' && when_ok "$(get_model)"
 	ready 'Версия ndw' && when_ok "$(get_version)"
 	ready 'Версия ndw4' && when_ok "$(version_os)"
-	ready 'Название IKEv2 интерфеса' && when_ok "$(get_entware_ikev2_inface)"
+	ready 'Внешний интерфейс' && when_ok "$(get_external_interface)"
+	ready 'IKEv2 интерфейс' && when_ok "$(get_entware_ikev2_inface)"
 	echo
 
 	echo_debug 'Проверка работы IKEv2 роутинга DNS' "${_result}"
