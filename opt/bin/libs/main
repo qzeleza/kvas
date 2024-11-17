@@ -335,15 +335,9 @@ is_ip_private() {
 	false
 }
 
-get_entware_ikev2_inface() {
-	if ! is_os_below_4_2 ; then
-		# на последних прошивках IKEv2 на этом интерфейсе, но у всех ли?
-		echo 'xfrms+'
-		return
-	fi
-
+get_external_interface() {
 	local interfaces=$( /opt/sbin/ip a )
-	# внешние интерфейсы для проверки
+
 	for interface in eth3 eth2.2 ppp0 ppp1 ; do
 		local interface_address=$( echo "$interfaces" | grep "global ${interface}" | tr -s ' ' | cut -d ' ' -f 3 )
 		if [ -z "${interface_address}" ]; then
@@ -358,6 +352,22 @@ get_entware_ikev2_inface() {
 		echo "${interface}"
 		return
 	done
+
+	false
+}
+
+get_entware_ikev2_inface() {
+	if ! is_os_below_4_2 ; then
+		# на последних прошивках IKEv2 на этом интерфейсе, но у всех ли?
+		echo 'xfrms+'
+		return
+	fi
+
+	local external_interface="$(get_external_interface)"
+	if [ -n "${external_interface}" ]; then
+		echo "${external_interface}"
+		return
+	fi
 
 	log_error 'Сетевой интерфейс для IKEv2 найти не удалось'
 	# чтобы остальной код продолжал работать, вернём точно имеющийся интерфейс

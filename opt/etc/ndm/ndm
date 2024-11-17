@@ -47,6 +47,16 @@ ip4save() (/opt/sbin/iptables-save | grep -vE '\-A _')
 get_gw4()([ "${1}" ] && /opt/sbin/ip addr show "${1}" | grep -Po "(?<=inet ).*(?=/)")
 is_os_4()([[ "$(version_os)" =~ 4.* ]])
 
+get_model() {
+	if [ -n "${1}" ]; then
+		local version_data="${1}"
+	else
+		local version_data=$(ndmc -c show version)
+	fi
+
+	echo "${version_data}" | grep -F 'model' | head -1 | cut -d: -f2 | tr -d ' '
+}
+
 get_version() {
   if [ -n "${1}" ]; then
     local version_data="${1}"
