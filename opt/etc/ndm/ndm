@@ -170,21 +170,7 @@ ip4_flush_cache(){
 # Подключаем правила для корректной работы DNS трафика через 53 порт
 # ------------------------------------------------------------------------------------------
 ip4_firewall_dns_rules_set() {
-	local router_ip=$(get_router_ip)
-	local submessage=" DNS трафика домашней сети в ${router_ip}:${DNS_PORT}."
-
-	log_warning "Подключаем перенаправление${submessage}"
-	for protocol in tcp udp ; do
-		local iptables_rule=" -i br0 -p ${protocol} -m ${protocol} --dport 53 -j DNAT --to-destination ${router_ip}:${DNS_PORT}"
-
-		if ip4save | grep -Fq -- "${iptables_rule}" ; then
-			continue
-		fi
-
-		# без echo дублирование пробелов (что даёт warning и проблему наличия)
-		iptables -A PREROUTING -t nat$(echo "${iptables_rule}") &>/dev/null \
-		 || echo "[${FUNCNAME}] Возникла ошибка при подключении перенаправления ${protocol}${submessage}"
-	done
+	ip4_add_to_dns_routing '-i br0'
 }
 
 
@@ -288,7 +274,6 @@ get_ikev2_net_pool() {
 # Перенаправляем dns-запросы в dnsmasq
 #Example input param:-s 192.168.3.0/24 -i eth3
 #Example input param:-i sstp+
-#TODO: в ip4_firewall_dns_rules_set использовать вызов этой обёртки
 ip4_add_to_dns_routing() {
 	if [ -n "${1}" ]; then
 		local iptables_filter=$(echo "${1}" | tr -d ' ')
