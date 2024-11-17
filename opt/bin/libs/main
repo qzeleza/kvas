@@ -338,7 +338,7 @@ is_ip_private() {
 get_external_interface() {
 	local interfaces=$( /opt/sbin/ip a )
 
-	for interface in eth3 eth2.2 ppp0 ppp1 ; do
+	for interface in eth3 eth2.4 eth2.2 ppp0 ppp1 ; do
 		local interface_address=$( echo "$interfaces" | grep "global ${interface}" | tr -s ' ' | cut -d ' ' -f 3 )
 		if [ -z "${interface_address}" ]; then
 			continue
