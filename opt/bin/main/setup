@@ -727,7 +727,7 @@ cmd_uninstall() {
 		# Удаляем DNS сервера, установленне для Кваса
 		del_dns_router_server_ip $(get_router_ip) ${MAIN_DNS_PORT}
 		# Устанавливаем DNS роутера и порт по умолчанию
-		set_dns_router_server_ip "78.88.8.8" "53"
+		set_dns_router_server_ip "77.88.8.8" "53"
 
 		# Удаляем правила в брандмауэре, установленные при инсталяции Кваса
 		# del_firewall_rules 53 tcp "deny"
