@@ -54,7 +54,7 @@ get_model() {
 		local version_data=$(ndmc -c show version)
 	fi
 
-	echo "${version_data}" | grep -F 'model' | head -1 | cut -d: -f2 | tr -d ' '
+	echo "${version_data}" | grep -F 'model' | head -1 | cut -d: -f2 | xargs
 }
 
 get_version() {
