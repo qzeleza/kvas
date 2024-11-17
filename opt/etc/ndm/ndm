@@ -291,9 +291,12 @@ get_ikev2_net_pool() {
 #TODO: в ip4_firewall_dns_rules_set использовать вызов этой обёртки
 ip4_add_to_dns_routing() {
 	if [ -n "${1}" ]; then
-		local iptables_filter=' '$(echo "${1}" | tr -d ' ')
+		local iptables_filter=$(echo "${1}" | tr -d ' ')
+		local submessage=" по критерию ${iptables_filter}"
+		iptables_filter=" ${iptables_filter}"
 	else
 		local iptables_filter=''
+		local submessage=''
 	fi
 
 	local router_ip=$(get_router_ip)
@@ -301,6 +304,8 @@ ip4_add_to_dns_routing() {
 		if ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${protocol}" | grep -F 53 | grep -F 'DNAT' | grep -F "${router_ip}" | grep -Fq "${DNS_PORT}" ; then
 			continue
 		fi
+
+		log_warning "Подключение перенаправления ${protocol} в DNSMasq${submessage}"
 
 		# без echo дублирование пробелов (что даёт warning и проблему наличия)
 		iptables -A PREROUTING -w -t nat$(echo "${iptables_filter}") -p "${protocol}" --dport 53 -j DNAT --to-destination "${router_ip}":"${DNS_PORT}"
@@ -725,9 +730,12 @@ ikev2_net_access_add() {
 #Example input param:-i sstp+
 ip4_delete_from_dns_routing() {
 	if [ -n "${1}" ]; then
-		local iptables_filter=' '$(echo "${1}" | tr -d ' ')
+		local iptables_filter=$(echo "${1}" | tr -d ' ')
+		local submessage=" по критерию ${iptables_filter}"
+		iptables_filter=" ${iptables_filter}"
 	else
 		local iptables_filter=''
+		local submessage=''
 	fi
 
 	local router_ip=$(get_router_ip)
@@ -735,6 +743,8 @@ ip4_delete_from_dns_routing() {
 		if ! ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${protocol}" | grep -F 53 | grep -F 'DNAT' | grep -F "${router_ip}" | grep -Fq "${DNS_PORT}" ; then
 			continue
 		fi
+
+		log_warning "Отключение перенаправления ${protocol} в DNSMasq${submessage}"
 
 		# без echo дублирование пробелов (что даёт warning и проблему наличия)
 		iptables -D PREROUTING -w -t nat$(echo "${iptables_filter}") -p "${protocol}" --dport 53 -j DNAT --to-destination "${router_ip}":"${DNS_PORT}"
