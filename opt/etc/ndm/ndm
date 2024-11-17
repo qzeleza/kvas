@@ -276,7 +276,7 @@ get_ikev2_net_pool() {
 #Example input param:-i sstp+
 ip4_add_to_dns_routing() {
 	if [ -n "${1}" ]; then
-		local iptables_filter=$(echo "${1}" | tr -d ' ')
+		local iptables_filter=$(echo "${1}" | xargs)
 		local submessage=" по критерию ${iptables_filter}"
 		iptables_filter=" ${iptables_filter}"
 	else
@@ -739,7 +739,7 @@ ikev2_net_access_add() {
 #Example input param:-i sstp+
 ip4_delete_from_dns_routing() {
 	if [ -n "${1}" ]; then
-		local iptables_filter=$(echo "${1}" | tr -d ' ')
+		local iptables_filter=$(echo "${1}" | xargs)
 		local submessage=" по критерию ${iptables_filter}"
 		iptables_filter=" ${iptables_filter}"
 	else
