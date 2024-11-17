@@ -213,18 +213,115 @@ print_curent_congiguration() {
 	print_line
 	
 }
-cmd_check_ikev2_routing(){
 
-        local _result=$(iptables-save | grep -F 53 | grep -Fv _NDM | grep -Fv :INPUT | grep -Fv :PREROUTING | grep -Fv :OUTPUT) 
-        ready "Версия ndw3" && when_ok "$(get_version)"
-        ready "Версия ndw4" && when_ok "$(version_os)"
-        ready "Название IKEv2 интерфеса" && when_ok "$(get_entware_ikev2_inface)"
+cmd_debug_iptables() {
+	local output=$(ip route)
+
+	ready 'Модель роутера' && when_ok "$(get_model)"
+	ready 'Версия ndw' && when_ok "$(get_version)"
+	ready 'Версия ndw4' && when_ok "$(version_os)"
+	ready 'Внешний интерфейс' && when_ok "$(get_external_interface)"
+	ready 'IKEv2 интерфейс' && when_ok "$(get_entware_ikev2_inface)"
+	echo
+
+	echo_debug 'Маршруты (подключитесь к гостевой заранее)' "${output}"
+
+	output=$(iptables-save | grep -F kvas_ipset)
+	echo_debug 'Роутинг подсетей' "${output}"
+
+	output=$(iptables-save | grep -F 53 | grep -Fv _NDM | grep -Fv :INPUT | grep -Fv :PREROUTING | grep -Fv :OUTPUT)
+	echo_debug 'Роутинг DNS' "${output}"
+
+	output=$(iptables -L -t nat)
+	echo_debug 'Остальной NAT' "${output}"
+}
+
+cmd_debug_ipset() {
+	local IP_MYIP2='81.90.181.105'
+	local IP_IFCONFIG='34.160.111.145'
+
+	if [ -n "${1}" ]; then
+		if [ "${1}" = 'clear' ] || [ "${1}" = 'flush' ]; then
+			echo -n 'Очистка IPSet...'
+			ipset flush kvas_ipset
+			echo 'сделана.'
+
+			echo -n 'Заполнение IPSet IP из списка..'
+			local count=0
+			for ip_or_range in $(grep -E -- "$(get_regexp_ip_or_range)" '/opt/etc/kvas.list'); do
+				ipset -exist add "${IPSET_TABLE_NAME}" "${ip_or_range}" timeout 0
+
+				count=$((count + 1))
+				if [ "$(( ${count} % 50 ))" -eq 0 ]; then
+					echo -n '.'
+				fi
+			done
+			echo 'сделано.'
+
+			echo
+			echo 'На ПК запустите cmd от администратора и выполните там ipconfig /flushdns'
+			echo 'После этого перезапустите командную строку и браузер.'
+			echo 'В командной строке введите nslookup myip2.ru'
+			echo 'Проверьте заполнение списка через kvas debug ipset'
+		else
+			if [ "${1}" = 'myip2' ]; then
+				local ip="${IP_MYIP2}"
+			elif [ "${1}" = 'ifconfig' ]; then
+				local ip="${IP_IFCONFIG}"
+			elif echo "${1}" | grep -qE -- "${IP_FILTER}"; then
+				local ip="${1}"
+			else
+				error "Параметр ${1} не известен."
+				echo 'Можете передать clear или flush для очистки; '
+				echo ' myip2, ifconfig или любой IP для добавления в целях теста тоннеля.'
+				print_line
+				exit 1
+			fi
+
+			echo -n "Добавление ${ip} в IPSet..."
+			ipset -exist add kvas_ipset "${ip}"
+			echo 'сделано.'
+		fi
 		echo
-        echo_debug "Проверка работы IKEv2 роутинга DNS" "${_result}"
-        _result=$(iptables-save | grep -F kvas_ipset)
-        echo_debug "Проверка IKEv2 роутинга трафика" "${_result}"
-		_result=$(ipset list kvas_ipset | wc -l)
-		echo_debug "Число записей в ipset в таблице kvas_ipset" "${_result}"
+	fi
+
+	local output=$(ipset list kvas_ipset | grep -vF ':' | wc -l)
+	ready 'Количество записей' && when_ok "${output}"
+
+	if ipset list kvas_ipset | grep -qF "${IP_MYIP2}"; then
+		output='есть'
+	else
+		output='нет'
+	fi
+	ready 'myip2.ru' && when_ok "${output}"
+
+	if ipset list kvas_ipset | grep -qF "${IP_IFCONFIG}"; then
+		output='есть'
+	else
+		output='нет'
+	fi
+	ready 'ifconfig.me' && when_ok "${output}"
+
+	echo
+
+	local cached=$(ipset list kvas_ipset | grep -vF 'timeout 0' | grep -vF ':')
+	local count=$(echo "${cached}" | wc -l)
+	if [ "$count" -gt 0 ]; then
+		# геморрой из-за неподдержки -k в sort
+		output=''
+		for ttl in $(echo "${cached}" | cut -d' ' -f3 | sort -n -r -u | head -n 7); do
+			output="${output}"$(echo "${cached}" | grep -F "${ttl}" | cut -d' ' -f1 | sort)$'\n'
+		done
+		output=${output:0:-1}
+
+		echo_debug "Для доменов ${count}, последние:" "${output}"
+	fi
+
+	count=$(ipset list kvas_ipset | grep -F 'timeout 0' | wc -l)
+	if [ "$count" -gt 0 ]; then
+		output=$(ipset list kvas_ipset | grep -F 'timeout 0' | head -n 15 | cut -d' ' -f1)
+		echo_debug "IP ${count}, произвольные 15:" "${output}"
+	fi
 }
 
 # ------------------------------------------------------------------------------------------
