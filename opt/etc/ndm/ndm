@@ -291,7 +291,7 @@ get_ikev2_net_pool() {
 #TODO: в ip4_firewall_dns_rules_set использовать вызов этой обёртки
 ip4_add_to_dns_routing() {
 	if [ -n "${1}" ]; then
-		local iptables_filter=$(echo "${1}" | tr -d ' ')
+		local iptables_filter=' '$(echo "${1}" | tr -d ' ')
 	else
 		local iptables_filter=''
 	fi
@@ -303,7 +303,7 @@ ip4_add_to_dns_routing() {
 		fi
 
 		# без echo дублирование пробелов (что даёт warning и проблему наличия)
-		iptables -A PREROUTING -w -t nat $(echo "${iptables_filter}") -p "${protocol}" --dport 53 -j DNAT --to-destination "${router_ip}":"${DNS_PORT}"
+		iptables -A PREROUTING -w -t nat$(echo "${iptables_filter}") -p "${protocol}" --dport 53 -j DNAT --to-destination "${router_ip}":"${DNS_PORT}"
 	done
 }
 
@@ -750,7 +750,7 @@ ikev2_net_access_add() {
 #Example input param:-i sstp+
 ip4_delete_from_dns_routing() {
 	if [ -n "${1}" ]; then
-		local iptables_filter=$(echo "${1}" | tr -d ' ')
+		local iptables_filter=' '$(echo "${1}" | tr -d ' ')
 	else
 		local iptables_filter=''
 	fi
@@ -762,7 +762,7 @@ ip4_delete_from_dns_routing() {
 		fi
 
 		# без echo дублирование пробелов (что даёт warning и проблему наличия)
-		iptables -D PREROUTING -w -t nat $(echo "${iptables_filter}") -p "${protocol}" --dport 53 -j DNAT --to-destination "${router_ip}":"${DNS_PORT}"
+		iptables -D PREROUTING -w -t nat$(echo "${iptables_filter}") -p "${protocol}" --dport 53 -j DNAT --to-destination "${router_ip}":"${DNS_PORT}"
 	done
 }
 
