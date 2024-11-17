@@ -309,7 +309,7 @@ ip4_add_selected_guest_to_vpn_network() {
 		error "[${FUNCNAME}] Не передан обязательный параметр — имя интерфейса"
 	fi
 
-	if echo "${net_interface}" | grep -q ikev2 ; then
+	if echo "${net_interface}" | grep -Fq 'ikev2' ; then
 		net_interface=$(get_entware_ikev2_inface)
 
 		# IKEv2 не имеет отдельного сетевого интерфейса, поэтому запишем и что добавляем, и используемый СИ
@@ -778,7 +778,7 @@ ip4_firewall_rm_vpn_selected_guest_net() {
 		error "[${FUNCNAME}] Не передан обязательный параметр — имя интерфейса"
 	fi
 
-	if echo "${net_interface}" | grep -q ikev2 ; then
+	if echo "${net_interface}" | grep -Fq 'ikev2' ; then
 		net_interface=$(get_entware_ikev2_inface)
 
 		# IKEv2 не имеет отдельного сетевого интерфейса, поэтому запишем и что добавляем, и используемый СИ
