@@ -315,10 +315,17 @@ ip4_add_selected_guest_to_vpn_network() {
 		# IKEv2 не имеет отдельного сетевого интерфейса, поэтому запишем и что добавляем, и используемый СИ
 		local submessage="IKEv2 (${net_interface} "
 		local net_pool=$(get_ikev2_net_pool)
-		local iptables_filter="-s ${net_pool} "
+
+		# если свой виртуальный интерфейс
+		if echo "${net_interface}" | grep -Fq 'xfrms' ; then
+			local iptables_filter=''
+		else
+			local iptables_filter="-s ${net_pool} "
+		fi
 	else
 		local submessage="${net_interface} ("
 		local net_pool=$(get_guest_net "${net_interface}")
+
 		local iptables_filter=''
 	fi
 	iptables_filter="${iptables_filter}-i ${net_interface}"
@@ -374,7 +381,13 @@ ip4_add_selected_guest_to_ssr_network() {
 
 		# IKEv2 не имеет отдельного сетевого интерфейса, поэтому запишем и что добавляем, и используемый СИ
 		local submessage="IKEv2 (${net_interface} "
-		local iptables_filter="-s ${net_pool} "
+
+		# если свой виртуальный интерфейс
+		if echo "${net_interface}" | grep -Fq 'xfrms' ; then
+			local iptables_filter=''
+		else
+			local iptables_filter="-s ${net_pool} "
+		fi
 	else
 		[ -z "${net_pool}" ] && {
 			# в случае SS+неIKEv2 используется лишь в лог-сообщении для единобразия
@@ -382,6 +395,7 @@ ip4_add_selected_guest_to_ssr_network() {
 		}
 
 		local submessage="${net_interface} ("
+
 		local iptables_filter=''
 	fi
 	iptables_filter="${iptables_filter}-i ${net_interface}"
@@ -770,10 +784,17 @@ ip4_firewall_rm_vpn_selected_guest_net() {
 		# IKEv2 не имеет отдельного сетевого интерфейса, поэтому запишем и что добавляем, и используемый СИ
 		local submessage="IKEv2 (${net_interface} "
 		local net_pool=$(get_ikev2_net_pool)
-		local iptables_filter="-s ${net_pool} "
+
+		# если свой виртуальный интерфейс
+		if echo "${net_interface}" | grep -Fq 'xfrms' ; then
+			local iptables_filter=''
+		else
+			local iptables_filter="-s ${net_pool} "
+		fi
 	else
 		local submessage="${net_interface} ("
 		local net_pool=$(get_guest_net "${net_interface}")
+
 		local iptables_filter=''
 	fi
 	iptables_filter="${iptables_filter}-i ${net_interface}"
@@ -830,7 +851,13 @@ ip4_firewall_rm_ssr_selected_guest_net() {
 
 		# IKEv2 не имеет отдельного сетевого интерфейса, поэтому запишем и что добавляем, и используемый СИ
 		local submessage="IKEv2 (${net_interface} "
-		local iptables_filter="-s ${net_pool} "
+
+		# если свой виртуальный интерфейс
+		if echo "${net_interface}" | grep -Fq 'xfrms' ; then
+			local iptables_filter=''
+		else
+			local iptables_filter="-s ${net_pool} "
+		fi
 	else
 		[ -z "${net_pool}" ] && {
 			# в случае SS+неIKEv2 используется лишь в лог-сообщении для единобразия
@@ -838,6 +865,7 @@ ip4_firewall_rm_ssr_selected_guest_net() {
 		}
 
 		local submessage="${net_interface} ("
+
 		local iptables_filter=''
 	fi
 	iptables_filter="${iptables_filter}-i ${net_interface}"
