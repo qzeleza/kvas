@@ -170,7 +170,7 @@ ip4_flush_cache(){
 # Подключаем правила для корректной работы DNS трафика через 53 порт
 # ------------------------------------------------------------------------------------------
 ip4_firewall_dns_rules_set() {
-	ip4_add_to_dns_routing '-i br0'
+	ip4__dns__add_routing '-i br0'
 }
 
 
@@ -312,7 +312,7 @@ ip4__dns__get_rulenum() {
 # Перенаправляем dns-запросы в dnsmasq
 #Example input param:-s 192.168.3.0/24 -i eth3
 #Example input param:-i sstp+
-ip4_add_to_dns_routing() {
+ip4__dns__add_routing() {
 	if [ -n "${1}" ]; then
 		local iptables_filter=$(echo "${1}" | xargs)
 		local submessage=" по критерию ${iptables_filter}"
@@ -363,7 +363,7 @@ ip4_add_selected_guest_to_vpn_network() {
 	iptables_filter="${iptables_filter}-i ${net_interface}"
 
 	log_warning "Подключаем правила гостевого трафика ${submessage}${net_pool}) для VPN."
-	ip4_add_to_dns_routing "${iptables_filter}"
+	ip4__dns__add_routing "${iptables_filter}"
 	if fastnet_enabled ; then
 		if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_IPTABLES_CHAIN}" ; then
 			# без echo дублирование пробелов (что даёт warning и проблему наличия)
@@ -434,7 +434,7 @@ ip4_add_selected_guest_to_ssr_network() {
 
 	log_warning "Подключаем правила гостевого трафика ${submessage}${net_pool}) для ShadowSocks."
 
-	ip4_add_to_dns_routing "${iptables_filter}"
+	ip4__dns__add_routing "${iptables_filter}"
 
 	local ss_port=$(get_config_value SSR_DNS_PORT)
 	for protocol in tcp udp ; do
@@ -751,7 +751,7 @@ ikev2_net_access_add() {
 # Отключение перехвата dns-запросов в dnsmasq
 #Example input param:-s 192.168.3.0/24 -i eth3
 #Example input param:-i sstp+
-ip4_delete_from_dns_routing() {
+ip4__dns__delete_routing() {
 	if [ -n "${1}" ]; then
 		local iptables_filter=$(echo "${1}" | xargs)
 		local submessage=" по критерию ${iptables_filter}"
@@ -801,7 +801,7 @@ ip4_firewall_rm_vpn_selected_guest_net() {
 	iptables_filter="${iptables_filter}-i ${net_interface}"
 
 	log_warning "Отключаем правила гостевого трафика ${submessage}${net_pool}) для VPN."
-	ip4_delete_from_dns_routing "${iptables_filter}"
+	ip4__dns__delete_routing "${iptables_filter}"
 	if fastnet_enabled ; then
 		if iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_IPTABLES_CHAIN}" ; then
 			# без echo дублирование пробелов (что даёт warning и проблему наличия)
@@ -873,7 +873,7 @@ ip4_firewall_rm_ssr_selected_guest_net() {
 
 	log_warning "Отключаем правила гостевого трафика ${submessage}${net_pool}) для ShadowSocks."
 
-	ip4_delete_from_dns_routing "${iptables_filter}"
+	ip4__dns__delete_routing "${iptables_filter}"
 
 	local ss_port=$(get_config_value SSR_DNS_PORT)
 	for protocol in tcp udp ; do
