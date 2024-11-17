@@ -284,16 +284,15 @@ ip4_add_to_dns_routing() {
 		local submessage=''
 	fi
 
-	local router_ip=$(get_router_ip)
 	for protocol in tcp udp ; do
-		if ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${protocol}" | grep -F 53 | grep -F 'DNAT' | grep -F "${router_ip}" | grep -Fq "${DNS_PORT}" ; then
+		if ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${protocol}" | grep -F 53 | grep -F 'DNAT' | grep -F '127.0.0.1' | grep -Fq "${DNS_PORT}" ; then
 			continue
 		fi
 
 		log_warning "Подключение перенаправления ${protocol} в DNSMasq${submessage}"
 
 		# без echo дублирование пробелов (что даёт warning и проблему наличия)
-		iptables -A PREROUTING -w -t nat$(echo "${iptables_filter}") -p "${protocol}" --dport 53 -j DNAT --to-destination "${router_ip}":"${DNS_PORT}"
+		iptables -A PREROUTING -w -t nat$(echo "${iptables_filter}") -p "${protocol}" --dport 53 -j DNAT --to-destination 127.0.0.1:"${DNS_PORT}"
 	done
 }
 
@@ -748,16 +747,15 @@ ip4_delete_from_dns_routing() {
 		local submessage=''
 	fi
 
-	local router_ip=$(get_router_ip)
 	for protocol in tcp udp ; do
-		if ! ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${protocol}" | grep -F 53 | grep -F 'DNAT' | grep -F "${router_ip}" | grep -Fq "${DNS_PORT}" ; then
+		if ! ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${protocol}" | grep -F 53 | grep -F 'DNAT' | grep -F '127.0.0.1' | grep -Fq "${DNS_PORT}" ; then
 			continue
 		fi
 
 		log_warning "Отключение перенаправления ${protocol} в DNSMasq${submessage}"
 
 		# без echo дублирование пробелов (что даёт warning и проблему наличия)
-		iptables -D PREROUTING -w -t nat$(echo "${iptables_filter}") -p "${protocol}" --dport 53 -j DNAT --to-destination "${router_ip}":"${DNS_PORT}"
+		iptables -D PREROUTING -w -t nat$(echo "${iptables_filter}") -p "${protocol}" --dport 53 -j DNAT --to-destination 127.0.0.1:"${DNS_PORT}"
 	done
 }
 
