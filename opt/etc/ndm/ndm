@@ -277,7 +277,7 @@ ip4__dns__create_chain() {
 		return
 	fi
 
-	log_warning 'Создание цепочки для перенаправления в DNSMasq'
+	log_warning 'Создание цепочки для DNS перенаправления'
 
 	iptables -N "${DNS_CHAIN}" -w -t nat
 	for protocol in udp tcp ; do
@@ -336,19 +336,16 @@ ip4__dns__add_routing() {
 		local submessage=''
 	fi
 
+	if iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${DNS_CHAIN}" ; then
+		return
+	fi
 	local rulenum=$(ip4__dns__get_rulenum)
-	for protocol in tcp udp ; do
-		if ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${protocol}" | grep -F 53 | grep -F 'DNAT' | grep -F '127.0.0.1' | grep -Fq "${DNS_PORT}" ; then
-			continue
-		fi
 
-		log_warning "Подключение перенаправления ${protocol} в DNSMasq${submessage}"
+	log_warning "Подключение DNS перенаправления с приоритетом ${rulenum}${submessage}"
 
-		ip4__dns__create_chain
-
-		# без echo дублирование пробелов (что даёт warning и проблему наличия)
-		iptables -I PREROUTING "${rulenum}" -w -t nat$(echo "${iptables_filter}") -p "${protocol}" --dport 53 -j DNAT --to-destination 127.0.0.1:"${DNS_PORT}"
-	done
+	ip4__dns__create_chain
+	# без echo дублирование пробелов (что даёт warning и проблему наличия)
+	iptables -I PREROUTING "${rulenum}" -w -t nat$(echo "${iptables_filter}") -j "${DNS_CHAIN}"
 }
 
 ip4_add_selected_guest_to_vpn_network() {
@@ -802,16 +799,14 @@ ip4__dns__delete_routing() {
 		local submessage=''
 	fi
 
-	for protocol in tcp udp ; do
-		if ! ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${protocol}" | grep -F 53 | grep -F 'DNAT' | grep -F '127.0.0.1' | grep -Fq "${DNS_PORT}" ; then
-			continue
-		fi
+	if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${DNS_CHAIN}" ; then
+		return
+	fi
 
-		log_warning "Отключение перенаправления ${protocol} в DNSMasq${submessage}"
+	log_warning "Отключение DNS перенаправления${submessage}"
 
-		# без echo дублирование пробелов (что даёт warning и проблему наличия)
-		iptables -D PREROUTING -w -t nat$(echo "${iptables_filter}") -p "${protocol}" --dport 53 -j DNAT --to-destination 127.0.0.1:"${DNS_PORT}"
-	done
+	# без echo дублирование пробелов (что даёт warning и проблему наличия)
+	iptables -D PREROUTING -w -t nat$(echo "${iptables_filter}") -j "${DNS_CHAIN}"
 }
 
 ip4_firewall_rm_vpn_selected_guest_net() {
