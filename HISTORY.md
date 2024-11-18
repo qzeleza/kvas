@@ -1,3 +1,10 @@
+## 1.1.9 beta 9
+- Внесены измения по заявкам:
+- [#213](https://github.com/qzeleza/kvas/issues/213) Перехват DNS не работает в отдельных случаях
+- [#215](https://github.com/qzeleza/kvas/issues/215) Доводка debug
+- [#220](https://github.com/qzeleza/kvas/issues/220) Получение сетевых интерфейсов без рестарта всех подключений 
+  Отдельная благодарность [AltGrF13](https://github.com/AltGrF13).
+
 ## 1.1.9 beta 8
 
 - Внесены измения по заявкам:

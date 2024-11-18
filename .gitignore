@@ -9,7 +9,8 @@
 .builded
 .devices
 packages/
-.*.builded
+.molot/
+
 
 ## User-specific stuff
 #.idea/**/workspace.xml
