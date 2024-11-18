@@ -233,8 +233,8 @@ cmd_debug_iptables() {
 	output=$(iptables-save | grep -F "${DNS_CHAIN}" | grep -Fv :"${DNS_CHAIN}")
 	echo_debug 'Роутинг DNS' "${output}"
 
-	output=$(iptables -L -t nat)
-	echo_debug 'Остальной NAT' "${output}"
+	output=$(iptables -L PREROUTING -t nat)
+	echo_debug 'PREROUTING NAT' "${output}"
 }
 
 cmd_debug_ipset() {
