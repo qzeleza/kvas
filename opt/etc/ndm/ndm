@@ -28,7 +28,7 @@ DNS_PORT=9753
 
 
 
-
+DNS_CHAIN=KVAS_DNS
 # Метка VPN цепочки для правил iptables
 VPN_IPTABLES_CHAIN=VPNREDIR
 # Метка SHADOWSOCKS цепочки для правил iptables
@@ -54,7 +54,7 @@ get_model() {
 		local version_data=$(ndmc -c show version)
 	fi
 
-	echo "${version_data}" | grep -F 'model' | head -1 | cut -d: -f2 | tr -d ' '
+	echo "${version_data}" | grep -F 'model' | head -1 | cut -d: -f2 | xargs
 }
 
 get_version() {
@@ -170,21 +170,7 @@ ip4_flush_cache(){
 # Подключаем правила для корректной работы DNS трафика через 53 порт
 # ------------------------------------------------------------------------------------------
 ip4_firewall_dns_rules_set() {
-	local router_ip=$(get_router_ip)
-	local submessage=" DNS трафика домашней сети в ${router_ip}:${DNS_PORT}."
-
-	log_warning "Подключаем перенаправление${submessage}"
-	for protocol in tcp udp ; do
-		local iptables_rule=" -i br0 -p ${protocol} -m ${protocol} --dport 53 -j DNAT --to-destination ${router_ip}:${DNS_PORT}"
-
-		if ip4save | grep -Fq -- "${iptables_rule}" ; then
-			continue
-		fi
-
-		# без echo дублирование пробелов (что даёт warning и проблему наличия)
-		iptables -A PREROUTING -t nat$(echo "${iptables_rule}") &>/dev/null \
-		 || echo "[${FUNCNAME}] Возникла ошибка при подключении перенаправления ${protocol}${submessage}"
-	done
+	ip4__dns__add_routing "-i $(get_local_inface)"
 }
 
 
@@ -237,7 +223,7 @@ ip4_firewall_vpn_mark(){
 		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM} &>/dev/nullcd
 		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -j CONNMARK --save-mark &>/dev/null
 
-		ip4tables PREROUTING -t "${table}" -i br0 -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_IPTABLES_CHAIN}" &>/dev/null
+		ip4tables PREROUTING -t "${table}" -i "$(get_local_inface)" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_IPTABLES_CHAIN}" &>/dev/null
 
 		# ip4tables PREROUTING -t "${table}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
 		# ip4tables OUTPUT     -t "${table}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
@@ -284,23 +270,82 @@ get_ikev2_net_pool() {
 	pool_start=$(echo "${ikev2_settings}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
 	echo "${pool_start}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/'
 }
- 
+
+# Создаёт (если нет) цепочку в nat для DNS редиректа
+ip4__dns__create_chain() {
+	if iptables-save | grep -Fq "${DNS_CHAIN}"; then
+		return
+	fi
+
+	log_warning 'Создание цепочки для DNS перенаправления'
+
+	iptables -N "${DNS_CHAIN}" -w -t nat
+	for protocol in udp tcp ; do
+		iptables -A "${DNS_CHAIN}" -w -t nat -p "${protocol}" --dport 53 -j DNAT --to-destination 127.0.0.1:"${DNS_PORT}"
+	done
+}
+
+# Возвращает номер (в nat PREROUTING) по куску правила
+#Example input param: NDM_UPNP_REDIRECT_SYS
+ip4__get_rulenum() {
+	if [ -z "${1}" ]; then
+		error "[${FUNCNAME}] Не передан обязательный параметр — правило для поиска"
+		return
+	fi
+	local find="${1}"
+
+	# если потребуются другие таблицы или цепочки, можно сделать их входящими параметрами
+	local table='nat'
+	local chain='PREROUTING'
+
+	echo $(iptables-save -t "${table}" | grep -F "${chain}" | grep -vF :"${chain}" \
+	 | grep -nF -- "${find}" | head -n 1 | grep -oE '^[0-9]+')
+}
+
+# Возвращает номер (в nat PREROUTING) для DNS-правил
+ip4__dns__get_rulenum() {
+	# вместо NDM_DNS_REDIRECT
+	local rulenum=$(ip4__get_rulenum 'NDM_DNS_REDIRECT')
+	if [ -n "${rulenum}" ]; then
+		echo "${rulenum}"
+		return
+	fi
+
+	# после NDM_DNAT
+	local rulenum=$(ip4__get_rulenum 'NDM_DNAT')
+	if [ -n "${rulenum}" ]; then
+		echo $((rulenum + 1))
+		return
+	fi
+
+	# высший приоритет
+	# если DNS перехват не будет работать, удаляем вышестоящее
+	echo '1'
+}
+
 # Перенаправляем dns-запросы в dnsmasq
 #Example input param:-s 192.168.3.0/24 -i eth3
 #Example input param:-i sstp+
-#TODO: в ip4_firewall_dns_rules_set использовать вызов этой обёртки
-ip4_add_to_dns_routing() {
-	local iptables_filter="${1}"
+ip4__dns__add_routing() {
+	if [ -n "${1}" ]; then
+		local iptables_filter=$(echo "${1}" | xargs)
+		local submessage=" по критерию ${iptables_filter}"
+		iptables_filter=" ${iptables_filter}"
+	else
+		local iptables_filter=''
+		local submessage=''
+	fi
 
-	local router_ip=$(get_router_ip)
-	for protocol in tcp udp ; do
-		if ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${protocol}" | grep -F 53 | grep -F 'DNAT' | grep -F "${router_ip}" | grep -Fq "${DNS_PORT}" ; then
-			continue
-		fi
+	if iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${DNS_CHAIN}" ; then
+		return
+	fi
+	local rulenum=$(ip4__dns__get_rulenum)
 
-		# без echo дублирование пробелов (что даёт warning и проблему наличия)
-		iptables -A PREROUTING -w -t nat $(echo "${iptables_filter}") -p "${protocol}" --dport 53 -j DNAT --to-destination "${router_ip}":"${DNS_PORT}"
-	done
+	log_warning "Подключение DNS перенаправления с приоритетом ${rulenum}${submessage}"
+
+	ip4__dns__create_chain
+	# без echo дублирование пробелов (что даёт warning и проблему наличия)
+	iptables -I PREROUTING "${rulenum}" -w -t nat$(echo "${iptables_filter}") -j "${DNS_CHAIN}"
 }
 
 ip4_add_selected_guest_to_vpn_network() {
@@ -309,22 +354,29 @@ ip4_add_selected_guest_to_vpn_network() {
 		error "[${FUNCNAME}] Не передан обязательный параметр — имя интерфейса"
 	fi
 
-	if echo "${net_interface}" | grep -q ikev2 ; then
+	if echo "${net_interface}" | grep -Fq 'ikev2' ; then
 		net_interface=$(get_entware_ikev2_inface)
 
 		# IKEv2 не имеет отдельного сетевого интерфейса, поэтому запишем и что добавляем, и используемый СИ
 		local submessage="IKEv2 (${net_interface} "
 		local net_pool=$(get_ikev2_net_pool)
-		local iptables_filter="-s ${net_pool} "
+
+		# если свой виртуальный интерфейс
+		if echo "${net_interface}" | grep -Fq 'xfrms' ; then
+			local iptables_filter=''
+		else
+			local iptables_filter="-s ${net_pool} "
+		fi
 	else
 		local submessage="${net_interface} ("
 		local net_pool=$(get_guest_net "${net_interface}")
+
 		local iptables_filter=''
 	fi
 	iptables_filter="${iptables_filter}-i ${net_interface}"
 
 	log_warning "Подключаем правила гостевого трафика ${submessage}${net_pool}) для VPN."
-	ip4_add_to_dns_routing "${iptables_filter}"
+	ip4__dns__add_routing "${iptables_filter}"
 	if fastnet_enabled ; then
 		if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_IPTABLES_CHAIN}" ; then
 			# без echo дублирование пробелов (что даёт warning и проблему наличия)
@@ -374,7 +426,13 @@ ip4_add_selected_guest_to_ssr_network() {
 
 		# IKEv2 не имеет отдельного сетевого интерфейса, поэтому запишем и что добавляем, и используемый СИ
 		local submessage="IKEv2 (${net_interface} "
-		local iptables_filter="-s ${net_pool} "
+
+		# если свой виртуальный интерфейс
+		if echo "${net_interface}" | grep -Fq 'xfrms' ; then
+			local iptables_filter=''
+		else
+			local iptables_filter="-s ${net_pool} "
+		fi
 	else
 		[ -z "${net_pool}" ] && {
 			# в случае SS+неIKEv2 используется лишь в лог-сообщении для единобразия
@@ -382,13 +440,14 @@ ip4_add_selected_guest_to_ssr_network() {
 		}
 
 		local submessage="${net_interface} ("
+
 		local iptables_filter=''
 	fi
 	iptables_filter="${iptables_filter}-i ${net_interface}"
 
 	log_warning "Подключаем правила гостевого трафика ${submessage}${net_pool}) для ShadowSocks."
 
-	ip4_add_to_dns_routing "${iptables_filter}"
+	ip4__dns__add_routing "${iptables_filter}"
 
 	local ss_port=$(get_config_value SSR_DNS_PORT)
 	for protocol in tcp udp ; do
@@ -652,45 +711,6 @@ ikev2_net_access_del() {
 	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 }
 
-# ikev2_net_access_del(){
-
-# 	ikev2=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
-# 	net_pool=$(echo "${ikev2}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-
-# 	ikev2_setup "${ikev2}"
-
-# 	ready "Удаление интерфейса \"VPN-сервер IKEv2\" завершено" && {
-
-# 		net_ip=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.1/')
-# 		net_pool=$(echo "${net_pool}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/')
-# 		ikev2_inface=$(get_entware_ikev2_inface)
-
-# 		if has_ssr_enable ;then
-
-# 		   port=$(get_config_value SSR_DNS_PORT)
-
-# 		   if iptables-save | grep PREROUTING | grep "${net_pool}" | grep "${ikev2_inface}" | grep ${IPSET_TABLE_NAME} | grep REDIRECT | grep -q "${port}" ; then
-
-# 				iptab -D PREROUTING -t nat -s ${net_pool} -p tcp -i ${ikev2_inface} -m set --match-set ${IPSET_TABLE_NAME} dst -j REDIRECT --to-port ${port}
-# 				iptab -D PREROUTING -t nat -s ${net_pool} -p udp -i ${ikev2_inface} -m set --match-set ${IPSET_TABLE_NAME} dst -j REDIRECT --to-port ${port}
-
-# 		   fi
-# 		else
-# 			if iptables-save | grep POSTROUTING | grep "${net_pool}" | grep "${ikev2_inface}" | grep -q MASQUERADE ; then
-# 				log_warning "Отключаем правила гостевого трафика IKEv2 (${ikev2_inface} ${net_pool}) для VPN."
-# 				iptab -D POSTROUTING -t nat -s "${net_pool}" -o "${ikev2_inface}" -j MASQUERADE
-# 			fi
-
-# 			# if iptables-save | grep POSTROUTING | grep "${net_pool}" | grep "${ikev2_inface}" | grep -q MASQUERADE ; then
-# 			# 	   iptab -D POSTROUTING -t nat -s "${net_pool}" -o "${ikev2_inface}" -j MASQUERADE
-# 			# fi
-# 		fi
-# 		[ -z "${1}" ] && del_ikev2_net_from_config
-
-# 	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
-
-# }
-
 
 ikev2_setup() {
 	ikev2_data="${1}"
@@ -744,18 +764,24 @@ ikev2_net_access_add() {
 # Отключение перехвата dns-запросов в dnsmasq
 #Example input param:-s 192.168.3.0/24 -i eth3
 #Example input param:-i sstp+
-ip4_delete_from_dns_routing() {
-	local iptables_filter="${1}"
+ip4__dns__delete_routing() {
+	if [ -n "${1}" ]; then
+		local iptables_filter=$(echo "${1}" | xargs)
+		local submessage=" по критерию ${iptables_filter}"
+		iptables_filter=" ${iptables_filter}"
+	else
+		local iptables_filter=''
+		local submessage=''
+	fi
 
-	local router_ip=$(get_router_ip)
-	for protocol in tcp udp ; do
-		if ! ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${protocol}" | grep -F 53 | grep -F 'DNAT' | grep -F "${router_ip}" | grep -Fq "${DNS_PORT}" ; then
-			continue
-		fi
+	if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${DNS_CHAIN}" ; then
+		return
+	fi
 
-		# без echo дублирование пробелов (что даёт warning и проблему наличия)
-		iptables -D PREROUTING -w -t nat $(echo "${iptables_filter}") -p "${protocol}" --dport 53 -j DNAT --to-destination "${router_ip}":"${DNS_PORT}"
-	done
+	log_warning "Отключение DNS перенаправления${submessage}"
+
+	# без echo дублирование пробелов (что даёт warning и проблему наличия)
+	iptables -D PREROUTING -w -t nat$(echo "${iptables_filter}") -j "${DNS_CHAIN}"
 }
 
 ip4_firewall_rm_vpn_selected_guest_net() {
@@ -764,22 +790,29 @@ ip4_firewall_rm_vpn_selected_guest_net() {
 		error "[${FUNCNAME}] Не передан обязательный параметр — имя интерфейса"
 	fi
 
-	if echo "${net_interface}" | grep -q ikev2 ; then
+	if echo "${net_interface}" | grep -Fq 'ikev2' ; then
 		net_interface=$(get_entware_ikev2_inface)
 
 		# IKEv2 не имеет отдельного сетевого интерфейса, поэтому запишем и что добавляем, и используемый СИ
 		local submessage="IKEv2 (${net_interface} "
 		local net_pool=$(get_ikev2_net_pool)
-		local iptables_filter="-s ${net_pool} "
+
+		# если свой виртуальный интерфейс
+		if echo "${net_interface}" | grep -Fq 'xfrms' ; then
+			local iptables_filter=''
+		else
+			local iptables_filter="-s ${net_pool} "
+		fi
 	else
 		local submessage="${net_interface} ("
 		local net_pool=$(get_guest_net "${net_interface}")
+
 		local iptables_filter=''
 	fi
 	iptables_filter="${iptables_filter}-i ${net_interface}"
 
 	log_warning "Отключаем правила гостевого трафика ${submessage}${net_pool}) для VPN."
-	ip4_delete_from_dns_routing "${iptables_filter}"
+	ip4__dns__delete_routing "${iptables_filter}"
 	if fastnet_enabled ; then
 		if iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_IPTABLES_CHAIN}" ; then
 			# без echo дублирование пробелов (что даёт warning и проблему наличия)
@@ -830,7 +863,13 @@ ip4_firewall_rm_ssr_selected_guest_net() {
 
 		# IKEv2 не имеет отдельного сетевого интерфейса, поэтому запишем и что добавляем, и используемый СИ
 		local submessage="IKEv2 (${net_interface} "
-		local iptables_filter="-s ${net_pool} "
+
+		# если свой виртуальный интерфейс
+		if echo "${net_interface}" | grep -Fq 'xfrms' ; then
+			local iptables_filter=''
+		else
+			local iptables_filter="-s ${net_pool} "
+		fi
 	else
 		[ -z "${net_pool}" ] && {
 			# в случае SS+неIKEv2 используется лишь в лог-сообщении для единобразия
@@ -838,13 +877,14 @@ ip4_firewall_rm_ssr_selected_guest_net() {
 		}
 
 		local submessage="${net_interface} ("
+
 		local iptables_filter=''
 	fi
 	iptables_filter="${iptables_filter}-i ${net_interface}"
 
 	log_warning "Отключаем правила гостевого трафика ${submessage}${net_pool}) для ShadowSocks."
 
-	ip4_delete_from_dns_routing "${iptables_filter}"
+	ip4__dns__delete_routing "${iptables_filter}"
 
 	local ss_port=$(get_config_value SSR_DNS_PORT)
 	for protocol in tcp udp ; do
