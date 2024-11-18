@@ -170,7 +170,7 @@ ip4_flush_cache(){
 # Подключаем правила для корректной работы DNS трафика через 53 порт
 # ------------------------------------------------------------------------------------------
 ip4_firewall_dns_rules_set() {
-	ip4__dns__add_routing '-i br0'
+	ip4__dns__add_routing "-i $(get_local_inface)"
 }
 
 
@@ -223,7 +223,7 @@ ip4_firewall_vpn_mark(){
 		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM} &>/dev/nullcd
 		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -j CONNMARK --save-mark &>/dev/null
 
-		ip4tables PREROUTING -t "${table}" -i br0 -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_IPTABLES_CHAIN}" &>/dev/null
+		ip4tables PREROUTING -t "${table}" -i "$(get_local_inface)" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_IPTABLES_CHAIN}" &>/dev/null
 
 		# ip4tables PREROUTING -t "${table}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
 		# ip4tables OUTPUT     -t "${table}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
