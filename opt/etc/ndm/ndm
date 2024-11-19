@@ -191,8 +191,6 @@ ip4_firewall_exclude_locals() {
 	fi
 	table=${2}
 
-	iptab -S "${VPN_IPTABLES_CHAIN}" -t "${table}" &>/dev/null | grep -q -- '\-N' \
-	 || iptab -N "${VPN_IPTABLES_CHAIN}" -t "${table}" &>/dev/null
 	while read -r _net || [ -n "${_net}" ]; do
 		# пропускаем строки с комментариями
 		[ ${_net:0:1} = '#' ] && continue
