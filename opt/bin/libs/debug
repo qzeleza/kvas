@@ -278,9 +278,11 @@ cmd_ipset_add() {
 			local ip="${1}"
 		else
 			error "Параметр ${1} не известен."
-			echo 'Можете передать clear или flush для очистки; '
-			echo ' myip2, ifconfig или любой IP для добавления в целях теста тоннеля.'
+
+			echo 'Можете передать myip2, ifconfig или любой IP '
+			echo ' для добавления в целях теста тоннеля.'
 			print_line
+
 			exit 1
 		fi
 
@@ -289,7 +291,6 @@ cmd_ipset_add() {
 		echo 'сделано.'
 
 		echo
-	fi
 }
 
 cmd_ipset() {
