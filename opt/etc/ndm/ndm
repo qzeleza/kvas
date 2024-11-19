@@ -178,22 +178,24 @@ ip4_firewall_dns_rules_set() {
 # ------------------------------------------------------------------------------------------
 # Подключаем Firewall правила, которые исключают из работы локальные запросы
 # ------------------------------------------------------------------------------------------
-ip4_firewall_exclude_locals(){
-	chain_name=${1}; table=${2};
-#	Если не заданы аргументы, то ничего не выполняем
+ip4_firewall_exclude_locals() {
+	chain_name=${1}
+	table=${2}
+	# Если не заданы аргументы, то ничего не выполняем
 	if [ -n "${chain_name}" ] && [ -n "${table}" ]; then
-		iptab -S ${VPN_IPTABLES_CHAIN} -t "${table}" &>/dev/null | grep -q '\-N' || iptab -N ${VPN_IPTABLES_CHAIN} -t "${table}" &>/dev/null
+		iptab -S "${VPN_IPTABLES_CHAIN}" -t "${table}" &>/dev/null | grep -q '\-N' \
+		 || iptab -N "${VPN_IPTABLES_CHAIN}" -t "${table}" &>/dev/null
 		while read -r _net || [ -n "${_net}" ]; do
 			[ -z "${_net}" ] && continue
-			#  пропускаем строки с комментариями
+			# пропускаем строки с комментариями
 			[ ${_net:0:1} = '#' ] && continue
 			# удаляем из строк комментарии - все что встречается после символа # и сам символ
 			_net=$(echo "${_net}" | sed 's/#.*$//g' | tr -s ' ' )
-			ip4tables "${chain_name}" -t "${table}" -d "${_net}" -j RETURN &>/dev/null
 
+			ip4tables "${chain_name}" -t "${table}" -d "${_net}" -j RETURN &>/dev/null
 		done < "${EXCLUDED_NET_FILE}"
 	else
-		log_error "При вызове ip4_firewall_exclude_locals не были заданы обязательные аргументы."
+		log_error 'При вызове ip4_firewall_exclude_locals не были заданы обязательные аргументы'
 	fi
 }
 
