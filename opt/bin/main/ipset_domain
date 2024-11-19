@@ -33,7 +33,7 @@ add_host_by_iplist_to_ipset() {
 
 	for ip in ${ip_list}; do
 		# если уже есть в списке
-		if ipset list "${IPSET_TABLE_NAME}" | grep -q "${ip}" ; then
+		if ipset list "${IPSET_TABLE_NAME}" | grep -qE "^${ip} " ; then
 			continue
 		fi
 
