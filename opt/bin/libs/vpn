@@ -2256,12 +2256,11 @@ dns_crypt_port_change() {
 	sed -i "s/\(@.*\)\(:[0-9]\{2,6\}\)/\1:${port_new} /g" '/opt/apps/kvas/bin/main/ipset' &> /dev/null
 
 	[ -f /opt/etc/dnsmasq.d/kvas.dnsmasq ] && {
-		server_crypt_0="echo \"server=\/:.*\${host}:\/${LOCALHOST_IP}#${port_new}\" >> \/opt\/etc\/dnsmasq.d\/kvas.dnsmasq"
 		server_crypt_1="echo \"server=\/\${host}\/${LOCALHOST_IP}#${port_new}\" >> \/opt\/etc\/dnsmasq.d\/kvas.dnsmasq"
+		sed -i '/echo \"server/d' '/opt/apps/kvas/bin/main/dnsmasq' &> /dev/null
+		sed -i "s/\(echo \"ipset=\/\$.*\)/\1\n\t${server_crypt_1}/" '/opt/apps/kvas/bin/main/dnsmasq' &> /dev/null
 	}
-	sed -i '/server/d' '/opt/apps/kvas/bin/main/dnsmasq' &> /dev/null
-	sed -i "s/\(echo \"ipset=\/:.*\)/\1\n\t${server_crypt_0}/" '/opt/apps/kvas/bin/main/dnsmasq' &> /dev/null
-	sed -i "s/\(echo \"ipset=\/\$.*\)/\1\n\t${server_crypt_1}/" '/opt/apps/kvas/bin/main/dnsmasq' &> /dev/null
+
 
 	if [ "${cmd}" = restart ]; then
 		cmd_dnsmasq_dns_change "${LOCALHOST_IP}#${port_new}" restart &> /dev/null
@@ -2420,6 +2419,8 @@ cmd_dns_crypt_on() {
 				sed -i "s/\(^cache_min_ttl.=.\).*$/\10/g" '/opt/etc/dnscrypt-proxy.toml'
 				sed -i "s/\(^cache_max_ttl.=.\).*$/\10/g" '/opt/etc/dnscrypt-proxy.toml'
 				sed -i "s/^\(server_names =.*\)/# \1/g" '/opt/etc/dnscrypt-proxy.toml'
+				sed -i 's/.*\(filter-rr.*\)/# \1/' /opt/etc/dnsmasq.conf
+
 				# sed -i "/proxy-dnssec/d" /opt/etc/dnsmasq.conf
 				# echo "proxy-dnssec" >> /opt/etc/dnsmasq.conf
 				dns_crypt_port_change "${dns_crypt_port}" restart
@@ -2444,7 +2445,10 @@ cmd_dns_crypt_off() {
 			sed -i "s/\(@.*\)\(:[0-9]\{2,6\}\)/@localhost/g" '/opt/apps/kvas/bin/main/ipset'
 			sed -i "/proxy-dnssec/d" /opt/etc/dnsmasq.conf
 			sed -i "s/\(^server=\)${LOCALHOST_IP}#${crypt_port}/\1${static_dns}/" /opt/etc/dnsmasq.conf
-			sed -i '/server/d' '/opt/apps/kvas/bin/main/dnsmasq'
+			sed -i 's/.*\(filter-rr.*\)/\1/' /opt/etc/dnsmasq.conf
+			
+			local server_echo="echo \"server=\/\$\{host\}\/${LOCALHOST_IP}#${crypt_port}\" >> \"\$\{ipset_file\}\""
+			sed 's/\(done.*\)/\t'"${server_echo}"'\n\n\1/g' '/opt/apps/kvas/bin/main/dnsmasq'
 
 			rm "${DNSMASQ_IPSET_HOSTS}"
 			_dns=$(cat < "${DNSMASQ_CONFIG}" | sed -n 's/^server=\(.*\)$/\1/p')

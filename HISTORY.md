@@ -3,7 +3,8 @@
 - [#213](https://github.com/qzeleza/kvas/issues/213) Перехват DNS не работает в отдельных случаях
 - [#215](https://github.com/qzeleza/kvas/issues/215) Доводка debug
 - [#220](https://github.com/qzeleza/kvas/issues/220) Получение сетевых интерфейсов без рестарта всех подключений 
-  Отдельная благодарность [AltGrF13](https://github.com/AltGrF13).
+- [#222](https://github.com/qzeleza/kvas/issues/222) Dnscrypt: включение и отключение  
+  Отдельная благодарность [AltGrF13](https://github.com/AltGrF13).  
 
 ## 1.1.9 beta 8
 
