@@ -270,23 +270,23 @@ cmd_ipset() {
 	local IP_IFCONFIG='34.160.111.145'
 
 	if [ -n "${1}" ]; then
-			if [ "${1}" = 'myip2' ]; then
-				local ip="${IP_MYIP2}"
-			elif [ "${1}" = 'ifconfig' ]; then
-				local ip="${IP_IFCONFIG}"
-			elif echo "${1}" | grep -qE -- "${IP_FILTER}"; then
-				local ip="${1}"
-			else
-				error "Параметр ${1} не известен."
-				echo 'Можете передать clear или flush для очистки; '
-				echo ' myip2, ifconfig или любой IP для добавления в целях теста тоннеля.'
-				print_line
-				exit 1
-			fi
+		if [ "${1}" = 'myip2' ]; then
+			local ip="${IP_MYIP2}"
+		elif [ "${1}" = 'ifconfig' ]; then
+			local ip="${IP_IFCONFIG}"
+		elif echo "${1}" | grep -qE -- "${IP_FILTER}"; then
+			local ip="${1}"
+		else
+			error "Параметр ${1} не известен."
+			echo 'Можете передать clear или flush для очистки; '
+			echo ' myip2, ifconfig или любой IP для добавления в целях теста тоннеля.'
+			print_line
+			exit 1
+		fi
 
-			echo -n "Добавление ${ip} в IPSet..."
-			ipset -exist add kvas_ipset "${ip}"
-			echo 'сделано.'
+		echo -n "Добавление ${ip} в IPSet..."
+		ipset -exist add kvas_ipset "${ip}"
+		echo 'сделано.'
 
 		echo
 	fi
