@@ -240,34 +240,36 @@ cmd_debug_iptables() {
 	echo_debug 'PREROUTING nat' "${output}"
 }
 
+cmd_ipset_flush() {
+	echo -n 'Очистка IPSet...'
+	ipset flush kvas_ipset
+	echo 'сделана.'
+
+	echo -n 'Заполнение IPSet IP из списка..'
+	local count=0
+	for ip_or_range in $(grep -E -- "$(get_regexp_ip_or_range)" '/opt/etc/kvas.list'); do
+		ipset -exist add "${IPSET_TABLE_NAME}" "${ip_or_range}" timeout 0
+
+		count=$((count + 1))
+		if [ "$(( ${count} % 50 ))" -eq 0 ]; then
+			echo -n '.'
+		fi
+	done
+	echo 'сделано.'
+
+	echo
+	echo 'На ПК запустите cmd от администратора и выполните там ipconfig /flushdns'
+	echo 'После этого перезапустите командную строку и браузер.'
+	echo 'В командной строке введите nslookup myip2.ru'
+	echo 'Проверьте заполнение списка через kvas ipset'
+	echo
+}
+
 cmd_ipset() {
 	local IP_MYIP2='81.90.181.105'
 	local IP_IFCONFIG='34.160.111.145'
 
 	if [ -n "${1}" ]; then
-		if [ "${1}" = 'clear' ] || [ "${1}" = 'flush' ]; then
-			echo -n 'Очистка IPSet...'
-			ipset flush kvas_ipset
-			echo 'сделана.'
-
-			echo -n 'Заполнение IPSet IP из списка..'
-			local count=0
-			for ip_or_range in $(grep -E -- "$(get_regexp_ip_or_range)" '/opt/etc/kvas.list'); do
-				ipset -exist add "${IPSET_TABLE_NAME}" "${ip_or_range}" timeout 0
-
-				count=$((count + 1))
-				if [ "$(( ${count} % 50 ))" -eq 0 ]; then
-					echo -n '.'
-				fi
-			done
-			echo 'сделано.'
-
-			echo
-			echo 'На ПК запустите cmd от администратора и выполните там ipconfig /flushdns'
-			echo 'После этого перезапустите командную строку и браузер.'
-			echo 'В командной строке введите nslookup myip2.ru'
-			echo 'Проверьте заполнение списка через kvas debug ipset'
-		else
 			if [ "${1}" = 'myip2' ]; then
 				local ip="${IP_MYIP2}"
 			elif [ "${1}" = 'ifconfig' ]; then
@@ -285,7 +287,7 @@ cmd_ipset() {
 			echo -n "Добавление ${ip} в IPSet..."
 			ipset -exist add kvas_ipset "${ip}"
 			echo 'сделано.'
-		fi
+
 		echo
 	fi
 
