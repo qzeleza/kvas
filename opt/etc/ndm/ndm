@@ -201,13 +201,7 @@ ip4_firewall_exclude_locals(){
 # ------------------------------------------------------------------------------------------
 # Маркируем VPN подключения, когда программное и аппаратное ускорение ПОДКЛЮЧЕНО
 # ------------------------------------------------------------------------------------------
-ip4_firewall_vpn_mark(){
-#
-#	rules=$(ip4save | grep "${VPN_IPTABLES_CHAIN}" | grep -v '\[0:0\]')
-#	mark_rules=$(ip4save | grep "${VPN_IPTABLES_CHAIN}" | grep "mark ${MARK_NUM}" )
-#
-#	if [ -z "${mark_rules}" ] || [ -z "${rules}" ]; then
-		# Маркируем трафик для домашней(основной) сети и прохождение пакетов через VPN подключение
+ip4_firewall_vpn_mark() {
 	{
 		log_warning "Маркируем VPN подключения, когда программное и аппаратное ускорение ПОДКЛЮЧЕНО"
 
@@ -224,7 +218,6 @@ ip4_firewall_vpn_mark(){
 
 		ip4tables PREROUTING -t "${VPN_TABLE}" -i "$(get_local_inface)" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_IPTABLES_CHAIN}" &>/dev/null
 	} &>/dev/null || error "[${FUNCNAME}] Во время маркировки трафика для VPN соединений возникли ошибки."
-#	fi
 }
 
 
