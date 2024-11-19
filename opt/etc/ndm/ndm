@@ -194,7 +194,6 @@ ip4_firewall_exclude_locals() {
 	iptab -S "${VPN_IPTABLES_CHAIN}" -t "${table}" &>/dev/null | grep -q '\-N' \
 	 || iptab -N "${VPN_IPTABLES_CHAIN}" -t "${table}" &>/dev/null
 	while read -r _net || [ -n "${_net}" ]; do
-		[ -z "${_net}" ] && continue
 		# пропускаем строки с комментариями
 		[ ${_net:0:1} = '#' ] && continue
 		# удаляем из строк комментарии - все что встречается после символа # и сам символ
