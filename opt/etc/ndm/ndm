@@ -212,7 +212,6 @@ ip4_firewall_vpn_mark(){
 		log_warning "Маркируем VPN подключения, когда программное и аппаратное ускорение ПОДКЛЮЧЕНО"
 
 		iptab -S ${VPN_IPTABLES_CHAIN} -t "${VPN_TABLE}" 2>/dev/null | grep -q '\-N' || iptab -N ${VPN_IPTABLES_CHAIN} -t "${VPN_TABLE}" &>/dev/null
-		ip4tables ${VPN_IPTABLES_CHAIN} -t "${VPN_TABLE}" -m set ! --match-set "${IPSET_TABLE_NAME}" dst -j RETURN &>/dev/null
 
 		# Игнорируем локальные сети и любые другие адреса, которые вы хотели бы обойти прокси
 		ip4_firewall_exclude_locals ${VPN_IPTABLES_CHAIN} "${VPN_TABLE}"  &>/dev/null
