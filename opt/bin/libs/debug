@@ -279,27 +279,27 @@ cmd_ipset_add() {
 		exit 1
 	fi
 
-		if [ "${1}" = 'myip2' ]; then
-			local ip="${IP_MYIP2}"
-		elif [ "${1}" = 'ifconfig' ]; then
-			local ip="${IP_IFCONFIG}"
-		elif echo "${1}" | grep -qE -- "${IP_FILTER}"; then
-			local ip="${1}"
-		else
-			error "Параметр ${1} не известен."
+	if [ "${1}" = 'myip2' ]; then
+		local ip="${IP_MYIP2}"
+	elif [ "${1}" = 'ifconfig' ]; then
+		local ip="${IP_IFCONFIG}"
+	elif echo "${1}" | grep -qE -- "${IP_FILTER}"; then
+		local ip="${1}"
+	else
+		error "Параметр ${1} не известен."
 
-			echo 'Можете передать myip2, ifconfig или любой IP '
-			echo ' для добавления в целях теста тоннеля.'
-			print_line
+		echo 'Можете передать myip2, ifconfig или любой IP '
+		echo ' для добавления в целях теста тоннеля.'
+		print_line
 
-			exit 2
-		fi
+		exit 2
+	fi
 
-		echo -n "Добавление ${ip} в IPSet..."
-		ipset -exist add kvas_ipset "${ip}"
-		echo 'сделано.'
+	echo -n "Добавление ${ip} в IPSet..."
+	ipset -exist add kvas_ipset "${ip}"
+	echo 'сделано.'
 
-		echo
+	echo
 }
 
 cmd_ipset() {
