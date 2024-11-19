@@ -14,6 +14,9 @@
 
 . /opt/apps/kvas/bin/libs/main
 
+IP_MYIP2='81.90.181.105'
+IP_IFCONFIG='34.160.111.145'
+
 # ------------------------------------------------------------------------------------------
 #
 #	 Формируем лог отладочной информации
@@ -265,10 +268,7 @@ cmd_ipset_flush() {
 	echo
 }
 
-cmd_ipset() {
-	local IP_MYIP2='81.90.181.105'
-	local IP_IFCONFIG='34.160.111.145'
-
+cmd_ipset_add() {
 	if [ -n "${1}" ]; then
 		if [ "${1}" = 'myip2' ]; then
 			local ip="${IP_MYIP2}"
@@ -290,7 +290,9 @@ cmd_ipset() {
 
 		echo
 	fi
+}
 
+cmd_ipset() {
 	local output=$(ipset list kvas_ipset | grep -vF ':' | wc -l)
 	ready 'Количество записей' && when_ok "${output}"
 
