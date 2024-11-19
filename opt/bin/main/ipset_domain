@@ -9,14 +9,14 @@
 # Лицензия: Apache License 2.0
 # ------------------------------------------------------------------------------
 
-logger -t 'КВАС' "Запущен файл ${0}"
+. /opt/apps/kvas/bin/libs/main
 
 HOST_LIST=/opt/etc/kvas.list
 IPSET_TABLE_NAME=kvas_ipset
 IP_FILTER='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'
 REGEXP_IP_OR_RANGE="${IP_FILTER}|${IP_FILTER}-${IP_FILTER}|${IP_FILTER}/[0-9]{1,2}"
 
-. /opt/apps/kvas/bin/libs/main
+log_warning 'Начат периодический переобход доменов из списка'
 
 add_host_by_iplist_to_ipset() {
 	host=${1//\*/}
@@ -38,7 +38,7 @@ add_host_by_iplist_to_ipset() {
 		fi
 
 		ipset -exist add "${IPSET_TABLE_NAME}" "${ip}"
-		logger -t 'КВАС' "Обнаружен новый IP ${ip} для домена ${host} и успешно добавлен в ipset"
+		log_warning "Обнаружен новый IP ${ip} для домена ${host} и успешно добавлен в ipset"
 	done
 }
 
