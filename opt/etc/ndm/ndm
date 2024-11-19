@@ -180,16 +180,16 @@ ip4_firewall_dns_rules_set() {
 # ------------------------------------------------------------------------------------------
 ip4_firewall_exclude_locals() {
 	if [ -z "${1}" ] ; then
-		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
-		return
-	fi
-	chain_name=${1}
-
-	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table=${2}
+	table=${1}
+
+	if [ -z "${2}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
+		return
+	fi
+	chain_name=${2}
 
 	while read -r _net || [ -n "${_net}" ]; do
 		# пропускаем строки с комментариями
@@ -213,7 +213,7 @@ ip4_firewall_vpn_mark() {
 		iptab -S ${VPN_IPTABLES_CHAIN} -t "${VPN_TABLE}" 2>/dev/null | grep -q '\-N' || iptab -N ${VPN_IPTABLES_CHAIN} -t "${VPN_TABLE}" &>/dev/null
 
 		# Игнорируем локальные сети и любые другие адреса, которые вы хотели бы обойти прокси
-		ip4_firewall_exclude_locals ${VPN_IPTABLES_CHAIN} "${VPN_TABLE}"  &>/dev/null
+		ip4_firewall_exclude_locals "${VPN_TABLE}" ${VPN_IPTABLES_CHAIN} &>/dev/null
 
 		ip4tables ${VPN_IPTABLES_CHAIN} -t "${VPN_TABLE}" -j CONNMARK --restore-mark &>/dev/null
 		ip4tables ${VPN_IPTABLES_CHAIN} -t "${VPN_TABLE}" -m mark --mark ${MARK_NUM} -j RETURN &>/dev/null
@@ -533,7 +533,7 @@ ip4_firewall_set_ssr_rules(){
 		iptab -S ${SSR_IPTABLES_CHAIN} -t nat 2>/dev/null | grep -q '\-N' || iptab -N ${SSR_IPTABLES_CHAIN} -t nat &>/dev/null
 
 		# Игнорируем локальные сети и любые другие адреса, которые вы хотели бы обойти прокси
-		ip4_firewall_exclude_locals ${SSR_IPTABLES_CHAIN} nat &>/dev/null
+		ip4_firewall_exclude_locals nat ${SSR_IPTABLES_CHAIN} &>/dev/null
 
 		ssr_ip=$(cat < /opt/etc/shadowsocks.json | grep 'server":' | tr -d '" ,' | cut -d':' -f2 )
 		# Исключаем любые обращения к собственному адресу SHADOWSOCKS
