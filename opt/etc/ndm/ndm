@@ -198,6 +198,7 @@ ip4_firewall_exclude_locals() {
 		# пропускаем строки с комментариями
 		[ ${_net:0:1} = '#' ] && continue
 		# удаляем из строк комментарии - все что встречается после символа # и сам символ
+		# удаляем пробелы
 		_net=$(echo "${_net}" | sed 's/#.*$//g' | tr -s ' ' )
 
 		ip4tables "${chain_name}" -t "${table}" -d "${_net}" -j RETURN &>/dev/null
