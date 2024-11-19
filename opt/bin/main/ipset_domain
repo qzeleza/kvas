@@ -9,14 +9,15 @@
 # Лицензия: Apache License 2.0
 # ------------------------------------------------------------------------------
 
-. /opt/apps/kvas/bin/libs/main
+# если делать этот файл автономно запускаемым, то нужна
+#. /opt/apps/kvas/bin/libs/main
 
 HOST_LIST=/opt/etc/kvas.list
 IPSET_TABLE_NAME=kvas_ipset
 IP_FILTER='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'
 REGEXP_IP_OR_RANGE="${IP_FILTER}|${IP_FILTER}-${IP_FILTER}|${IP_FILTER}/[0-9]{1,2}"
 
-log_warning 'Начат периодический переобход доменов из списка'
+log_warning 'Начат переобход доменов из списка'
 
 add_host_by_iplist_to_ipset() {
 	host=${1//\*/}
@@ -37,15 +38,15 @@ add_host_by_iplist_to_ipset() {
 			continue
 		fi
 
+		log_warning "Обнаружен новый IP ${ip} для домена ${host} и добавлен в ipset"
 		ipset -exist add "${IPSET_TABLE_NAME}" "${ip}"
-		log_warning "Обнаружен новый IP ${ip} для домена ${host} и успешно добавлен в ipset"
 	done
 }
 
 # проверяем доступность сети
 until ADDRS=$(kdig +short ya.ru @127.0.0.1:9153 ) && [ -n "${ADDRS}" ] > /dev/null 2>&1; do sleep 5; done
 
-# обновляем таблицу ipset данными из файла с доменными именами, IP и сетями
+count=0
 while read -r line || [ -n "${line}" ]; do
 	# пропускаем строки c минусами - это рекламные сайты
 	# пропускаем пустые строки
@@ -55,6 +56,11 @@ while read -r line || [ -n "${line}" ]; do
 	# удаляем из строки комментарии - все что встречается после символа # и сам символ
 	# удаляем *
 	host=$(echo "${line}" | sed 's/#.*$//g' | tr -s ' ' | sed 's/\*//')
+
+	count=$((count + 1))
+	if [ "$(( ${count} % 50 ))" -eq 0 ]; then
+		echo -n '.'
+	fi
 
 	# если строка IP, диапазон или маска
 	if echo "${host}" | grep -qE -- "${REGEXP_IP_OR_RANGE}"; then

@@ -302,6 +302,14 @@ cmd_ipset_add() {
 	echo
 }
 
+cmd_ipset_refill() {
+	echo -n 'Переобход списка..'
+	. /opt/apps/kvas/bin/main/ipset_domain
+	echo 'сделано.'
+
+	echo
+}
+
 cmd_ipset() {
 	local output=$(ipset list kvas_ipset | grep -vF ':' | wc -l)
 	ready 'Количество записей' && when_ok "${output}"
