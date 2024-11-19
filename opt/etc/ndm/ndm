@@ -179,10 +179,18 @@ ip4_firewall_dns_rules_set() {
 # Подключаем Firewall правила, которые исключают из работы локальные запросы
 # ------------------------------------------------------------------------------------------
 ip4_firewall_exclude_locals() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
+		return
+	fi
 	chain_name=${1}
+
+	if [ -z "${2}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
+		return
+	fi
 	table=${2}
-	# Если не заданы аргументы, то ничего не выполняем
-	if [ -n "${chain_name}" ] && [ -n "${table}" ]; then
+
 		iptab -S "${VPN_IPTABLES_CHAIN}" -t "${table}" &>/dev/null | grep -q '\-N' \
 		 || iptab -N "${VPN_IPTABLES_CHAIN}" -t "${table}" &>/dev/null
 		while read -r _net || [ -n "${_net}" ]; do
@@ -194,9 +202,6 @@ ip4_firewall_exclude_locals() {
 
 			ip4tables "${chain_name}" -t "${table}" -d "${_net}" -j RETURN &>/dev/null
 		done < "${EXCLUDED_NET_FILE}"
-	else
-		log_error 'При вызове ip4_firewall_exclude_locals не были заданы обязательные аргументы'
-	fi
 }
 
 
