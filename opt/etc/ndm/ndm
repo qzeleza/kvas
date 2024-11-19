@@ -224,10 +224,6 @@ ip4_firewall_vpn_mark(){
 		ip4tables ${VPN_IPTABLES_CHAIN} -t "${VPN_TABLE}" -j CONNMARK --save-mark &>/dev/null
 
 		ip4tables PREROUTING -t "${VPN_TABLE}" -i "$(get_local_inface)" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_IPTABLES_CHAIN}" &>/dev/null
-
-		# ip4tables PREROUTING -t "${VPN_TABLE}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
-		# ip4tables OUTPUT     -t "${VPN_TABLE}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
-
 	} &>/dev/null || error "[${FUNCNAME}] Во время маркировки трафика для VPN соединений возникли ошибки."
 #	fi
 }
