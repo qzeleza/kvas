@@ -27,17 +27,17 @@ REGEXP_IP_OR_RANGE="${IP_FILTER}|${IP_FILTER}-${IP_FILTER}|${IP_FILTER}/[0-9]{1,
 
 # обновляем таблицу ipset данными из файла с доменными именами, IP и сетями
 while read -r line || [ -n "${line}" ]; do
-  #  пропускаем строки c минусами - это рекламные сайты
-  #  пропускаем пустые строки
-  #  пропускаем строки с комментариями
-  [ "${line::1}" = "-" ] || [ -z "${line}" ] || [ "${line:0:1}" = "#" ] && continue
+	# пропускаем строки c минусами — это рекламные сайты
+	# пропускаем пустые строки
+	# пропускаем строки с комментариями
+	[ "${line::1}" = "-" ] || [ -z "${line}" ] || [ "${line:0:1}" = "#" ] && continue
 
-  # удаляем из строки комментарии - все что встречается после символа # и сам символ
-  # удаляем *
-  host=$(echo "${line}" | sed 's/#.*$//g' | tr -s ' ' | sed 's/\*//')
+	# удаляем из строки комментарии - все что встречается после символа # и сам символ
+	# удаляем *
+	host=$(echo "${line}" | sed 's/#.*$//g' | tr -s ' ' | sed 's/\*//')
 
-  # если строка IP, диапазон или маска; то добавляем напрямую и без ttl
-  if echo "${host}" | grep -qE -- "${REGEXP_IP_OR_RANGE}"; then
-    ipset -exist add "${IPSET_TABLE_NAME}" "${host}" timeout 0 &>/dev/null || true
-  fi
+	# если строка IP, диапазон или маска; то добавляем напрямую и без ttl
+	if echo "${host}" | grep -qE -- "${REGEXP_IP_OR_RANGE}"; then
+		ipset -exist add "${IPSET_TABLE_NAME}" "${host}" timeout 0 &>/dev/null || true
+	fi
 done < "${HOST_LIST}"
