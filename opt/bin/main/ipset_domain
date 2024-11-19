@@ -16,6 +16,46 @@ IPSET_TABLE_NAME=kvas_ipset
 IP_FILTER='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'
 REGEXP_IP_OR_RANGE="${IP_FILTER}|${IP_FILTER}-${IP_FILTER}|${IP_FILTER}/[0-9]{1,2}"
 
+. /opt/apps/kvas/bin/libs/main
+
+# Добавляем переданные в функцию IP адреса в ipset таблицу kvas
+add_host_by_iplist_to_ipset(){
+	host=${1//\*/}
+#	получаем список из адресов от текущего dns сервера
+# 	и исключаем из списка адреса типа 0.0.0.0
+	ip_list=$(get_iplist_from_domain "${host}" \
+	| grep -Eo "${IP_FILTER}" \
+	| grep -v '0.0.0.0' )
+
+# 	если список не пуст
+	if [ -n "${ip_list}" ]; then
+		for ip in ${ip_list}; do
+			ipset list "${IPSET_TABLE_NAME}" | grep -q "${ip}" || {
+				ipset -exist add "${IPSET_TABLE_NAME}" "${ip}"
+				mess="Обнаружен новый IP=${ip} для домена ${host} и успешно добавлен в таблицу ipset."
+#				echo "${mess}"
+				logger -t "КВАС" "${mess}"
+			}
+		done
+
+	fi
+}
+
+# Добавляем список AS IP диапазонов, в который может входить переданный host
+add_host_by_ASlist_to_ipset(){
+	host=${1//\*/};
+	if [ "${host}" ]; then
+		for ip in $(get_iplist_from_domain "${host}" ); do
+			as_number=$(whois -h whois.radb.net "${ip}" | grep 'origin:' | tr -d ' ' | cut -d ':' -f2)
+			for net in $(whois -h whois.radb.net "!g${as_number}" | tr '\n' ' '); do
+				if echo "${net}" | grep -Eo "${IP_FILTER}" | grep -qv '0.0.0.0' ; then
+					ipset -exist add "${IPSET_TABLE_NAME}" "${net}" &>/dev/null
+				fi
+			done
+		done
+	fi
+}
+
 # проверяем доступность сети
 until ADDRS=$(kdig +short ya.ru @127.0.0.1:9153 ) && [ -n "${ADDRS}" ] > /dev/null 2>&1; do sleep 5; done
 
@@ -30,8 +70,10 @@ while read -r line || [ -n "${line}" ]; do
 	# удаляем *
 	host=$(echo "${line}" | sed 's/#.*$//g' | tr -s ' ' | sed 's/\*//')
 
-	# если строка IP, диапазон или маска; то добавляем напрямую и без ttl
+	# если строка IP, диапазон или маска
 	if echo "${host}" | grep -qE -- "${REGEXP_IP_OR_RANGE}"; then
-		ipset -exist add "${IPSET_TABLE_NAME}" "${host}" timeout 0 &>/dev/null || true
+		continue
 	fi
+
+	add_host_by_iplist_to_ipset "${host}"
 done < "${HOST_LIST}"
