@@ -31,6 +31,7 @@ DNS_PORT=9753
 DNS_CHAIN=KVAS_DNS
 # Метка VPN цепочки для правил iptables
 VPN_IPTABLES_CHAIN=KVAS_VPN
+VPN_TABLE=mangle
 # Метка SHADOWSOCKS цепочки для правил iptables
 SSR_IPTABLES_CHAIN=SHADOWSOCKS
 SSR_IPTABLES_CHAIN_MARK=SHADOWSOCKS_UDP_MARK
@@ -208,25 +209,24 @@ ip4_firewall_vpn_mark(){
 #	if [ -z "${mark_rules}" ] || [ -z "${rules}" ]; then
 		# Маркируем трафик для домашней(основной) сети и прохождение пакетов через VPN подключение
 	{
-		table=mangle
 		log_warning "Маркируем VPN подключения, когда программное и аппаратное ускорение ПОДКЛЮЧЕНО"
 
-		iptab -S ${VPN_IPTABLES_CHAIN} -t "${table}" 2>/dev/null | grep -q '\-N' || iptab -N ${VPN_IPTABLES_CHAIN} -t "${table}" &>/dev/null
-		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -m set ! --match-set "${IPSET_TABLE_NAME}" dst -j RETURN &>/dev/null
+		iptab -S ${VPN_IPTABLES_CHAIN} -t "${VPN_TABLE}" 2>/dev/null | grep -q '\-N' || iptab -N ${VPN_IPTABLES_CHAIN} -t "${VPN_TABLE}" &>/dev/null
+		ip4tables ${VPN_IPTABLES_CHAIN} -t "${VPN_TABLE}" -m set ! --match-set "${IPSET_TABLE_NAME}" dst -j RETURN &>/dev/null
 
 		# Игнорируем локальные сети и любые другие адреса, которые вы хотели бы обойти прокси
-		ip4_firewall_exclude_locals ${VPN_IPTABLES_CHAIN} "${table}"  &>/dev/null
+		ip4_firewall_exclude_locals ${VPN_IPTABLES_CHAIN} "${VPN_TABLE}"  &>/dev/null
 
-		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -j CONNMARK --restore-mark &>/dev/null
-		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -m mark --mark ${MARK_NUM} -j RETURN &>/dev/null
-		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" --syn -j MARK --set-mark ${MARK_NUM} &>/dev/null
-		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM} &>/dev/nullcd
-		ip4tables ${VPN_IPTABLES_CHAIN} -t "${table}" -j CONNMARK --save-mark &>/dev/null
+		ip4tables ${VPN_IPTABLES_CHAIN} -t "${VPN_TABLE}" -j CONNMARK --restore-mark &>/dev/null
+		ip4tables ${VPN_IPTABLES_CHAIN} -t "${VPN_TABLE}" -m mark --mark ${MARK_NUM} -j RETURN &>/dev/null
+		ip4tables ${VPN_IPTABLES_CHAIN} -t "${VPN_TABLE}" --syn -j MARK --set-mark ${MARK_NUM} &>/dev/null
+		ip4tables ${VPN_IPTABLES_CHAIN} -t "${VPN_TABLE}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM} &>/dev/nullcd
+		ip4tables ${VPN_IPTABLES_CHAIN} -t "${VPN_TABLE}" -j CONNMARK --save-mark &>/dev/null
 
-		ip4tables PREROUTING -t "${table}" -i "$(get_local_inface)" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_IPTABLES_CHAIN}" &>/dev/null
+		ip4tables PREROUTING -t "${VPN_TABLE}" -i "$(get_local_inface)" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_IPTABLES_CHAIN}" &>/dev/null
 
-		# ip4tables PREROUTING -t "${table}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
-		# ip4tables OUTPUT     -t "${table}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
+		# ip4tables PREROUTING -t "${VPN_TABLE}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
+		# ip4tables OUTPUT     -t "${VPN_TABLE}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j ${VPN_IPTABLES_CHAIN} &>/dev/null
 
 	} &>/dev/null || error "[${FUNCNAME}] Во время маркировки трафика для VPN соединений возникли ошибки."
 #	fi
@@ -246,7 +246,7 @@ ip4_firewall_mark_rules_tcp_udp_on(){
 		log_warning "Маркировка VPN подключений когда программное и аппаратное ускорение ОТКЛЮЧЕНО."
 		# Исключаем маркировку трафика для гостевой (в том числе) сети
 		_inface_ent=$(inface_ent)
-		ip4tables PREROUTING -t mangle -i "${_inface_ent}" -m set --match-set ${IPSET_TABLE_NAME} dst -j MARK --set-mark ${MARK_NUM}
+		ip4tables PREROUTING -t "${VPN_TABLE}" -i "${_inface_ent}" -m set --match-set ${IPSET_TABLE_NAME} dst -j MARK --set-mark ${MARK_NUM}
 
 	}  &>/dev/null || error "[${FUNCNAME}] Возникла ошибка при маркировке трафика гостевой сети для tcp или udp."
 #	fi
@@ -380,7 +380,7 @@ ip4_add_selected_guest_to_vpn_network() {
 	if fastnet_enabled ; then
 		if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_IPTABLES_CHAIN}" ; then
 			# без echo дублирование пробелов (что даёт warning и проблему наличия)
-			iptables -A PREROUTING -w -t mangle $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_IPTABLES_CHAIN}"
+			iptables -A PREROUTING -w -t "${VPN_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_IPTABLES_CHAIN}"
 		fi
 	else
 		if [ -z "${net_pool}" ] ; then
@@ -653,11 +653,10 @@ ip4tbl_flush_rm_match_set(){
 #
 # ------------------------------------------------------------------------------------------
 ip4_firewall_fastnet_vpn_prune(){
-	table=mangle; chain="${VPN_IPTABLES_CHAIN}"
 	{
-		ip4tbl_flush_rm_match_set "${table}" "${chain}" PREROUTING
-		ip4tbl_flush_rm_match_set "${table}" "${chain}" OUTPUT
-		ip4tbl_flush_rm_chain "${table}" "${chain}"
+		ip4tbl_flush_rm_match_set "${VPN_TABLE}" "${VPN_IPTABLES_CHAIN}" PREROUTING
+		ip4tbl_flush_rm_match_set "${VPN_TABLE}" "${VPN_IPTABLES_CHAIN}" OUTPUT
+		ip4tbl_flush_rm_chain "${VPN_TABLE}" "${VPN_IPTABLES_CHAIN}"
 
 	} &>/dev/null
 #	2> "${ERROR_LOG_FILE}"
@@ -671,10 +670,9 @@ ip4_firewall_fastnet_vpn_prune(){
 #
 # ------------------------------------------------------------------------------------------
 ip4_firewall_nofastnet_vpn_prune(){
-	table=mangle; chain="${VPN_IPTABLES_CHAIN}"
 	{
-		ip4tbl_flush_rm_pre_out "${table}" "${chain}" PREROUTING
-		ip4tbl_flush_rm_chain "${table}" "${chain}"
+		ip4tbl_flush_rm_pre_out "${VPN_TABLE}" "${VPN_IPTABLES_CHAIN}" PREROUTING
+		ip4tbl_flush_rm_chain "${VPN_TABLE}" "${VPN_IPTABLES_CHAIN}"
 
 	} &>/dev/null
 #	2> "${ERROR_LOG_FILE}"
@@ -816,7 +814,7 @@ ip4_firewall_rm_vpn_selected_guest_net() {
 	if fastnet_enabled ; then
 		if iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_IPTABLES_CHAIN}" ; then
 			# без echo дублирование пробелов (что даёт warning и проблему наличия)
-			iptables -D PREROUTING -w -t mangle $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_IPTABLES_CHAIN}"
+			iptables -D PREROUTING -w -t "${VPN_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_IPTABLES_CHAIN}"
 		fi
 	else
 		if [ -z "${net_pool}" ] ; then
