@@ -269,7 +269,16 @@ cmd_ipset_flush() {
 }
 
 cmd_ipset_add() {
-	if [ -n "${1}" ]; then
+	if [ -z "${1}" ]; then
+		error 'Не передан обязательный параметр, что добавлять.'
+
+		echo 'Можете передать myip2, ifconfig или любой IP '
+		echo ' для добавления в целях теста тоннеля.'
+		print_line
+
+		exit 1
+	fi
+
 		if [ "${1}" = 'myip2' ]; then
 			local ip="${IP_MYIP2}"
 		elif [ "${1}" = 'ifconfig' ]; then
@@ -283,7 +292,7 @@ cmd_ipset_add() {
 			echo ' для добавления в целях теста тоннеля.'
 			print_line
 
-			exit 1
+			exit 2
 		fi
 
 		echo -n "Добавление ${ip} в IPSet..."
