@@ -1124,10 +1124,19 @@ ip4__ipset__create() {
 		return
 	fi
 
-	log_warning "Cоздаём набор IP ${ipset_name}"
+	if [ "${ipset_name}" = "${IPSET_TABLE_NAME}" ] ; then
+		local ttl=$(get_config_value TTL_TIMEOUT)
 
-	ttl_timeout=$(get_config_value TTL_TIMEOUT)
-	ipset create "${ipset_name}" hash:net family inet -exist timeout "${ttl_timeout}" &>/dev/null \
+		local subcomand=" timeout ${ttl}"
+		local submessage=" с таймаутом ${ttl}"
+	else
+		local subcomand=''
+		local submessage=''
+	fi
+
+	log_warning "Cоздаём набор IP ${ipset_name}${submessage}"
+
+	ipset create "${ipset_name}" hash:net family inet -exist$(echo "${subcomand}") &>/dev/null \
 	 || {
 		error "[${FUNCNAME}] Ошибка при создании набора IP ${ipset_name}"
 	}
