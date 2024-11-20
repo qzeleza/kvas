@@ -2448,7 +2448,7 @@ cmd_dns_crypt_off() {
 			sed -i 's/.*\(filter-rr.*\)/\1/' /opt/etc/dnsmasq.conf
 			
 			local server_echo="echo \"server=\/\$\{host\}\/${LOCALHOST_IP}#${crypt_port}\" >> \"\$\{ipset_file\}\""
-			sed 's/\(done.*\)/\t'"${server_echo}"'\n\n\1/g' '/opt/apps/kvas/bin/main/dnsmasq'
+			sed -i 's/\(done.*\)/\t'"${server_echo}"'\n\n\1/g' '/opt/apps/kvas/bin/main/dnsmasq'
 
 			rm "${DNSMASQ_IPSET_HOSTS}"
 			_dns=$(cat < "${DNSMASQ_CONFIG}" | sed -n 's/^server=\(.*\)$/\1/p')

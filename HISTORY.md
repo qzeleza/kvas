@@ -2,8 +2,10 @@
 - Внесены измения по заявкам:
 - [#213](https://github.com/qzeleza/kvas/issues/213) Перехват DNS не работает в отдельных случаях
 - [#215](https://github.com/qzeleza/kvas/issues/215) Доводка debug
-- [#220](https://github.com/qzeleza/kvas/issues/220) Получение сетевых интерфейсов без рестарта всех подключений 
-- [#222](https://github.com/qzeleza/kvas/issues/222) Dnscrypt: включение и отключение  
+- [#220](https://github.com/qzeleza/kvas/issues/220) Получение сетевых интерфейсов без рестарта всех подключений + внесены доработки в функции `get_router_ip` и `get_local_inface`
+- [#222](https://github.com/qzeleza/kvas/issues/222) **Dnscrypt**: включение и отключение  
+- [#224](https://github.com/qzeleza/kvas/issues/224) **ipset** команды в консоли
+- Внесено испралвение при генерации записей в /opt/etc/dnsmasq.d/kvas.dnsmasq - вместо `\.` теперь только точка.
   Отдельная благодарность [AltGrF13](https://github.com/AltGrF13).  
 
 ## 1.1.9 beta 8
