@@ -564,9 +564,9 @@ cmd_install(){
 	[ -f /opt/etc/cron.5mins/ipset.kvas ] && rm -f /opt/etc/cron.5mins/ipset.kvas
 
 	# Подключаем библиотеку keen_api
-	source /opt/apps/kvas/bin/libs/keen_api
+	#source /opt/apps/kvas/bin/libs/keen_api
 	# Устанавливаем DNS роутера и порт по умолчанию
-	set_dns_router_server_ip "$(get_router_ip)" "${MAIN_DNS_PORT}"
+	#set_dns_router_server_ip "$(get_router_ip)" "${MAIN_DNS_PORT}"
 
 	# Закрываем снаружи DNS порты для всех вншних сетей
 	# deny_firewall_port "53" "tcp" "Квас: закрываем снаружи 53/TCP DNS порт"
@@ -579,7 +579,7 @@ cmd_install(){
 	# set_firewall_order_for_rule "53" "udp" "permit" "0"
 	# set_firewall_order_for_rule "53" "udp" "permit" "0"
 	# Записываем изменения в конфиг
-	save_system_configuration_by_api
+	#save_system_configuration_by_api
 
 	#------------------------------------------------------
 	# 	Запускаем КВАС в работу
@@ -723,11 +723,11 @@ cmd_uninstall() {
 		fi
 
 		# Подключаем библиотеку keen_api
-		source /opt/apps/kvas/bin/libs/keen_api
+		#source /opt/apps/kvas/bin/libs/keen_api
 		# Удаляем DNS сервера, установленне для Кваса
-		del_dns_router_server_ip $(get_router_ip) ${MAIN_DNS_PORT}
+		#del_dns_router_server_ip $(get_router_ip) ${MAIN_DNS_PORT}
 		# Устанавливаем DNS роутера и порт по умолчанию
-		set_dns_router_server_ip "77.88.8.8" "53"
+		#set_dns_router_server_ip "77.88.8.8" "53"
 
 		# Удаляем правила в брандмауэре, установленные при инсталяции Кваса
 		# del_firewall_rules 53 tcp "deny"
@@ -737,9 +737,9 @@ cmd_uninstall() {
 		# local _local_net="$(get_router_ip | cut -d'.' -f1-3).0"
 		# del_firewall_rules 53 tcp "permit" "${_local_net}"
 		# del_firewall_rules 53 udp "permit" "${_local_net}"
-		
+
 		# Сохраняем конфигурацию
-		save_system_configuration_by_api
+		#save_system_configuration_by_api
 
 		ready "Удаляем пакет Квас..."
 		opkg remove kvas --autoremove &> /dev/null 
