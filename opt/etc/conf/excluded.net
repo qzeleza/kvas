@@ -1,6 +1,7 @@
 # https://en.wikipedia.org/wiki/Reserved_IP_addresses
 0.0.0.0/8
 10.0.0.0/8
+78.47.125.180 #my.keenetic.net
 100.64.0.0/10
 127.0.0.0/8
 169.254.0.0/16
