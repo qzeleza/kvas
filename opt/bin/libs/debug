@@ -14,6 +14,9 @@
 
 . /opt/apps/kvas/bin/libs/main
 
+IP_MYIP2='81.90.181.105'
+IP_IFCONFIG='34.160.111.145'
+
 # ------------------------------------------------------------------------------------------
 #
 #	 Формируем лог отладочной информации
@@ -240,55 +243,74 @@ cmd_debug_iptables() {
 	echo_debug 'PREROUTING nat' "${output}"
 }
 
-cmd_debug_ipset() {
-	local IP_MYIP2='81.90.181.105'
-	local IP_IFCONFIG='34.160.111.145'
+cmd_ipset_flush() {
+	echo -n 'Очистка IPSet...'
+	ipset flush kvas_ipset
+	echo 'сделана.'
 
-	if [ -n "${1}" ]; then
-		if [ "${1}" = 'clear' ] || [ "${1}" = 'flush' ]; then
-			echo -n 'Очистка IPSet...'
-			ipset flush kvas_ipset
-			echo 'сделана.'
+	echo -n 'Заполнение IPSet IP из списка..'
+	local count=0
+	for ip_or_range in $(grep -E -- "$(get_regexp_ip_or_range)" '/opt/etc/kvas.list'); do
+		ipset -exist add "${IPSET_TABLE_NAME}" "${ip_or_range}" timeout 0
 
-			echo -n 'Заполнение IPSet IP из списка..'
-			local count=0
-			for ip_or_range in $(grep -E -- "$(get_regexp_ip_or_range)" '/opt/etc/kvas.list'); do
-				ipset -exist add "${IPSET_TABLE_NAME}" "${ip_or_range}" timeout 0
-
-				count=$((count + 1))
-				if [ "$(( ${count} % 50 ))" -eq 0 ]; then
-					echo -n '.'
-				fi
-			done
-			echo 'сделано.'
-
-			echo
-			echo 'На ПК запустите cmd от администратора и выполните там ipconfig /flushdns'
-			echo 'После этого перезапустите командную строку и браузер.'
-			echo 'В командной строке введите nslookup myip2.ru'
-			echo 'Проверьте заполнение списка через kvas debug ipset'
-		else
-			if [ "${1}" = 'myip2' ]; then
-				local ip="${IP_MYIP2}"
-			elif [ "${1}" = 'ifconfig' ]; then
-				local ip="${IP_IFCONFIG}"
-			elif echo "${1}" | grep -qE -- "${IP_FILTER}"; then
-				local ip="${1}"
-			else
-				error "Параметр ${1} не известен."
-				echo 'Можете передать clear или flush для очистки; '
-				echo ' myip2, ifconfig или любой IP для добавления в целях теста тоннеля.'
-				print_line
-				exit 1
-			fi
-
-			echo -n "Добавление ${ip} в IPSet..."
-			ipset -exist add kvas_ipset "${ip}"
-			echo 'сделано.'
+		count=$((count + 1))
+		if [ "$(( ${count} % 50 ))" -eq 0 ]; then
+			echo -n '.'
 		fi
-		echo
+	done
+	echo 'сделано.'
+
+	echo
+	echo 'На ПК запустите cmd от администратора и выполните там ipconfig /flushdns'
+	echo 'После этого перезапустите командную строку и браузер.'
+	echo 'В командной строке введите nslookup myip2.ru'
+	echo 'Проверьте заполнение списка через kvas ipset'
+	echo
+}
+
+cmd_ipset_add() {
+	if [ -z "${1}" ]; then
+		error 'Не передан обязательный параметр, что добавлять.'
+
+		echo 'Можете передать myip2, ifconfig или любой IP '
+		echo ' для добавления в целях теста тоннеля.'
+		print_line
+
+		exit 1
 	fi
 
+	if [ "${1}" = 'myip2' ]; then
+		local ip="${IP_MYIP2}"
+	elif [ "${1}" = 'ifconfig' ]; then
+		local ip="${IP_IFCONFIG}"
+	elif echo "${1}" | grep -qE -- "${IP_FILTER}"; then
+		local ip="${1}"
+	else
+		error "Параметр ${1} не известен."
+
+		echo 'Можете передать myip2, ifconfig или любой IP '
+		echo ' для добавления в целях теста тоннеля.'
+		print_line
+
+		exit 2
+	fi
+
+	echo -n "Добавление ${ip} в IPSet..."
+	ipset -exist add kvas_ipset "${ip}"
+	echo 'сделано.'
+
+	echo
+}
+
+cmd_ipset_refill() {
+	echo -n 'Переобход списка..'
+	. /opt/apps/kvas/bin/main/ipset_domain
+	echo 'сделано.'
+
+	echo
+}
+
+cmd_ipset() {
 	local output=$(ipset list kvas_ipset | grep -vF ':' | wc -l)
 	ready 'Количество записей' && when_ok "${output}"
 

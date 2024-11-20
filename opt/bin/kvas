@@ -174,13 +174,23 @@ case "${1}" in
 			*) 				cmd_show_tags_domain_list "${2}" ;;
 		esac
 		;;
+
+	ipset)
+		case "${2}" in
+			clear | flush) cmd_ipset_flush      ;;
+			refill)        cmd_ipset_refill     ;;
+			add)           cmd_ipset_add "${3}" ;;
+			*)             cmd_ipset            ;;
+		esac
+		;;
+
 	debug)
 		case "${2}" in
-			ipset)    cmd_debug_ipset "${3}" ;;
 			iptables) cmd_debug_iptables     ;;
 			*)        cmd_print_debug "${2}" ;;
 		esac
 		;;
+
 	test | check)			cmd_state_checker "${2}"
 							[ -n "${2}" ] && exit 0
 		;;
