@@ -230,7 +230,7 @@ cmd_debug_iptables() {
 
 	echo_debug 'Маршруты (подключитесь к гостевой заранее)' "${output}"
 
-	output=$(iptables-save | grep -F kvas_ipset)
+	output=$(iptables-save | grep -F "${IPSET_TABLE_NAME}")
 	echo_debug 'Роутинг подсетей' "${output}"
 
 	output=$(iptables-save | grep -F "${DNS_CHAIN}" | grep -Fv :"${DNS_CHAIN}")
@@ -245,7 +245,7 @@ cmd_debug_iptables() {
 
 cmd_ipset_flush() {
 	echo -n 'Очистка IPSet...'
-	ipset flush kvas_ipset
+	ipset flush "${IPSET_TABLE_NAME}"
 	echo 'сделана.'
 
 	echo -n 'Заполнение IPSet IP из списка..'
@@ -296,7 +296,7 @@ cmd_ipset_add() {
 	fi
 
 	echo -n "Добавление ${ip} в IPSet..."
-	ipset -exist add kvas_ipset "${ip}"
+	ipset -exist add "${IPSET_TABLE_NAME}" "${ip}"
 	echo 'сделано.'
 
 	echo
@@ -311,17 +311,17 @@ cmd_ipset_refill() {
 }
 
 cmd_ipset() {
-	local output=$(ipset list kvas_ipset | grep -vF ':' | wc -l)
+	local output=$(ipset list "${IPSET_TABLE_NAME}" | grep -vF ':' | wc -l)
 	ready 'Количество записей' && when_ok "${output}"
 
-	if ipset list kvas_ipset | grep -qF "${IP_MYIP2}"; then
+	if ipset list "${IPSET_TABLE_NAME}" | grep -qF "${IP_MYIP2}"; then
 		output='есть'
 	else
 		output='нет'
 	fi
 	ready 'myip2.ru' && when_ok "${output}"
 
-	if ipset list kvas_ipset | grep -qF "${IP_IFCONFIG}"; then
+	if ipset list "${IPSET_TABLE_NAME}" | grep -qF "${IP_IFCONFIG}"; then
 		output='есть'
 	else
 		output='нет'
@@ -330,7 +330,7 @@ cmd_ipset() {
 
 	echo
 
-	local cached=$(ipset list kvas_ipset | grep -vF 'timeout 0' | grep -vF ':')
+	local cached=$(ipset list "${IPSET_TABLE_NAME}" | grep -vF 'timeout 0' | grep -vF ':')
 	local count=$(echo "${cached}" | wc -l)
 	if [ "$count" -gt 0 ]; then
 		# геморрой из-за неподдержки -k в sort
@@ -343,9 +343,9 @@ cmd_ipset() {
 		echo_debug "Для доменов ${count}, последние:" "${output}"
 	fi
 
-	count=$(ipset list kvas_ipset | grep -F 'timeout 0' | wc -l)
+	count=$(ipset list "${IPSET_TABLE_NAME}" | grep -F 'timeout 0' | wc -l)
 	if [ "$count" -gt 0 ]; then
-		output=$(ipset list kvas_ipset | grep -F 'timeout 0' | head -n 15 | cut -d' ' -f1)
+		output=$(ipset list "${IPSET_TABLE_NAME}" | grep -F 'timeout 0' | head -n 15 | cut -d' ' -f1)
 		echo_debug "IP ${count}, произвольные 15:" "${output}"
 	fi
 }
