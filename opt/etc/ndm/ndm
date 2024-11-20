@@ -1114,13 +1114,14 @@ ip4_rule_del_priority(){
 #
 # ------------------------------------------------------------------------------------------
 ip4__ipset__create() {
-	if ! ipset list ${IPSET_TABLE_NAME} 2>&1 | grep -q 'name does not exist' ; then
+	if ! ipset list "${IPSET_TABLE_NAME}" 2>&1 | grep -q 'name does not exist' ; then
 		return
 	fi
 
 	log_warning "IPset::Cоздаем таблицу с именем '${IPSET_TABLE_NAME}'."
+
 	ttl_timeout=$(get_config_value TTL_TIMEOUT)
-	ipset create ${IPSET_TABLE_NAME} hash:net family inet -exist timeout ${ttl_timeout} &>/dev/null \
+	ipset create "${IPSET_TABLE_NAME}" hash:net family inet -exist timeout "${ttl_timeout}" &>/dev/null \
 	 || {
 		_err="Ошибка при создании таблицы с именем '${IPSET_TABLE_NAME}' для ipset"
 		error "[${FUNCNAME}] ${_err}"
