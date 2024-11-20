@@ -115,7 +115,7 @@ cmd_vpn_iptable_reset() {
 			cmd_vpn_iptable_flush  #&> /dev/null
 
 	#		В качестве экперимента !!!!!
-			ip4__ipset__create #&> /dev/null
+			ip4__ipset__create "${IPSET_TABLE_NAME}" #&> /dev/null
 
 			ip4_add_route_table #&> /dev/null
 		#	Устанавливаем приоритет таблицы
@@ -1076,7 +1076,7 @@ ip4_rule_set_priority(){
 
 	if ! /opt/sbin/ip rule show | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID}"  ; then
 		log_warning "IPv4::Устанавливаем приоритет таблицы ID#${TABLE_ID} в значение ${PRIORITY}"
-		ip4__ipset__create
+		ip4__ipset__create "${IPSET_TABLE_NAME}"
 		if /opt/sbin/ip rule add fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID} priority ${PRIORITY} 2>&1 | grep -vq 'File exists'; then
 				error "[${FUNCNAME}] Ошибка при установке приоритета таблицы с ID#${TABLE_ID} в значение ${PRIORITY}."
 		fi
@@ -1110,20 +1110,26 @@ ip4_rule_del_priority(){
 
 # ------------------------------------------------------------------------------------------
 #
-# 	IPset::Cоздаем таблицу с именем '${IPSET_TABLE_NAME}'
+# 	IPset::Cоздаём набор IP
 #
 # ------------------------------------------------------------------------------------------
 ip4__ipset__create() {
-	if ! ipset list "${IPSET_TABLE_NAME}" 2>&1 | grep -q 'name does not exist' ; then
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — имя"
+		return
+	fi
+	local ipset_name=${1}
+
+	if ! ipset list "${ipset_name}" 2>&1 | grep -q 'name does not exist' ; then
 		return
 	fi
 
-	log_warning "Cоздаём набор IP ${IPSET_TABLE_NAME}"
+	log_warning "Cоздаём набор IP ${ipset_name}"
 
 	ttl_timeout=$(get_config_value TTL_TIMEOUT)
-	ipset create "${IPSET_TABLE_NAME}" hash:net family inet -exist timeout "${ttl_timeout}" &>/dev/null \
+	ipset create "${ipset_name}" hash:net family inet -exist timeout "${ttl_timeout}" &>/dev/null \
 	 || {
-		error "[${FUNCNAME}] Ошибка при создании набора IP ${IPSET_TABLE_NAME}"
+		error "[${FUNCNAME}] Ошибка при создании набора IP ${ipset_name}"
 	}
 }
 
@@ -1139,7 +1145,7 @@ recreate_ip4tables(){
 	ip4_flush_all_tables &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
 	ready "${prefix}Создаем все необходимые таблицы для утилит ipset и ip"
-	ip4__ipset__create &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+	ip4__ipset__create "${IPSET_TABLE_NAME}" &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
 #	ready "${prefix}Создаем таблицу маршрутизации ID#${TABLE_ID} для '$(inface_cli)'."
 #	#	Создаем таблицу IP адресов для  VPN подключения отличного от shadowsocks
