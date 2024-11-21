@@ -178,23 +178,6 @@ ip4_firewall_dns_rules_set() {
 # Подключаем Firewall правила, которые исключают из работы локальные запросы
 # ------------------------------------------------------------------------------------------
 
-ip4_firewall_exclude_locals() {
-	if [ -z "${1}" ] ; then
-		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
-		return
-	fi
-	table=${1}
-
-	if [ -z "${2}" ] ; then
-		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
-		return
-	fi
-	chain_name=${2}
-
-	ip4__ipset__fill_reserved
-	ip4tables "${chain_name}" -t "${table}" -m set --match-set "${IPSET_RESERVED}" dst -j RETURN
-}
-
 # Создаёт (если нет) цепочку для роутинга данных
 ip4__create_chain_for_data() {
 	if [ -z "${2}" ] ; then
@@ -216,6 +199,9 @@ ip4__create_chain_for_data() {
 	log_warning "Создание цепочки ${chain_name} в ${table} для перенаправления данных"
 
 	iptables -N "${chain_name}" -w -t "${table}"
+
+	ip4__ipset__fill_reserved
+	ip4tables "${chain_name}" -t "${table}" -m set --match-set "${IPSET_RESERVED}" dst -j RETURN
 }
 
 # ------------------------------------------------------------------------------------------
@@ -226,7 +212,6 @@ ip4_firewall_vpn_mark() {
 		log_warning "Маркируем VPN подключения, когда программное и аппаратное ускорение ПОДКЛЮЧЕНО"
 
 		ip4__create_chain_for_data "${VPN_TABLE}" ${VPN_IPTABLES_CHAIN}
-		ip4_firewall_exclude_locals "${VPN_TABLE}" ${VPN_IPTABLES_CHAIN} &>/dev/null
 
 		ip4tables ${VPN_IPTABLES_CHAIN} -t "${VPN_TABLE}" -j CONNMARK --restore-mark &>/dev/null
 		ip4tables ${VPN_IPTABLES_CHAIN} -t "${VPN_TABLE}" -m mark --mark ${MARK_NUM} -j RETURN &>/dev/null
