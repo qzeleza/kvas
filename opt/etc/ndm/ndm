@@ -513,18 +513,11 @@ ip4_mark_vpn_network(){
 #
 # ------------------------------------------------------------------------------------------
 ip4_firewall_set_ssr_rules(){
+	interface=$(get_local_inface)
+	proxy_port=$(get_config_value SSR_DNS_PORT)
 
-    interface=$(get_local_inface)
-    proxy_port=$(get_config_value SSR_DNS_PORT)
-
-
-	# Источник:
-	# https://github.com/shadowsocks/shadowsocks-libev/blob/master/doc/ss-redir.asciidoc?ysclid=l949tgrsfn795375643
+	# https://github.com/shadowsocks/shadowsocks-libev/blob/master/doc/ss-redir.asciidoc#example
 	# Создаем новую цепочку SHADOWSOCKS
-#	ssr_rules=$(ip4save | grep "${SSR_IPTABLES_CHAIN}" | grep -v '\[0:0\]')
-#	routing_rules=$(ip4save | grep PREROUTING | grep " ${interface} " | grep "${IPSET_TABLE_NAME}" | grep REDIRECT | grep "${proxy_port}")
-
-#	if [ -z "${ssr_rules}" ] || [ -z "${routing_rules}" ] ; then
 	{
 		log_warning "Подключаем правила для SHADOWSOCKS интерфейса ${interface} порт ${proxy_port}."
 
@@ -533,16 +526,15 @@ ip4_firewall_set_ssr_rules(){
 		# Игнорируем локальные сети и любые другие адреса, которые вы хотели бы обойти прокси
 		ip4_firewall_exclude_locals nat ${SSR_IPTABLES_CHAIN} &>/dev/null
 
-		ssr_ip=$(cat < /opt/etc/shadowsocks.json | grep 'server":' | tr -d '" ,' | cut -d':' -f2 )
 		# Исключаем любые обращения к собственному адресу SHADOWSOCKS
+		ssr_ip=$(cat < /opt/etc/shadowsocks.json | grep 'server":' | tr -d '" ,' | cut -d':' -f2 )
 		ip4tables ${SSR_IPTABLES_CHAIN} -t nat -d "${ssr_ip}" -j RETURN &>/dev/null
 
 		ip4tables PREROUTING -w -t nat -i "${interface}" -p tcp -m set --match-set "${IPSET_TABLE_NAME}" dst -j REDIRECT --to-port "${proxy_port}" &>/dev/null
 		ip4tables PREROUTING -w -t nat -i "${interface}" -p udp -m set --match-set "${IPSET_TABLE_NAME}" dst -j REDIRECT --to-port "${proxy_port}" &>/dev/null
-
 	} &>/dev/null || error "[${FUNCNAME}] Возникла ошибка при установке правил iptable для Shadowsocks подключения"
-#	fi
 }
+
 # ------------------------------------------------------------------------------------------
 #
 # 	Установка правил для любых типов подключений (SHADOWSOCKS или VPN)
