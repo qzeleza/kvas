@@ -1105,14 +1105,6 @@ ip4_rule_del_priority(){
 # 	IPset::Cоздаём набор IP
 #
 # ------------------------------------------------------------------------------------------
-ip4set_create_table() {
-	ip4__ipset__create_list
-}
-
-# Для списка защиты
-ip4__ipset__create_list() {
-	ip4__ipset__create "${IPSET_TABLE_NAME}" "$(get_config_value TTL_TIMEOUT)"
-}
 
 ip4__ipset__is_exist() {
 	if [ -z "${1}" ] ; then
@@ -1153,6 +1145,17 @@ ip4__ipset__create() {
 	}
 }
 
+# Для списка условной маршрутизации
+ip4__ipset__create_list() {
+	ip4__ipset__create "${IPSET_TABLE_NAME}" "$(get_config_value TTL_TIMEOUT)"
+}
+
+#TODO: сменить в других файлах обращение на новую обёртку
+ip4set_create_table() {
+	ip4__ipset__create_list
+}
+
+# Для постоянного списка исключаемых сетей
 ip4__ipset__fill_reserved() {
 	if ip4__ipset__is_exist "${IPSET_RESERVED}"; then
 		return
