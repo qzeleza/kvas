@@ -1117,9 +1117,19 @@ ip4set_create_table() {
 	ip4__ipset__create_list
 }
 
-# Для списка
+# Для списка защиты
 ip4__ipset__create_list() {
 	ip4__ipset__create "${IPSET_TABLE_NAME}" "$(get_config_value TTL_TIMEOUT)"
+}
+
+ip4__ipset__is_exist() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — имя"
+		return
+	fi
+	local ipset_name=${1}
+
+	! ipset list "${ipset_name}" 2>&1 | grep -q 'name does not exist'
 }
 
 ip4__ipset__create() {
@@ -1129,8 +1139,7 @@ ip4__ipset__create() {
 	fi
 	local ipset_name=${1}
 
-	if ! ipset list "${ipset_name}" 2>&1 | grep -q 'name does not exist' ; then
-		# если уже есть
+	if ip4__ipset__is_exist "${ipset_name}"; then
 		return
 	fi
 
