@@ -528,7 +528,7 @@ ip4_firewall_set_ssr_rules(){
 
 		# Исключаем любые обращения к собственному адресу SHADOWSOCKS
 		ssr_ip=$(cat < /opt/etc/shadowsocks.json | grep 'server":' | tr -d '" ,' | cut -d':' -f2 )
-		ip4tables ${PROXY_TCP_CHAIN} -t "${PROXY_TCP_TABLE}" -d "${ssr_ip}" -j RETURN &>/dev/null
+		ipset add "${IPSET_RESERVED}" "${ssr_ip}"
 
 		ip4tables PREROUTING -w -t "${PROXY_TCP_TABLE}" -i "${interface}" -p tcp -m set --match-set "${IPSET_TABLE_NAME}" dst -j REDIRECT --to-port "${proxy_port}" &>/dev/null
 		ip4tables PREROUTING -w -t "${PROXY_TCP_TABLE}" -i "${interface}" -p udp -m set --match-set "${IPSET_TABLE_NAME}" dst -j REDIRECT --to-port "${proxy_port}" &>/dev/null
