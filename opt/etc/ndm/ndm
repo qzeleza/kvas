@@ -1113,6 +1113,10 @@ ip4_rule_del_priority(){
 # 	IPset::Cоздаём набор IP
 #
 # ------------------------------------------------------------------------------------------
+ip4set_create_table() {
+	ip4__ipset__create "${IPSET_TABLE_NAME}"
+}
+
 ip4__ipset__create() {
 	if [ -z "${1}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — имя"
