@@ -32,8 +32,9 @@ DNS_CHAIN=KVAS_DNS
 VPN_IPTABLES_CHAIN=KVAS_VPN
 VPN_TABLE=mangle
 # Метка SHADOWSOCKS цепочки для правил iptables
-SSR_IPTABLES_CHAIN=SHADOWSOCKS
-SSR_IPTABLES_CHAIN_MARK=SHADOWSOCKS_UDP_MARK
+PROXY_TCP_CHAIN=KVAS_PROXY_TCP
+PROXY_UDP_CHAIN=KVAS_PROXY_UDP
+
 
 IPv4='IPv4::'
 IPv6='IPv6::'
@@ -521,11 +522,11 @@ ip4_firewall_set_ssr_rules(){
 	{
 		log_warning "Подключаем правила для SHADOWSOCKS интерфейса ${interface} порт ${proxy_port}."
 
-		ip4__create_chain_for_data nat ${SSR_IPTABLES_CHAIN}
+		ip4__create_chain_for_data nat ${PROXY_TCP_CHAIN}
 
 		# Исключаем любые обращения к собственному адресу SHADOWSOCKS
 		ssr_ip=$(cat < /opt/etc/shadowsocks.json | grep 'server":' | tr -d '" ,' | cut -d':' -f2 )
-		ip4tables ${SSR_IPTABLES_CHAIN} -t nat -d "${ssr_ip}" -j RETURN &>/dev/null
+		ip4tables ${PROXY_TCP_CHAIN} -t nat -d "${ssr_ip}" -j RETURN &>/dev/null
 
 		ip4tables PREROUTING -w -t nat -i "${interface}" -p tcp -m set --match-set "${IPSET_TABLE_NAME}" dst -j REDIRECT --to-port "${proxy_port}" &>/dev/null
 		ip4tables PREROUTING -w -t nat -i "${interface}" -p udp -m set --match-set "${IPSET_TABLE_NAME}" dst -j REDIRECT --to-port "${proxy_port}" &>/dev/null
@@ -668,8 +669,8 @@ ip4_firewall_nofastnet_vpn_prune(){
 # ------------------------------------------------------------------------------------------
 ip4_firewall_ssr_prune(){
 	{
-		ip4tbl_flush_rm_pre_out nat "${SSR_IPTABLES_CHAIN}" PREROUTING
-		ip4tbl_flush_rm_chain nat "${SSR_IPTABLES_CHAIN}"
+		ip4tbl_flush_rm_pre_out nat "${PROXY_TCP_CHAIN}" PREROUTING
+		ip4tbl_flush_rm_chain nat "${PROXY_TCP_CHAIN}"
 
 		interface=$(get_local_inface)
 		proxy_port=$(get_config_value SSR_DNS_PORT)
