@@ -233,7 +233,7 @@ cmd_debug_iptables() {
 	if has_ssr_enable; then
 		output=$(iptables-save | grep -F "${IPSET_TABLE_NAME}")
 	else
-		output=$(iptables-save | grep -F "${VPN_IPTABLES_CHAIN}" | grep -Fv :"${VPN_IPTABLES_CHAIN}")
+		output=$(iptables-save | grep -F "${VPN_FAST_CHAIN}" | grep -Fv :"${VPN_FAST_CHAIN}")
 	fi
 	echo_debug 'Роутинг подсетей' "${output}"
 

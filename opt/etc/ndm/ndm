@@ -29,7 +29,7 @@ IPSET_RESERVED=KVAS_RESERVED
 
 DNS_CHAIN=KVAS_DNS
 # Метка VPN цепочки для правил iptables
-VPN_IPTABLES_CHAIN=KVAS_VPN
+VPN_FAST_CHAIN=KVAS_VPN_FAST
 VPN_TABLE=mangle
 # Метка SHADOWSOCKS цепочки для правил iptables
 PROXY_TCP_CHAIN=KVAS_PROXY_TCP
@@ -214,15 +214,15 @@ ip4_firewall_vpn_mark() {
 	{
 		log_warning "Маркируем VPN подключения, когда программное и аппаратное ускорение ПОДКЛЮЧЕНО"
 
-		ip4__create_chain_for_data "${VPN_TABLE}" ${VPN_IPTABLES_CHAIN}
+		ip4__create_chain_for_data "${VPN_TABLE}" "${VPN_FAST_CHAIN}"
 
-		ip4tables ${VPN_IPTABLES_CHAIN} -t "${VPN_TABLE}" -j CONNMARK --restore-mark &>/dev/null
-		ip4tables ${VPN_IPTABLES_CHAIN} -t "${VPN_TABLE}" -m mark --mark ${MARK_NUM} -j RETURN &>/dev/null
-		ip4tables ${VPN_IPTABLES_CHAIN} -t "${VPN_TABLE}" --syn -j MARK --set-mark ${MARK_NUM} &>/dev/null
-		ip4tables ${VPN_IPTABLES_CHAIN} -t "${VPN_TABLE}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM} &>/dev/nullcd
-		ip4tables ${VPN_IPTABLES_CHAIN} -t "${VPN_TABLE}" -j CONNMARK --save-mark &>/dev/null
+		ip4tables "${VPN_FAST_CHAIN}" -t "${VPN_TABLE}" -j CONNMARK --restore-mark &>/dev/null
+		ip4tables "${VPN_FAST_CHAIN}" -t "${VPN_TABLE}" -m mark --mark ${MARK_NUM} -j RETURN &>/dev/null
+		ip4tables "${VPN_FAST_CHAIN}" -t "${VPN_TABLE}" --syn -j MARK --set-mark ${MARK_NUM} &>/dev/null
+		ip4tables "${VPN_FAST_CHAIN}" -t "${VPN_TABLE}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM} &>/dev/nullcd
+		ip4tables "${VPN_FAST_CHAIN}" -t "${VPN_TABLE}" -j CONNMARK --save-mark &>/dev/null
 
-		ip4tables PREROUTING -t "${VPN_TABLE}" -i "$(get_local_inface)" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_IPTABLES_CHAIN}" &>/dev/null
+		ip4tables PREROUTING -t "${VPN_TABLE}" -i "$(get_local_inface)" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_FAST_CHAIN}" &>/dev/null
 	} &>/dev/null || error "[${FUNCNAME}] Во время маркировки трафика для VPN соединений возникли ошибки."
 }
 
@@ -372,9 +372,9 @@ ip4_add_selected_guest_to_vpn_network() {
 	log_warning "Подключаем правила гостевого трафика ${submessage}${net_pool}) для VPN."
 	ip4__dns__add_routing "${iptables_filter}"
 	if fastnet_enabled ; then
-		if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_IPTABLES_CHAIN}" ; then
+		if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_FAST_CHAIN}" ; then
 			# без echo дублирование пробелов (что даёт warning и проблему наличия)
-			iptables -A PREROUTING -w -t "${VPN_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_IPTABLES_CHAIN}"
+			iptables -A PREROUTING -w -t "${VPN_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_FAST_CHAIN}"
 		fi
 	else
 		if [ -z "${net_pool}" ] ; then
@@ -640,9 +640,9 @@ ip4tbl_flush_rm_match_set(){
 # ------------------------------------------------------------------------------------------
 ip4_firewall_fastnet_vpn_prune(){
 	{
-		ip4tbl_flush_rm_match_set "${VPN_TABLE}" "${VPN_IPTABLES_CHAIN}" PREROUTING
-		ip4tbl_flush_rm_match_set "${VPN_TABLE}" "${VPN_IPTABLES_CHAIN}" OUTPUT
-		ip4tbl_flush_rm_chain "${VPN_TABLE}" "${VPN_IPTABLES_CHAIN}"
+		ip4tbl_flush_rm_match_set "${VPN_TABLE}" "${VPN_FAST_CHAIN}" PREROUTING
+		ip4tbl_flush_rm_match_set "${VPN_TABLE}" "${VPN_FAST_CHAIN}" OUTPUT
+		ip4tbl_flush_rm_chain "${VPN_TABLE}" "${VPN_FAST_CHAIN}"
 
 	} &>/dev/null
 #	2> "${ERROR_LOG_FILE}"
@@ -657,8 +657,8 @@ ip4_firewall_fastnet_vpn_prune(){
 # ------------------------------------------------------------------------------------------
 ip4_firewall_nofastnet_vpn_prune(){
 	{
-		ip4tbl_flush_rm_pre_out "${VPN_TABLE}" "${VPN_IPTABLES_CHAIN}" PREROUTING
-		ip4tbl_flush_rm_chain "${VPN_TABLE}" "${VPN_IPTABLES_CHAIN}"
+		ip4tbl_flush_rm_pre_out "${VPN_TABLE}" "${VPN_FAST_CHAIN}" PREROUTING
+		ip4tbl_flush_rm_chain "${VPN_TABLE}" "${VPN_FAST_CHAIN}"
 
 	} &>/dev/null
 #	2> "${ERROR_LOG_FILE}"
@@ -798,9 +798,9 @@ ip4_firewall_rm_vpn_selected_guest_net() {
 	log_warning "Отключаем правила гостевого трафика ${submessage}${net_pool}) для VPN."
 	ip4__dns__delete_routing "${iptables_filter}"
 	if fastnet_enabled ; then
-		if iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_IPTABLES_CHAIN}" ; then
+		if iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_FAST_CHAIN}" ; then
 			# без echo дублирование пробелов (что даёт warning и проблему наличия)
-			iptables -D PREROUTING -w -t "${VPN_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_IPTABLES_CHAIN}"
+			iptables -D PREROUTING -w -t "${VPN_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_FAST_CHAIN}"
 		fi
 	else
 		if [ -z "${net_pool}" ] ; then
