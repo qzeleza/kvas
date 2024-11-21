@@ -222,11 +222,11 @@ ip4__vpn_fast__create_chain() {
 
 		ip4__create_chain_for_data "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
 
-		ip4tables "${VPN_FAST_CHAIN}" -t "${VPN_FAST_TABLE}" -j CONNMARK --restore-mark &>/dev/null
-		ip4tables "${VPN_FAST_CHAIN}" -t "${VPN_FAST_TABLE}" -m mark --mark ${MARK_NUM} -j RETURN &>/dev/null
-		ip4tables "${VPN_FAST_CHAIN}" -t "${VPN_FAST_TABLE}" --syn -j MARK --set-mark ${MARK_NUM} &>/dev/null
-		ip4tables "${VPN_FAST_CHAIN}" -t "${VPN_FAST_TABLE}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM} &>/dev/nullcd
-		ip4tables "${VPN_FAST_CHAIN}" -t "${VPN_FAST_TABLE}" -j CONNMARK --save-mark &>/dev/null
+		ip4tables "${VPN_FAST_CHAIN}" -t "${VPN_FAST_TABLE}" -j CONNMARK --restore-mark
+		ip4tables "${VPN_FAST_CHAIN}" -t "${VPN_FAST_TABLE}" -m mark --mark ${MARK_NUM} -j RETURN
+		ip4tables "${VPN_FAST_CHAIN}" -t "${VPN_FAST_TABLE}" --syn -j MARK --set-mark ${MARK_NUM}
+		ip4tables "${VPN_FAST_CHAIN}" -t "${VPN_FAST_TABLE}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM}
+		ip4tables "${VPN_FAST_CHAIN}" -t "${VPN_FAST_TABLE}" -j CONNMARK --save-mark
 	} &>/dev/null || error "[${FUNCNAME}] Во время маркировки трафика для VPN соединений возникли ошибки."
 }
 
