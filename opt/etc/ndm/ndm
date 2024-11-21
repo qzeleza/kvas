@@ -28,12 +28,14 @@ DNS_PORT=9753
 IPSET_RESERVED=KVAS_RESERVED
 
 DNS_CHAIN=KVAS_DNS
-# Метка VPN цепочки для правил iptables
+
 VPN_FAST_CHAIN=KVAS_VPN_FAST
 VPN_FAST_TABLE=mangle
-# Метка SHADOWSOCKS цепочки для правил iptables
+#ToDo: переписать отключенное ускорение на цепочки
+
 PROXY_TCP_CHAIN=KVAS_PROXY_TCP
 PROXY_TCP_TABLE=nat
+#ToDo: использовать для UDP отдельную цепочку
 PROXY_UDP_CHAIN=KVAS_PROXY_UDP
 PROXY_UDP_TABLE=mangle
 
