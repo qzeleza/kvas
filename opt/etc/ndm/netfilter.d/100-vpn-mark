@@ -22,7 +22,6 @@
 #	Лицензия: Apache License 2.0
 # ------------------------------------------------------------------------------
 
-# IPv4
 if [ "${type}" = 'iptables' ] ; then
 	. /opt/apps/kvas/bin/libs/ndm
 
