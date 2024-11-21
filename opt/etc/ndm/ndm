@@ -218,8 +218,6 @@ ip4__create_chain_for_data() {
 # ------------------------------------------------------------------------------------------
 ip4__vpn_fast__create_chain() {
 	{
-		log_warning "Маркируем VPN подключения, когда программное и аппаратное ускорение ПОДКЛЮЧЕНО"
-
 		ip4__create_chain_for_data "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
 
 		ip4tables "${VPN_FAST_CHAIN}" -t "${VPN_FAST_TABLE}" -j CONNMARK --restore-mark
@@ -227,7 +225,7 @@ ip4__vpn_fast__create_chain() {
 		ip4tables "${VPN_FAST_CHAIN}" -t "${VPN_FAST_TABLE}" --syn -j MARK --set-mark ${MARK_NUM}
 		ip4tables "${VPN_FAST_CHAIN}" -t "${VPN_FAST_TABLE}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM}
 		ip4tables "${VPN_FAST_CHAIN}" -t "${VPN_FAST_TABLE}" -j CONNMARK --save-mark
-	} &>/dev/null || error "[${FUNCNAME}] Во время маркировки трафика для VPN соединений возникли ошибки."
+	} &>/dev/null || error "[${FUNCNAME}] Возникли ошибки во время маркировки трафика для VPN при включенном ускорении"
 }
 
 
