@@ -194,24 +194,6 @@ ip4_firewall_exclude_locals() {
 	ip4tables "${chain_name}" -t "${table}" -m set --match-set "${IPSET_RESERVED}" dst -j RETURN
 }
 
-ip4__ipset__fill_reserved() {
-	if ip4__ipset__is_exist "${IPSET_RESERVED}"; then
-		return
-	fi
-
-	ip4__ipset__create "${IPSET_RESERVED}"
-
-	while read -r _net || [ -n "${_net}" ]; do
-		# пропускаем строки с комментариями
-		[ ${_net:0:1} = '#' ] && continue
-		# удаляем из строк комментарии - все что встречается после символа # и сам символ
-		# удаляем пробелы
-		_net=$(echo "${_net}" | sed 's/#.*$//g' | tr -s ' ' )
-
-		ipset add "${IPSET_RESERVED}" "${_net}"
-	done < "${FILE_RESERVED}"
-}
-
 
 # ------------------------------------------------------------------------------------------
 # Маркируем VPN подключения, когда программное и аппаратное ускорение ПОДКЛЮЧЕНО
@@ -1171,6 +1153,23 @@ ip4__ipset__create() {
 	}
 }
 
+ip4__ipset__fill_reserved() {
+	if ip4__ipset__is_exist "${IPSET_RESERVED}"; then
+		return
+	fi
+
+	ip4__ipset__create "${IPSET_RESERVED}"
+
+	while read -r _net || [ -n "${_net}" ]; do
+		# пропускаем строки с комментариями
+		[ ${_net:0:1} = '#' ] && continue
+		# удаляем из строк комментарии - все что встречается после символа # и сам символ
+		# удаляем пробелы
+		_net=$(echo "${_net}" | sed 's/#.*$//g' | tr -s ' ' )
+
+		ipset add "${IPSET_RESERVED}" "${_net}"
+	done < "${FILE_RESERVED}"
+}
 
 # ------------------------------------------------------------------------------------------
 #
