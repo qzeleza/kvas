@@ -1142,7 +1142,7 @@ ip4__ipset__create() {
 
 	ipset create "${ipset_name}" hash:net family inet -exist$(echo "${subcomand}") &>/dev/null \
 	 || {
-		error "[${FUNCNAME}] Ошибка при создании набора IP ${ipset_name}"
+		error "[${FUNCNAME}] Ошибка при создании набора IP ${ipset_name}${submessage}"
 	}
 }
 
