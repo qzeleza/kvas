@@ -1119,7 +1119,7 @@ ip4set_create_table() {
 
 # Для списка
 ip4__ipset__create_list() {
-	ip4__ipset__create "${IPSET_TABLE_NAME}"
+	ip4__ipset__create "${IPSET_TABLE_NAME}" "$(get_config_value TTL_TIMEOUT)"
 }
 
 ip4__ipset__create() {
@@ -1130,11 +1130,12 @@ ip4__ipset__create() {
 	local ipset_name=${1}
 
 	if ! ipset list "${ipset_name}" 2>&1 | grep -q 'name does not exist' ; then
+		# если уже есть
 		return
 	fi
 
-	if [ "${ipset_name}" = "${IPSET_TABLE_NAME}" ] ; then
-		local ttl=$(get_config_value TTL_TIMEOUT)
+	if [ -n "${2}" ] ; then
+		local ttl="${2}"
 
 		local subcomand=" timeout ${ttl}"
 		local submessage=" с таймаутом ${ttl}"
