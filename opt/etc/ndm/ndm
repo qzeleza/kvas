@@ -209,7 +209,7 @@ ip4__ipset__fill_reserved() {
 		_net=$(echo "${_net}" | sed 's/#.*$//g' | tr -s ' ' )
 
 		ipset add "${IPSET_RESERVED}" "${_net}"
-	done < "${EXCLUDED_NET_FILE}"
+	done < "${FILE_RESERVED}"
 }
 
 
