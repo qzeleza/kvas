@@ -19,5 +19,5 @@
 if [ "${type}" = "iptables" ] && [ "${table}" = "nat" ] ; then
 	. /opt/apps/kvas/bin/libs/ndm
 
-	ip4_firewall_dns_rules_set &> /dev/null
+	ip4__dns__add_routing_for_home &> /dev/null
 fi
