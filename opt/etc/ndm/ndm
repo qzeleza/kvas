@@ -63,30 +63,30 @@ get_model() {
 }
 
 get_version() {
-  if [ -n "${1}" ]; then
-    local version_data="${1}"
-  else
-    local version_data=$(ndmc -c show version)
-  fi
+	if [ -n "${1}" ]; then
+		local version_data="${1}"
+	else
+		local version_data=$(ndmc -c show version)
+	fi
 
-  echo "${version_data}" | grep -F 'version' | grep -oE '[0-9][0-9\.]*[0-9]' | head -1
+	echo "${version_data}" | grep -F 'version' | grep -oE '[0-9][0-9\.]*[0-9]' | head -1
 }
 
 version_os() {
-  local versions_data=$(ndmc -c show version)
+	local versions_data=$(ndmc -c show version)
 
-  # пробуем использовать version только в блоке с ndw4
-  local version_ndw4=$(echo "${versions_data}" | grep -zoP '(?s)ndw4:.+?\n\n')
-  if [ -n "${version_ndw4}" ]; then
-    version_ndw4=$(get_version "${version_ndw4}")
-    if [ -n "${version_ndw4}" ]; then
-      echo "${version_ndw4}"
-      return
-    fi
-  fi
+	# пробуем использовать version только в блоке с ndw4
+	local version_ndw4=$(echo "${versions_data}" | grep -zoP '(?s)ndw4:.+?\n\n')
+	if [ -n "${version_ndw4}" ]; then
+		version_ndw4=$(get_version "${version_ndw4}")
+		if [ -n "${version_ndw4}" ]; then
+			echo "${version_ndw4}"
+			return
+		fi
+	fi
 
-  # иначе любой
-  echo $(get_version "${versions_data}")
+	# иначе любой
+	echo $(get_version "${versions_data}")
 }
 
 
