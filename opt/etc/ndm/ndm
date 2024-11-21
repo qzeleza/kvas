@@ -530,8 +530,11 @@ ip4_firewall_set_ssr_rules(){
 		ssr_ip=$(cat < /opt/etc/shadowsocks.json | grep 'server":' | tr -d '" ,' | cut -d':' -f2 )
 		ipset add "${IPSET_RESERVED}" "${ssr_ip}"
 
-		ip4tables PREROUTING -w -t "${PROXY_TCP_TABLE}" -i "${interface}" -p tcp -m set --match-set "${IPSET_TABLE_NAME}" dst -j REDIRECT --to-port "${proxy_port}" &>/dev/null
-		ip4tables PREROUTING -w -t "${PROXY_TCP_TABLE}" -i "${interface}" -p udp -m set --match-set "${IPSET_TABLE_NAME}" dst -j REDIRECT --to-port "${proxy_port}" &>/dev/null
+		for protocol in udp tcp ; do
+			iptables -A "${PROXY_TCP_CHAIN}" -w -t "${PROXY_TCP_TABLE}" -p "${protocol}" -j REDIRECT --to-port "${proxy_port}"
+		done
+
+		ip4tables PREROUTING -w -t "${PROXY_TCP_TABLE}" -i "${interface}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${PROXY_TCP_CHAIN}"
 	} &>/dev/null || error "[${FUNCNAME}] Возникла ошибка при установке правил iptable для Shadowsocks подключения"
 }
 
