@@ -33,6 +33,7 @@ if [ "${type}" = 'iptables' ] ; then
 	if [ "${table}" = 'mangle' ] ; then
 		if fastnet_enabled ; then
 			ip4__vpn_fast__create_chain &>/dev/null
+			ip4__vpn_fast__add_routing_for_home &>/dev/null
 		else
 			ip4_firewall_mark_rules_tcp_udp_on &>/dev/null
 		fi

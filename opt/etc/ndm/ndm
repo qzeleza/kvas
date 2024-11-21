@@ -178,6 +178,10 @@ ip4__dns__add_routing_for_home() {
 	ip4__dns__add_routing "-i $(get_local_inface)"
 }
 
+ip4__vpn_fast__add_routing_for_home() {
+	#ToDo: использовать обёртку
+	ip4tables PREROUTING -w -t "${VPN_FAST_TABLE}" -i "$(get_local_inface)" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_FAST_CHAIN}"
+}
 
 # ------------------------------------------------------------------------------------------
 # Подключаем Firewall правила, которые исключают из работы локальные запросы
@@ -223,8 +227,6 @@ ip4__vpn_fast__create_chain() {
 		ip4tables "${VPN_FAST_CHAIN}" -t "${VPN_FAST_TABLE}" --syn -j MARK --set-mark ${MARK_NUM} &>/dev/null
 		ip4tables "${VPN_FAST_CHAIN}" -t "${VPN_FAST_TABLE}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM} &>/dev/nullcd
 		ip4tables "${VPN_FAST_CHAIN}" -t "${VPN_FAST_TABLE}" -j CONNMARK --save-mark &>/dev/null
-
-		ip4tables PREROUTING -t "${VPN_FAST_TABLE}" -i "$(get_local_inface)" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_FAST_CHAIN}" &>/dev/null
 	} &>/dev/null || error "[${FUNCNAME}] Во время маркировки трафика для VPN соединений возникли ошибки."
 }
 
@@ -502,6 +504,7 @@ ip4_mark_vpn_network(){
 		#log_warning "${app}::Проверка пройдена -> программное и аппаратное ускорение ПОДКЛЮЧЕНО."
 		# Без отключения ускорителей fastnat и hwnat
 		ip4__vpn_fast__create_chain &>/dev/null
+		ip4__vpn_fast__add_routing_for_home &>/dev/null
 	else
 		#log_warning "${app}::Проверка пройдена -> программное и аппаратное ускорение ОТКЛЮЧЕНО!"
 		# С отключением fastnat и ускорителей hwnat
