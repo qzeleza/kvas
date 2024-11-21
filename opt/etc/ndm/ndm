@@ -25,8 +25,7 @@ PRIORITY=1778
 MARK_NUM=0xd1000
 DNS_PORT=9753
 
-
-
+IPSET_RESERVED=KVAS_RESERVED
 
 DNS_CHAIN=KVAS_DNS
 # Метка VPN цепочки для правил iptables
@@ -191,6 +190,17 @@ ip4_firewall_exclude_locals() {
 	fi
 	chain_name=${2}
 
+	ip4__ipset__fill_reserved
+	ip4tables "${chain_name}" -t "${table}" -m set --match-set "${IPSET_RESERVED}" dst -j RETURN
+}
+
+ip4__ipset__fill_reserved() {
+	if ip4__ipset__is_exist "${IPSET_RESERVED}"; then
+		return
+	fi
+
+	ip4__ipset__create "${IPSET_RESERVED}"
+
 	while read -r _net || [ -n "${_net}" ]; do
 		# пропускаем строки с комментариями
 		[ ${_net:0:1} = '#' ] && continue
@@ -198,7 +208,7 @@ ip4_firewall_exclude_locals() {
 		# удаляем пробелы
 		_net=$(echo "${_net}" | sed 's/#.*$//g' | tr -s ' ' )
 
-		ip4tables "${chain_name}" -t "${table}" -d "${_net}" -j RETURN &>/dev/null
+		ipset add "${IPSET_RESERVED}" "${_net}"
 	done < "${EXCLUDED_NET_FILE}"
 }
 
