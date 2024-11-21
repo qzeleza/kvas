@@ -521,10 +521,7 @@ ip4_firewall_set_ssr_rules(){
 	{
 		log_warning "Подключаем правила для SHADOWSOCKS интерфейса ${interface} порт ${proxy_port}."
 
-		iptab -S ${SSR_IPTABLES_CHAIN} -t nat 2>/dev/null | grep -q '\-N' || iptab -N ${SSR_IPTABLES_CHAIN} -t nat &>/dev/null
-
-		# Игнорируем локальные сети и любые другие адреса, которые вы хотели бы обойти прокси
-		ip4_firewall_exclude_locals nat ${SSR_IPTABLES_CHAIN} &>/dev/null
+		ip4__create_chain_for_data nat ${SSR_IPTABLES_CHAIN}
 
 		# Исключаем любые обращения к собственному адресу SHADOWSOCKS
 		ssr_ip=$(cat < /opt/etc/shadowsocks.json | grep 'server":' | tr -d '" ,' | cut -d':' -f2 )
