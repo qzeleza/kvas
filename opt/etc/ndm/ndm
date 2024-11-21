@@ -524,7 +524,7 @@ ip4_firewall_set_ssr_rules(){
 	{
 		log_warning "Подключаем правила для SHADOWSOCKS интерфейса ${interface} порт ${proxy_port}."
 
-		ip4__create_chain_for_data "${PROXY_TCP_TABLE}" ${PROXY_TCP_CHAIN}
+		ip4__create_chain_for_data "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}"
 
 		# Исключаем любые обращения к собственному адресу SHADOWSOCKS
 		ssr_ip=$(cat < /opt/etc/shadowsocks.json | grep 'server":' | tr -d '" ,' | cut -d':' -f2 )
