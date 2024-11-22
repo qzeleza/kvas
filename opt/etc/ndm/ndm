@@ -468,12 +468,6 @@ ip4_add_selected_guest_to_vpn_network() {
 	fi
 }
 
-
-# ------------------------------------------------------------------------------------------
-#
-# 	Правила маркировки гостевого трафика
-#
-# ------------------------------------------------------------------------------------------
 ip4_add_selected_guest_to_ssr_network() {
 	local net_interface="${1}"
 	local net_pool=${2}
@@ -527,18 +521,11 @@ ip4_add_selected_guest_to_ssr_network() {
 	done
 }
 
-
-
-set_selected_guest_nets_rules(){
-
-	guest_inface="${1}"
-	if has_ssr_enable; then
-		ip4_add_selected_guest_to_ssr_network "${guest_inface}"
-	else
-		ip4_add_selected_guest_to_vpn_network "${guest_inface}"
-	fi
-
-}
+# ------------------------------------------------------------------------------------------
+#
+# Общие обёртки, добавляющие что-то
+#
+# ------------------------------------------------------------------------------------------
 
 ip4_add_guest_to_ssr_network(){
 	for guest_inface in $(get_guest_inface_list_from_config); do
@@ -546,52 +533,31 @@ ip4_add_guest_to_ssr_network(){
 	done
 }
 
-ip4_add_guest_to_vpn_network() {
+ip4_add_guest_to_vpn_network(){
 	for guest_inface in $(get_guest_inface_list_from_config); do
 		ip4_add_selected_guest_to_vpn_network "${guest_inface}"
 	done
 }
 
-
-# ------------------------------------------------------------------------------------------
-#
-# 	Установка правил для VPN подключений в зависимости от флагов
-#
-# ------------------------------------------------------------------------------------------
 ip4_mark_vpn_network(){
 	if fastnet_enabled ; then
-		# Без отключения ускорителей fastnat и hwnat
 		ip4__vpn_fast__create_chain &>/dev/null
 		ip4__vpn_fast__add_routing_for_home &>/dev/null
 	else
-		# С отключением fastnat и ускорителей hwnat
 		ip4_firewall_mark_rules_tcp_udp_on &>/dev/null
 	fi
 
-	# в случае наличия гостевой сети
 	ip4_add_guest_to_vpn_network &>/dev/null
 }
 
-
-# ------------------------------------------------------------------------------------------
-#
-# 	Установка правил для любых типов подключений (SHADOWSOCKS или VPN)
-#
-# ------------------------------------------------------------------------------------------
 ip4_firewall_set_all_rules(){
-
-#   Если активно VPN соединение
 	if has_ssr_enable; then
-#		Если активно SHADOWSOCKS соединение
 		ip4__proxy__create_chain &>/dev/null
 		ip4__proxy__add_routing_for_home &> /dev/null
 	else
 		ip4_mark_vpn_network &>/dev/null
 	fi
-
 }
-
-
 
 
 # ------------------------------------------------------------------------------------------
