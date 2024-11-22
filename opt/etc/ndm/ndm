@@ -144,22 +144,6 @@ cmd_vpn_iptable_flush() {
 }
 
 
-del_all_net_from_config(){
-        sed -i 's/\(INFACE_GUEST_ENT=\).*/\1/; s/[ ,]//g' "${KVAS_CONF_FILE}"
-}
-
-del_ikev2_net_from_config(){
-		has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;'| sed 's/[ ,]//g')
-        [ -n "${has_guest_nets}" ] && point=',' || point=''
-        sed -i '/INFACE_GUEST_ENT=/,/^$/ s/ikev2[,]\{0,1\}//; s/[ ]//g' "${KVAS_CONF_FILE}"
-}
-add_ikev2_net_to_config(){
-        has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;'| sed 's/[ ]//g')
-        [ -n "${has_guest_nets}" ] && point=',' || point=''
-        del_ikev2_net_from_config
-        sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}ikev2/g; s/[ ]//g" "${KVAS_CONF_FILE}"
-}
-
 # ------------------------------------------------------------------------------------------
 # Производим очистку кэша маршрутизации
 # ------------------------------------------------------------------------------------------
@@ -270,6 +254,7 @@ ip4_firewall_mark_rules_tcp_udp_on(){
 # 	Правила маркировки гостевого трафика
 #
 # ------------------------------------------------------------------------------------------
+
 get_guest_net(){
 	# ip addr show "${1}" | grep global | sed 's/^.*inet \(.*\).*/\1/' | cut -d' ' -f1
 	/opt/sbin/ip addr show "${1}" | grep global | sed 's|^.*inet \([0-9\.\/]*\).*|\1|' | sed 's|[0-9]*\/|0\/|'
@@ -727,6 +712,23 @@ ikev2_setup() {
 		 "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2" &> /dev/null
 		sleep 1
 	fi
+}
+
+del_all_net_from_config(){
+        sed -i 's/\(INFACE_GUEST_ENT=\).*/\1/; s/[ ,]//g' "${KVAS_CONF_FILE}"
+}
+
+del_ikev2_net_from_config(){
+		has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;'| sed 's/[ ,]//g')
+        [ -n "${has_guest_nets}" ] && point=',' || point=''
+        sed -i '/INFACE_GUEST_ENT=/,/^$/ s/ikev2[,]\{0,1\}//; s/[ ]//g' "${KVAS_CONF_FILE}"
+}
+
+add_ikev2_net_to_config(){
+        has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;'| sed 's/[ ]//g')
+        [ -n "${has_guest_nets}" ] && point=',' || point=''
+        del_ikev2_net_from_config
+        sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}ikev2/g; s/[ ]//g" "${KVAS_CONF_FILE}"
 }
 
 ikev2_net_access_add() {
