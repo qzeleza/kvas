@@ -296,22 +296,9 @@ ip4__vpn_fast__add_routing_for_home() {
 
 # ------------------------------------------------------------------------------------------
 #
-# 	Правила маркировки гостевого трафика
+# Подключение и отключение перехвата DNS
 #
 # ------------------------------------------------------------------------------------------
-
-get_guest_net(){
-	# ip addr show "${1}" | grep global | sed 's/^.*inet \(.*\).*/\1/' | cut -d' ' -f1
-	/opt/sbin/ip addr show "${1}" | grep global | sed 's|^.*inet \([0-9\.\/]*\).*|\1|' | sed 's|[0-9]*\/|0\/|'
-}
-
-# Получение маски локальной подсети клиентов IKEv2
-#Example: 192.168.3.0/24
-get_ikev2_net_pool() {
-	ikev2_settings=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
-	pool_start=$(echo "${ikev2_settings}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-	echo "${pool_start}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/'
-}
 
 # Создаёт (если нет) цепочку в nat для DNS редиректа
 ip4__dns__create_chain() {
@@ -388,6 +375,25 @@ ip4__dns__add_routing() {
 	ip4__dns__create_chain
 	# без echo дублирование пробелов (что даёт warning и проблему наличия)
 	iptables -I PREROUTING "${rulenum}" -w -t nat$(echo "${iptables_filter}") -j "${DNS_CHAIN}"
+}
+
+# ------------------------------------------------------------------------------------------
+#
+# Подключение и отключение других сетей
+#
+# ------------------------------------------------------------------------------------------
+
+get_guest_net() {
+	# ip addr show "${1}" | grep global | sed 's/^.*inet \(.*\).*/\1/' | cut -d' ' -f1
+	/opt/sbin/ip addr show "${1}" | grep global | sed 's|^.*inet \([0-9\.\/]*\).*|\1|' | sed 's|[0-9]*\/|0\/|'
+}
+
+# Получение маски локальной подсети клиентов IKEv2
+#Example: 192.168.3.0/24
+get_ikev2_net_pool() {
+	ikev2_settings=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
+	pool_start=$(echo "${ikev2_settings}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+	echo "${pool_start}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/'
 }
 
 ip4_add_selected_guest_to_vpn_network() {
