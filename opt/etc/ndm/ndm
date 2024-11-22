@@ -528,7 +528,7 @@ ip4_mark_vpn_network(){
 
 #ToDo: использовать для UDP отдельную цепочку
 # https://github.com/shadowsocks/shadowsocks-libev/blob/master/doc/ss-redir.asciidoc#example
-ip4_firewall_set_ssr_rules(){
+ip4__proxy__create_chain() {
 	{
 		if ip4__ipset__is_exist "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}" ; then
 			return
@@ -557,7 +557,7 @@ ip4_firewall_set_all_rules(){
 #   Если активно VPN соединение
 	if has_ssr_enable; then
 #		Если активно SHADOWSOCKS соединение
-		ip4_firewall_set_ssr_rules &>/dev/null
+		ip4__proxy__create_chain &>/dev/null
 		ip4__proxy__add_routing_for_home &> /dev/null
 	else
 		ip4_mark_vpn_network &>/dev/null
@@ -1265,7 +1265,7 @@ recreate_ssr_rules(){
 	ip4_firewall_ssr_prune &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
 	ready "${prefix}Создаём цепочку для ShadowSocks соединения."
-	ip4_firewall_set_ssr_rules &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+	ip4__proxy__create_chain &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
 	ready "${prefix}Создаём правила домашней сети для ShadowSocks."
 	ip4__proxy__add_routing_for_home &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"

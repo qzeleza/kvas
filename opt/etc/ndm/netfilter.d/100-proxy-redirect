@@ -27,7 +27,7 @@ if [ "${type}" = "iptables" ] && echo "${table}" | grep -qE 'nat|mangle' ; then
 	   ! ip4save | grep PREROUTING | grep "${interface}" | grep "${IPSET_TABLE_NAME}" | grep REDIRECT | grep -q "${proxy_port}" ; then
 		ip4_firewall_ssr_prune &> /dev/null
 
-		ip4_firewall_set_ssr_rules &> /dev/null
+		ip4__proxy__create_chain &>/dev/null
 		ip4__proxy__add_routing_for_home &> /dev/null
 
 		ip4_add_guest_to_ssr_network &> /dev/null
