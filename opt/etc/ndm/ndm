@@ -707,17 +707,6 @@ ip4_firewall_ssr_prune(){
 #
 # ------------------------------------------------------------------------------------------
 
-ikev2_net_access_del() {
-	ready "Удаление интерфейса \"VPN-сервер IKEv2\" завершено" && {
-		if has_ssr_enable ; then
-			ip4_firewall_rm_ssr_selected_guest_net 'ikev2'
-		else
-			ip4_firewall_rm_vpn_selected_guest_net 'ikev2'
-		fi
-	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
-}
-
-
 ikev2_setup() {
 	ikev2_data="${1}"
 	enable=${2:-true}
@@ -756,6 +745,16 @@ ikev2_net_access_add() {
 
 		# сохранение в конфигурацию КВАС
 		add_ikev2_net_to_config
+	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+}
+
+ikev2_net_access_del() {
+	ready "Удаление интерфейса \"VPN-сервер IKEv2\" завершено" && {
+		if has_ssr_enable ; then
+			ip4_firewall_rm_ssr_selected_guest_net 'ikev2'
+		else
+			ip4_firewall_rm_vpn_selected_guest_net 'ikev2'
+		fi
 	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 }
 
