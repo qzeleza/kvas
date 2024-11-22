@@ -410,12 +410,6 @@ ip4_add_selected_guest_to_vpn_network() {
 }
 
 
-ip4_add_guest_to_vpn_network() {
-	for guest_inface in $(get_guest_inface_list_from_config); do
-		ip4_add_selected_guest_to_vpn_network "${guest_inface}"
-	done
-}
-
 # ------------------------------------------------------------------------------------------
 #
 # 	Правила маркировки гостевого трафика
@@ -474,11 +468,7 @@ ip4_add_selected_guest_to_ssr_network() {
 	done
 }
 
-ip4_add_guest_to_ssr_network(){
-	for guest_inface in $(get_guest_inface_list_from_config); do
-		ip4_add_selected_guest_to_ssr_network "${guest_inface}"
-	done
-}
+
 
 set_selected_guest_nets_rules(){
 
@@ -489,6 +479,18 @@ set_selected_guest_nets_rules(){
 		ip4_add_selected_guest_to_vpn_network "${guest_inface}"
 	fi
 
+}
+
+ip4_add_guest_to_ssr_network(){
+	for guest_inface in $(get_guest_inface_list_from_config); do
+		ip4_add_selected_guest_to_ssr_network "${guest_inface}"
+	done
+}
+
+ip4_add_guest_to_vpn_network() {
+	for guest_inface in $(get_guest_inface_list_from_config); do
+		ip4_add_selected_guest_to_vpn_network "${guest_inface}"
+	done
 }
 
 set_guest_nets_rules() {
@@ -504,26 +506,22 @@ set_guest_nets_rules() {
 }
 
 
-
 # ------------------------------------------------------------------------------------------
 #
 # 	Установка правил для VPN подключений в зависимости от флагов
 #
 # ------------------------------------------------------------------------------------------
 ip4_mark_vpn_network(){
-
 	if fastnet_enabled ; then
-		#log_warning "${app}::Проверка пройдена -> программное и аппаратное ускорение ПОДКЛЮЧЕНО."
 		# Без отключения ускорителей fastnat и hwnat
 		ip4__vpn_fast__create_chain &>/dev/null
 		ip4__vpn_fast__add_routing_for_home &>/dev/null
 	else
-		#log_warning "${app}::Проверка пройдена -> программное и аппаратное ускорение ОТКЛЮЧЕНО!"
 		# С отключением fastnat и ускорителей hwnat
 		ip4_firewall_mark_rules_tcp_udp_on &>/dev/null
 	fi
 
-#	в случае наличия гостевой сети
+	# в случае наличия гостевой сети
 	set_guest_nets_rules &>/dev/null
 }
 
