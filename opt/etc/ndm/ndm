@@ -544,8 +544,6 @@ ip4_firewall_set_ssr_rules(){
 		for protocol in udp tcp ; do
 			iptables -A "${PROXY_TCP_CHAIN}" -t "${PROXY_TCP_TABLE}" -p "${protocol}" -j REDIRECT --to-port "${proxy_port}"
 		done
-
-		ip4__proxy__add_routing_for_home
 	} &>/dev/null || error "[${FUNCNAME}] Возникли ошибки при установке правил трафика для прокси"
 }
 
@@ -560,6 +558,7 @@ ip4_firewall_set_all_rules(){
 	if has_ssr_enable; then
 #		Если активно SHADOWSOCKS соединение
 		ip4_firewall_set_ssr_rules &>/dev/null
+		ip4__proxy__add_routing_for_home &> /dev/null
 	else
 		ip4_mark_vpn_network &>/dev/null
 	fi
@@ -1262,12 +1261,14 @@ recreate_vpn_rules(){
 #
 # ------------------------------------------------------------------------------------------
 recreate_ssr_rules(){
-	ready "${prefix}Очищаем все ранее созданные iptables правила для SHADOWSOCKS"
-#		Если активно SHADOWSOCKS соединение
+	ready "${prefix}Очищаем все ранее созданные iptables правила для ShadowSocks."
 	ip4_firewall_ssr_prune &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
-	ready "${prefix}Создаем iptables правила для SHADOWSOCKS соединения."
+	ready "${prefix}Создаём цепочку для ShadowSocks соединения."
 	ip4_firewall_set_ssr_rules &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+
+	ready "${prefix}Создаём правила домашней сети для ShadowSocks."
+	ip4__proxy__add_routing_for_home &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 }
 
 # ------------------------------------------------------------------------------------------
