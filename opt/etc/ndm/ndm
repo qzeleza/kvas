@@ -108,6 +108,81 @@ fastnet_enabled()(fast_hw_enabled || fast_sw_enabled)
 
 # ------------------------------------------------------------------------------------------
 #
+# Функции для работы с IPSet
+# Пока что все помечены как ip4, по мере адаптации префикс удалять
+#
+# ------------------------------------------------------------------------------------------
+
+ip4__ipset__is_exist() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — имя"
+		return
+	fi
+	local ipset_name=${1}
+
+	! ipset list "${ipset_name}" 2>&1 | grep -q 'name does not exist'
+}
+
+ip4__ipset__create() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — имя"
+		return
+	fi
+	local ipset_name=${1}
+
+	if ip4__ipset__is_exist "${ipset_name}"; then
+		return
+	fi
+
+	if [ -n "${2}" ] ; then
+		local ttl="${2}"
+
+		local subcomand=" timeout ${ttl}"
+		local submessage=" с таймаутом ${ttl}"
+	else
+		local subcomand=''
+		local submessage=''
+	fi
+
+	log_warning "Cоздаём набор IP ${ipset_name}${submessage}"
+
+	ipset create "${ipset_name}" hash:net family inet -exist$(echo "${subcomand}") &>/dev/null \
+	 || {
+		error "[${FUNCNAME}] Ошибка при создании набора IP ${ipset_name}${submessage}"
+	}
+}
+
+# Для списка условной маршрутизации
+ip4__ipset__create_list() {
+	ip4__ipset__create "${IPSET_TABLE_NAME}" "$(get_config_value TTL_TIMEOUT)"
+}
+
+#TODO: сменить в других файлах обращение на новую обёртку
+ip4set_create_table() {
+	ip4__ipset__create_list
+}
+
+# Для постоянного списка исключаемых сетей
+ip4__ipset__fill_reserved() {
+	if ip4__ipset__is_exist "${IPSET_RESERVED}"; then
+		return
+	fi
+
+	ip4__ipset__create "${IPSET_RESERVED}"
+
+	while read -r ip_or_range || [ -n "${ip_or_range}" ]; do
+		# пропускаем строки с комментариями
+		[ ${ip_or_range:0:1} = '#' ] && continue
+		# удаляем из строк комментарии - все что встречается после символа # и сам символ
+		# удаляем пробелы
+		ip_or_range=$(echo "${ip_or_range}" | sed 's/#.*$//g' | tr -s ' ' )
+
+		ipset -exist add "${IPSET_RESERVED}" "${ip_or_range}"
+	done < "${FILE_RESERVED}"
+}
+
+# ------------------------------------------------------------------------------------------
+#
 # Общие обёртки для цепочек
 #
 # ------------------------------------------------------------------------------------------
@@ -1098,81 +1173,6 @@ ip4_rule_del_priority(){
 	ip4_flush_cache &>/dev/null
 }
 
-
-# ------------------------------------------------------------------------------------------
-#
-# Функции для работы с IPSet
-# Пока что все помечены как ip4, по мере адаптации префикс удалять
-#
-# ------------------------------------------------------------------------------------------
-
-ip4__ipset__is_exist() {
-	if [ -z "${1}" ] ; then
-		error "[${FUNCNAME}] Не задан обязательный аргумент — имя"
-		return
-	fi
-	local ipset_name=${1}
-
-	! ipset list "${ipset_name}" 2>&1 | grep -q 'name does not exist'
-}
-
-ip4__ipset__create() {
-	if [ -z "${1}" ] ; then
-		error "[${FUNCNAME}] Не задан обязательный аргумент — имя"
-		return
-	fi
-	local ipset_name=${1}
-
-	if ip4__ipset__is_exist "${ipset_name}"; then
-		return
-	fi
-
-	if [ -n "${2}" ] ; then
-		local ttl="${2}"
-
-		local subcomand=" timeout ${ttl}"
-		local submessage=" с таймаутом ${ttl}"
-	else
-		local subcomand=''
-		local submessage=''
-	fi
-
-	log_warning "Cоздаём набор IP ${ipset_name}${submessage}"
-
-	ipset create "${ipset_name}" hash:net family inet -exist$(echo "${subcomand}") &>/dev/null \
-	 || {
-		error "[${FUNCNAME}] Ошибка при создании набора IP ${ipset_name}${submessage}"
-	}
-}
-
-# Для списка условной маршрутизации
-ip4__ipset__create_list() {
-	ip4__ipset__create "${IPSET_TABLE_NAME}" "$(get_config_value TTL_TIMEOUT)"
-}
-
-#TODO: сменить в других файлах обращение на новую обёртку
-ip4set_create_table() {
-	ip4__ipset__create_list
-}
-
-# Для постоянного списка исключаемых сетей
-ip4__ipset__fill_reserved() {
-	if ip4__ipset__is_exist "${IPSET_RESERVED}"; then
-		return
-	fi
-
-	ip4__ipset__create "${IPSET_RESERVED}"
-
-	while read -r ip_or_range || [ -n "${ip_or_range}" ]; do
-		# пропускаем строки с комментариями
-		[ ${ip_or_range:0:1} = '#' ] && continue
-		# удаляем из строк комментарии - все что встречается после символа # и сам символ
-		# удаляем пробелы
-		ip_or_range=$(echo "${ip_or_range}" | sed 's/#.*$//g' | tr -s ' ' )
-
-		ipset -exist add "${IPSET_RESERVED}" "${ip_or_range}"
-	done < "${FILE_RESERVED}"
-}
 
 # ------------------------------------------------------------------------------------------
 #
