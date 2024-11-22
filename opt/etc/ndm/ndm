@@ -199,7 +199,7 @@ ip4__chain__is_exist() {
 }
 
 # Создаёт (если нет) цепочку для роутинга данных
-ip4__create_chain_for_data() {
+ip4__chain__create_for_data() {
 	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
 		return
@@ -233,7 +233,7 @@ ip4__vpn_fast__create_chain() {
 			return
 		fi
 
-		ip4__create_chain_for_data "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
+		ip4__chain__create_for_data "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
 
 		ip4tables "${VPN_FAST_CHAIN}" -t "${VPN_FAST_TABLE}" -j CONNMARK --restore-mark
 		ip4tables "${VPN_FAST_CHAIN}" -t "${VPN_FAST_TABLE}" -m mark --mark ${MARK_NUM} -j RETURN
@@ -542,7 +542,7 @@ ip4_firewall_set_ssr_rules(){
 	{
 		log_warning "Подключаем правила для SHADOWSOCKS интерфейса ${interface} порт ${proxy_port}."
 
-		ip4__create_chain_for_data "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}"
+		ip4__chain__create_for_data "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}"
 
 		# Исключаем любые обращения к собственному адресу SHADOWSOCKS
 		ssr_ip=$(cat < /opt/etc/shadowsocks.json | grep 'server":' | tr -d '" ,' | cut -d':' -f2 )
