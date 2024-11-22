@@ -25,9 +25,6 @@
 if [ "${type}" = 'iptables' ] ; then
 	. /opt/apps/kvas/bin/libs/ndm
 
-	# использует только команды ipset
-	ip4set_create_table &> /dev/null
-
 	# обе функции используют только mangle
 	# кроме маркировки включают обход br0
 	if [ "${table}" = 'mangle' ] ; then
