@@ -775,22 +775,15 @@ ikev2_net_access_del() {
 # ------------------------------------------------------------------------------------------
 cmd_vpn_iptable_reset() {
 	if [ -f /opt/etc/ndm/fs.d/100-vpn ] ; then
-		
 		ready "Переустановка iptables для vpn завершена"
 		{
 			cmd_vpn_iptable_flush  #&> /dev/null
 
-	#		В качестве экперимента !!!!!
-			ip4__ipset__create_list #&> /dev/null
-
 			ip4_add_route_table #&> /dev/null
-		#	Устанавливаем приоритет таблицы
 			ip4_rule_set_priority #&> /dev/null
-		#	Создаем правила iptables
-			ip4_mark_vpn_network #&> /dev/null
 
+			ip4_mark_vpn_network #&> /dev/null
 		} &> /dev/null && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
-		
 	else
 		warning "VPN соединение не активно!"
 	fi
