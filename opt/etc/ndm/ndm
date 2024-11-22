@@ -688,6 +688,14 @@ ip4_firewall_set_all_rules(){
 
 # ------------------------------------------------------------------------------------------
 #
+# Общие обёртки, удаляющие что-то
+#
+# ------------------------------------------------------------------------------------------
+
+
+
+# ------------------------------------------------------------------------------------------
+#
 # Блок функций IKEv2
 #
 # ------------------------------------------------------------------------------------------
@@ -759,7 +767,6 @@ ikev2_net_access_del() {
 		fi
 	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 }
-
 
 # ------------------------------------------------------------------------------------------
 #
@@ -931,13 +938,6 @@ ip4_firewall_ssr_prune(){
 	} &>/dev/null
 }
 
-# ------------------------------------------------------------------------------------------
-#
-# Удаляем все правила iptables для VPN подключений,
-# которые были добавлены при работе пакета в старой редакции
-#
-# ------------------------------------------------------------------------------------------
-
 # для всех гостевых интерфейсов
 ip4_firewall_flush_vpn_guest_rules(){
 	for guest_inface in $(get_guest_inface_list_from_config)
@@ -945,16 +945,6 @@ ip4_firewall_flush_vpn_guest_rules(){
 		ip4_firewall_rm_vpn_selected_guest_net "${guest_inface}" &>/dev/null
 	done
 }
-
-# ------------------------------------------------------------------------------------------
-#
-# Удаляем все правила iptables для SHADOWSOCKS подключений,
-# которые были добавлены при работе пакета в старой редакции
-#
-# ------------------------------------------------------------------------------------------
-# для одного гостевого интерфейса
-
-
 
 # для всех гостевых интерфейсов
 ip4_firewall_flush_ssr_guest_rules(){
@@ -964,71 +954,38 @@ ip4_firewall_flush_ssr_guest_rules(){
 	done
 }
 
-
-# ------------------------------------------------------------------------------------------
-#
-# 	Удаляем все правила iptables которые были добавлены при работе пакета
-#
-# ------------------------------------------------------------------------------------------
 # для одного гостевого интерфейса
 ip4_firewall_rm_selected_guest_net(){
 	guest_inface="${1}"
 	if fastnet_enabled ; then
-#		Если программное и аппаратное ускорение ПОДКЛЮЧЕНО
 		ip4_firewall_fastnet_vpn_prune &>/dev/null
 	else
-#		Если программное и аппаратное ускорение ОТКЛЮЧЕНО
 		ip4_firewall_nofastnet_vpn_prune &>/dev/null
 	fi
 
-	for guest_inface in $(get_guest_inface_list_from_config)
-	do
-		if has_ssr_enable; then
-			ip4_firewall_rm_ssr_selected_guest_net "${guest_inface}"  &>/dev/null;
-		else
-			ip4_firewall_rm_vpn_selected_guest_net "${guest_inface}"  &>/dev/null;
-		fi
+	for guest_inface in $(get_guest_inface_list_from_config); do
+		ip4_firewall_rm_vpn_selected_guest_net "${guest_inface}" &>/dev/null;
 	done
-
-
 }
 
 # для всех гостевых интерфейсов
 ip4_firewall_flush_vpn_rules() {
-
 	if fastnet_enabled ; then
-#		Если программное и аппаратное ускорение ПОДКЛЮЧЕНО
 		ip4_firewall_fastnet_vpn_prune &>/dev/null
 	else
-#		Если программное и аппаратное ускорение ОТКЛЮЧЕНО
 		ip4_firewall_nofastnet_vpn_prune &>/dev/null
 	fi
 
-	for guest_inface in $(get_guest_inface_list_from_config)
-	do
-		if has_ssr_enable; then
-			ip4_firewall_flush_ssr_guest_rules &>/dev/null;
-		else
-			ip4_firewall_flush_vpn_guest_rules &>/dev/null;
-		fi
-	done
+	ip4_firewall_flush_vpn_guest_rules &>/dev/null
 }
-# ------------------------------------------------------------------------------------------
-#
-# 	Удаляем все правила iptables которые были добавлены при работе пакета
-#
-# ------------------------------------------------------------------------------------------
+
+# Удаляем все правила iptables которые были добавлены при работе пакета
 ip4_firewall_flush_all_rules(){
-
-#   Если активно VPN соединение
 	if has_ssr_enable; then
-#		Если активно SHADOWSOCKS соединение
 		ip4_firewall_ssr_prune &>/dev/null
-
 	else
 		ip4_firewall_flush_vpn_rules &>/dev/null
 	fi
-
 }
 
 # ------------------------------------------------------------------------------------------
