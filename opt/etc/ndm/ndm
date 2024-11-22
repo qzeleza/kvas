@@ -269,7 +269,7 @@ ip4__vpn_fast__create_chain() {
 }
 
 # когда программное и аппаратное ускорение отключено
-ip4_firewall_mark_rules_tcp_udp_on(){
+ip4__vpn_nofast__set_rules(){
 	{
 		#ToDo: переписать на цепочки
 		log_warning "Маркировка трафика для VPN, когда программное и аппаратное ускорение отключены"
@@ -571,7 +571,7 @@ ip4_mark_vpn_network(){
 		ip4__vpn_fast__create_chain &>/dev/null
 		ip4__vpn_fast__add_routing_for_home &>/dev/null
 	else
-		ip4_firewall_mark_rules_tcp_udp_on &>/dev/null
+		ip4__vpn_nofast__set_rules &>/dev/null
 	fi
 
 	ip4_add_guest_to_vpn_network &>/dev/null
