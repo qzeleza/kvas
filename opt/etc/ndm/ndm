@@ -165,6 +165,7 @@ ip4__dns__add_routing_for_home() {
 	ip4__dns__add_routing "-i $(get_local_inface)"
 }
 
+# ShadowSocks или любое другое прокси
 ip4__proxy__add_routing_for_home() {
 	#ToDo: использовать обёртку
 
@@ -178,6 +179,7 @@ ip4__proxy__add_routing_for_home() {
 	ip4tables PREROUTING -w -t "${PROXY_TCP_TABLE}" -i "${net_interface}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${PROXY_TCP_CHAIN}"
 }
 
+# когда ускорение подключено
 ip4__vpn_fast__add_routing_for_home() {
 	#ToDo: использовать обёртку
 
@@ -282,12 +284,13 @@ ip4__vpn_fast__create_chain() {
 # когда программное и аппаратное ускорение отключено
 ip4_firewall_mark_rules_tcp_udp_on(){
 	{
-		log_warning "Маркировка VPN подключений когда программное и аппаратное ускорение ОТКЛЮЧЕНО."
+		#ToDo: переписать на цепочки
+		log_warning "Маркировка трафика для VPN, когда программное и аппаратное ускорение отключены"
+
 		# Исключаем маркировку трафика для гостевой (в том числе) сети
-		_inface_ent=$(inface_ent)
 		ip4__ipset__create_list
-		ip4tables PREROUTING -t "${VPN_FAST_TABLE}" -i "${_inface_ent}" -m set --match-set ${IPSET_TABLE_NAME} dst -j MARK --set-mark ${MARK_NUM}
-	}  &>/dev/null || error "[${FUNCNAME}] Возникла ошибка при маркировке трафика гостевой сети для tcp или udp."
+		ip4tables PREROUTING -t "${VPN_FAST_TABLE}" -i "$(inface_ent)" -m set --match-set ${IPSET_TABLE_NAME} dst -j MARK --set-mark ${MARK_NUM}
+	} &>/dev/null || error "[${FUNCNAME}] Возникли ошибки во время маркировки трафика для VPN при отключенном ускорении"
 }
 
 
