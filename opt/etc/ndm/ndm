@@ -35,6 +35,7 @@ VPN_FAST_TABLE=mangle
 
 PROXY_TCP_CHAIN=KVAS_PROXY_TCP
 PROXY_TCP_TABLE=nat
+#ToDo: задействовать для UDP нижеидущее, переведя на маркировку
 PROXY_UDP_CHAIN=KVAS_PROXY_UDP
 PROXY_UDP_TABLE=mangle
 
