@@ -1231,6 +1231,9 @@ recreate_ssr_rules(){
 
 	ready "${prefix}Создаём правила домашней сети для ShadowSocks."
 	ip4__proxy__add_routing_for_home &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+
+	ready "${prefix}Создаём правила гостевых сетей для ShadowSocks."
+	ip4_add_guest_to_ssr_network &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 }
 
 # ------------------------------------------------------------------------------------------
