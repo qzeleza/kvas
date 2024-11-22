@@ -377,6 +377,29 @@ ip4__dns__add_routing() {
 	iptables -I PREROUTING "${rulenum}" -w -t nat$(echo "${iptables_filter}") -j "${DNS_CHAIN}"
 }
 
+# Отключение перехвата dns-запросов в dnsmasq
+#Example input param:-s 192.168.3.0/24 -i eth3
+#Example input param:-i sstp+
+ip4__dns__delete_routing() {
+	if [ -n "${1}" ]; then
+		local iptables_filter=$(echo "${1}" | xargs)
+		local submessage=" по критерию ${iptables_filter}"
+		iptables_filter=" ${iptables_filter}"
+	else
+		local iptables_filter=''
+		local submessage=''
+	fi
+
+	if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${DNS_CHAIN}" ; then
+		return
+	fi
+
+	log_warning "Отключение DNS перенаправления${submessage}"
+
+	# без echo дублирование пробелов (что даёт warning и проблему наличия)
+	iptables -D PREROUTING -w -t nat$(echo "${iptables_filter}") -j "${DNS_CHAIN}"
+}
+
 # ------------------------------------------------------------------------------------------
 #
 # Подключение и отключение других сетей
@@ -778,28 +801,6 @@ ikev2_net_access_del() {
 # которые были добавлены при работе пакета в старой редакции
 #
 # ------------------------------------------------------------------------------------------
-# Отключение перехвата dns-запросов в dnsmasq
-#Example input param:-s 192.168.3.0/24 -i eth3
-#Example input param:-i sstp+
-ip4__dns__delete_routing() {
-	if [ -n "${1}" ]; then
-		local iptables_filter=$(echo "${1}" | xargs)
-		local submessage=" по критерию ${iptables_filter}"
-		iptables_filter=" ${iptables_filter}"
-	else
-		local iptables_filter=''
-		local submessage=''
-	fi
-
-	if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${DNS_CHAIN}" ; then
-		return
-	fi
-
-	log_warning "Отключение DNS перенаправления${submessage}"
-
-	# без echo дублирование пробелов (что даёт warning и проблему наличия)
-	iptables -D PREROUTING -w -t nat$(echo "${iptables_filter}") -j "${DNS_CHAIN}"
-}
 
 ip4_firewall_rm_vpn_selected_guest_net() {
 	local net_interface="${1}"
