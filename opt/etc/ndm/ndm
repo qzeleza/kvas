@@ -595,6 +595,57 @@ ip4_firewall_rm_vpn_selected_guest_net() {
 	fi
 }
 
+ip4_firewall_rm_ssr_selected_guest_net() {
+	local net_interface="${1}"
+	local net_pool=${2}
+
+	[ -z "${net_interface}" ] && {
+		error "[${FUNCNAME}] Отсутствует обязательный параметр — имя сетевого интерфейса"
+		exit 1
+	}
+
+	if echo "${net_interface}" | grep -Fq 'ikev2' ; then
+		net_interface=$(get_entware_ikev2_inface)
+		[ -z "${net_pool}" ] && {
+			net_pool=$(get_ikev2_net_pool)
+		}
+
+		# IKEv2 не имеет отдельного сетевого интерфейса, поэтому запишем и что добавляем, и используемый СИ
+		local submessage="IKEv2 (${net_interface} "
+
+		# если свой виртуальный интерфейс
+		if echo "${net_interface}" | grep -Fq 'xfrms' ; then
+			local iptables_filter=''
+		else
+			local iptables_filter="-s ${net_pool} "
+		fi
+	else
+		[ -z "${net_pool}" ] && {
+			# в случае SS+неIKEv2 используется лишь в лог-сообщении для единобразия
+			net_pool=$(get_guest_net "${net_interface}")
+		}
+
+		local submessage="${net_interface} ("
+
+		local iptables_filter=''
+	fi
+	iptables_filter="${iptables_filter}-i ${net_interface}"
+
+	log_warning "Отключаем правила гостевого трафика ${submessage}${net_pool}) для ShadowSocks."
+
+	ip4__dns__delete_routing "${iptables_filter}"
+
+	local ss_port=$(get_config_value SSR_DNS_PORT)
+	for protocol in tcp udp ; do
+		if ! ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${protocol}" | grep -F "${IPSET_TABLE_NAME}" | grep -F 'REDIRECT' | grep -Fq "${ss_port}" ; then
+			continue
+		fi
+
+		# без echo дублирование пробелов (что даёт warning и проблему наличия)
+		iptables -D PREROUTING -w -t nat $(echo "${iptables_filter}") -p "${protocol}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j REDIRECT --to-port ${ss_port}
+	done
+}
+
 # ------------------------------------------------------------------------------------------
 #
 # Общие обёртки, добавляющие что-то
@@ -902,56 +953,7 @@ ip4_firewall_flush_vpn_guest_rules(){
 #
 # ------------------------------------------------------------------------------------------
 # для одного гостевого интерфейса
-ip4_firewall_rm_ssr_selected_guest_net() {
-	local net_interface="${1}"
-	local net_pool=${2}
 
-	[ -z "${net_interface}" ] && {
-		error "[${FUNCNAME}] Отсутствует обязательный параметр — имя сетевого интерфейса"
-		exit 1
-	}
-
-	if echo "${net_interface}" | grep -Fq 'ikev2' ; then
-		net_interface=$(get_entware_ikev2_inface)
-		[ -z "${net_pool}" ] && {
-			net_pool=$(get_ikev2_net_pool)
-		}
-
-		# IKEv2 не имеет отдельного сетевого интерфейса, поэтому запишем и что добавляем, и используемый СИ
-		local submessage="IKEv2 (${net_interface} "
-
-		# если свой виртуальный интерфейс
-		if echo "${net_interface}" | grep -Fq 'xfrms' ; then
-			local iptables_filter=''
-		else
-			local iptables_filter="-s ${net_pool} "
-		fi
-	else
-		[ -z "${net_pool}" ] && {
-			# в случае SS+неIKEv2 используется лишь в лог-сообщении для единобразия
-			net_pool=$(get_guest_net "${net_interface}")
-		}
-
-		local submessage="${net_interface} ("
-
-		local iptables_filter=''
-	fi
-	iptables_filter="${iptables_filter}-i ${net_interface}"
-
-	log_warning "Отключаем правила гостевого трафика ${submessage}${net_pool}) для ShadowSocks."
-
-	ip4__dns__delete_routing "${iptables_filter}"
-
-	local ss_port=$(get_config_value SSR_DNS_PORT)
-	for protocol in tcp udp ; do
-		if ! ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${protocol}" | grep -F "${IPSET_TABLE_NAME}" | grep -F 'REDIRECT' | grep -Fq "${ss_port}" ; then
-			continue
-		fi
-
-		# без echo дублирование пробелов (что даёт warning и проблему наличия)
-		iptables -D PREROUTING -w -t nat $(echo "${iptables_filter}") -p "${protocol}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j REDIRECT --to-port ${ss_port}
-	done
-}
 
 
 # для всех гостевых интерфейсов
