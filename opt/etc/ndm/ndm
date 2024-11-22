@@ -155,16 +155,26 @@ ip4_flush_cache(){
 
 
 # ------------------------------------------------------------------------------------------
-# Подключаем правила для корректной работы DNS трафика через 53 порт
+#
+# Подключение домашней сети сделано отдельно
+# В идеале должна быть отключаема, как гостевые
+#
 # ------------------------------------------------------------------------------------------
+
 ip4__dns__add_routing_for_home() {
 	ip4__dns__add_routing "-i $(get_local_inface)"
 }
 
 ip4__vpn_fast__add_routing_for_home() {
-	#ToDo: использовать обёртку
 	ip4__ipset__create_list
+	#ToDo: использовать обёртку
 	ip4tables PREROUTING -w -t "${VPN_FAST_TABLE}" -i "$(get_local_inface)" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_FAST_CHAIN}"
+}
+
+ip4__proxy__add_routing_for_home() {
+	ip4__ipset__create_list
+	#ToDo: использовать обёртку
+	ip4tables PREROUTING -w -t "${PROXY_TCP_TABLE}" -i "$(get_local_inface)" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${PROXY_TCP_CHAIN}"
 }
 
 # ------------------------------------------------------------------------------------------
@@ -535,8 +545,7 @@ ip4_firewall_set_ssr_rules(){
 			iptables -A "${PROXY_TCP_CHAIN}" -t "${PROXY_TCP_TABLE}" -p "${protocol}" -j REDIRECT --to-port "${proxy_port}"
 		done
 
-		ip4__ipset__create_list
-		ip4tables PREROUTING -w -t "${PROXY_TCP_TABLE}" -i "$(get_local_inface)" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${PROXY_TCP_CHAIN}"
+		ip4__proxy__add_routing_for_home
 	} &>/dev/null || error "[${FUNCNAME}] Возникли ошибки при установке правил трафика для прокси"
 }
 
