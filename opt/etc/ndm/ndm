@@ -194,6 +194,7 @@ ip4__chain__is_exist() {
 	fi
 	chain_name=${2}
 
+	#ToDo: проверять в конкретной таблице
 	iptables-save | grep -Fq "${chain_name}"
 }
 
@@ -228,6 +229,10 @@ ip4__create_chain_for_data() {
 # ------------------------------------------------------------------------------------------
 ip4__vpn_fast__create_chain() {
 	{
+		if ip4__ipset__is_exist "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}" ; then
+			return
+		fi
+
 		ip4__create_chain_for_data "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
 
 		ip4tables "${VPN_FAST_CHAIN}" -t "${VPN_FAST_TABLE}" -j CONNMARK --restore-mark
