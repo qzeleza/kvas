@@ -187,6 +187,16 @@ ip4__vpn_fast__add_routing_for_home() {
 # Подключаем Firewall правила, которые исключают из работы локальные запросы
 # ------------------------------------------------------------------------------------------
 
+ip4__chain__is_exist() {
+	if [ -z "${2}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
+		return
+	fi
+	chain_name=${2}
+
+	iptables-save | grep -Fq "${chain_name}"
+}
+
 # Создаёт (если нет) цепочку для роутинга данных
 ip4__create_chain_for_data() {
 	if [ -z "${2}" ] ; then
@@ -195,7 +205,7 @@ ip4__create_chain_for_data() {
 	fi
 	chain_name=${2}
 
-	if iptables-save | grep -Fq "${chain_name}"; then
+	if ip4__chain__is_exist "${chain_name}"; then
 		return
 	fi
 
