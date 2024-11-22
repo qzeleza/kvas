@@ -179,6 +179,7 @@ ip4__dns__add_routing_for_home() {
 
 ip4__vpn_fast__add_routing_for_home() {
 	#ToDo: использовать обёртку
+	ip4__ipset__create_list
 	ip4tables PREROUTING -w -t "${VPN_FAST_TABLE}" -i "$(get_local_inface)" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_FAST_CHAIN}"
 }
 
@@ -256,6 +257,7 @@ ip4_firewall_mark_rules_tcp_udp_on(){
 		log_warning "Маркировка VPN подключений когда программное и аппаратное ускорение ОТКЛЮЧЕНО."
 		# Исключаем маркировку трафика для гостевой (в том числе) сети
 		_inface_ent=$(inface_ent)
+		ip4__ipset__create_list
 		ip4tables PREROUTING -t "${VPN_FAST_TABLE}" -i "${_inface_ent}" -m set --match-set ${IPSET_TABLE_NAME} dst -j MARK --set-mark ${MARK_NUM}
 
 	}  &>/dev/null || error "[${FUNCNAME}] Возникла ошибка при маркировке трафика гостевой сети для tcp или udp."
@@ -389,6 +391,8 @@ ip4_add_selected_guest_to_vpn_network() {
 	ip4__dns__add_routing "${iptables_filter}"
 	if fastnet_enabled ; then
 		if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_FAST_CHAIN}" ; then
+			ip4__ipset__create_list
+
 			# без echo дублирование пробелов (что даёт warning и проблему наличия)
 			iptables -A PREROUTING -w -t "${VPN_FAST_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_FAST_CHAIN}"
 		fi
@@ -464,6 +468,8 @@ ip4_add_selected_guest_to_ssr_network() {
 		if ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${protocol}" | grep -F "${IPSET_TABLE_NAME}" | grep -F 'REDIRECT' | grep -Fq "${ss_port}" ; then
 			continue
 		fi
+
+		ip4__ipset__create_list
 
 		# без echo дублирование пробелов (что даёт warning и проблему наличия)
 		iptables -A PREROUTING -w -t nat $(echo "${iptables_filter}") -p "${protocol}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j REDIRECT --to-port ${ss_port}
@@ -552,6 +558,7 @@ ip4_firewall_set_ssr_rules(){
 			iptables -A "${PROXY_TCP_CHAIN}" -t "${PROXY_TCP_TABLE}" -p "${protocol}" -j REDIRECT --to-port "${proxy_port}"
 		done
 
+		ip4__ipset__create_list
 		ip4tables PREROUTING -w -t "${PROXY_TCP_TABLE}" -i "$(get_local_inface)" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${PROXY_TCP_CHAIN}"
 	} &>/dev/null || error "[${FUNCNAME}] Возникли ошибки при установке правил трафика для прокси"
 }
