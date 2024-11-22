@@ -35,7 +35,6 @@ VPN_FAST_TABLE=mangle
 
 PROXY_TCP_CHAIN=KVAS_PROXY_TCP
 PROXY_TCP_TABLE=nat
-#ToDo: использовать для UDP отдельную цепочку
 PROXY_UDP_CHAIN=KVAS_PROXY_UDP
 PROXY_UDP_TABLE=mangle
 
@@ -533,27 +532,28 @@ ip4_mark_vpn_network(){
 # 	Установка правил для SHADOWSOCKS подключений
 #
 # ------------------------------------------------------------------------------------------
-ip4_firewall_set_ssr_rules(){
-	interface=$(get_local_inface)
-	proxy_port=$(get_config_value SSR_DNS_PORT)
 
-	# https://github.com/shadowsocks/shadowsocks-libev/blob/master/doc/ss-redir.asciidoc#example
-	# Создаем новую цепочку SHADOWSOCKS
+#ToDo: использовать для UDP отдельную цепочку
+# https://github.com/shadowsocks/shadowsocks-libev/blob/master/doc/ss-redir.asciidoc#example
+ip4_firewall_set_ssr_rules(){
 	{
-		log_warning "Подключаем правила для SHADOWSOCKS интерфейса ${interface} порт ${proxy_port}."
+		if ip4__ipset__is_exist "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}" ; then
+			return
+		fi
 
 		ip4__chain__create_for_data "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}"
 
-		# Исключаем любые обращения к собственному адресу SHADOWSOCKS
-		ssr_ip=$(cat < /opt/etc/shadowsocks.json | grep 'server":' | tr -d '" ,' | cut -d':' -f2 )
-		ipset add "${IPSET_RESERVED}" "${ssr_ip}"
+		# Исключаем обращения к собственному адресу
+		ip=$(cat < /opt/etc/shadowsocks.json | grep 'server":' | tr -d '" ,' | cut -d':' -f2 )
+		ipset add "${IPSET_RESERVED}" "${ip}"
 
+		proxy_port=$(get_config_value SSR_DNS_PORT)
 		for protocol in udp tcp ; do
-			iptables -A "${PROXY_TCP_CHAIN}" -w -t "${PROXY_TCP_TABLE}" -p "${protocol}" -j REDIRECT --to-port "${proxy_port}"
+			iptables -A "${PROXY_TCP_CHAIN}" -t "${PROXY_TCP_TABLE}" -p "${protocol}" -j REDIRECT --to-port "${proxy_port}"
 		done
 
-		ip4tables PREROUTING -w -t "${PROXY_TCP_TABLE}" -i "${interface}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${PROXY_TCP_CHAIN}"
-	} &>/dev/null || error "[${FUNCNAME}] Возникла ошибка при установке правил iptable для Shadowsocks подключения"
+		ip4tables PREROUTING -w -t "${PROXY_TCP_TABLE}" -i "$(get_local_inface)" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${PROXY_TCP_CHAIN}"
+	} &>/dev/null || error "[${FUNCNAME}] Возникли ошибки при установке правил трафика для прокси"
 }
 
 # ------------------------------------------------------------------------------------------
