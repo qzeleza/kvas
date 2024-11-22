@@ -39,6 +39,6 @@ if [ "${type}" = 'iptables' ] ; then
 	# обход с ускорением использует mangle
 	# роутинг DNS гостевых и обход без ускорения используют nat
 	if [ "${table}" = 'mangle' ] || [ "${table}" = 'nat' ] ; then
-		set_guest_nets_rules &>/dev/null
+		ip4_add_guest_to_vpn_network &>/dev/null
 	fi
 fi
