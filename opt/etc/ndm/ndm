@@ -545,7 +545,7 @@ ip4_firewall_set_ssr_rules(){
 
 		# Исключаем обращения к собственному адресу
 		ip=$(cat < /opt/etc/shadowsocks.json | grep 'server":' | tr -d '" ,' | cut -d':' -f2 )
-		ipset add "${IPSET_RESERVED}" "${ip}"
+		ipset -exist add "${IPSET_RESERVED}" "${ip}"
 
 		proxy_port=$(get_config_value SSR_DNS_PORT)
 		for protocol in udp tcp ; do
@@ -1189,7 +1189,7 @@ ip4__ipset__fill_reserved() {
 		# удаляем пробелы
 		ip_or_range=$(echo "${ip_or_range}" | sed 's/#.*$//g' | tr -s ' ' )
 
-		ipset add "${IPSET_RESERVED}" "${ip_or_range}"
+		ipset -exist add "${IPSET_RESERVED}" "${ip_or_range}"
 	done < "${FILE_RESERVED}"
 }
 
