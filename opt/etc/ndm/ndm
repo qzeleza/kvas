@@ -1201,26 +1201,19 @@ recreate_ip4tables(){
 #
 # ------------------------------------------------------------------------------------------
 recreate_vpn_rules(){
-
-	if has_ssr_enable ; then
-		ready "${prefix}Очищаем все ранее созданные iptables правила для SHADOWSOCKS."
-		ip4_firewall_ssr_prune  &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-	else
-		ready "${prefix}Очищаем все ранее созданные iptables правила для VPN."
-		ip4_firewall_flush_all_rules  &>/dev/null
-		when_ok "УСПЕШНО"
-	fi
-
+	ready "${prefix}Очищаем все ранее созданные iptables правила для VPN."
+	ip4_firewall_flush_all_rules  &>/dev/null
+	when_ok "УСПЕШНО"
 
 	ready "${prefix}Обнуляем приоритет таблицы ID#${TABLE_ID}"
 	ip4_rule_del_priority &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
 	ready "${prefix}Устанавливаем приоритет таблицы ID#${TABLE_ID} в значение ${PRIORITY}"
-#	Устанавливаем приоритет таблицы
+	# Устанавливаем приоритет таблицы
 	ip4_rule_set_priority &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
 	ready "${prefix}Создаем iptables правила для VPN соединения."
-#	Создаем правила iptables
+	# Создаем правила iptables
 	ip4_mark_vpn_network &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 }
 
@@ -1250,7 +1243,6 @@ refresh_adguard_ipset_table(){
 	/opt/apps/kvas/bin/main/adguard &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 }
 
-
 # ------------------------------------------------------------------------------------------
 #
 # Функции для поддержки протокола ip6
@@ -1268,4 +1260,3 @@ ip6set_create_table(){
 			error "[${FUNCNAME}] ${_err}"
 		}
 }
-
