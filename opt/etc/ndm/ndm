@@ -548,6 +548,53 @@ ip4_add_selected_guest_to_ssr_network() {
 	done
 }
 
+ip4_firewall_rm_vpn_selected_guest_net() {
+	local net_interface="${1}"
+	if [ -z "${net_interface}" ] ; then
+		error "[${FUNCNAME}] Не передан обязательный параметр — имя интерфейса"
+	fi
+
+	if echo "${net_interface}" | grep -Fq 'ikev2' ; then
+		net_interface=$(get_entware_ikev2_inface)
+
+		# IKEv2 не имеет отдельного сетевого интерфейса, поэтому запишем и что добавляем, и используемый СИ
+		local submessage="IKEv2 (${net_interface} "
+		local net_pool=$(get_ikev2_net_pool)
+
+		# если свой виртуальный интерфейс
+		if echo "${net_interface}" | grep -Fq 'xfrms' ; then
+			local iptables_filter=''
+		else
+			local iptables_filter="-s ${net_pool} "
+		fi
+	else
+		local submessage="${net_interface} ("
+		local net_pool=$(get_guest_net "${net_interface}")
+
+		local iptables_filter=''
+	fi
+	iptables_filter="${iptables_filter}-i ${net_interface}"
+
+	log_warning "Отключаем правила гостевого трафика ${submessage}${net_pool}) для VPN."
+	ip4__dns__delete_routing "${iptables_filter}"
+	if fastnet_enabled ; then
+		if iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_FAST_CHAIN}" ; then
+			# без echo дублирование пробелов (что даёт warning и проблему наличия)
+			iptables -D PREROUTING -w -t "${VPN_FAST_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_FAST_CHAIN}"
+		fi
+	else
+		if [ -z "${net_pool}" ] ; then
+			error "[${FUNCNAME}] От функции get_guest_net не получен обязательный результат — пул адресов"
+		fi
+
+		# случай основного VPN и отключенного ускорения требует дополнительной проверки
+		# но именно таким код был изначально, т.е. он точно не "ухудшится"
+		if iptables-save | grep -F 'POSTROUTING' | grep -F "${net_pool}" | grep -F "${net_interface}" | grep -Fq 'MASQUERADE' ; then
+			iptables -D POSTROUTING -w -t nat -s "${net_pool}" -o "${net_interface}" -j MASQUERADE
+		fi
+	fi
+}
+
 # ------------------------------------------------------------------------------------------
 #
 # Общие обёртки, добавляющие что-то
@@ -701,7 +748,6 @@ cmd_vpn_iptable_flush() {
 	ip4_firewall_flush_vpn_rules && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
 }
 
-
 # ------------------------------------------------------------------------------------------
 # Производим очистку кэша маршрутизации
 # ------------------------------------------------------------------------------------------
@@ -840,53 +886,6 @@ ip4_firewall_ssr_prune(){
 # которые были добавлены при работе пакета в старой редакции
 #
 # ------------------------------------------------------------------------------------------
-
-ip4_firewall_rm_vpn_selected_guest_net() {
-	local net_interface="${1}"
-	if [ -z "${net_interface}" ] ; then
-		error "[${FUNCNAME}] Не передан обязательный параметр — имя интерфейса"
-	fi
-
-	if echo "${net_interface}" | grep -Fq 'ikev2' ; then
-		net_interface=$(get_entware_ikev2_inface)
-
-		# IKEv2 не имеет отдельного сетевого интерфейса, поэтому запишем и что добавляем, и используемый СИ
-		local submessage="IKEv2 (${net_interface} "
-		local net_pool=$(get_ikev2_net_pool)
-
-		# если свой виртуальный интерфейс
-		if echo "${net_interface}" | grep -Fq 'xfrms' ; then
-			local iptables_filter=''
-		else
-			local iptables_filter="-s ${net_pool} "
-		fi
-	else
-		local submessage="${net_interface} ("
-		local net_pool=$(get_guest_net "${net_interface}")
-
-		local iptables_filter=''
-	fi
-	iptables_filter="${iptables_filter}-i ${net_interface}"
-
-	log_warning "Отключаем правила гостевого трафика ${submessage}${net_pool}) для VPN."
-	ip4__dns__delete_routing "${iptables_filter}"
-	if fastnet_enabled ; then
-		if iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_FAST_CHAIN}" ; then
-			# без echo дублирование пробелов (что даёт warning и проблему наличия)
-			iptables -D PREROUTING -w -t "${VPN_FAST_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_FAST_CHAIN}"
-		fi
-	else
-		if [ -z "${net_pool}" ] ; then
-			error "[${FUNCNAME}] От функции get_guest_net не получен обязательный результат — пул адресов"
-		fi
-
-		# случай основного VPN и отключенного ускорения требует дополнительной проверки
-		# но именно таким код был изначально, т.е. он точно не "ухудшится"
-		if iptables-save | grep -F 'POSTROUTING' | grep -F "${net_pool}" | grep -F "${net_interface}" | grep -Fq 'MASQUERADE' ; then
-			iptables -D POSTROUTING -w -t nat -s "${net_pool}" -o "${net_interface}" -j MASQUERADE
-		fi
-	fi
-}
 
 # для всех гостевых интерфейсов
 ip4_firewall_flush_vpn_guest_rules(){
