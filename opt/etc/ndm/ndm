@@ -156,46 +156,6 @@ ip4_flush_cache(){
 
 # ------------------------------------------------------------------------------------------
 #
-# Подключение домашней сети сделано отдельно
-# В идеале должна быть отключаема, как гостевые
-#
-# ------------------------------------------------------------------------------------------
-
-ip4__dns__add_routing_for_home() {
-	ip4__dns__add_routing "-i $(get_local_inface)"
-}
-
-# ShadowSocks или любое другое прокси
-ip4__proxy__add_routing_for_home() {
-	#ToDo: использовать обёртку
-
-	local net_interface=$(get_local_inface)
-
-	if iptables-save | grep -F 'PREROUTING' | grep -F "${net_interface}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${PROXY_TCP_CHAIN}" ; then
-		return
-	fi
-
-	ip4__ipset__create_list
-	ip4tables PREROUTING -w -t "${PROXY_TCP_TABLE}" -i "${net_interface}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${PROXY_TCP_CHAIN}"
-}
-
-# когда ускорение подключено
-ip4__vpn_fast__add_routing_for_home() {
-	#ToDo: использовать обёртку
-
-	local net_interface=$(get_local_inface)
-
-	if iptables-save | grep -F 'PREROUTING' | grep -F "${net_interface}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_FAST_CHAIN}" ; then
-		return
-	fi
-
-	ip4__ipset__create_list
-	ip4tables PREROUTING -w -t "${VPN_FAST_TABLE}" -i "${net_interface}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_FAST_CHAIN}"
-}
-
-
-# ------------------------------------------------------------------------------------------
-#
 # Общие обёртки для цепочек
 #
 # ------------------------------------------------------------------------------------------
@@ -291,6 +251,46 @@ ip4_firewall_mark_rules_tcp_udp_on(){
 		ip4__ipset__create_list
 		ip4tables PREROUTING -t "${VPN_FAST_TABLE}" -i "$(inface_ent)" -m set --match-set ${IPSET_TABLE_NAME} dst -j MARK --set-mark ${MARK_NUM}
 	} &>/dev/null || error "[${FUNCNAME}] Возникли ошибки во время маркировки трафика для VPN при отключенном ускорении"
+}
+
+
+# ------------------------------------------------------------------------------------------
+#
+# Подключение домашней сети сделано отдельно
+# В идеале должна быть отключаема, как гостевые
+#
+# ------------------------------------------------------------------------------------------
+
+ip4__dns__add_routing_for_home() {
+	ip4__dns__add_routing "-i $(get_local_inface)"
+}
+
+# ShadowSocks или любое другое прокси
+ip4__proxy__add_routing_for_home() {
+	#ToDo: использовать обёртку
+
+	local net_interface=$(get_local_inface)
+
+	if iptables-save | grep -F 'PREROUTING' | grep -F "${net_interface}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${PROXY_TCP_CHAIN}" ; then
+		return
+	fi
+
+	ip4__ipset__create_list
+	ip4tables PREROUTING -w -t "${PROXY_TCP_TABLE}" -i "${net_interface}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${PROXY_TCP_CHAIN}"
+}
+
+# когда ускорение подключено
+ip4__vpn_fast__add_routing_for_home() {
+	#ToDo: использовать обёртку
+
+	local net_interface=$(get_local_inface)
+
+	if iptables-save | grep -F 'PREROUTING' | grep -F "${net_interface}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_FAST_CHAIN}" ; then
+		return
+	fi
+
+	ip4__ipset__create_list
+	ip4tables PREROUTING -w -t "${VPN_FAST_TABLE}" -i "${net_interface}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_FAST_CHAIN}"
 }
 
 
