@@ -165,6 +165,19 @@ ip4__dns__add_routing_for_home() {
 	ip4__dns__add_routing "-i $(get_local_inface)"
 }
 
+ip4__proxy__add_routing_for_home() {
+	#ToDo: использовать обёртку
+
+	local net_interface=$(get_local_inface)
+
+	if iptables-save | grep -F 'PREROUTING' | grep -F "${net_interface}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${PROXY_TCP_CHAIN}" ; then
+		return
+	fi
+
+	ip4__ipset__create_list
+	ip4tables PREROUTING -w -t "${PROXY_TCP_TABLE}" -i "${net_interface}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${PROXY_TCP_CHAIN}"
+}
+
 ip4__vpn_fast__add_routing_for_home() {
 	#ToDo: использовать обёртку
 
@@ -178,18 +191,6 @@ ip4__vpn_fast__add_routing_for_home() {
 	ip4tables PREROUTING -w -t "${VPN_FAST_TABLE}" -i "${net_interface}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_FAST_CHAIN}"
 }
 
-ip4__proxy__add_routing_for_home() {
-	#ToDo: использовать обёртку
-
-	local net_interface=$(get_local_inface)
-
-	if iptables-save | grep -F 'PREROUTING' | grep -F "${net_interface}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${PROXY_TCP_CHAIN}" ; then
-		return
-	fi
-
-	ip4__ipset__create_list
-	ip4tables PREROUTING -w -t "${PROXY_TCP_TABLE}" -i "${net_interface}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${PROXY_TCP_CHAIN}"
-}
 
 # ------------------------------------------------------------------------------------------
 #
@@ -239,6 +240,27 @@ ip4__chain__create_for_data() {
 # Создание цепочек
 #
 # ------------------------------------------------------------------------------------------
+
+#ToDo: использовать для UDP отдельную цепочку
+# https://github.com/shadowsocks/shadowsocks-libev/blob/master/doc/ss-redir.asciidoc#example
+ip4__proxy__create_chain() {
+	{
+		if ip4__ipset__is_exist "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}" ; then
+			return
+		fi
+
+		ip4__chain__create_for_data "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}"
+
+		# Исключаем обращения к собственному адресу
+		ip=$(cat < /opt/etc/shadowsocks.json | grep 'server":' | tr -d '" ,' | cut -d':' -f2 )
+		ipset -exist add "${IPSET_RESERVED}" "${ip}"
+
+		proxy_port=$(get_config_value SSR_DNS_PORT)
+		for protocol in udp tcp ; do
+			iptables -A "${PROXY_TCP_CHAIN}" -t "${PROXY_TCP_TABLE}" -p "${protocol}" -j REDIRECT --to-port "${proxy_port}"
+		done
+	} &>/dev/null || error "[${FUNCNAME}] Возникли ошибки при установке правил трафика для прокси"
+}
 
 # когда ускорение подключено
 ip4__vpn_fast__create_chain() {
@@ -518,32 +540,6 @@ ip4_mark_vpn_network(){
 	ip4_add_guest_to_vpn_network &>/dev/null
 }
 
-# ------------------------------------------------------------------------------------------
-#
-# 	Установка правил для SHADOWSOCKS подключений
-#
-# ------------------------------------------------------------------------------------------
-
-#ToDo: использовать для UDP отдельную цепочку
-# https://github.com/shadowsocks/shadowsocks-libev/blob/master/doc/ss-redir.asciidoc#example
-ip4__proxy__create_chain() {
-	{
-		if ip4__ipset__is_exist "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}" ; then
-			return
-		fi
-
-		ip4__chain__create_for_data "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}"
-
-		# Исключаем обращения к собственному адресу
-		ip=$(cat < /opt/etc/shadowsocks.json | grep 'server":' | tr -d '" ,' | cut -d':' -f2 )
-		ipset -exist add "${IPSET_RESERVED}" "${ip}"
-
-		proxy_port=$(get_config_value SSR_DNS_PORT)
-		for protocol in udp tcp ; do
-			iptables -A "${PROXY_TCP_CHAIN}" -t "${PROXY_TCP_TABLE}" -p "${protocol}" -j REDIRECT --to-port "${proxy_port}"
-		done
-	} &>/dev/null || error "[${FUNCNAME}] Возникли ошибки при установке правил трафика для прокси"
-}
 
 # ------------------------------------------------------------------------------------------
 #
