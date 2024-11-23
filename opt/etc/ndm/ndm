@@ -741,6 +741,8 @@ ip4_firewall_flush_vpn_rules() {
 # Удаляем все правила iptables которые были добавлены при работе пакета
 ip4_firewall_flush_all_rules(){
 	if has_ssr_enable; then
+		ip4_firewall_flush_ssr_guest_rules &>/dev/null
+
 		ip4_firewall_ssr_prune &>/dev/null
 	else
 		ip4_firewall_flush_vpn_rules &>/dev/null
