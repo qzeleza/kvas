@@ -295,13 +295,13 @@ ip4__vpn_fast__create_chain() {
 }
 
 # когда программное и аппаратное ускорение отключено
-ip4__vpn_nofast__set_rules(){
+ip4__vpn_nofast__set_rules() {
 	{
 		#ToDo: переписать на цепочки
-		log_warning "Маркировка трафика для VPN, когда программное и аппаратное ускорение отключены"
+		log_warning 'Маркировка трафика для VPN при отключенном ускорении'
 
-		# Исключаем маркировку трафика для гостевой (в том числе) сети
 		ip4__ipset__create_list
+		# правило не переписывалось, таким и было
 		ip4tables PREROUTING -t "${VPN_FAST_TABLE}" -i "$(inface_ent)" -m set --match-set ${IPSET_TABLE_NAME} dst -j MARK --set-mark ${MARK_NUM}
 	} &>/dev/null || error "[${FUNCNAME}] Возникли ошибки во время маркировки трафика для VPN при отключенном ускорении"
 }
