@@ -713,20 +713,6 @@ ip4_firewall_flush_ssr_guest_rules(){
 	done
 }
 
-# для одного гостевого интерфейса
-ip4_firewall_rm_selected_guest_net(){
-	guest_inface="${1}"
-	if fastnet_enabled ; then
-		ip4_firewall_fastnet_vpn_prune &>/dev/null
-	else
-		ip4_firewall_nofastnet_vpn_prune &>/dev/null
-	fi
-
-	for guest_inface in $(get_guest_inface_list_from_config); do
-		ip4_firewall_rm_vpn_selected_guest_net "${guest_inface}" &>/dev/null;
-	done
-}
-
 # для всех гостевых интерфейсов
 ip4_firewall_flush_vpn_rules() {
 	ip4_firewall_flush_vpn_guest_rules &>/dev/null
