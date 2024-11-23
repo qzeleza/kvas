@@ -457,13 +457,12 @@ ip4_firewall_nofastnet_vpn_prune(){
 # которые были добавлены при работе пакета в старой редакции
 ip4_firewall_ssr_prune(){
 	{
-		ip4tbl_flush_rm_pre_out "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}" PREROUTING
+		ip4__chain__delete_jump "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}"
+
+		# во время работы КВАСа удалять сами цепочки бессмысленно, они константны
+		# достаточно убрать входы туда, что сделано выше
+		# это нужно вызывать лишь при установки или удалении
 		ip4__chain__delete "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}"
-
-		interface=$(get_local_inface)
-		proxy_port=$(get_config_value SSR_DNS_PORT)
-
-		ip4tbl_flush_rm_match_set "${PROXY_TCP_TABLE}" REDIRECT PREROUTING "${interface}" "${proxy_port}"
 	} &>/dev/null
 }
 
