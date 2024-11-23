@@ -729,13 +729,13 @@ ip4_firewall_rm_selected_guest_net(){
 
 # для всех гостевых интерфейсов
 ip4_firewall_flush_vpn_rules() {
+	ip4_firewall_flush_vpn_guest_rules &>/dev/null
+
 	if fastnet_enabled ; then
 		ip4_firewall_fastnet_vpn_prune &>/dev/null
 	else
 		ip4_firewall_nofastnet_vpn_prune &>/dev/null
 	fi
-
-	ip4_firewall_flush_vpn_guest_rules &>/dev/null
 }
 
 # Удаляем все правила iptables которые были добавлены при работе пакета
