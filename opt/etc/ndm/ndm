@@ -196,8 +196,13 @@ ip4__chain__is_exist() {
 	fi
 	chain_name=${2}
 
-	#ToDo: проверять в конкретной таблице
-	iptables-save | grep -Fq "${chain_name}"
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
+		return
+	fi
+	table=${1}
+
+	iptables-save -t "${table}" | grep -Fq "${chain_name}"
 }
 
 # Создаёт (если нет) цепочку для роутинга данных
