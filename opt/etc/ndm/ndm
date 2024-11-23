@@ -365,6 +365,74 @@ ip4_firewall_ssr_prune(){
 	} &>/dev/null
 }
 
+# Производим удаление правил и удаляем саму цепочку
+ip4tbl_flush_rm_chain(){
+	table="${1}"; chain="${2}"
+	#	Если не заданы аргументы, то ничего не выполняем
+	if [ -n "${table}" ] && [ -n "${chain}" ] ; then
+		ip4save | grep -q "${chain}" && {
+			log_warning "Производим удаление правил в таблице ${table} и цепочке ${route} и удаляем цепочку."
+			{
+				iptab -F "${chain}" -t "${table}"
+				iptab -X "${chain}" -t "${table}"
+			} &>/dev/null #|| error "[${FUNCNAME}] Ошибка при удалении правил в таблице ${table} и цепочке ${route}."
+		}
+	else
+		log_error "При вызове ${FUNCNAME} не были заданы обязательные аргументы."
+	fi
+}
+
+# Производим удаление правил в указанной таблице в одной из стандартных цепочек
+# Для того, чтобы происходило удаление правил по правилу с '! -p icmp',
+# необходимо четвертым аргументом передать icmp_arg равным icmp
+ip4tbl_flush_rm_pre_out(){
+
+	table="${1}"; chain="${2}"; route="${3}"; icmp_arg=${4:-'no'}
+	if [ -n "${table}" ] && [ -n "${chain}" ] && [ -n "${route}" ] ; then
+		log_warning "Производим удаление стандартных правил в таблице ${table}, цепочке ${route} для ${chain}"
+#		ip4save | grep "${route}" | grep -q "${chain}" && iptab -t "${table}" -D "${route}" -j "${chain}" &>/dev/null
+		for prot in tcp udp icmp; do
+			ip4save | grep "${route}" | grep "${chain}" | grep -q "${prot}" && {
+				if [ "${icmp_arg}" = 'icmp' ] && [ "${prot}" = icmp ]; then
+					iptab -t "${table}" -D "${route}" ! -p "${prot}" -j "${chain}" &>/dev/null
+				else
+					iptab -t "${table}" -D "${route}" -p "${prot}" -j "${chain}" &>/dev/null
+				fi
+			}
+		done
+	else
+		log_error "При вызове ${FUNCNAME} не были заданы обязательные аргументы."
+	fi
+}
+
+# Производим удаление правил в указанной таблице в одной из стандартных цепочек
+# c правилами содержащими '-m set --match-set ${IPSET_TABLE_NAME} dst'
+ip4tbl_flush_rm_match_set(){
+
+	table="${1}"; chain="${2}"; route="${3}"; interface=${4:-''}; proxy_port=${5:-''}
+
+	if [ -n "${table}" ] && [ -n "${chain}" ] && [ -n "${route}" ] ; then
+
+		log_warning "Производим удаление правил match-set в таблице ${table}, цепочке ${route} для ${chain}"
+
+		if [ -n "${proxy_port}" ] ; then 
+			for prot in tcp udp; do
+				ip4save | grep "${route}" | grep "${chain}" | grep -q "${prot}" && {
+#					Для shadowsocks
+					iptab -t "${table}" -i "${interface}" -D "${route}" -p "${prot}" -m set --match-set ${IPSET_TABLE_NAME} dst -j "${chain}" --to-port "${proxy_port}" &>/dev/null
+					iptab -t "${table}" -i "${interface}" -D "${route}" -p "${prot}" -m set --match-set ${IPSET_TABLE_NAME} dst -j "${chain}" --to-port "${proxy_port}" &>/dev/null
+				}
+			done
+			
+		else 
+#			Для VPN
+			iptab -t "${table}" -D "${route}" -m set --match-set ${IPSET_TABLE_NAME} dst -j "${chain}" &>/dev/null
+		fi
+	else
+		log_error "При вызове ${FUNCNAME} не были заданы обязательные аргументы."
+	fi
+}
+
 
 # ------------------------------------------------------------------------------------------
 #
@@ -1022,80 +1090,6 @@ cmd_vpn_iptable_reset() {
 cmd_vpn_iptable_flush() {
 	ready "Очистка iptables для vpn завершена"
 	ip4_firewall_flush_vpn_rules && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
-}
-
-# ------------------------------------------------------------------------------------------
-# 	Производим удаление правил и удаляем саму цепочку
-# ------------------------------------------------------------------------------------------
-ip4tbl_flush_rm_chain(){
-	table="${1}"; chain="${2}"
-	#	Если не заданы аргументы, то ничего не выполняем
-	if [ -n "${table}" ] && [ -n "${chain}" ] ; then
-		ip4save | grep -q "${chain}" && {
-			log_warning "Производим удаление правил в таблице ${table} и цепочке ${route} и удаляем цепочку."
-			{
-				iptab -F "${chain}" -t "${table}"
-				iptab -X "${chain}" -t "${table}"
-			} &>/dev/null #|| error "[${FUNCNAME}] Ошибка при удалении правил в таблице ${table} и цепочке ${route}."
-		}
-	else
-		log_error "При вызове ${FUNCNAME} не были заданы обязательные аргументы."
-	fi
-}
-
-# ------------------------------------------------------------------------------------------
-# Производим удаление правил в указанной таблице в одной из стандартных цепочек
-# Для того, чтобы происходило удаление правил по правилу с '! -p icmp',
-# необходимо четвертым аргументом передать icmp_arg равным icmp
-# ------------------------------------------------------------------------------------------
-ip4tbl_flush_rm_pre_out(){
-
-	table="${1}"; chain="${2}"; route="${3}"; icmp_arg=${4:-'no'}
-	if [ -n "${table}" ] && [ -n "${chain}" ] && [ -n "${route}" ] ; then
-		log_warning "Производим удаление стандартных правил в таблице ${table}, цепочке ${route} для ${chain}"
-#		ip4save | grep "${route}" | grep -q "${chain}" && iptab -t "${table}" -D "${route}" -j "${chain}" &>/dev/null
-		for prot in tcp udp icmp; do
-			ip4save | grep "${route}" | grep "${chain}" | grep -q "${prot}" && {
-				if [ "${icmp_arg}" = 'icmp' ] && [ "${prot}" = icmp ]; then
-					iptab -t "${table}" -D "${route}" ! -p "${prot}" -j "${chain}" &>/dev/null
-				else
-					iptab -t "${table}" -D "${route}" -p "${prot}" -j "${chain}" &>/dev/null
-				fi
-			}
-		done
-	else
-		log_error "При вызове ${FUNCNAME} не были заданы обязательные аргументы."
-	fi
-}
-
-# ------------------------------------------------------------------------------------------
-# Производим удаление правил в указанной таблице в одной из стандартных цепочек
-# c правилами содержащими '-m set --match-set ${IPSET_TABLE_NAME} dst'
-# ------------------------------------------------------------------------------------------
-ip4tbl_flush_rm_match_set(){
-
-	table="${1}"; chain="${2}"; route="${3}"; interface=${4:-''}; proxy_port=${5:-''}
-
-	if [ -n "${table}" ] && [ -n "${chain}" ] && [ -n "${route}" ] ; then
-
-		log_warning "Производим удаление правил match-set в таблице ${table}, цепочке ${route} для ${chain}"
-
-		if [ -n "${proxy_port}" ] ; then 
-			for prot in tcp udp; do
-				ip4save | grep "${route}" | grep "${chain}" | grep -q "${prot}" && {
-#					Для shadowsocks
-					iptab -t "${table}" -i "${interface}" -D "${route}" -p "${prot}" -m set --match-set ${IPSET_TABLE_NAME} dst -j "${chain}" --to-port "${proxy_port}" &>/dev/null
-					iptab -t "${table}" -i "${interface}" -D "${route}" -p "${prot}" -m set --match-set ${IPSET_TABLE_NAME} dst -j "${chain}" --to-port "${proxy_port}" &>/dev/null
-				}
-			done
-			
-		else 
-#			Для VPN
-			iptab -t "${table}" -D "${route}" -m set --match-set ${IPSET_TABLE_NAME} dst -j "${chain}" &>/dev/null
-		fi
-	else
-		log_error "При вызове ${FUNCNAME} не были заданы обязательные аргументы."
-	fi
 }
 
 
