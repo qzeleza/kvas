@@ -669,7 +669,7 @@ ip4_add_selected_guest_to_ssr_network() {
 		ip4__ipset__create_list
 
 		# без echo дублирование пробелов (что даёт warning и проблему наличия)
-		iptables -A PREROUTING -w -t nat $(echo "${iptables_filter}") -p "${protocol}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j REDIRECT --to-port ${ss_port}
+		iptables -A PREROUTING -w -t "${PROXY_TCP_TABLE}" $(echo "${iptables_filter}") -p "${protocol}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j REDIRECT --to-port ${ss_port}
 	done
 }
 
@@ -767,7 +767,7 @@ ip4_firewall_rm_ssr_selected_guest_net() {
 		fi
 
 		# без echo дублирование пробелов (что даёт warning и проблему наличия)
-		iptables -D PREROUTING -t nat $(echo "${iptables_filter}") -p "${protocol}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j REDIRECT --to-port ${ss_port}
+		iptables -D PREROUTING -t "${PROXY_TCP_TABLE}" $(echo "${iptables_filter}") -p "${protocol}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j REDIRECT --to-port ${ss_port}
 	done
 }
 
