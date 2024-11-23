@@ -213,15 +213,15 @@ ip4__chain__create_for_data() {
 	fi
 	chain_name=${2}
 
-	if ip4__chain__is_exist "${chain_name}"; then
-		return
-	fi
-
 	if [ -z "${1}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
 	table=${1}
+
+	if ip4__chain__is_exist "${table}" "${chain_name}" ; then
+		return
+	fi
 
 	log_warning "Создание цепочки ${chain_name} в ${table} для перенаправления данных"
 
@@ -238,15 +238,15 @@ ip4__chain__delete() {
 	fi
 	chain_name=${2}
 
-	if ! ip4__chain__is_exist "${chain_name}"; then
-		return
-	fi
-
 	if [ -z "${1}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
 	table=${1}
+
+	if ! ip4__chain__is_exist "${table}" "${chain_name}"; then
+		return
+	fi
 
 	log_warning "Удаление цепочки ${chain_name} в ${table}"
 
