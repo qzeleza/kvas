@@ -427,26 +427,6 @@ ip4__vpn_fast__add_routing_for_home() {
 
 # ------------------------------------------------------------------------------------------
 #
-# Очистка основных правил
-#
-# ------------------------------------------------------------------------------------------
-
-# Удаляем VPN правила для случая когда программное и аппаратное ускорение ОТКЛЮЧЕНО
-ip4_firewall_nofastnet_vpn_prune(){
-	{
-		# антиправила для ip4__vpn_nofast__set_rules
-		iptables__delete_rules "${VPN_FAST_TABLE}" "-j MARK --set-mark ${MARK_NUM}"
-
-		# в ip4__vpn_nofast__set_rules нет создания цепочки
-		#ip4__chain__delete "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
-	} &>/dev/null
-}
-
-
-
-
-# ------------------------------------------------------------------------------------------
-#
 # Подключение и отключение перехвата DNS
 #
 # ------------------------------------------------------------------------------------------
@@ -842,7 +822,11 @@ ip4_firewall_flush_vpn_rules() {
 		# Нижеидущее нужно вызывать лишь при установке или удалении
 		ip4__chain__delete "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
 	else
-		ip4_firewall_nofastnet_vpn_prune &>/dev/null
+		# антиправила для ip4__vpn_nofast__set_rules
+		iptables__delete_rules "${VPN_FAST_TABLE}" "-j MARK --set-mark ${MARK_NUM}"
+
+		# в ip4__vpn_nofast__set_rules нет создания цепочки
+		#ip4__chain__delete "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
 	fi
 }
 
