@@ -226,6 +226,29 @@ ip4__chain__create_for_data() {
 	ip4tables "${chain_name}" -t "${table}" -m set --match-set "${IPSET_RESERVED}" dst -j RETURN
 }
 
+ip4__chain__delete() {
+	if [ -z "${2}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
+		return
+	fi
+	chain_name=${2}
+
+	if ! ip4__chain__is_exist "${chain_name}"; then
+		return
+	fi
+
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
+		return
+	fi
+	table=${1}
+
+	log_warning "Удаление цепочки ${chain_name} в ${table}"
+
+	iptables -F "${chain_name}" -t "${table}"
+	iptables -X "${chain_name}" -t "${table}"
+}
+
 
 # ------------------------------------------------------------------------------------------
 #
@@ -369,19 +392,7 @@ ip4_firewall_ssr_prune(){
 
 # Производим удаление правил и удаляем саму цепочку
 ip4tbl_flush_rm_chain(){
-	table="${1}"; chain="${2}"
-	#	Если не заданы аргументы, то ничего не выполняем
-	if [ -n "${table}" ] && [ -n "${chain}" ] ; then
-		ip4save | grep -q "${chain}" && {
-			log_warning "Производим удаление правил в таблице ${table} и цепочке ${route} и удаляем цепочку."
-			{
-				iptab -F "${chain}" -t "${table}"
-				iptab -X "${chain}" -t "${table}"
-			} &>/dev/null #|| error "[${FUNCNAME}] Ошибка при удалении правил в таблице ${table} и цепочке ${route}."
-		}
-	else
-		log_error "При вызове ${FUNCNAME} не были заданы обязательные аргументы."
-	fi
+	ip4__chain__delete "${1}" "${2}"
 }
 
 # Производим удаление правил в указанной таблице в одной из стандартных цепочек
