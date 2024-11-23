@@ -362,7 +362,7 @@ ip4_firewall_fastnet_vpn_prune(){
 	{
 		ip4tbl_flush_rm_match_set "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}" PREROUTING
 		ip4tbl_flush_rm_match_set "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}" OUTPUT
-		ip4tbl_flush_rm_chain "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
+		ip4__chain__delete "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
 
 	} &>/dev/null
 }
@@ -371,7 +371,9 @@ ip4_firewall_fastnet_vpn_prune(){
 ip4_firewall_nofastnet_vpn_prune(){
 	{
 		ip4tbl_flush_rm_pre_out "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}" PREROUTING
-		ip4tbl_flush_rm_chain "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
+
+		# в ip4__vpn_nofast__set_rules нет создания цепочки
+		#ip4__chain__delete "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
 
 	} &>/dev/null
 }
@@ -381,18 +383,13 @@ ip4_firewall_nofastnet_vpn_prune(){
 ip4_firewall_ssr_prune(){
 	{
 		ip4tbl_flush_rm_pre_out "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}" PREROUTING
-		ip4tbl_flush_rm_chain "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}"
+		ip4__chain__delete "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}"
 
 		interface=$(get_local_inface)
 		proxy_port=$(get_config_value SSR_DNS_PORT)
 
 		ip4tbl_flush_rm_match_set "${PROXY_TCP_TABLE}" REDIRECT PREROUTING "${interface}" "${proxy_port}"
 	} &>/dev/null
-}
-
-# Производим удаление правил и удаляем саму цепочку
-ip4tbl_flush_rm_chain(){
-	ip4__chain__delete "${1}" "${2}"
 }
 
 # Производим удаление правил в указанной таблице в одной из стандартных цепочек
