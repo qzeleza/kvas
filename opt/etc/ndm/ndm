@@ -119,13 +119,13 @@ iptables__delete_rule() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table=${1}
+	table="${1}"
 
 	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — правило"
 		return
 	fi
-	rule=${2}
+	rule="${2}"
 
 	if [ "${rule:0:3}" != '-A ' ]; then
 		return
@@ -140,13 +140,13 @@ iptables__delete_rules() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table=${1}
+	table="${1}"
 
 	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — фильтр"
 		return
 	fi
-	filter=${2}
+	filter="${2}"
 
 	local rules=$(iptables-save -t "${table}" | grep -F -- "${filter}")
 	if [ -z "${rules}" ] ; then
@@ -171,7 +171,7 @@ ip4__ipset__is_exist() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — имя"
 		return
 	fi
-	local ipset_name=${1}
+	local ipset_name="${1}"
 
 	! ipset list "${ipset_name}" 2>&1 | grep -q 'name does not exist'
 }
@@ -181,7 +181,7 @@ ip4__ipset__create() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — имя"
 		return
 	fi
-	local ipset_name=${1}
+	local ipset_name="${1}"
 
 	if ip4__ipset__is_exist "${ipset_name}"; then
 		return
@@ -246,13 +246,13 @@ ip4__chain__is_exist() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
 		return
 	fi
-	chain_name=${2}
+	chain_name="${2}"
 
 	if [ -z "${1}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table=${1}
+	table="${1}"
 
 	iptables-save -t "${table}" | grep -Fq "${chain_name}"
 }
@@ -263,13 +263,13 @@ ip4__chain__create_for_data() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
 		return
 	fi
-	chain_name=${2}
+	chain_name="${2}"
 
 	if [ -z "${1}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table=${1}
+	table="${1}"
 
 	if ip4__chain__is_exist "${table}" "${chain_name}" ; then
 		return
@@ -288,13 +288,13 @@ ip4__chain__delete() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
 		return
 	fi
-	chain_name=${2}
+	chain_name="${2}"
 
 	if [ -z "${1}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table=${1}
+	table="${1}"
 
 	if ! ip4__chain__is_exist "${table}" "${chain_name}"; then
 		return
@@ -312,13 +312,13 @@ ip4__chain__delete_jump() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table=${1}
+	table="${1}"
 
 	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
 		return
 	fi
-	chain_name=${2}
+	chain_name="${2}"
 
 	iptables__delete_rules "${table}" "-j ${chain_name}"
 }
@@ -647,7 +647,7 @@ ip4_add_selected_guest_to_vpn_network() {
 
 ip4_add_selected_guest_to_ssr_network() {
 	local net_interface="${1}"
-	local net_pool=${2}
+	local net_pool="${2}"
 
 	[ -z "${net_interface}" ] && {
 		error "[${FUNCNAME}] Отсутствует обязательный параметр — имя сетевого интерфейса"
@@ -744,7 +744,7 @@ ip4_firewall_rm_vpn_selected_guest_net() {
 
 ip4_firewall_rm_ssr_selected_guest_net() {
 	local net_interface="${1}"
-	local net_pool=${2}
+	local net_pool="${2}"
 
 	[ -z "${net_interface}" ] && {
 		error "[${FUNCNAME}] Отсутствует обязательный параметр — имя сетевого интерфейса"
