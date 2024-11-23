@@ -328,6 +328,46 @@ ip4__vpn_fast__add_routing_for_home() {
 
 # ------------------------------------------------------------------------------------------
 #
+# Очистка основных правил
+#
+# ------------------------------------------------------------------------------------------
+
+# Удаляем VPN правила для случая когда программное и аппаратное ускорение ПОДКЛЮЧЕНО
+ip4_firewall_fastnet_vpn_prune(){
+	{
+		ip4tbl_flush_rm_match_set "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}" PREROUTING
+		ip4tbl_flush_rm_match_set "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}" OUTPUT
+		ip4tbl_flush_rm_chain "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
+
+	} &>/dev/null
+}
+
+# Удаляем VPN правила для случая когда программное и аппаратное ускорение ОТКЛЮЧЕНО
+ip4_firewall_nofastnet_vpn_prune(){
+	{
+		ip4tbl_flush_rm_pre_out "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}" PREROUTING
+		ip4tbl_flush_rm_chain "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
+
+	} &>/dev/null
+}
+
+# Удаляем все правила iptables для SHADOWSOCKS подключений,
+# которые были добавлены при работе пакета в старой редакции
+ip4_firewall_ssr_prune(){
+	{
+		ip4tbl_flush_rm_pre_out "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}" PREROUTING
+		ip4tbl_flush_rm_chain "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}"
+
+		interface=$(get_local_inface)
+		proxy_port=$(get_config_value SSR_DNS_PORT)
+
+		ip4tbl_flush_rm_match_set "${PROXY_TCP_TABLE}" REDIRECT PREROUTING "${interface}" "${proxy_port}"
+	} &>/dev/null
+}
+
+
+# ------------------------------------------------------------------------------------------
+#
 # Подключение и отключение перехвата DNS
 #
 # ------------------------------------------------------------------------------------------
@@ -1058,54 +1098,6 @@ ip4tbl_flush_rm_match_set(){
 	fi
 }
 
-# ------------------------------------------------------------------------------------------
-#
-# Удаляем VPN правила для случая когда программное и аппаратное ускорение ПОДКЛЮЧЕНО
-#
-# ------------------------------------------------------------------------------------------
-ip4_firewall_fastnet_vpn_prune(){
-	{
-		ip4tbl_flush_rm_match_set "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}" PREROUTING
-		ip4tbl_flush_rm_match_set "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}" OUTPUT
-		ip4tbl_flush_rm_chain "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
-
-	} &>/dev/null
-#	2> "${ERROR_LOG_FILE}"
-#	when_error "${?}" "${IPv4} Возникла ошибка при обнулении VPN правил iptables для цепочки ${table}."
-}
-
-# ------------------------------------------------------------------------------------------
-#
-# Удаляем VPN правила для случая когда программное и аппаратное ускорение ОТКЛЮЧЕНО
-#
-# ------------------------------------------------------------------------------------------
-ip4_firewall_nofastnet_vpn_prune(){
-	{
-		ip4tbl_flush_rm_pre_out "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}" PREROUTING
-		ip4tbl_flush_rm_chain "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
-
-	} &>/dev/null
-#	2> "${ERROR_LOG_FILE}"
-#	when_error "${?}" "${IPv4} Возникла ошибка при обнулении VPN правил iptables для цепочки ${table}."
-}
-
-# ------------------------------------------------------------------------------------------
-#
-# Удаляем все правила iptables для SHADOWSOCKS подключений,
-# которые были добавлены при работе пакета в старой редакции
-#
-# ------------------------------------------------------------------------------------------
-ip4_firewall_ssr_prune(){
-	{
-		ip4tbl_flush_rm_pre_out "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}" PREROUTING
-		ip4tbl_flush_rm_chain "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}"
-
-		interface=$(get_local_inface)
-		proxy_port=$(get_config_value SSR_DNS_PORT)
-
-		ip4tbl_flush_rm_match_set "${PROXY_TCP_TABLE}" REDIRECT PREROUTING "${interface}" "${proxy_port}"
-	} &>/dev/null
-}
 
 # ------------------------------------------------------------------------------------------
 #
@@ -1147,7 +1139,6 @@ recreate_vpn_rules(){
 	ip4_mark_vpn_network &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 }
 
-
 # Пересоздаем все необходимые правила для корректной работы SHADOWSOCKS соединения
 recreate_ssr_rules(){
 	ready "${prefix}Очищаем все ранее созданные iptables правила для ShadowSocks."
@@ -1168,6 +1159,7 @@ refresh_adguard_ipset_table(){
 	ready "${prefix}Заполняем AdGuard таблицу данными из защищенного списка."
 	/opt/apps/kvas/bin/main/adguard &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 }
+
 
 # ------------------------------------------------------------------------------------------
 #
