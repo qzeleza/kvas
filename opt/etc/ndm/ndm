@@ -360,10 +360,12 @@ ip4__vpn_fast__add_routing_for_home() {
 # Удаляем VPN правила для случая когда программное и аппаратное ускорение ПОДКЛЮЧЕНО
 ip4_firewall_fastnet_vpn_prune(){
 	{
-		ip4tbl_flush_rm_match_set "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}" PREROUTING
-		ip4tbl_flush_rm_match_set "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}" OUTPUT
-		ip4__chain__delete "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
+		# использовалось в старой версии
+		ip4tbl_flush_rm_match_set "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}" 'OUTPUT'
 
+		ip4tbl_flush_rm_match_set "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}" 'PREROUTING'
+
+		ip4__chain__delete "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
 	} &>/dev/null
 }
 
@@ -374,7 +376,6 @@ ip4_firewall_nofastnet_vpn_prune(){
 
 		# в ip4__vpn_nofast__set_rules нет создания цепочки
 		#ip4__chain__delete "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
-
 	} &>/dev/null
 }
 
