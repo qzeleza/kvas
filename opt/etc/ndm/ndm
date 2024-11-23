@@ -109,6 +109,58 @@ fastnet_enabled()(fast_hw_enabled || fast_sw_enabled)
 
 # ------------------------------------------------------------------------------------------
 #
+# Функции для работы с iptables
+#
+# ------------------------------------------------------------------------------------------
+
+# удаляет правило, полученное из iptables-save
+iptables__delete_rule() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
+		return
+	fi
+	table=${1}
+
+	if [ -z "${2}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — правило"
+		return
+	fi
+	rule=${2}
+
+	if [ "${rule:0:3}" != '-A ' ]; then
+		return
+	fi
+
+	iptables -t "${table}" -D $(echo "${rule:3}")
+}
+
+# удаляет правила, получаемые по критерию
+iptables__delete_rules() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
+		return
+	fi
+	table=${1}
+
+	if [ -z "${2}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — фильтр"
+		return
+	fi
+	filter=${2}
+
+	local rules=$(iptables-save -t "${table}" | grep -F -- "${filter}")
+	if [ -z "${rules}" ] ; then
+		return
+	fi
+
+	echo "${rules}" | while IFS= read -r rule ; do
+		iptables__delete_rule "${table}" "${rule}"
+	done
+}
+
+
+# ------------------------------------------------------------------------------------------
+#
 # Функции для работы с IPSet
 # Пока что все помечены как ip4, по мере адаптации префикс удалять
 #
@@ -254,6 +306,23 @@ ip4__chain__delete() {
 	iptables -X "${chain_name}" -t "${table}"
 }
 
+# удаляем входы в цепочку
+ip4__chain__delete_jump() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
+		return
+	fi
+	table=${1}
+
+	if [ -z "${2}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
+		return
+	fi
+	chain_name=${2}
+
+	iptables__delete_rules "${table}" "-j ${chain_name}"
+}
+
 
 # ------------------------------------------------------------------------------------------
 #
@@ -365,11 +434,11 @@ ip4__vpn_fast__add_routing_for_home() {
 # Удаляем VPN правила для случая когда программное и аппаратное ускорение ПОДКЛЮЧЕНО
 ip4_firewall_fastnet_vpn_prune(){
 	{
-		# использовалось в старой версии
-		ip4tbl_flush_rm_match_set "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}" 'OUTPUT'
+		ip4__chain__delete_jump "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
 
-		ip4tbl_flush_rm_match_set "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}" 'PREROUTING'
-
+		# во время работы КВАСа удалять сами цепочки бессмысленно, они константны
+		# достаточно убрать входы туда, что сделано выше
+		# это нужно вызывать лишь при установки или удалении
 		ip4__chain__delete "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
 	} &>/dev/null
 }
