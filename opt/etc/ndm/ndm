@@ -223,7 +223,7 @@ ip4__chain__create_for_data() {
 	iptables -N "${chain_name}" -w -t "${table}"
 
 	ip4__ipset__fill_reserved
-	ip4tables "${chain_name}" -t "${table}" -m set --match-set "${IPSET_RESERVED}" dst -j RETURN
+	ip4tables "${chain_name}" -w -t "${table}" -m set --match-set "${IPSET_RESERVED}" dst -j RETURN
 }
 
 ip4__chain__delete() {
@@ -461,7 +461,7 @@ ip4__dns__create_chain() {
 
 	iptables -N "${DNS_CHAIN}" -w -t nat
 	for protocol in udp tcp ; do
-		iptables -A "${DNS_CHAIN}" -w -t nat -p "${protocol}" --dport 53 -j DNAT --to-destination 127.0.0.1:"${DNS_PORT}"
+		iptables -A "${DNS_CHAIN}" -t nat -p "${protocol}" --dport 53 -j DNAT --to-destination 127.0.0.1:"${DNS_PORT}"
 	done
 }
 
@@ -548,7 +548,7 @@ ip4__dns__delete_routing() {
 	log_warning "Отключение DNS перенаправления${submessage}"
 
 	# без echo дублирование пробелов (что даёт warning и проблему наличия)
-	iptables -D PREROUTING -w -t nat$(echo "${iptables_filter}") -j "${DNS_CHAIN}"
+	iptables -D PREROUTING -t nat$(echo "${iptables_filter}") -j "${DNS_CHAIN}"
 }
 
 
@@ -705,7 +705,7 @@ ip4_firewall_rm_vpn_selected_guest_net() {
 	if fastnet_enabled ; then
 		if iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_FAST_CHAIN}" ; then
 			# без echo дублирование пробелов (что даёт warning и проблему наличия)
-			iptables -D PREROUTING -w -t "${VPN_FAST_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_FAST_CHAIN}"
+			iptables -D PREROUTING -t "${VPN_FAST_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_FAST_CHAIN}"
 		fi
 	else
 		if [ -z "${net_pool}" ] ; then
@@ -715,7 +715,7 @@ ip4_firewall_rm_vpn_selected_guest_net() {
 		# случай основного VPN и отключенного ускорения требует дополнительной проверки
 		# но именно таким код был изначально, т.е. он точно не "ухудшится"
 		if iptables-save | grep -F 'POSTROUTING' | grep -F "${net_pool}" | grep -F "${net_interface}" | grep -Fq 'MASQUERADE' ; then
-			iptables -D POSTROUTING -w -t nat -s "${net_pool}" -o "${net_interface}" -j MASQUERADE
+			iptables -D POSTROUTING -t nat -s "${net_pool}" -o "${net_interface}" -j MASQUERADE
 		fi
 	fi
 }
@@ -767,7 +767,7 @@ ip4_firewall_rm_ssr_selected_guest_net() {
 		fi
 
 		# без echo дублирование пробелов (что даёт warning и проблему наличия)
-		iptables -D PREROUTING -w -t nat $(echo "${iptables_filter}") -p "${protocol}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j REDIRECT --to-port ${ss_port}
+		iptables -D PREROUTING -t nat $(echo "${iptables_filter}") -p "${protocol}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j REDIRECT --to-port ${ss_port}
 	done
 }
 
