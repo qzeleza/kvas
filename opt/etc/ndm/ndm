@@ -328,7 +328,7 @@ ip4__proxy__add_routing_for_home() {
 		return
 	fi
 
-	log_warning 'Подключение перенаправления трафика в прокси для домашней сети'
+	log_warning 'Подключение перенаправления трафика для домашней сети в прокси'
 
 	ip4__ipset__create_list
 	ip4tables PREROUTING -w -t "${PROXY_TCP_TABLE}" -i "${net_interface}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${PROXY_TCP_CHAIN}"
@@ -344,7 +344,7 @@ ip4__vpn_fast__add_routing_for_home() {
 		return
 	fi
 
-	log_warning 'Подключение перенаправления трафика в VPN со включенным ускорением для домашней сети'
+	log_warning 'Подключение перенаправления трафика для домашней сети в VPN со включенным ускорением'
 
 	ip4__ipset__create_list
 	ip4tables PREROUTING -w -t "${VPN_FAST_TABLE}" -i "${net_interface}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_FAST_CHAIN}"
