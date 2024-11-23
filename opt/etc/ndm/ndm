@@ -431,19 +431,6 @@ ip4__vpn_fast__add_routing_for_home() {
 #
 # ------------------------------------------------------------------------------------------
 
-# Удаляем VPN правила для случая когда программное и аппаратное ускорение ПОДКЛЮЧЕНО
-ip4_firewall_fastnet_vpn_prune(){
-	{
-		# достаточно удалять правила для br0, но на всякий случай
-		ip4__chain__delete_jump "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
-
-		# Во время работы удалять цепочки бессмысленно, они константны и не влияют ни на что
-		# Достаточно убрать входы туда, что сделано выше
-		# Нижеидущее нужно вызывать лишь при установке или удалении
-		ip4__chain__delete "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
-	} &>/dev/null
-}
-
 # Удаляем VPN правила для случая когда программное и аппаратное ускорение ОТКЛЮЧЕНО
 ip4_firewall_nofastnet_vpn_prune(){
 	{
@@ -859,7 +846,13 @@ ip4_firewall_flush_vpn_rules() {
 	ip4_firewall_flush_vpn_guest_rules &>/dev/null
 
 	if fastnet_enabled ; then
-		ip4_firewall_fastnet_vpn_prune &>/dev/null
+		# достаточно удалять правила для br0, но на всякий случай
+		ip4__chain__delete_jump "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
+
+		# Во время работы удалять цепочки бессмысленно, они константны и не влияют ни на что
+		# Достаточно убрать входы туда, что сделано выше
+		# Нижеидущее нужно вызывать лишь при установке или удалении
+		ip4__chain__delete "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
 	else
 		ip4_firewall_nofastnet_vpn_prune &>/dev/null
 	fi
