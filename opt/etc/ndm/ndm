@@ -28,6 +28,7 @@ DNS_PORT=9753
 IPSET_RESERVED=KVAS_RESERVED
 
 DNS_CHAIN=KVAS_DNS
+DNS_TABLE=nat
 
 VPN_FAST_CHAIN=KVAS_VPN_FAST
 VPN_FAST_TABLE=mangle
@@ -499,7 +500,7 @@ ip4__vpn_fast__add_routing_for_home() {
 #
 # ------------------------------------------------------------------------------------------
 
-# Создаёт (если нет) цепочку в nat для DNS редиректа
+# Создаёт (если нет) цепочку для DNS редиректа
 ip4__dns__create_chain() {
 	if iptables-save | grep -Fq "${DNS_CHAIN}"; then
 		return
@@ -507,9 +508,9 @@ ip4__dns__create_chain() {
 
 	log_warning 'Создание цепочки для DNS перенаправления'
 
-	iptables -N "${DNS_CHAIN}" -w -t nat
+	iptables -N "${DNS_CHAIN}" -w -t "${DNS_TABLE}"
 	for protocol in udp tcp ; do
-		iptables -A "${DNS_CHAIN}" -t nat -p "${protocol}" --dport 53 -j DNAT --to-destination 127.0.0.1:"${DNS_PORT}"
+		iptables -A "${DNS_CHAIN}" -t "${DNS_TABLE}" -p "${protocol}" --dport 53 -j DNAT --to-destination 127.0.0.1:"${DNS_PORT}"
 	done
 }
 
@@ -530,7 +531,7 @@ ip4__get_rulenum() {
 	 | grep -nF -- "${find}" | head -n 1 | grep -oE '^[0-9]+')
 }
 
-# Возвращает номер (в nat PREROUTING) для DNS-правил
+# Возвращает номер (в PREROUTING) для DNS-правил
 ip4__dns__get_rulenum() {
 	# вместо NDM_DNS_REDIRECT
 	local rulenum=$(ip4__get_rulenum 'NDM_DNS_REDIRECT')
@@ -573,7 +574,7 @@ ip4__dns__add_routing() {
 
 	ip4__dns__create_chain
 	# без echo дублирование пробелов (что даёт warning и проблему наличия)
-	iptables -I PREROUTING "${rulenum}" -w -t nat$(echo "${iptables_filter}") -j "${DNS_CHAIN}"
+	iptables -I PREROUTING "${rulenum}" -w -t "${DNS_TABLE}"$(echo "${iptables_filter}") -j "${DNS_CHAIN}"
 }
 
 # Отключение перехвата dns-запросов в dnsmasq
@@ -596,7 +597,7 @@ ip4__dns__delete_routing() {
 	log_warning "Отключение DNS перенаправления${submessage}"
 
 	# без echo дублирование пробелов (что даёт warning и проблему наличия)
-	iptables -D PREROUTING -t nat$(echo "${iptables_filter}") -j "${DNS_CHAIN}"
+	iptables -D PREROUTING -t "${DNS_TABLE}"$(echo "${iptables_filter}") -j "${DNS_CHAIN}"
 }
 
 
@@ -781,13 +782,13 @@ ip4_firewall_flush_vpn_rules() {
 	if fastnet_enabled ; then
 		# достаточно удалять правила для br0, но на всякий случай
 		ip4__chain__delete_jump "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}" &>/dev/null
-		#ip4__chain__delete_jump 'nat' "${DNS_CHAIN}" &>/dev/null
+		#ip4__chain__delete_jump "${DNS_TABLE}" "${DNS_CHAIN}" &>/dev/null
 
 		# Во время работы удалять цепочки бессмысленно, они константны и не влияют ни на что
 		# Достаточно убрать входы туда, что сделано выше
 		# Нижеидущее нужно вызывать лишь при установке или удалении
 		#ip4__chain__delete "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}" &>/dev/null
-		#ip4__chain__delete 'nat' "${DNS_CHAIN}"
+		#ip4__chain__delete "${DNS_TABLE}" "${DNS_CHAIN}"
 	else
 		# антиправила для ip4__vpn_nofast__set_rules
 		iptables__delete_rules "${VPN_FAST_TABLE}" "-j MARK --set-mark ${MARK_NUM}" &>/dev/null
@@ -812,13 +813,13 @@ ip4_firewall_ssr_prune() {
 	{
 		# достаточно удалять правила для br0, но на всякий случай
 		ip4__chain__delete_jump "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}"
-		#ip4__chain__delete_jump 'nat' "${DNS_CHAIN}"
+		#ip4__chain__delete_jump "${DNS_TABLE}" "${DNS_CHAIN}"
 
 		# Во время работы удалять цепочки бессмысленно, они константны и не влияют ни на что
 		# Достаточно убрать входы туда, что сделано выше
 		# Нижеидущее нужно вызывать лишь при установке или удалении
 		#ip4__chain__delete "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}"
-		#ip4__chain__delete 'nat' "${DNS_CHAIN}"
+		#ip4__chain__delete "${DNS_TABLE}" "${DNS_CHAIN}"
 	} &>/dev/null
 }
 
