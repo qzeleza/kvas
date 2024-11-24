@@ -708,19 +708,19 @@ ip4__del_routing_for_net() {
 }
 
 ip4_add_selected_guest_to_vpn_network() {
-	ip4__add_routing_for_net
+	ip4__add_routing_for_net "${1}"
 }
 
 ip4_add_selected_guest_to_ssr_network() {
-	ip4__add_routing_for_net
+	ip4__add_routing_for_net "${1}"
 }
 
 ip4_firewall_rm_vpn_selected_guest_net() {
-	ip4__del_routing_for_net
+	ip4__del_routing_for_net "${1}"
 }
 
 ip4_firewall_rm_ssr_selected_guest_net() {
-	ip4__del_routing_for_net
+	ip4__del_routing_for_net "${1}"
 }
 
 
