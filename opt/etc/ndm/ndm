@@ -806,9 +806,8 @@ ip4_mark_vpn_network() {
 ip4_firewall_set_all_rules() {
 	if has_ssr_enable ; then
 		ip4__shadowsocks__create_chain &>/dev/null
-		ip4__shadowsocks__add_routing_for_home &> /dev/null
-
 		ip4_add_guest_to_ssr_network &> /dev/null
+		ip4__shadowsocks__add_routing_for_home &> /dev/null
 	else
 		ip4_mark_vpn_network &>/dev/null
 	fi

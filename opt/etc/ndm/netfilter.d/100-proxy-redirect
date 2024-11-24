@@ -18,11 +18,11 @@
 #	Лицензия: Apache License 2.0
 # ------------------------------------------------------------------------------
 
+# IPv4
+# Роутинг прокси и DNS в nat
+# В идеале UDP унести в mangle, но этого пока не сделано
 if [ "${type}" = 'iptables' ] && [ "${table}" = 'nat' ] ; then
 	. /opt/apps/kvas/bin/libs/ndm
 
-	ip4__shadowsocks__create_chain &>/dev/null
-	ip4__shadowsocks__add_routing_for_home &> /dev/null
-
-	ip4_add_guest_to_ssr_network &> /dev/null
+	ip4_firewall_set_all_rules &>/dev/null
 fi
