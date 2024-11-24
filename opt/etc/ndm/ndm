@@ -451,9 +451,12 @@ ip4__add_routing_for_home() {
 	ip4tables PREROUTING -w -t "${table}" -i "${net_interface}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${chain_name}"
 }
 
-# ShadowSocks или любое другое прокси
-ip4__proxy__add_routing_for_home() {
+ip4__shadowsocks__add_routing_for_home() {
 	ip4__add_routing_for_home "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}" 'ShadowSocks'
+}
+
+ip4__vless__add_routing_for_home() {
+	ip4__add_routing_for_home "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}" 'VLESS'
 }
 
 # когда ускорение подключено
@@ -803,7 +806,7 @@ ip4_mark_vpn_network() {
 ip4_firewall_set_all_rules() {
 	if has_ssr_enable ; then
 		ip4__shadowsocks__create_chain &>/dev/null
-		ip4__proxy__add_routing_for_home &> /dev/null
+		ip4__shadowsocks__add_routing_for_home &> /dev/null
 
 		ip4_add_guest_to_ssr_network &> /dev/null
 	else
@@ -1165,7 +1168,7 @@ recreate_ssr_rules(){
 	ip4__shadowsocks__create_chain &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
 	ready "${prefix}Создаём правила домашней сети для ShadowSocks."
-	ip4__proxy__add_routing_for_home &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+	ip4__shadowsocks__add_routing_for_home &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
 	ready "${prefix}Создаём правила гостевых сетей для ShadowSocks."
 	ip4_add_guest_to_ssr_network &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
