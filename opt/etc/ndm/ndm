@@ -250,7 +250,7 @@ ip4__ipset__fill_reserved() {
 
 	while read -r ip_or_range || [ -n "${ip_or_range}" ]; do
 		# пропускаем строки с комментариями
-		[ ${ip_or_range:0:1} = '#' ] && continue
+		[ "${ip_or_range:0:1}" = '#' ] && continue
 		# удаляем из строк комментарии - все что встречается после символа # и сам символ
 		# удаляем пробелы
 		ip_or_range=$(echo "${ip_or_range}" | sed 's/#.*$//g' | tr -s ' ' )
