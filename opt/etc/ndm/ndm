@@ -627,13 +627,14 @@ ip4_add_selected_guest_to_vpn_network() {
 	ip4__dns__add_routing "${iptables_filter}"
 
 	if fastnet_enabled ; then
-		if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_FAST_CHAIN}" ; then
-			log_warning "Подключаем правила гостевого трафика для VPN с ускорением по критерию ${iptables_filter}"
-
-			ip4__ipset__create_list
-			# без echo дублирование пробелов (что даёт warning и проблему наличия)
-			iptables -A PREROUTING -w -t "${VPN_FAST_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_FAST_CHAIN}"
+		if iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_FAST_CHAIN}" ; then
+			return
 		fi
+		log_warning "Подключаем правила гостевого трафика для VPN с ускорением по критерию ${iptables_filter}"
+
+		ip4__ipset__create_list
+		# без echo дублирование пробелов (что даёт warning и проблему наличия)
+		iptables -A PREROUTING -w -t "${VPN_FAST_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_FAST_CHAIN}"
 	else
 		# на выходе не доступен i
 		if [ "${net_interface}" = 'ikev2' ] ; then
@@ -641,14 +642,16 @@ ip4_add_selected_guest_to_vpn_network() {
 		else
 			local net_pool=$(get_guest_net "${net_interface}")
 		fi
+		net_interface=$(get_external_interface)
 
 		# случай основного VPN и отключенного ускорения требует дополнительной проверки
 		# но именно таким код был изначально, т.е. он точно не "ухудшится"
-		if ! iptables-save | grep -F 'POSTROUTING' | grep -F "${net_pool}" | grep -F "${net_interface}" | grep -Fq 'MASQUERADE' ; then
-			log_warning "Подключаем правила гостевого трафика для VPN без ускорения по критерию ${iptables_filter}"
-
-			iptables -A POSTROUTING -w -t nat -s "${net_pool}" -o "$(get_external_interface)" -j MASQUERADE
+		if iptables-save | grep -F 'POSTROUTING' | grep -F "${net_pool}" | grep -F "${net_interface}" | grep -Fq 'MASQUERADE' ; then
+			return
 		fi
+		log_warning "Подключаем правила гостевого трафика для VPN без ускорения по критерию ${iptables_filter}"
+
+		iptables -A POSTROUTING -w -t nat -s "${net_pool}" -o "${net_interface}" -j MASQUERADE
 	fi
 }
 
@@ -664,9 +667,8 @@ ip4_add_selected_guest_to_ssr_network() {
 	ip4__dns__add_routing "${iptables_filter}"
 
 	if ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${PROXY_TCP_CHAIN}" ; then
-		continue
+		return
 	fi
-
 	log_warning "Подключаем правила гостевого трафика для прокси по критерию ${iptables_filter}"
 
 	ip4__ipset__create_list
@@ -686,12 +688,12 @@ ip4_firewall_rm_vpn_selected_guest_net() {
 	ip4__dns__delete_routing "${iptables_filter}"
 
 	if fastnet_enabled ; then
-		if iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_FAST_CHAIN}" ; then
-			log_warning "Отключаем правила гостевого трафика для VPN с ускорением по критерию ${iptables_filter}"
-
-			# без echo дублирование пробелов (что даёт warning и проблему наличия)
-			iptables -D PREROUTING -t "${VPN_FAST_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_FAST_CHAIN}"
+		if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_FAST_CHAIN}" ; then
+			return
 		fi
+		log_warning "Отключаем правила гостевого трафика для VPN с ускорением по критерию ${iptables_filter}"
+
+		iptables -D PREROUTING -t "${VPN_FAST_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_FAST_CHAIN}"
 	else
 		# на выходе не доступен i
 		if [ "${net_interface}" = 'ikev2' ] ; then
@@ -699,14 +701,16 @@ ip4_firewall_rm_vpn_selected_guest_net() {
 		else
 			local net_pool=$(get_guest_net "${net_interface}")
 		fi
+		net_interface=$(get_external_interface)
 
 		# случай основного VPN и отключенного ускорения требует дополнительной проверки
 		# но именно таким код был изначально, т.е. он точно не "ухудшится"
-		if iptables-save | grep -F 'POSTROUTING' | grep -F "${net_pool}" | grep -F "${net_interface}" | grep -Fq 'MASQUERADE' ; then
-			log_warning "Отключаем правила гостевого трафика для VPN без ускорения по критерию ${iptables_filter}"
-
-			iptables -D POSTROUTING -t nat -s "${net_pool}" -o "$(get_external_interface)" -j MASQUERADE
+		if ! iptables-save | grep -F 'POSTROUTING' | grep -F "${net_pool}" | grep -F "${net_interface}" | grep -Fq 'MASQUERADE' ; then
+			return
 		fi
+		log_warning "Отключаем правила гостевого трафика для VPN без ускорения по критерию ${iptables_filter}"
+
+		iptables -D POSTROUTING -t nat -s "${net_pool}" -o "${net_interface}" -j MASQUERADE
 	fi
 }
 
@@ -722,12 +726,10 @@ ip4_firewall_rm_ssr_selected_guest_net() {
 	ip4__dns__delete_routing "${iptables_filter}"
 
 	if ! ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${PROXY_TCP_CHAIN}" ; then
-		continue
+		return
 	fi
-
 	log_warning "Отключаем правила гостевого трафика для прокси по критерию ${iptables_filter}"
 
-	# без echo дублирование пробелов (что даёт warning и проблему наличия)
 	iptables -D PREROUTING -t "${PROXY_TCP_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${PROXY_TCP_CHAIN}"
 }
 
