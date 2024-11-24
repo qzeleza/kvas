@@ -785,7 +785,7 @@ ip4_firewall_flush_vpn_rules() {
 		# Во время работы удалять цепочки бессмысленно, они константны и не влияют ни на что
 		# Достаточно убрать входы туда, что сделано выше
 		# Нижеидущее нужно вызывать лишь при установке или удалении
-		ip4__chain__delete "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}" &>/dev/null
+		#ip4__chain__delete "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}" &>/dev/null
 	else
 		# антиправила для ip4__vpn_nofast__set_rules
 		iptables__delete_rules "${VPN_FAST_TABLE}" "-j MARK --set-mark ${MARK_NUM}" &>/dev/null
@@ -816,7 +816,7 @@ ip4_firewall_ssr_prune() {
 		# Во время работы удалять цепочки бессмысленно, они константны и не влияют ни на что
 		# Достаточно убрать входы туда, что сделано выше
 		# Нижеидущее нужно вызывать лишь при установке или удалении
-		ip4__chain__delete "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}"
+		#ip4__chain__delete "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}"
 		#ip4__dns__del_routing_for_home
 	} &>/dev/null
 }
