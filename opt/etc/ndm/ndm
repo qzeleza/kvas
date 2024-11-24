@@ -777,23 +777,23 @@ ip4_firewall_set_all_rules() {
 # для всех гостевых интерфейсов
 ip4_firewall_flush_vpn_rules() {
 	{
-	for guest_inface in $(get_guest_inface_list_from_config) ; do
-		ip4__del_routing_for_net "${guest_inface}"
-	done
-	if fastnet_enabled ; then
-		# достаточно удалять правила для br0, но на всякий случай
-		ip4__chain__delete_jump "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
-		#ip4__chain__delete_jump "${DNS_TABLE}" "${DNS_CHAIN}"
+		for guest_inface in $(get_guest_inface_list_from_config) ; do
+			ip4__del_routing_for_net "${guest_inface}"
+		done
+		if fastnet_enabled ; then
+			# достаточно удалять правила для br0, но на всякий случай
+			ip4__chain__delete_jump "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
+			#ip4__chain__delete_jump "${DNS_TABLE}" "${DNS_CHAIN}"
 
-		# Во время работы удалять цепочки бессмысленно, они константны и не влияют ни на что
-		# Достаточно убрать входы туда, что сделано выше
-		# Нижеидущее нужно вызывать лишь при установке или удалении
-		#ip4__chain__delete "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
-		#ip4__chain__delete "${DNS_TABLE}" "${DNS_CHAIN}"
-	else
-		# антиправила для ip4__vpn_nofast__set_rules
-		iptables__delete_rules "${VPN_FAST_TABLE}" "-j MARK --set-mark ${MARK_NUM}"
-	fi
+			# Во время работы удалять цепочки бессмысленно, они константны и не влияют ни на что
+			# Достаточно убрать входы туда, что сделано выше
+			# Нижеидущее нужно вызывать лишь при установке или удалении
+			#ip4__chain__delete "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}"
+			#ip4__chain__delete "${DNS_TABLE}" "${DNS_CHAIN}"
+		else
+			# антиправила для ip4__vpn_nofast__set_rules
+			iptables__delete_rules "${VPN_FAST_TABLE}" "-j MARK --set-mark ${MARK_NUM}"
+		fi
 	} &>/dev/null
 }
 
