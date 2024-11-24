@@ -620,7 +620,9 @@ ip4_add_selected_guest_to_vpn_network() {
 	iptables_filter="${iptables_filter}-i ${net_interface}"
 
 	log_warning "Подключаем правила гостевого трафика ${submessage}${net_pool}) для VPN."
+
 	ip4__dns__add_routing "${iptables_filter}"
+
 	if fastnet_enabled ; then
 		if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_FAST_CHAIN}" ; then
 			ip4__ipset__create_list
@@ -713,7 +715,9 @@ ip4_firewall_rm_vpn_selected_guest_net() {
 	iptables_filter="${iptables_filter}-i ${net_interface}"
 
 	log_warning "Отключаем правила гостевого трафика ${submessage}${net_pool}) для VPN."
+
 	ip4__dns__delete_routing "${iptables_filter}"
+
 	if fastnet_enabled ; then
 		if iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_FAST_CHAIN}" ; then
 			# без echo дублирование пробелов (что даёт warning и проблему наличия)
