@@ -616,14 +616,13 @@ ip4_add_selected_guest_to_vpn_network() {
 	fi
 	iptables_filter="${iptables_filter}-i ${net_interface}"
 
-	log_warning "Подключаем правила гостевого трафика для VPN по критерию ${iptables_filter}"
-
 	ip4__dns__add_routing "${iptables_filter}"
 
 	if fastnet_enabled ; then
 		if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_FAST_CHAIN}" ; then
-			ip4__ipset__create_list
+			log_warning "Подключаем правила гостевого трафика для VPN с ускорением по критерию ${iptables_filter}"
 
+			ip4__ipset__create_list
 			# без echo дублирование пробелов (что даёт warning и проблему наличия)
 			iptables -A PREROUTING -w -t "${VPN_FAST_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_FAST_CHAIN}"
 		fi
@@ -635,6 +634,8 @@ ip4_add_selected_guest_to_vpn_network() {
 		# случай основного VPN и отключенного ускорения требует дополнительной проверки
 		# но именно таким код был изначально, т.е. он точно не "ухудшится"
 		if ! iptables-save | grep -F 'POSTROUTING' | grep -F "${net_pool}" | grep -F "${net_interface}" | grep -Fq 'MASQUERADE' ; then
+			log_warning "Подключаем правила гостевого трафика для VPN без ускорения по критерию ${iptables_filter}"
+
 			iptables -A POSTROUTING -w -t nat -s "${net_pool}" -o "${net_interface}" -j MASQUERADE
 		fi
 	fi
@@ -666,16 +667,15 @@ ip4_add_selected_guest_to_ssr_network() {
 	fi
 	iptables_filter="${iptables_filter}-i ${net_interface}"
 
-	log_warning "Подключаем правила гостевого трафика для ShadowSocks по критерию ${iptables_filter}"
-
 	ip4__dns__add_routing "${iptables_filter}"
 
 	if ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${PROXY_TCP_CHAIN}" ; then
 		continue
 	fi
 
-	ip4__ipset__create_list
+	log_warning "Подключаем правила гостевого трафика для прокси по критерию ${iptables_filter}"
 
+	ip4__ipset__create_list
 	# без echo дублирование пробелов (что даёт warning и проблему наличия)
 	iptables -A PREROUTING -w -t "${PROXY_TCP_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${PROXY_TCP_CHAIN}"
 }
@@ -705,12 +705,12 @@ ip4_firewall_rm_vpn_selected_guest_net() {
 	fi
 	iptables_filter="${iptables_filter}-i ${net_interface}"
 
-	log_warning "Отключаем правила гостевого трафика для VPN по критерию ${iptables_filter}"
-
 	ip4__dns__delete_routing "${iptables_filter}"
 
 	if fastnet_enabled ; then
 		if iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_FAST_CHAIN}" ; then
+			log_warning "Отключаем правила гостевого трафика для VPN с ускорением по критерию ${iptables_filter}"
+
 			# без echo дублирование пробелов (что даёт warning и проблему наличия)
 			iptables -D PREROUTING -t "${VPN_FAST_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_FAST_CHAIN}"
 		fi
@@ -722,6 +722,8 @@ ip4_firewall_rm_vpn_selected_guest_net() {
 		# случай основного VPN и отключенного ускорения требует дополнительной проверки
 		# но именно таким код был изначально, т.е. он точно не "ухудшится"
 		if iptables-save | grep -F 'POSTROUTING' | grep -F "${net_pool}" | grep -F "${net_interface}" | grep -Fq 'MASQUERADE' ; then
+			log_warning "Отключаем правила гостевого трафика для VPN без ускорения по критерию ${iptables_filter}"
+
 			iptables -D POSTROUTING -t nat -s "${net_pool}" -o "${net_interface}" -j MASQUERADE
 		fi
 	fi
@@ -753,13 +755,13 @@ ip4_firewall_rm_ssr_selected_guest_net() {
 	fi
 	iptables_filter="${iptables_filter}-i ${net_interface}"
 
-	log_warning "Отключаем правила гостевого трафика для ShadowSocks по критерию ${iptables_filter}"
-
 	ip4__dns__delete_routing "${iptables_filter}"
 
 	if ! ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${PROXY_TCP_CHAIN}" ; then
 		continue
 	fi
+
+	log_warning "Отключаем правила гостевого трафика для прокси по критерию ${iptables_filter}"
 
 	# без echo дублирование пробелов (что даёт warning и проблему наличия)
 	iptables -D PREROUTING -t "${PROXY_TCP_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${PROXY_TCP_CHAIN}"
