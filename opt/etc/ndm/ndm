@@ -619,7 +619,7 @@ ip4_add_selected_guest_to_vpn_network() {
 	fi
 	iptables_filter="${iptables_filter}-i ${net_interface}"
 
-	log_warning "Подключаем правила гостевого трафика ${submessage}${net_pool}) для VPN."
+	log_warning "Подключаем правила гостевого трафика ${submessage}) для VPN."
 
 	ip4__dns__add_routing "${iptables_filter}"
 
@@ -672,7 +672,7 @@ ip4_add_selected_guest_to_ssr_network() {
 	fi
 	iptables_filter="${iptables_filter}-i ${net_interface}"
 
-	log_warning "Подключаем правила гостевого трафика ${submessage}${net_pool}) для ShadowSocks."
+	log_warning "Подключаем правила гостевого трафика ${submessage}) для ShadowSocks."
 
 	ip4__dns__add_routing "${iptables_filter}"
 
@@ -714,7 +714,7 @@ ip4_firewall_rm_vpn_selected_guest_net() {
 	fi
 	iptables_filter="${iptables_filter}-i ${net_interface}"
 
-	log_warning "Отключаем правила гостевого трафика ${submessage}${net_pool}) для VPN."
+	log_warning "Отключаем правила гостевого трафика ${submessage}) для VPN."
 
 	ip4__dns__delete_routing "${iptables_filter}"
 
@@ -765,7 +765,7 @@ ip4_firewall_rm_ssr_selected_guest_net() {
 	fi
 	iptables_filter="${iptables_filter}-i ${net_interface}"
 
-	log_warning "Отключаем правила гостевого трафика ${submessage}${net_pool}) для ShadowSocks."
+	log_warning "Отключаем правила гостевого трафика ${submessage}) для ShadowSocks."
 
 	ip4__dns__delete_routing "${iptables_filter}"
 
