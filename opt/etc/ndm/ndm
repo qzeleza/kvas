@@ -651,18 +651,13 @@ ip4_add_selected_guest_to_ssr_network() {
 	if [ "${net_interface}" = 'ikev2' ] ; then
 		net_interface=$(get_entware_ikev2_inface)
 
-		local net_pool=$(get_ikev2_net_pool)
-
 		# если свой виртуальный интерфейс
 		if echo "${net_interface}" | grep -Fq 'xfrms' ; then
 			local iptables_filter=''
 		else
-			local iptables_filter="-s ${net_pool} "
+			local iptables_filter="-s $(get_ikev2_net_pool) "
 		fi
 	else
-		# в случае SS+неIKEv2 используется лишь в лог-сообщении для единобразия
-		local net_pool=$(get_guest_net "${net_interface}")
-
 		local iptables_filter=''
 	fi
 	iptables_filter="${iptables_filter}-i ${net_interface}"
@@ -739,18 +734,13 @@ ip4_firewall_rm_ssr_selected_guest_net() {
 	if [ "${net_interface}" = 'ikev2' ] ; then
 		net_interface=$(get_entware_ikev2_inface)
 
-		local net_pool=$(get_ikev2_net_pool)
-
 		# если свой виртуальный интерфейс
 		if echo "${net_interface}" | grep -Fq 'xfrms' ; then
 			local iptables_filter=''
 		else
-			local iptables_filter="-s ${net_pool} "
+			local iptables_filter="-s $(get_ikev2_net_pool) "
 		fi
 	else
-		# в случае SS+неIKEv2 используется лишь в лог-сообщении для единобразия
-		local net_pool=$(get_guest_net "${net_interface}")
-
 		local iptables_filter=''
 	fi
 	iptables_filter="${iptables_filter}-i ${net_interface}"
