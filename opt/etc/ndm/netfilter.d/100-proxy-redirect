@@ -21,7 +21,7 @@
 if [ "${type}" = 'iptables' ] && [ "${table}" = 'nat' ] ; then
 	. /opt/apps/kvas/bin/libs/ndm
 
-	ip4__proxy__create_chain &>/dev/null
+	ip4__shadowsocks__create_chain &>/dev/null
 	ip4__proxy__add_routing_for_home &> /dev/null
 
 	ip4_add_guest_to_ssr_network &> /dev/null

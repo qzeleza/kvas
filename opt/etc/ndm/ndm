@@ -330,25 +330,57 @@ ip4__chain__delete_jump() {
 #
 # ------------------------------------------------------------------------------------------
 
-#ToDo: использовать для UDP отдельную цепочку
-# https://github.com/shadowsocks/shadowsocks-libev/blob/master/doc/ss-redir.asciidoc#example
 ip4__proxy__create_chain() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
+		return
+	fi
+	table="${1}"
+
+	if [ -z "${2}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
+		return
+	fi
+	chain_name="${2}"
+
+	if [ -z "${3}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — порт"
+		return
+	fi
+	port="${3}"
+
+	ip="${4}"
+
 	{
-		if ip4__ipset__is_exist "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}" ; then
+		if ip4__ipset__is_exist "${table}" "${chain_name}" ; then
 			return
 		fi
 
-		ip4__chain__create_for_data "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}"
+		ip4__chain__create_for_data "${table}" "${chain_name}"
 
-		# Исключаем обращения к собственному адресу
-		ip=$(cat < /opt/etc/shadowsocks.json | grep 'server":' | tr -d '" ,' | cut -d':' -f2 )
-		ipset -exist add "${IPSET_RESERVED}" "${ip}"
+		if [ -n "${ip}" ] ; then
+			# Исключаем обращения к собственному адресу
+			ipset -exist add "${IPSET_RESERVED}" "${ip}"
+		fi
 
-		proxy_port=$(get_config_value SSR_DNS_PORT)
 		for protocol in udp tcp ; do
-			iptables -A "${PROXY_TCP_CHAIN}" -t "${PROXY_TCP_TABLE}" -p "${protocol}" -j REDIRECT --to-port "${proxy_port}"
+			iptables -A "${chain_name}" -t "${table}" -p "${protocol}" -j REDIRECT --to-port "${port}"
 		done
 	} &>/dev/null || error "[${FUNCNAME}] Возникли ошибки при установке правил трафика для прокси"
+}
+
+#ToDo: использовать для UDP отдельную цепочку
+# https://github.com/shadowsocks/shadowsocks-libev/blob/master/doc/ss-redir.asciidoc#example
+ip4__shadowsocks__create_chain() {
+	ip=$(cat < /opt/etc/shadowsocks.json | grep 'server":' | tr -d '" ,' | cut -d':' -f2 )
+	proxy_port=$(get_config_value SSR_DNS_PORT)
+
+	ip4__proxy__create_chain "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}" "${proxy_port}" "${ip}"
+}
+
+#ToDo: доделать для VLESS
+ip4__vless__create_chain() {
+	ip4__proxy__create_chain "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}" "${proxy_port}"
 }
 
 # когда ускорение подключено
@@ -770,7 +802,7 @@ ip4_mark_vpn_network() {
 
 ip4_firewall_set_all_rules() {
 	if has_ssr_enable ; then
-		ip4__proxy__create_chain &>/dev/null
+		ip4__shadowsocks__create_chain &>/dev/null
 		ip4__proxy__add_routing_for_home &> /dev/null
 
 		ip4_add_guest_to_ssr_network &> /dev/null
@@ -1130,7 +1162,7 @@ recreate_ssr_rules(){
 	ip4_firewall_ssr_prune &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
 	ready "${prefix}Создаём цепочку для ShadowSocks соединения."
-	ip4__proxy__create_chain &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+	ip4__shadowsocks__create_chain &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
 	ready "${prefix}Создаём правила домашней сети для ShadowSocks."
 	ip4__proxy__add_routing_for_home &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
