@@ -598,7 +598,7 @@ ip4_add_selected_guest_to_vpn_network() {
 		exit 1
 	fi
 
-	if echo "${net_interface}" | grep -Fq 'ikev2' ; then
+	if [ "${net_interface}" = 'ikev2' ] ; then
 		net_interface=$(get_entware_ikev2_inface)
 
 		local net_pool=$(get_ikev2_net_pool)
@@ -648,7 +648,7 @@ ip4_add_selected_guest_to_ssr_network() {
 		exit 1
 	fi
 
-	if echo "${net_interface}" | grep -Fq 'ikev2' ; then
+	if [ "${net_interface}" = 'ikev2' ] ; then
 		net_interface=$(get_entware_ikev2_inface)
 
 		local net_pool=$(get_ikev2_net_pool)
@@ -687,7 +687,7 @@ ip4_firewall_rm_vpn_selected_guest_net() {
 		exit 1
 	fi
 
-	if echo "${net_interface}" | grep -Fq 'ikev2' ; then
+	if [ "${net_interface}" = 'ikev2' ] ; then
 		net_interface=$(get_entware_ikev2_inface)
 
 		local net_pool=$(get_ikev2_net_pool)
@@ -736,7 +736,7 @@ ip4_firewall_rm_ssr_selected_guest_net() {
 		exit 1
 	fi
 
-	if echo "${net_interface}" | grep -Fq 'ikev2' ; then
+	if [ "${net_interface}" = 'ikev2' ] ; then
 		net_interface=$(get_entware_ikev2_inface)
 
 		local net_pool=$(get_ikev2_net_pool)
