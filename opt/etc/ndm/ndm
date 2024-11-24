@@ -790,9 +790,6 @@ ip4_firewall_flush_vpn_rules() {
 	else
 		# антиправила для ip4__vpn_nofast__set_rules
 		iptables__delete_rules "${VPN_FAST_TABLE}" "-j MARK --set-mark ${MARK_NUM}" &>/dev/null
-
-		# в ip4__vpn_nofast__set_rules нет создания цепочки
-		#ip4__chain__delete "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}" &>/dev/null
 	fi
 }
 
