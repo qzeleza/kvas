@@ -22,23 +22,13 @@
 #	Лицензия: Apache License 2.0
 # ------------------------------------------------------------------------------
 
+# IPv4
 if [ "${type}" = 'iptables' ] ; then
-	. /opt/apps/kvas/bin/libs/ndm
-
-	# обе функции используют только mangle
-	# кроме маркировки включают обход br0
-	if [ "${table}" = 'mangle' ] ; then
-		if fastnet_enabled ; then
-			ip4__vpn_fast__create_chain &>/dev/null
-			ip4__vpn_fast__add_routing_for_home &>/dev/null
-		else
-			ip4__vpn_nofast__set_rules &>/dev/null
-		fi
-	fi
-
-	# обход с ускорением использует mangle
-	# роутинг DNS гостевых и обход без ускорения используют nat
+	# Роутинг данных VPN в mangle
+	# Роутинг DNS в nat
 	if [ "${table}" = 'mangle' ] || [ "${table}" = 'nat' ] ; then
-		ip4_add_guest_to_vpn_network &>/dev/null
+		. /opt/apps/kvas/bin/libs/ndm
+
+		ip4_mark_vpn_network &>/dev/null
 	fi
 fi

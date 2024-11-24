@@ -795,17 +795,20 @@ ip4_add_guest_to_vpn_network() {
 ip4_mark_vpn_network() {
 	if fastnet_enabled ; then
 		ip4__vpn_fast__create_chain &>/dev/null
-		ip4__vpn_fast__add_routing_for_home &>/dev/null
 	else
 		ip4__vpn_nofast__set_rules &>/dev/null
 	fi
 
 	ip4_add_guest_to_vpn_network &>/dev/null
+	if fastnet_enabled ; then
+		ip4__vpn_fast__add_routing_for_home &>/dev/null
+	fi
 }
 
 ip4_firewall_set_all_rules() {
 	if has_ssr_enable ; then
 		ip4__shadowsocks__create_chain &>/dev/null
+
 		ip4_add_guest_to_ssr_network &> /dev/null
 		ip4__shadowsocks__add_routing_for_home &> /dev/null
 	else
