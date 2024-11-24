@@ -781,17 +781,17 @@ ip4_firewall_flush_vpn_rules() {
 	if fastnet_enabled ; then
 		# достаточно удалять правила для br0, но на всякий случай
 		ip4__chain__delete_jump "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}" &>/dev/null
+		#ip4__chain__delete_jump 'nat' "${DNS_CHAIN}" &>/dev/null
 
 		# Во время работы удалять цепочки бессмысленно, они константны и не влияют ни на что
 		# Достаточно убрать входы туда, что сделано выше
 		# Нижеидущее нужно вызывать лишь при установке или удалении
 		#ip4__chain__delete "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}" &>/dev/null
+		#ip4__chain__delete 'nat' "${DNS_CHAIN}"
 	else
 		# антиправила для ip4__vpn_nofast__set_rules
 		iptables__delete_rules "${VPN_FAST_TABLE}" "-j MARK --set-mark ${MARK_NUM}" &>/dev/null
 	fi
-
-	#ip4__dns__del_routing_for_home
 }
 
 # Удаляем все правила iptables которые были добавлены при работе пакета
@@ -812,12 +812,13 @@ ip4_firewall_ssr_prune() {
 	{
 		# достаточно удалять правила для br0, но на всякий случай
 		ip4__chain__delete_jump "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}"
+		#ip4__chain__delete_jump 'nat' "${DNS_CHAIN}"
 
 		# Во время работы удалять цепочки бессмысленно, они константны и не влияют ни на что
 		# Достаточно убрать входы туда, что сделано выше
 		# Нижеидущее нужно вызывать лишь при установке или удалении
 		#ip4__chain__delete "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}"
-		#ip4__dns__del_routing_for_home
+		#ip4__chain__delete 'nat' "${DNS_CHAIN}"
 	} &>/dev/null
 }
 
