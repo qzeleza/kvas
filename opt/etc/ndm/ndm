@@ -603,7 +603,6 @@ ip4_add_selected_guest_to_vpn_network() {
 
 ip4_add_selected_guest_to_ssr_network() {
 	local net_interface="${1}"
-	local net_pool="${2}"
 	if [ -z "${net_interface}" ] ; then
 		error "[${FUNCNAME}] Отсутствует обязательный параметр — имя сетевого интерфейса"
 		exit 1
@@ -611,12 +610,10 @@ ip4_add_selected_guest_to_ssr_network() {
 
 	if echo "${net_interface}" | grep -Fq 'ikev2' ; then
 		net_interface=$(get_entware_ikev2_inface)
-		[ -z "${net_pool}" ] && {
-			net_pool=$(get_ikev2_net_pool)
-		}
 
 		# IKEv2 не имеет отдельного сетевого интерфейса, поэтому запишем и что добавляем, и используемый СИ
 		local submessage="IKEv2 (${net_interface} "
+		local net_pool=$(get_ikev2_net_pool)
 
 		# если свой виртуальный интерфейс
 		if echo "${net_interface}" | grep -Fq 'xfrms' ; then
@@ -625,12 +622,9 @@ ip4_add_selected_guest_to_ssr_network() {
 			local iptables_filter="-s ${net_pool} "
 		fi
 	else
-		[ -z "${net_pool}" ] && {
-			# в случае SS+неIKEv2 используется лишь в лог-сообщении для единобразия
-			net_pool=$(get_guest_net "${net_interface}")
-		}
-
 		local submessage="${net_interface} ("
+		# в случае SS+неIKEv2 используется лишь в лог-сообщении для единобразия
+		local net_pool=$(get_guest_net "${net_interface}")
 
 		local iptables_filter=''
 	fi
@@ -700,7 +694,6 @@ ip4_firewall_rm_vpn_selected_guest_net() {
 
 ip4_firewall_rm_ssr_selected_guest_net() {
 	local net_interface="${1}"
-	local net_pool="${2}"
 	if [ -z "${net_interface}" ] ; then
 		error "[${FUNCNAME}] Отсутствует обязательный параметр — имя сетевого интерфейса"
 		exit 1
@@ -708,12 +701,10 @@ ip4_firewall_rm_ssr_selected_guest_net() {
 
 	if echo "${net_interface}" | grep -Fq 'ikev2' ; then
 		net_interface=$(get_entware_ikev2_inface)
-		[ -z "${net_pool}" ] && {
-			net_pool=$(get_ikev2_net_pool)
-		}
 
 		# IKEv2 не имеет отдельного сетевого интерфейса, поэтому запишем и что добавляем, и используемый СИ
 		local submessage="IKEv2 (${net_interface} "
+		local net_pool=$(get_ikev2_net_pool)
 
 		# если свой виртуальный интерфейс
 		if echo "${net_interface}" | grep -Fq 'xfrms' ; then
@@ -722,12 +713,9 @@ ip4_firewall_rm_ssr_selected_guest_net() {
 			local iptables_filter="-s ${net_pool} "
 		fi
 	else
-		[ -z "${net_pool}" ] && {
-			# в случае SS+неIKEv2 используется лишь в лог-сообщении для единобразия
-			net_pool=$(get_guest_net "${net_interface}")
-		}
-
 		local submessage="${net_interface} ("
+		# в случае SS+неIKEv2 используется лишь в лог-сообщении для единобразия
+		local net_pool=$(get_guest_net "${net_interface}")
 
 		local iptables_filter=''
 	fi
