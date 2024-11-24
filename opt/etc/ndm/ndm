@@ -392,36 +392,41 @@ ip4__dns__add_routing_for_home() {
 	ip4__dns__add_routing "-i $(get_local_inface)"
 }
 
-# ShadowSocks или любое другое прокси
-ip4__proxy__add_routing_for_home() {
-	#ToDo: использовать обёртку
+ip4__add_routing_for_home() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
+		return
+	fi
+	table="${1}"
+
+	if [ -z "${2}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
+		return
+	fi
+	chain_name="${2}"
+
+	#ToDo: использовать обёртку, а не код дальше
 
 	local net_interface=$(get_local_inface)
 
-	if iptables-save | grep -F 'PREROUTING' | grep -F "${net_interface}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${PROXY_TCP_CHAIN}" ; then
+	if iptables-save | grep -F 'PREROUTING' | grep -F "${net_interface}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${chain_name}" ; then
 		return
 	fi
 
-	log_warning 'Подключение перенаправления трафика для домашней сети в прокси'
+	log_warning "Подключение перенаправления трафика для домашней сети в тоннель ${3}"
 
 	ip4__ipset__create_list
-	ip4tables PREROUTING -w -t "${PROXY_TCP_TABLE}" -i "${net_interface}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${PROXY_TCP_CHAIN}"
+	ip4tables PREROUTING -w -t "${table}" -i "${net_interface}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${chain_name}"
+}
+
+# ShadowSocks или любое другое прокси
+ip4__proxy__add_routing_for_home() {
+	ip4__add_routing_for_home "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}" 'ShadowSocks'
 }
 
 # когда ускорение подключено
 ip4__vpn_fast__add_routing_for_home() {
-	#ToDo: использовать обёртку
-
-	local net_interface=$(get_local_inface)
-
-	if iptables-save | grep -F 'PREROUTING' | grep -F "${net_interface}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_FAST_CHAIN}" ; then
-		return
-	fi
-
-	log_warning 'Подключение перенаправления трафика для домашней сети в VPN со включенным ускорением'
-
-	ip4__ipset__create_list
-	ip4tables PREROUTING -w -t "${VPN_FAST_TABLE}" -i "${net_interface}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_FAST_CHAIN}"
+	ip4__add_routing_for_home "${VPN_FAST_TABLE}" "${VPN_FAST_CHAIN}" 'VPN со включенным ускорением'
 }
 
 
