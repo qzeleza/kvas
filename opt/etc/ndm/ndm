@@ -113,6 +113,30 @@ fastnet_enabled()(fast_hw_enabled || fast_sw_enabled)
 #
 # ------------------------------------------------------------------------------------------
 
+iptables__get_subrule_for_net() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — сетевой интерфейс"
+		return
+	fi
+	local net_interface="${1}"
+
+	if [ "${net_interface}" != 'ikev2' ] ; then
+		echo "-i ${net_interface}"
+		return
+	fi
+
+	net_interface=$(get_entware_ikev2_inface)
+	local subrule="-i ${net_interface}"
+
+	# если свой виртуальный интерфейс
+	if echo "${net_interface}" | grep -Fq 'xfrms' ; then
+		echo "${subrule}"
+		return
+	fi
+
+	echo "-s $(get_ikev2_net_pool) ${subrule}"
+}
+
 # удаляет правило, полученное из iptables-save
 iptables__delete_rule() {
 	if [ -z "${1}" ] ; then
@@ -598,23 +622,7 @@ ip4_add_selected_guest_to_vpn_network() {
 		exit 1
 	fi
 
-	if [ "${net_interface}" = 'ikev2' ] ; then
-		net_interface=$(get_entware_ikev2_inface)
-
-		local net_pool=$(get_ikev2_net_pool)
-
-		# если свой виртуальный интерфейс
-		if echo "${net_interface}" | grep -Fq 'xfrms' ; then
-			local iptables_filter=''
-		else
-			local iptables_filter="-s ${net_pool} "
-		fi
-	else
-		local net_pool=$(get_guest_net "${net_interface}")
-
-		local iptables_filter=''
-	fi
-	iptables_filter="${iptables_filter}-i ${net_interface}"
+	iptables_filter=$(iptables__get_subrule_for_net "${net_interface}")
 
 	ip4__dns__add_routing "${iptables_filter}"
 
@@ -627,8 +635,11 @@ ip4_add_selected_guest_to_vpn_network() {
 			iptables -A PREROUTING -w -t "${VPN_FAST_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_FAST_CHAIN}"
 		fi
 	else
-		if [ -z "${net_pool}" ] ; then
-			error "[${FUNCNAME}] От функции get_guest_net не получен обязательный результат — пул адресов"
+		# на выходе не доступен i
+		if [ "${net_interface}" = 'ikev2' ] ; then
+			local net_pool=$(get_ikev2_net_pool)
+		else
+			local net_pool=$(get_guest_net "${net_interface}")
 		fi
 
 		# случай основного VPN и отключенного ускорения требует дополнительной проверки
@@ -636,7 +647,7 @@ ip4_add_selected_guest_to_vpn_network() {
 		if ! iptables-save | grep -F 'POSTROUTING' | grep -F "${net_pool}" | grep -F "${net_interface}" | grep -Fq 'MASQUERADE' ; then
 			log_warning "Подключаем правила гостевого трафика для VPN без ускорения по критерию ${iptables_filter}"
 
-			iptables -A POSTROUTING -w -t nat -s "${net_pool}" -o "${net_interface}" -j MASQUERADE
+			iptables -A POSTROUTING -w -t nat -s "${net_pool}" -o "$(get_external_interface)" -j MASQUERADE
 		fi
 	fi
 }
@@ -648,19 +659,7 @@ ip4_add_selected_guest_to_ssr_network() {
 		exit 1
 	fi
 
-	if [ "${net_interface}" = 'ikev2' ] ; then
-		net_interface=$(get_entware_ikev2_inface)
-
-		# если свой виртуальный интерфейс
-		if echo "${net_interface}" | grep -Fq 'xfrms' ; then
-			local iptables_filter=''
-		else
-			local iptables_filter="-s $(get_ikev2_net_pool) "
-		fi
-	else
-		local iptables_filter=''
-	fi
-	iptables_filter="${iptables_filter}-i ${net_interface}"
+	iptables_filter=$(iptables__get_subrule_for_net "${net_interface}")
 
 	ip4__dns__add_routing "${iptables_filter}"
 
@@ -682,23 +681,7 @@ ip4_firewall_rm_vpn_selected_guest_net() {
 		exit 1
 	fi
 
-	if [ "${net_interface}" = 'ikev2' ] ; then
-		net_interface=$(get_entware_ikev2_inface)
-
-		local net_pool=$(get_ikev2_net_pool)
-
-		# если свой виртуальный интерфейс
-		if echo "${net_interface}" | grep -Fq 'xfrms' ; then
-			local iptables_filter=''
-		else
-			local iptables_filter="-s ${net_pool} "
-		fi
-	else
-		local net_pool=$(get_guest_net "${net_interface}")
-
-		local iptables_filter=''
-	fi
-	iptables_filter="${iptables_filter}-i ${net_interface}"
+	iptables_filter=$(iptables__get_subrule_for_net "${net_interface}")
 
 	ip4__dns__delete_routing "${iptables_filter}"
 
@@ -710,8 +693,11 @@ ip4_firewall_rm_vpn_selected_guest_net() {
 			iptables -D PREROUTING -t "${VPN_FAST_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${VPN_FAST_CHAIN}"
 		fi
 	else
-		if [ -z "${net_pool}" ] ; then
-			error "[${FUNCNAME}] От функции get_guest_net не получен обязательный результат — пул адресов"
+		# на выходе не доступен i
+		if [ "${net_interface}" = 'ikev2' ] ; then
+			local net_pool=$(get_ikev2_net_pool)
+		else
+			local net_pool=$(get_guest_net "${net_interface}")
 		fi
 
 		# случай основного VPN и отключенного ускорения требует дополнительной проверки
@@ -719,7 +705,7 @@ ip4_firewall_rm_vpn_selected_guest_net() {
 		if iptables-save | grep -F 'POSTROUTING' | grep -F "${net_pool}" | grep -F "${net_interface}" | grep -Fq 'MASQUERADE' ; then
 			log_warning "Отключаем правила гостевого трафика для VPN без ускорения по критерию ${iptables_filter}"
 
-			iptables -D POSTROUTING -t nat -s "${net_pool}" -o "${net_interface}" -j MASQUERADE
+			iptables -D POSTROUTING -t nat -s "${net_pool}" -o "$(get_external_interface)" -j MASQUERADE
 		fi
 	fi
 }
@@ -731,19 +717,7 @@ ip4_firewall_rm_ssr_selected_guest_net() {
 		exit 1
 	fi
 
-	if [ "${net_interface}" = 'ikev2' ] ; then
-		net_interface=$(get_entware_ikev2_inface)
-
-		# если свой виртуальный интерфейс
-		if echo "${net_interface}" | grep -Fq 'xfrms' ; then
-			local iptables_filter=''
-		else
-			local iptables_filter="-s $(get_ikev2_net_pool) "
-		fi
-	else
-		local iptables_filter=''
-	fi
-	iptables_filter="${iptables_filter}-i ${net_interface}"
+	iptables_filter=$(iptables__get_subrule_for_net "${net_interface}")
 
 	ip4__dns__delete_routing "${iptables_filter}"
 
