@@ -555,6 +555,7 @@ ip4_add_selected_guest_to_vpn_network() {
 	local net_interface="${1}"
 	if [ -z "${net_interface}" ] ; then
 		error "[${FUNCNAME}] Не передан обязательный параметр — имя интерфейса"
+		exit 1
 	fi
 
 	if echo "${net_interface}" | grep -Fq 'ikev2' ; then
@@ -603,11 +604,10 @@ ip4_add_selected_guest_to_vpn_network() {
 ip4_add_selected_guest_to_ssr_network() {
 	local net_interface="${1}"
 	local net_pool="${2}"
-
-	[ -z "${net_interface}" ] && {
+	if [ -z "${net_interface}" ] ; then
 		error "[${FUNCNAME}] Отсутствует обязательный параметр — имя сетевого интерфейса"
 		exit 1
-	}
+	fi
 
 	if echo "${net_interface}" | grep -Fq 'ikev2' ; then
 		net_interface=$(get_entware_ikev2_inface)
@@ -653,7 +653,8 @@ ip4_add_selected_guest_to_ssr_network() {
 ip4_firewall_rm_vpn_selected_guest_net() {
 	local net_interface="${1}"
 	if [ -z "${net_interface}" ] ; then
-		error "[${FUNCNAME}] Не передан обязательный параметр — имя интерфейса"
+		error "[${FUNCNAME}] Отсутствует обязательный параметр — имя сетевого интерфейса"
+		exit 1
 	fi
 
 	if echo "${net_interface}" | grep -Fq 'ikev2' ; then
@@ -700,11 +701,10 @@ ip4_firewall_rm_vpn_selected_guest_net() {
 ip4_firewall_rm_ssr_selected_guest_net() {
 	local net_interface="${1}"
 	local net_pool="${2}"
-
-	[ -z "${net_interface}" ] && {
+	if [ -z "${net_interface}" ] ; then
 		error "[${FUNCNAME}] Отсутствует обязательный параметр — имя сетевого интерфейса"
 		exit 1
-	}
+	fi
 
 	if echo "${net_interface}" | grep -Fq 'ikev2' ; then
 		net_interface=$(get_entware_ikev2_inface)
