@@ -2603,6 +2603,16 @@ host_add() {
 
 	[ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ] && cmd_adguardhome_status | grep -q ВКЛЮЧЕН && add_host_to_adguard "${clear_host}" &> /dev/null
 
+	if echo "${clear_host}" | grep -qE "$(get_regexp_ip_or_range)" ; then
+		# если строка IP, диапазон или маска; то добавляем напрямую и без ttl
+		ipset -exist add "${IPSET_TABLE_NAME}" "${clear_host}" timeout 0 &>/dev/null
+	elif [ "${wild}" != 'import' ] && [ "${reset}" = 'yes' ] ; then
+		# если это одиночное добавление, то можем
+		# прогреть переданный домен (без под*), 
+		# чтобы пользователю не пришлось сбрасывать кэш DNS
+		add_host_by_iplist_to_ipset "${clear_host}" &> /dev/null
+	fi
+
 	[ $? = 0 ] && when_ok "ДОБАВЛЕН" || when_bad "НЕ ДОБАВЛЕН"
 
 
