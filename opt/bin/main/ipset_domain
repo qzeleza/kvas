@@ -19,30 +19,6 @@ REGEXP_IP_OR_RANGE="${IP_FILTER}|${IP_FILTER}-${IP_FILTER}|${IP_FILTER}/[0-9]{1,
 
 log_warning 'Начат переобход доменов из списка'
 
-add_host_by_iplist_to_ipset() {
-	host=${1//\*/}
-
-	# получаем список из адресов от текущего dns сервера
-	# и исключаем из списка адреса типа 0.0.0.0
-	ip_list=$(get_iplist_from_domain "${host}" \
-	 | grep -Eo "${IP_FILTER}" \
-	 | grep -v '0.0.0.0' )
-
-	if [ -z "${ip_list}" ]; then
-		return
-	fi
-
-	for ip in ${ip_list}; do
-		# если уже есть в списке
-		if ipset list "${IPSET_TABLE_NAME}" | grep -qE "^${ip} " ; then
-			continue
-		fi
-
-		log_warning "Обнаружен новый IP ${ip} для домена ${host} и добавлен в ipset"
-		ipset -exist add "${IPSET_TABLE_NAME}" "${ip}"
-	done
-}
-
 # проверяем доступность сети
 until ADDRS=$(kdig +short ya.ru @127.0.0.1:9153 ) && [ -n "${ADDRS}" ] > /dev/null 2>&1; do sleep 5; done
 
@@ -51,7 +27,7 @@ while read -r line || [ -n "${line}" ]; do
 	# пропускаем строки c минусами - это рекламные сайты
 	# пропускаем пустые строки
 	# пропускаем строки с комментариями
-	[ "${line::1}" = "-" ] || [ -z "${line}" ] || [ "${line:0:1}" = "#" ] && continue
+	[ "${line::1}" = '-' ] || [ -z "${line}" ] || [ "${line:0:1}" = '#' ] && continue
 
 	# удаляем из строки комментарии - все что встречается после символа # и сам символ
 	# удаляем *
