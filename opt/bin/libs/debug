@@ -282,6 +282,12 @@ cmd_debug_dns() {
 
 	echo_debug 'Часть конфига:' "$(head -n 6 ${DNSMASQ_IPSET_HOSTS})"
 
+	# если вызывается как один из дебагов, то можно передать silent
+	if [ -z "${1}" ] ; then
+		echo 'Для просмотра списка IP для тоннеля вызовите kvas ipset'
+		echo
+	fi
+
 	cached=$(grep 'server=' "${DNSMASQ_CONFIG}"      | head -1 | cut -d '=' -f2)
 	ready 'DNS запросы передаются' && when_ok "${cached}"
 
