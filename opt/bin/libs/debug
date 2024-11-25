@@ -244,11 +244,12 @@ cmd_debug_iptables() {
 }
 
 cmd_debug_dns() {
-	local output=$(dnsmasq -v | grep -F 'options:' | head -1 | cut -d ':' -f2 | xargs | grep -o '[^ ]*')
+	local output=$(dnsmasq -v)
 
-	ready 'DNSMasq версия' && when_ok "$(dnsmasq -v | grep -Eo 'version [0-9\.]+' | head -1 | cut -d ' ' -f2)"
+	ready 'DNSMasq версия' && when_ok "$(echo "${output}" | grep -Eo 'version [0-9\.]+' | head -1 | cut -d ' ' -f2)"
 	echo
 
+	output=$(echo "${output}" | grep -F 'options:' | head -1 | cut -d ':' -f2 | xargs | grep -o '[^ ]*')
 	echo_debug 'модули' "${output}"
 
 	output=$(netstat -tulpn | grep -F dnsmasq)
