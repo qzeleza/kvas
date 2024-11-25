@@ -2650,7 +2650,7 @@ cmd_add_one_host() {
 	# то делаем запрос на их доавление.
 	local _tmpfile=$(mktemp)
 	echo "${host}" | grep -qE "${IP_FILTER}" || {
-		_get_same_tag_domains_missing_in_protection_list "${host}" | sed '/$/d' > "${_tmpfile}"
+		_get_same_tag_domains_missing_in_protection_list "${host}" | sed '/^$/d' > "${_tmpfile}"
 	}
 	# Проверяем есть ли в этом списке домены
 	[ -s "${_tmpfile}" ] && {
