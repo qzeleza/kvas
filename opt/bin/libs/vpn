@@ -2621,7 +2621,14 @@ host_add() {
 cmd_add_one_host() {
 	wild="${3:-}"
 	reset="${2:-yes}"
-	host=$(echo "${1}" | sed 's|http[s]\{,1\}://||;')
+
+	#ToDo: использовать эту переменную ниже
+	local regexp_ip_or_range=$(get_regexp_ip_or_range)
+	if echo "${1}" | grep -qE "${regexp_ip_or_range}" ; then
+		host="${1}"
+	else
+		host=$(echo "${1}" | sed 's/\*//;' | sed -n -E 's|^(https?://)?([^/]+).*|\2|p')
+	fi
 
 	# Выходим из функции при отуствии интернет-соединения или VPN
 	exit_when_no_internet_or_vpn || exit 1 
