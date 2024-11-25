@@ -2459,8 +2459,6 @@ cmd_dns_crypt_off() {
 			set_config_value DNS_DEFAULT "${_dns}#${MAIN_DNS_PORT}"
 			set_config_value DNS_CRYPT_PORT "${crypt_port}"
 
-			/opt/etc/init.d/S09dnscrypt-proxy2 stop
-
 			# множество конфигов должно обновиться и службы перезапуститься
 			cmd_kvas_init 'no'
 		} 1> /dev/null 2> "${ERROR_LOG_FILE}"
