@@ -250,9 +250,11 @@ cmd_debug_dns() {
 		echo
 	fi
 
-	local output=$(dnsmasq -v)
-	ready 'DNSMasq версия' && when_ok "$(echo "${output}" | grep -Eo 'version [0-9\.]+' | head -1 | cut -d ' ' -f2)"
-	echo_debug 'DNSMasq модули' "$(echo "${output}" | grep -F 'options:' | head -1 | cut -d ':' -f2 | xargs | grep -o '[^ ]*')"
+	local cached=$(dnsmasq -v)
+
+	ready 'DNSMasq версия' && when_ok "$(echo "${cached}" | grep -Eo 'version [0-9\.]+' | head -1 | cut -d ' ' -f2)"
+
+	echo_debug 'DNSMasq модули' "$(echo "${cached}" | grep -F 'options:' | head -1 | cut -d ':' -f2 | xargs | grep -o '[^ ]*')"
 
 	echo_debug 'DNSMasq порты прослушки' "$(netstat -tulpn | grep -F 'dnsmasq')"
 
