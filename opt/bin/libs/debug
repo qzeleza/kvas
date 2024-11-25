@@ -264,6 +264,14 @@ cmd_debug_dns() {
 
 	echo_debug 'DNSMasq модули:' "$(echo "${cached}" | grep -F 'options:' | head -1 | cut -d ':' -f2 | xargs | grep -o '[^ ]*')"
 
+	cached=$(grep 'server=' "${DNSMASQ_CONFIG}"      | head -1 | cut -d '=' -f2)
+	ready 'DNS запросы передаются' && when_ok "${cached}"
+
+	cached=$(grep 'server=' "${DNSMASQ_IPSET_HOSTS}" | head -1 | cut -d '/' -f3)
+	if [ -n "${cached}" ] ; then
+		ready 'DNS запросы списка передаются' && when_ok "${cached}"
+	fi
+
 	ready 'DNSCrypt версия' && when_ok "$(dnscrypt-proxy -version)"
 	echo_debug 'DNSCrypt слушает:' "$(netstat -tulpn | grep -F 'dnscrypt')"
 }
