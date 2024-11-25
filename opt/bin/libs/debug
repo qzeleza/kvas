@@ -250,6 +250,13 @@ cmd_debug_dns() {
 		echo
 	fi
 
+	if grep -q '^filter-rr=HTTPS' "${DNSMASQ_CONFIG}" ; then
+		local output='Отключен'
+	else
+		local output='Включен'
+	fi
+	ready 'DNS ECH' && when_ok "${output}"
+
 	local cached=$(dnsmasq -v)
 
 	ready 'DNSMasq версия' && when_ok "$(echo "${cached}" | grep -Eo 'version [0-9\.]+' | head -1 | cut -d ' ' -f2)"
