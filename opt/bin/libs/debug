@@ -253,10 +253,9 @@ cmd_debug_dns() {
 	local cached=$(dnsmasq -v)
 
 	ready 'DNSMasq версия' && when_ok "$(echo "${cached}" | grep -Eo 'version [0-9\.]+' | head -1 | cut -d ' ' -f2)"
+	echo_debug 'DNSMasq порты прослушки' "$(netstat -tulpn | grep -F 'dnsmasq')"
 
 	echo_debug 'DNSMasq модули' "$(echo "${cached}" | grep -F 'options:' | head -1 | cut -d ':' -f2 | xargs | grep -o '[^ ]*')"
-
-	echo_debug 'DNSMasq порты прослушки' "$(netstat -tulpn | grep -F 'dnsmasq')"
 
 	ready 'DNSCrypt версия' && when_ok "$(dnscrypt-proxy -version)"
 	echo_debug 'DNSCrypt порты прослушки' "$(netstat -tulpn | grep -F 'dnscrypt')"
