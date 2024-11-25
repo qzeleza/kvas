@@ -2556,7 +2556,7 @@ host_add() {
 	if echo "${1}" | grep -qE "${IP_FILTER}|${NET_FILTER}" ; then
 		clear_host="${1}"
 	else
-		clear_host=$(echo "${1}" | sed 's/\*//;' | sed -n -E 's|^(http(s)?://)?([^/]+).*|\3|p')
+		clear_host=$(echo "${1}" | sed 's/\*//;' | sed -n -E 's|^(https?://)?([^/]+).*|\2|p')
 	fi
 	reset="${2}"
 	wild="${3}"
@@ -2629,12 +2629,16 @@ host_add() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_add_one_host() {
-
-	host=$(echo "${1}" | sed 's|http[s]\{,1\}://||;')
+	wild="${3:-}"
 	reset="${2:-yes}"
-	wild="${3:-}"	 
 
-	ip_filter="[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}"
+	#ToDo: использовать эту переменную ниже
+	local regexp_ip_or_range=$(get_regexp_ip_or_range)
+	if echo "${1}" | grep -qE "${regexp_ip_or_range}" ; then
+		host="${1}"
+	else
+		host=$(echo "${1}" | sed 's/\*//;' | sed -n -E 's|^(https?://)?([^/]+).*|\2|p')
+	fi
 
 	# Выходим из функции при отуствии интернет-соединения или VPN
 	exit_when_no_internet_or_vpn || exit 1 
@@ -2660,7 +2664,7 @@ cmd_add_one_host() {
 	# то делаем запрос на их доавление.
 	local _tmpfile=$(mktemp)
 	echo "${host}" | grep -qE "${IP_FILTER}" || {
-		_get_same_tag_domains_missing_in_protection_list "${host}" | sed '/$/d' > "${_tmpfile}"
+		_get_same_tag_domains_missing_in_protection_list "${host}" | sed '/^$/d' > "${_tmpfile}"
 	}
 	# Проверяем есть ли в этом списке домены
 	[ -s "${_tmpfile}" ] && {
@@ -2684,7 +2688,7 @@ cmd_add_one_host() {
 		# если точка в имени домена есть, то проверяем на корректность IP
 		if echo "${clear_host}" | grep -qE "${IP_FILTER}*" ; then
 			# если точка в имени домена есть, то проверяем на корректность IP
-			if echo "${clear_host}" | grep -qE "^${IP_FILTER}/[0-9]{1,2}$|^${IP_FILTER}$|^${IP_FILTER}-${ip_filter}$" ; then
+			if echo "${clear_host}" | grep -qE "^${IP_FILTER}/[0-9]{1,2}$|^${IP_FILTER}$|^${IP_FILTER}-${IP_FILTER}$" ; then
 				# если включен режим импорта
 				if [ "${wild}" = import ] ; then
 					host_add "${host}" "${reset}" "${wild}" | grep -q "ДОБАВЛЕН" && echo "+"
