@@ -2426,6 +2426,8 @@ cmd_dns_crypt_on() {
 				# echo "proxy-dnssec" >> /opt/etc/dnsmasq.conf
 				dns_crypt_port_change "${dns_crypt_port}" restart
 
+				# множество конфигов должно обновиться и службы перезапуститься
+				cmd_kvas_init 'no'
 			} 1> /dev/null 2> "${ERROR_LOG_FILE}"
 			ready_status "${?}" "Произошла непредвиденная ошибка." "ПОДКЛЮЧЕНО"
 		fi
@@ -2458,8 +2460,9 @@ cmd_dns_crypt_off() {
 			set_config_value DNS_CRYPT_PORT "${crypt_port}"
 
 			/opt/etc/init.d/S09dnscrypt-proxy2 stop
-			cmd_kvas_init "no"
 
+			# множество конфигов должно обновиться и службы перезапуститься
+			cmd_kvas_init 'no'
 		} 1> /dev/null 2> "${ERROR_LOG_FILE}"
 		ready_status "${?}" "Произошла непредвиденная ошибка." "ОТКЛЮЧЕНО"
 	}
