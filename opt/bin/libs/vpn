@@ -2556,7 +2556,7 @@ host_add() {
 	if echo "${1}" | grep -qE "${IP_FILTER}|${NET_FILTER}" ; then
 		clear_host="${1}"
 	else
-		clear_host=$(echo "${1}" | sed 's/\*//;' | sed -n -E 's|^(http(s)?://)?([^/]+).*|\3|p')
+		clear_host=$(echo "${1}" | sed 's/\*//;' | sed -n -E 's|^(https?://)?([^/]+).*|\2|p')
 	fi
 	reset="${2}"
 	wild="${3}"
