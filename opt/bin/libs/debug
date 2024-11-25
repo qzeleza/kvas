@@ -244,7 +244,15 @@ cmd_debug_iptables() {
 }
 
 cmd_debug_dns() {
-	echo test
+	local output=$(dnsmasq -v | grep -F 'options:' | head -1 | cut -d ':' -f2 | xargs | grep -o '[^ ]*')
+
+	ready 'DNSMasq версия' && when_ok "$(dnsmasq -v | grep -Eo 'version [0-9\.]+' | head -1 | cut -d ' ' -f2)"
+	echo
+
+	echo_debug 'модули' "${output}"
+
+	output=$(netstat -tulpn | grep -F dnsmasq)
+	echo_debug 'порты прослушки' "${output}"
 }
 
 cmd_ipset_flush() {
