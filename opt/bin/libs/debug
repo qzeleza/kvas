@@ -243,6 +243,10 @@ cmd_debug_iptables() {
 	echo_debug 'PREROUTING nat' "${output}"
 }
 
+cmd_debug_dns() {
+	echo test
+}
+
 cmd_ipset_flush() {
 	echo -n 'Очистка IPSet...'
 	ipset flush "${IPSET_TABLE_NAME}"
