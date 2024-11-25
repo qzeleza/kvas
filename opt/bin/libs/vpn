@@ -2624,8 +2624,6 @@ cmd_add_one_host() {
 	reset="${2:-yes}"
 	wild="${3:-}"	 
 
-	ip_filter="[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}"
-
 	# Выходим из функции при отуствии интернет-соединения или VPN
 	exit_when_no_internet_or_vpn || exit 1 
 
@@ -2674,7 +2672,7 @@ cmd_add_one_host() {
 		# если точка в имени домена есть, то проверяем на корректность IP
 		if echo "${clear_host}" | grep -qE "${IP_FILTER}*" ; then
 			# если точка в имени домена есть, то проверяем на корректность IP
-			if echo "${clear_host}" | grep -qE "^${IP_FILTER}/[0-9]{1,2}$|^${IP_FILTER}$|^${IP_FILTER}-${ip_filter}$" ; then
+			if echo "${clear_host}" | grep -qE "^${IP_FILTER}/[0-9]{1,2}$|^${IP_FILTER}$|^${IP_FILTER}-${IP_FILTER}$" ; then
 				# если включен режим импорта
 				if [ "${wild}" = import ] ; then
 					host_add "${host}" "${reset}" "${wild}" | grep -q "ДОБАВЛЕН" && echo "+"
