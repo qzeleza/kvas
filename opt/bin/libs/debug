@@ -258,8 +258,14 @@ cmd_debug_dns() {
 	output=$(echo "${output}" | grep -F 'options:' | head -1 | cut -d ':' -f2 | xargs | grep -o '[^ ]*')
 	echo_debug 'DNSMasq модули' "${output}"
 
-	output=$(netstat -tulpn | grep -F dnsmasq)
+	output=$(netstat -tulpn | grep -F 'dnsmasq')
 	echo_debug 'DNSMasq порты прослушки' "${output}"
+
+	output=$(dnscrypt-proxy -version)
+	ready 'DNSCrypt версия' && when_ok "${output}"
+
+	output=$(netstat -tulpn | grep -F 'dnscrypt')
+	echo_debug 'DNSCrypt порты прослушки' "${output}"
 }
 
 cmd_ipset_flush() {
