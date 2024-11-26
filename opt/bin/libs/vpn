@@ -2428,8 +2428,6 @@ cmd_dns_crypt_on() {
 				# разрешаем ECH
 				sed -i 's/.*\(filter-rr.*\)/# \1/' /opt/etc/dnsmasq.conf
 
-				# sed -i "/proxy-dnssec/d" /opt/etc/dnsmasq.conf
-				# echo "proxy-dnssec" >> /opt/etc/dnsmasq.conf
 				dns_crypt_port_change "${dns_crypt_port}" restart
 
 				# множество конфигов должно обновиться и службы перезапуститься
@@ -2451,17 +2449,19 @@ cmd_dns_crypt_off() {
 		{
 			crypt_port=$(get_config_value DNS_CRYPT_PORT)
 			static_dns=$(get_config_value DNS_STATIC_1)
+
 			sed -i "s/\(@.*\)\(:[0-9]\{2,6\}\)/@localhost/g" '/opt/apps/kvas/bin/main/ipset_domain'
-			sed -i "/proxy-dnssec/d" /opt/etc/dnsmasq.conf
+
 			sed -i "s/\(^server=\)${LOCALHOST_IP}#${crypt_port}/\1${static_dns}/" /opt/etc/dnsmasq.conf
 			sed -i 's/.*\(filter-rr.*\)/\1/' /opt/etc/dnsmasq.conf
-			
+
 			sed -i '/echo \"server=/d' '/opt/apps/kvas/bin/main/dnsmasq' &> /dev/null
 			local server_echo="echo \"server=\/\$\{host\}\/${LOCALHOST_IP}#${crypt_port}\" >> \"\$\{ipset_file\}\""
 			sed -i 's/\(done.*\)/\t'"${server_echo}"'\n\n\1/g' '/opt/apps/kvas/bin/main/dnsmasq'
 
 			rm "${DNSMASQ_IPSET_HOSTS}"
 			_dns=$(cat < "${DNSMASQ_CONFIG}" | sed -n 's/^server=\(.*\)$/\1/p')
+
 			set_config_value DNS_DEFAULT "${_dns}#${MAIN_DNS_PORT}"
 			set_config_value DNS_CRYPT_PORT "${crypt_port}"
 
