@@ -5,7 +5,10 @@
 - [#220](https://github.com/qzeleza/kvas/issues/220) Получение сетевых интерфейсов без рестарта всех подключений + внесены доработки в функции `get_router_ip` и `get_local_inface`
 - [#222](https://github.com/qzeleza/kvas/issues/222) **Dnscrypt**: включение и отключение  
 - [#224](https://github.com/qzeleza/kvas/issues/224) **ipset** команды в консоли
-- Внесено испралвение при генерации записей в /opt/etc/dnsmasq.d/kvas.dnsmasq - вместо `\.` теперь только точка.
+- Внесено исправление при генерации записей в /opt/etc/dnsmasq.d/kvas.dnsmasq - вместо `\.` теперь только точка.
+- [#231](https://github.com/qzeleza/kvas/pull/231) debug dns команда
+- [#232](https://github.com/qzeleza/kvas/pull/232) kvas crypt: доводок финал
+
   Отдельная благодарность [AltGrF13](https://github.com/AltGrF13).  
 
 ## 1.1.9 beta 8
