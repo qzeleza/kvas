@@ -2411,17 +2411,21 @@ cmd_dns_crypt_on() {
 			{
 				# оставляем кеш выключенным за счет работы механизма кеширвоания dnsmasq
 				sed -i "s/\(^cache.=.\).*$/\1false/g" '/opt/etc/dnscrypt-proxy.toml'
-				# пока нет поддержки IPv6
-				sed -i "s/\(^block_ipv6.=.\).*$/\1true/g" '/opt/etc/dnscrypt-proxy.toml'
-				# более тяжёлые для роутера
-				sed -i "s/^[# ]\{0,1\}[ ]\{0,1\}\(doh_servers.=.\).*$/\1false/g" '/opt/etc/dnscrypt-proxy.toml'
-				sed -i "s/\(^ipv6_servers.=.\).*$/\1false/g" '/opt/etc/dnscrypt-proxy.toml'
-
-				sed -i "s/\(^require_dnssec.=.\).*$/\1true/g" '/opt/etc/dnscrypt-proxy.toml'
-				sed -i "s/\(^listen_addresses.=.\).*$/\1['127.0.0.1:${crypt_port}'.*]/g" "${DNSCRYPT_CONFIG}" &> /dev/null
 				sed -i "s/\(^cache_min_ttl.=.\).*$/\10/g" '/opt/etc/dnscrypt-proxy.toml'
 				sed -i "s/\(^cache_max_ttl.=.\).*$/\10/g" '/opt/etc/dnscrypt-proxy.toml'
+				# из-за отключенного кэша можем повысить безопасность
+				sed -i "s/\(^require_dnssec.=.\).*$/\1true/g" '/opt/etc/dnscrypt-proxy.toml'
+				# пока нет поддержки IPv6
+				sed -i "s/\(^block_ipv6.=.\).*$/\1true/g" '/opt/etc/dnscrypt-proxy.toml'
+				sed -i "s/\(^ipv6_servers.=.\).*$/\1false/g" '/opt/etc/dnscrypt-proxy.toml'
+				# более тяжёлые для роутера
+				sed -i "s/^[# ]\{0,1\}[ ]\{0,1\}\(doh_servers.=.\).*$/\1false/g" '/opt/etc/dnscrypt-proxy.toml'
+				# слушаем запросы только с роутера
+				sed -i "s/\(^listen_addresses.=.\).*$/\1['127.0.0.1:${crypt_port}'.*]/g" "${DNSCRYPT_CONFIG}" &> /dev/null
+				# в идеале выбрать быстрые для РФ без DoH и IPv6, пока просто динамические
 				sed -i "s/^\(server_names =.*\)/# \1/g" '/opt/etc/dnscrypt-proxy.toml'
+
+				# разрешаем ECH
 				sed -i 's/.*\(filter-rr.*\)/# \1/' /opt/etc/dnsmasq.conf
 
 				# sed -i "/proxy-dnssec/d" /opt/etc/dnsmasq.conf
