@@ -172,6 +172,30 @@ is_dns_server_online(){
 DNS_ENABLE=false
 DNS_DEFAULT=''
 
+add_host_by_iplist_to_ipset() {
+	host=${1//\*/}
+
+	# получаем список из адресов от текущего dns сервера
+	# и исключаем из списка адреса типа 0.0.0.0
+	ip_list=$(get_iplist_from_domain "${host}" \
+	 | grep -Eo "${IP_FILTER}" \
+	 | grep -v '0.0.0.0' )
+
+	if [ -z "${ip_list}" ]; then
+		return
+	fi
+
+	for ip in ${ip_list}; do
+		# если уже есть в списке
+		if ipset list "${IPSET_TABLE_NAME}" | grep -qE "^${ip} " ; then
+			continue
+		fi
+
+		log_warning "Обнаружен новый IP ${ip} для домена ${host} и добавлен в ipset"
+		ipset -exist add "${IPSET_TABLE_NAME}" "${ip}"
+	done
+}
+
 get_iplist_from_domain(){
 #---------------------------------------------------------------------------------
 #   Получаем список всех ip по доменному имени

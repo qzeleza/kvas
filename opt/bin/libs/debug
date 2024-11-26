@@ -243,6 +243,63 @@ cmd_debug_iptables() {
 	echo_debug 'PREROUTING nat' "${output}"
 }
 
+cmd_debug_dns() {
+	# если вызывается как один из дебагов, то можно передать silent
+	if [ -z "${1}" ] ; then
+		echo 'Для просмотра перехватов DNS вызовите kvas debug iptables'
+		echo
+	fi
+
+	if grep -q '^filter-rr=HTTPS' "${DNSMASQ_CONFIG}" ; then
+		local output='Отключен'
+	else
+		local output='Включен'
+	fi
+	ready 'DNS ECH' && when_ok "${output}"
+
+	local cached=$(dnsmasq -v)
+
+	ready 'DNSMasq версия' && when_ok "$(echo "${cached}" | grep -Eo 'version [0-9\.]+' | head -1 | cut -d ' ' -f2)"
+	echo_debug 'DNSMasq слушает:' "$(netstat -tulpn | grep -F 'dnsmasq')"
+
+	#echo_debug 'DNSMasq модули:' "$(echo "${cached}" | grep -F 'options:' | head -1 | cut -d ':' -f2 | xargs | grep -o '[^ ]*')"
+
+	ready 'Сайтов для сбора IP' && when_ok "$(grep /${IPSET_TABLE_NAME} ${DNSMASQ_IPSET_HOSTS} | wc -l)"
+
+	if grep -q "ipset=/myip2.ru/${IPSET_TABLE_NAME}" "${DNSMASQ_IPSET_HOSTS}" ; then
+		output='есть'
+	else
+		output='нет'
+	fi
+	ready 'myip2.ru' && when_ok "${output}"
+
+	if grep -q "ipset=/ifconfig.me/${IPSET_TABLE_NAME}" "${DNSMASQ_IPSET_HOSTS}" ; then
+		output='есть'
+	else
+		output='нет'
+	fi
+	ready 'ifconfig.me' && when_ok "${output}"
+
+	echo_debug 'Часть конфига:' "$(head -n 6 ${DNSMASQ_IPSET_HOSTS})"
+
+	# если вызывается как один из дебагов, то можно передать silent
+	if [ -z "${1}" ] ; then
+		echo 'Для просмотра списка IP для тоннеля вызовите kvas ipset'
+		echo
+	fi
+
+	cached=$(grep 'server=' "${DNSMASQ_CONFIG}"      | head -1 | cut -d '=' -f2)
+	ready 'DNS запросы передаются' && when_ok "${cached}"
+
+	cached=$(grep 'server=' "${DNSMASQ_IPSET_HOSTS}" | head -1 | cut -d '/' -f3)
+	if [ -n "${cached}" ] ; then
+		ready 'DNS запросы списка передаются' && when_ok "${cached}"
+	fi
+
+	ready 'DNSCrypt версия' && when_ok "$(dnscrypt-proxy -version)"
+	echo_debug 'DNSCrypt слушает:' "$(netstat -tulpn | grep -F 'dnscrypt')"
+}
+
 cmd_ipset_flush() {
 	echo -n 'Очистка IPSet...'
 	ipset flush "${IPSET_TABLE_NAME}"
