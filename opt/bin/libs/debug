@@ -237,7 +237,7 @@ cmd_debug_iptables() {
 	fi
 	echo_debug 'Роутинг подсетей' "${output}"
 
-	output=$(iptables-save | grep -F "${DNS_CHAIN}" | grep -Fv :"${DNS_CHAIN}")
+	output=$(iptables-save | grep -F "${CHAIN_DNS}" | grep -Fv :"${CHAIN_DNS}")
 	echo_debug 'Роутинг DNS' "${output}"
 
 	output=$(iptables -L PREROUTING -t mangle)
