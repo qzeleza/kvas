@@ -30,14 +30,14 @@ IPSET_RESERVED=KVAS_RESERVED
 DNS_CHAIN=KVAS_DNS
 DNS_TABLE=nat
 
-VPN_FAST_CHAIN=KVAS_VPN_FAST
+VPN_FAST_CHAIN=KVAS_MARK_TO_TABLE
 VPN_FAST_TABLE=mangle
 #ToDo: переписать отключенное ускорение на цепочки
 
-PROXY_TCP_CHAIN=KVAS_PROXY_TCP
+PROXY_TCP_CHAIN=KVAS_DNAT_TO_PORT
 PROXY_TCP_TABLE=nat
-#ToDo: задействовать для UDP нижеидущее, переведя на маркировку
-PROXY_UDP_CHAIN=KVAS_PROXY_UDP
+#ToDo: попробовать -p udp -j TPROXY --on-port "${port}" --tproxy-mark 0x01/0x01
+PROXY_UDP_CHAIN=KVAS_TPROXY_TO_PORT
 PROXY_UDP_TABLE=mangle
 
 
