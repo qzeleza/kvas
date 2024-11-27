@@ -231,7 +231,7 @@ cmd_debug_iptables() {
 	echo_debug 'Маршруты (подключитесь к гостевой заранее)' "${output}"
 
 	if has_ssr_enable; then
-		output=$(iptables-save | grep -F "${PROXY_TCP_CHAIN}" | grep -Fv :"${PROXY_TCP_CHAIN}")
+		output=$(iptables-save | grep -F "${CHAIN_DNAT_TO_PORT}" | grep -Fv :"${CHAIN_DNAT_TO_PORT}")
 	else
 		output=$(iptables-save | grep -F "${VPN_FAST_CHAIN}" | grep -Fv :"${VPN_FAST_CHAIN}")
 	fi

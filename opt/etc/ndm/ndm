@@ -34,11 +34,11 @@ VPN_FAST_CHAIN=KVAS_MARK_TO_TABLE
 VPN_FAST_TABLE=mangle
 #ToDo: переписать отключенное ускорение на цепочки
 
-PROXY_TCP_CHAIN=KVAS_DNAT_TO_PORT
-PROXY_TCP_TABLE=nat
+CHAIN_DNAT_TO_PORT=KVAS_DNAT_TO_PORT
+TABLE_DNAT_TO_PORT=nat
 #ToDo: попробовать -p udp -j TPROXY --on-port "${port}" --tproxy-mark 0x01/0x01
-PROXY_UDP_CHAIN=KVAS_TPROXY_TO_PORT
-PROXY_UDP_TABLE=mangle
+CHAIN_TPROXY_TO_PORT=KVAS_TPROXY_TO_PORT
+TABLE_TPROXY_TO_PORT=mangle
 
 
 IPv4='IPv4::'
@@ -400,12 +400,12 @@ ip4__shadowsocks__create_chain() {
 	ip=$(cat < /opt/etc/shadowsocks.json | grep 'server":' | tr -d '" ,' | cut -d':' -f2 )
 	proxy_port=$(get_config_value SSR_DNS_PORT)
 
-	ip4__proxy__create_chain "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}" "${proxy_port}" "${ip}"
+	ip4__proxy__create_chain "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${proxy_port}" "${ip}"
 }
 
 #ToDo: доделать для VLESS
 ip4__vless__create_chain() {
-	ip4__proxy__create_chain "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}" "${proxy_port}"
+	ip4__proxy__create_chain "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${proxy_port}"
 }
 
 # когда ускорение подключено
@@ -481,11 +481,11 @@ ip4__add_routing_for_home() {
 }
 
 ip4__shadowsocks__add_routing_for_home() {
-	ip4__add_routing_for_home "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}" 'ShadowSocks'
+	ip4__add_routing_for_home "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" 'ShadowSocks'
 }
 
 ip4__vless__add_routing_for_home() {
-	ip4__add_routing_for_home "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}" 'VLESS'
+	ip4__add_routing_for_home "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" 'VLESS'
 }
 
 # когда ускорение подключено
@@ -632,13 +632,13 @@ ip4__add_routing_for_net() {
 	ip4__dns__add_routing "${iptables_filter}"
 
 	if has_ssr_enable ; then
-		if ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${PROXY_TCP_CHAIN}" ; then
+		if ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${CHAIN_DNAT_TO_PORT}" ; then
 			return
 		fi
 		log_warning "Подключаем правила гостевого трафика для ShadowSocks по критерию ${iptables_filter}"
 
 		ip4__ipset__create_list
-		iptables -A PREROUTING -w -t "${PROXY_TCP_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${PROXY_TCP_CHAIN}"
+		iptables -A PREROUTING -w -t "${TABLE_DNAT_TO_PORT}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${CHAIN_DNAT_TO_PORT}"
 	elif fastnet_enabled ; then
 		if iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_FAST_CHAIN}" ; then
 			return
@@ -679,12 +679,12 @@ ip4__del_routing_for_net() {
 	ip4__dns__delete_routing "${iptables_filter}"
 
 	if has_ssr_enable ; then
-		if ! ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${PROXY_TCP_CHAIN}" ; then
+		if ! ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${CHAIN_DNAT_TO_PORT}" ; then
 			return
 		fi
 		log_warning "Отключаем правила гостевого трафика для прокси по критерию ${iptables_filter}"
 
-		iptables -D PREROUTING -t "${PROXY_TCP_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${PROXY_TCP_CHAIN}"
+		iptables -D PREROUTING -t "${TABLE_DNAT_TO_PORT}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${CHAIN_DNAT_TO_PORT}"
 	elif fastnet_enabled ; then
 		if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${VPN_FAST_CHAIN}" ; then
 			return
@@ -814,13 +814,13 @@ ip4_firewall_flush_all_rules() {
 ip4_firewall_ssr_prune() {
 	{
 		# достаточно удалять правила для br0, но на всякий случай
-		ip4__chain__delete_jump "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}"
+		ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
 		#ip4__chain__delete_jump "${TABLE_DNS}" "${CHAIN_DNS}"
 
 		# Во время работы удалять цепочки бессмысленно, они константны и не влияют ни на что
 		# Достаточно убрать входы туда, что сделано выше
 		# Нижеидущее нужно вызывать лишь при установке или удалении
-		#ip4__chain__delete "${PROXY_TCP_TABLE}" "${PROXY_TCP_CHAIN}"
+		#ip4__chain__delete "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
 		#ip4__chain__delete "${TABLE_DNS}" "${CHAIN_DNS}"
 	} &>/dev/null
 }
