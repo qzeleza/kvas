@@ -1033,13 +1033,13 @@ ip4_firewall_flush_vpn_rules() {
 		if fastnet_enabled ; then
 			# достаточно удалять правила для br0, но на всякий случай
 			ip4__chain__delete_jump "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
-			# в бета 9 перехваты DNS не очищались
+			# в бета 9 перехваты DNS не очищались, да и они универсальны меж подключениями
 			#ip4__chain__delete_jump "${TABLE_DNS}" "${CHAIN_DNS}"
 
 			# Во время работы удалять цепочки бессмысленно, они константны и не влияют ни на что
 			# Достаточно убрать входы туда, что сделано выше
-			# Нижеидущее нужно вызывать лишь при установке или удалении
-			#ip4__chain__delete "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
+			# По идее, нижеидущее нужно вызывать лишь при установке или удалении
+			ip4__chain__delete "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
 			#ip4__chain__delete "${TABLE_DNS}" "${CHAIN_DNS}"
 		else
 			# антиправила для ip4__vpn_nofast__set_rules
@@ -1056,13 +1056,13 @@ ip4_firewall_flush_proxy() {
 
 		# достаточно удалять правила для br0, но на всякий случай
 		ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
-		# в бета 9 перехваты DNS не очищались
+		# в бета 9 перехваты DNS не очищались, да и они универсальны меж подключениями
 		#ip4__chain__delete_jump "${TABLE_DNS}" "${CHAIN_DNS}"
 
 		# Во время работы удалять цепочки бессмысленно, они константны и не влияют ни на что
 		# Достаточно убрать входы туда, что сделано выше
-		# Нижеидущее нужно вызывать лишь при установке или удалении
-		#ip4__chain__delete "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
+		# По идее, нижеидущее нужно вызывать лишь при установке или удалении
+		ip4__chain__delete "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
 		#ip4__chain__delete "${TABLE_DNS}" "${CHAIN_DNS}"
 	} &>/dev/null
 }
