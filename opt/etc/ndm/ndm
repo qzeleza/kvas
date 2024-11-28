@@ -891,15 +891,12 @@ ip4_mark_vpn_network() {
 	{
 		if fastnet_enabled ; then
 			ip4__vpn_fast__create_chain
+
+			ip4__vpn_fast__add_routing_for_home
 		else
 			ip4__vpn_nofast__set_rules
 		fi
-
 		ip4__add_routing_by_list_for_net_from_config
-
-		if fastnet_enabled ; then
-			ip4__vpn_fast__add_routing_for_home
-		fi
 	} &>/dev/null
 }
 
@@ -907,15 +904,13 @@ ip4_firewall_set_all_rules() {
 	if is_shadowsocks_enabled ; then
 		ip4__shadowsocks__create_chain &>/dev/null
 
-		ip4__add_routing_by_list_for_net_from_config &> /dev/null
-
 		ip4__shadowsocks__add_routing_for_home &> /dev/null
+		ip4__add_routing_by_list_for_net_from_config &> /dev/null
 	elif is_vless_enabled ; then
 		ip4__vless__create_chain &>/dev/null
 
-		ip4__add_routing_by_list_for_net_from_config &> /dev/null
-
 		ip4__vless__add_routing_for_home &> /dev/null
+		ip4__add_routing_by_list_for_net_from_config &> /dev/null
 	else
 		ip4_mark_vpn_network
 	fi
@@ -990,11 +985,6 @@ ip4_firewall_flush_all_rules() {
 ip4__flush_full() {
 	ip4__delete_routing_by_list_for_net_from_config
 
-	# достаточно для br0, но мало ли выжили от другого роутинга
-	ip4__chain__delete_jump "${TABLE_DNS}" "${CHAIN_DNS}"
-	# входов не осталось, саму цепочку
-	ip4__chain__delete      "${TABLE_DNS}" "${CHAIN_DNS}"
-
 	if is_proxy_enabled ; then
 		ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
 		ip4__chain__delete      "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
@@ -1009,6 +999,11 @@ ip4__flush_full() {
 	else
 		iptables__delete_rules "${TABLE_MARK_TO_TABLE}" "-j MARK --set-mark ${MARK_NUM}"
 	fi
+
+	# достаточно для br0, но мало ли выжили от другого роутинга
+	ip4__chain__delete_jump "${TABLE_DNS}" "${CHAIN_DNS}"
+	# входов не осталось, саму цепочку
+	ip4__chain__delete      "${TABLE_DNS}" "${CHAIN_DNS}"
 
 	ip4__ipset__destroy_list
 	ip4__ipset__destroy_reserved
