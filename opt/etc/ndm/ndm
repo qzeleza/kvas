@@ -516,8 +516,8 @@ ip4__vpn_nofast__set_rules() {
 #
 # ------------------------------------------------------------------------------------------
 
-ip4__dns__del_routing_for_home() {
-	ip4__dns__del_routing "-i $(get_local_inface)"
+ip4__dns__delete_routing_for_home() {
+	ip4__dns__delete_routing "-i $(get_local_inface)"
 }
 
 ip4__dns__add_routing_for_home() {
