@@ -217,6 +217,16 @@ print_curent_congiguration() {
 	
 }
 
+iptables__get_by_chain() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
+		return
+	fi
+	chain_name="${1}"
+
+	$(iptables-save | grep -F "${chain_name}" | grep -Fv :"${chain_name}")
+}
+
 cmd_debug_iptables() {
 	local output=$(ip route)
 
@@ -231,13 +241,13 @@ cmd_debug_iptables() {
 	echo_debug 'Маршруты (подключитесь к гостевой заранее)' "${output}"
 
 	if is_proxy_enabled ; then
-		output=$(iptables-save | grep -F "${CHAIN_DNAT_TO_PORT}" | grep -Fv :"${CHAIN_DNAT_TO_PORT}")
+		output=$(iptables__get_by_chain "${CHAIN_DNAT_TO_PORT}")
 	else
-		output=$(iptables-save | grep -F "${CHAIN_MARK_TO_TABLE}" | grep -Fv :"${CHAIN_MARK_TO_TABLE}")
+		output=$(iptables__get_by_chain "${CHAIN_MARK_TO_TABLE}")
 	fi
 	echo_debug 'Роутинг подсетей' "${output}"
 
-	output=$(iptables-save | grep -F "${CHAIN_DNS}" | grep -Fv :"${CHAIN_DNS}")
+	output=$(iptables__get_by_chain "${CHAIN_DNS}")
 	echo_debug 'Роутинг DNS' "${output}"
 
 	output=$(iptables -L PREROUTING -t mangle)
