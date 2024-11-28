@@ -888,34 +888,36 @@ ip4__add_routing_by_list_for_net_from_config() {
 }
 
 ip4_mark_vpn_network() {
+	{
 	if fastnet_enabled ; then
-		ip4__vpn_fast__create_chain &>/dev/null
+		ip4__vpn_fast__create_chain
 	else
-		ip4__vpn_nofast__set_rules &>/dev/null
+		ip4__vpn_nofast__set_rules
 	fi
 
 	ip4__add_routing_by_list_for_net_from_config
 
 	if fastnet_enabled ; then
-		ip4__vpn_fast__add_routing_for_home &>/dev/null
+		ip4__vpn_fast__add_routing_for_home
 	fi
+	} &>/dev/null
 }
 
 ip4_firewall_set_all_rules() {
 	if is_shadowsocks_enabled ; then
 		ip4__shadowsocks__create_chain &>/dev/null
 
-		ip4__add_routing_by_list_for_net_from_config
+		ip4__add_routing_by_list_for_net_from_config &> /dev/null
 
 		ip4__shadowsocks__add_routing_for_home &> /dev/null
 	elif is_vless_enabled ; then
 		ip4__vless__create_chain &>/dev/null
 
-		ip4__add_routing_by_list_for_net_from_config
+		ip4__add_routing_by_list_for_net_from_config &> /dev/null
 
 		ip4__vless__add_routing_for_home &> /dev/null
 	else
-		ip4_mark_vpn_network &>/dev/null
+		ip4_mark_vpn_network
 	fi
 }
 
