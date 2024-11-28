@@ -699,7 +699,7 @@ get_ikev2_net_pool() {
 }
 
 ip4__add_routing() {
-	if [ -z "${3}" ]; then
+	if [ -z "${3}" ] ; then
 		error "[${FUNCNAME}] Не передан обязательный параметр — критерий"
 		return
 	fi
@@ -776,6 +776,46 @@ ip4__add_routing_by_list_for_net() {
 	fi
 }
 
+ip4__delete_routing() {
+	if [ -z "${3}" ] ; then
+		error "[${FUNCNAME}] Не передан обязательный параметр — критерий"
+		return
+	fi
+	local iptables_filter="${3}"
+
+	# перехват DNS
+	ip4__dns__delete_routing "${iptables_filter}"
+	local submessage=" критерию ${iptables_filter}"
+
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
+		return
+	fi
+	table="${1}"
+
+	if [ -z "${2}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
+		return
+	fi
+	chain_name="${2}"
+
+	# необязательный параметр — ipset для фильтра по целевым IP
+	if [ -n "${4}" ] ; then
+		local ipset_list="${4}"
+
+		submessage=" ipset ${ipset_list} и${submessage}"
+		iptables_filter="${iptables_filter} -m set --match-set ${ipset_list} dst"
+	fi
+
+	if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${chain_name}" ; then
+		return
+	fi
+
+	log_warning "Отключаем перехват трафика по${submessage}"
+
+	iptables -D PREROUTING -w -t "${table}" $(echo "${iptables_filter}") -j "${chain_name}"
+}
+
 ip4__del_routing_by_list_for_net() {
 	local net_interface="${1}"
 	if [ -z "${net_interface}" ] ; then
@@ -788,22 +828,12 @@ ip4__del_routing_by_list_for_net() {
 	ip4__dns__delete_routing "${iptables_filter}"
 
 	if is_proxy_enabled ; then
-		if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${CHAIN_DNAT_TO_PORT}" ; then
-			return
-		fi
-		log_warning "Отключаем правила гостевого трафика для прокси по критерию ${iptables_filter}"
-
-		iptables -D PREROUTING -t "${TABLE_DNAT_TO_PORT}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${CHAIN_DNAT_TO_PORT}"
-
+		ip4__delete_routing "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${iptables_filter}" "${IPSET_TABLE_NAME}"
 	elif fastnet_enabled ; then
-		if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${CHAIN_MARK_TO_TABLE}" ; then
-			return
-		fi
-		log_warning "Отключаем правила гостевого трафика для VPN с ускорением по критерию ${iptables_filter}"
-
-		iptables -D PREROUTING -t "${TABLE_MARK_TO_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${CHAIN_MARK_TO_TABLE}"
-
+		ip4__delete_routing "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}" "${iptables_filter}" "${IPSET_TABLE_NAME}"
 	else
+		ip4__dns__add_routing "${iptables_filter}"
+
 		# на выходе не доступен i
 		if [ "${net_interface}" = 'ikev2' ] ; then
 			local net_pool=$(get_ikev2_net_pool)
