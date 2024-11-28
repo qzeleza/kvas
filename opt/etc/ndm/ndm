@@ -887,9 +887,11 @@ ip4_mark_vpn_network() {
 		ip4__vpn_nofast__set_rules &>/dev/null
 	fi
 
+	# route by_list net
 	for guest_inface in $(get_guest_inface_list_from_config) ; do
 		ip4__add_routing_by_list_for_net "${guest_inface}" &>/dev/null
 	done
+
 	if fastnet_enabled ; then
 		ip4__vpn_fast__add_routing_for_home &>/dev/null
 	fi
@@ -899,16 +901,20 @@ ip4_firewall_set_all_rules() {
 	if is_shadowsocks_enabled ; then
 		ip4__shadowsocks__create_chain &>/dev/null
 
+		# route by_list net
 		for guest_inface in $(get_guest_inface_list_from_config) ; do
 			ip4__add_routing_by_list_for_net "${guest_inface}" &>/dev/null
 		done
+
 		ip4__shadowsocks__add_routing_for_home &> /dev/null
 	elif is_vless_enabled ; then
 		ip4__vless__create_chain &>/dev/null
 
+		# route by_list net
 		for guest_inface in $(get_guest_inface_list_from_config) ; do
 			ip4__add_routing_by_list_for_net "${guest_inface}" &>/dev/null
 		done
+
 		ip4__vless__add_routing_for_home &> /dev/null
 	else
 		ip4_mark_vpn_network &>/dev/null
@@ -925,6 +931,7 @@ ip4_firewall_set_all_rules() {
 # для всех гостевых интерфейсов
 ip4_firewall_flush_vpn_rules() {
 	{
+		# route by_list net
 		for guest_inface in $(get_guest_inface_list_from_config) ; do
 			ip4__delete_routing_by_list_for_net "${guest_inface}"
 		done
@@ -950,6 +957,7 @@ ip4_firewall_flush_vpn_rules() {
 # Удаляем правила iptables для ShadowSocks подключений
 ip4_firewall_ssr_prune() {
 	{
+		# route by_list net
 		for guest_inface in $(get_guest_inface_list_from_config) ; do
 			ip4__delete_routing_by_list_for_net "${guest_inface}" &>/dev/null
 		done
