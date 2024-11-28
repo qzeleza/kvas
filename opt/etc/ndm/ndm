@@ -454,6 +454,7 @@ ip4__vpn_fast__create_chain() {
 		ip4__chain__create_for_data "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
 
 		#ToDo: именно здесь надо автостартовать таблицы, их ручной старт нужно везде удалить
+		# ведь только после завершения этой цепочки таблица нужна и сможет получить трафик
 		#ip4_add_route_table
 		#ip4_rule_set_priority
 
@@ -468,7 +469,7 @@ ip4__vpn_fast__create_chain() {
 # когда программное и аппаратное ускорение отключено
 ip4__vpn_nofast__set_rules() {
 	{
-		#ToDo: переписать на цепочки
+		#ToDo: должны работать таблицы или переписать на цепочки
 		log_warning 'Маркировка трафика для VPN при отключенном ускорении'
 
 		ip4__ipset__create_list
@@ -839,6 +840,7 @@ ip4_firewall_flush_vpn_rules() {
 		if fastnet_enabled ; then
 			# достаточно удалять правила для br0, но на всякий случай
 			ip4__chain__delete_jump "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
+			# в бета 9 перехваты DNS не очищались
 			#ip4__chain__delete_jump "${TABLE_DNS}" "${CHAIN_DNS}"
 
 			# Во время работы удалять цепочки бессмысленно, они константны и не влияют ни на что
@@ -862,6 +864,7 @@ ip4_firewall_ssr_prune() {
 
 		# достаточно удалять правила для br0, но на всякий случай
 		ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
+		# в бета 9 перехваты DNS не очищались
 		#ip4__chain__delete_jump "${TABLE_DNS}" "${CHAIN_DNS}"
 
 		# Во время работы удалять цепочки бессмысленно, они константны и не влияют ни на что
@@ -901,6 +904,7 @@ ip4__flush_full() {
 		ip4__chain__delete      "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
 
 		#ToDo: именно здесь надо удалять таблицы, их ручное удаление нужно удалить
+		# ведь только эта цепочка использовала эту таблицу
 		#ip4_rule_del_priority
 		#ip4_flush_all_tables
 	else
@@ -917,6 +921,13 @@ ip4__flush_full() {
 # Всё, касающееся ip route и ip rule
 #
 # ------------------------------------------------------------------------------------------
+
+# Производим очистку кэша маршрутизации
+ip4_flush_cache(){
+	log_warning "Проводим очистку кеша маршрутизации."
+	/opt/sbin/ip route flush cache 1> /dev/null 2> "${ERROR_LOG_FILE}"
+#		|| error "[${FUNCNAME}] Возникла ошибка при очистки кеша маршрутизации."
+}
 
 route_del(){
 	inface_ent=${1}
@@ -1027,13 +1038,6 @@ ip4_rule_del_priority(){
 	fi
 
 	ip4_flush_cache &>/dev/null
-}
-
-# Производим очистку кэша маршрутизации
-ip4_flush_cache(){
-	log_warning "Проводим очистку кеша маршрутизации."
-	/opt/sbin/ip route flush cache 1> /dev/null 2> "${ERROR_LOG_FILE}"
-#		|| error "[${FUNCNAME}] Возникла ошибка при очистки кеша маршрутизации."
 }
 
 # Удаляем все таблицы которые были созданы при работе пакета
