@@ -439,12 +439,11 @@ has_ssr_enable() {
 }
 
 is_shadowsocks_enabled() {
-	[ "$(get_current_vpn_interface 'cli')" = 'shadowsocks' ]
+	[ "$(get_config_value INFACE_CLI)" = 'shadowsocks' ]
 }
 
 is_vless_enabled() {
-	#ToDo: доделать по аналогии с функцией выше
-	false
+	[ "$(get_config_value INFACE_ENT)" = "${PROXY_VLESS_NAME}" ]
 }
 
 
