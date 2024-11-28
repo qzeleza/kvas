@@ -428,8 +428,26 @@ is_inside_tunnel(){
 	eval "! ${grep_cmd}"
 }
 
+# любой из видов proxy: хоть ShadowSocks, хоть VLESS
+is_proxy_enabled() {
+	[ -f '/opt/etc/ndm/netfilter.d/100-proxy-redirect' ]
+}
 
-has_ssr_enable() ([ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ])
+#ToDo: перейти везде на новые обёртки
+has_ssr_enable() {
+	is_proxy_enabled
+}
+
+is_shadowsocks_enabled() {
+	[ "$(get_current_vpn_interface 'cli')" = 'shadowsocks' ]
+}
+
+is_vless_enabled() {
+	#ToDo: доделать по аналогии с функцией выше
+	false
+}
+
+
 has_adguard_enable() {
 	if [ -f "${ADGUARDHOME_DEMON}" ]; then  
 		"${ADGUARDHOME_DEMON}" status | grep -q alive

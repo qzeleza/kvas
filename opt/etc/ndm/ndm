@@ -665,14 +665,15 @@ ip4__add_routing_for_net() {
 
 	ip4__dns__add_routing "${iptables_filter}"
 
-	if has_ssr_enable ; then
+	if is_proxy_enabled ; then
 		if ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${CHAIN_DNAT_TO_PORT}" ; then
 			return
 		fi
-		log_warning "Подключаем правила гостевого трафика для ShadowSocks по критерию ${iptables_filter}"
+		log_warning "Подключаем правила гостевого трафика для прокси по критерию ${iptables_filter}"
 
 		ip4__ipset__create_list
 		iptables -A PREROUTING -w -t "${TABLE_DNAT_TO_PORT}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${CHAIN_DNAT_TO_PORT}"
+
 	elif fastnet_enabled ; then
 		if iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${CHAIN_MARK_TO_TABLE}" ; then
 			return
@@ -681,6 +682,7 @@ ip4__add_routing_for_net() {
 
 		ip4__ipset__create_list
 		iptables -A PREROUTING -w -t "${TABLE_MARK_TO_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${CHAIN_MARK_TO_TABLE}"
+
 	else
 		# на выходе не доступен i
 		if [ "${net_interface}" = 'ikev2' ] ; then
@@ -712,13 +714,14 @@ ip4__del_routing_for_net() {
 
 	ip4__dns__delete_routing "${iptables_filter}"
 
-	if has_ssr_enable ; then
+	if is_proxy_enabled ; then
 		if ! ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${CHAIN_DNAT_TO_PORT}" ; then
 			return
 		fi
 		log_warning "Отключаем правила гостевого трафика для прокси по критерию ${iptables_filter}"
 
 		iptables -D PREROUTING -t "${TABLE_DNAT_TO_PORT}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${CHAIN_DNAT_TO_PORT}"
+
 	elif fastnet_enabled ; then
 		if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${CHAIN_MARK_TO_TABLE}" ; then
 			return
@@ -726,6 +729,7 @@ ip4__del_routing_for_net() {
 		log_warning "Отключаем правила гостевого трафика для VPN с ускорением по критерию ${iptables_filter}"
 
 		iptables -D PREROUTING -t "${TABLE_MARK_TO_TABLE}" $(echo "${iptables_filter}") -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${CHAIN_MARK_TO_TABLE}"
+
 	else
 		# на выходе не доступен i
 		if [ "${net_interface}" = 'ikev2' ] ; then
@@ -789,13 +793,20 @@ ip4_mark_vpn_network() {
 }
 
 ip4_firewall_set_all_rules() {
-	if has_ssr_enable ; then
+	if is_shadowsocks_enabled ; then
 		ip4__shadowsocks__create_chain &>/dev/null
 
 		for guest_inface in $(get_guest_inface_list_from_config) ; do
 			ip4__add_routing_for_net "${guest_inface}" &>/dev/null
 		done
 		ip4__shadowsocks__add_routing_for_home &> /dev/null
+	elif is_vless_enabled ; then
+		ip4__vless__create_chain &>/dev/null
+
+		for guest_inface in $(get_guest_inface_list_from_config) ; do
+			ip4__add_routing_for_net "${guest_inface}" &>/dev/null
+		done
+		ip4__vless__add_routing_for_home &> /dev/null
 	else
 		ip4_mark_vpn_network &>/dev/null
 	fi
@@ -853,10 +864,10 @@ ip4_firewall_ssr_prune() {
 
 # Удаляем все маршрутизирующие правила iptables
 ip4_firewall_flush_all_rules() {
-	if has_ssr_enable ; then
-		ip4_firewall_ssr_prune &>/dev/null
+	if is_proxy_enabled ; then
+		ip4_firewall_ssr_prune
 	else
-		ip4_firewall_flush_vpn_rules &>/dev/null
+		ip4_firewall_flush_vpn_rules
 	fi
 }
 
@@ -872,7 +883,7 @@ ip4__flush_full() {
 	# входов не осталось, саму цепочку
 	ip4__chain__delete      "${TABLE_DNS}" "${CHAIN_DNS}"
 
-	if has_ssr_enable ; then
+	if is_proxy_enabled ; then
 		ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
 		ip4__chain__delete      "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
 	elif fastnet_enabled ; then
