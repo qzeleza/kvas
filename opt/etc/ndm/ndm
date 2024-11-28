@@ -314,6 +314,34 @@ ip4__chain__is_exist() {
 	iptables-save -t "${table}" | grep -Fq "${chain_name}"
 }
 
+ip4__chain__exclude_source_by_config() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
+		return
+	fi
+	table="${1}"
+
+	if [ -z "${2}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
+		return
+	fi
+	chain_name="${2}"
+
+	local values=$(get_config_value 'route_excluded_ip')
+	if [ -z "${values}" ] ; then
+		return
+	fi
+	local regexp_ip_or_range=$(get_regexp_ip_or_range)
+
+	for ip_or_range in ${values} ; do
+		if ! echo "${ip_or_range}" | grep -qE "${regexp_ip_or_range}" ; then
+			continue
+		fi
+
+		iptables -A "${chain_name}" -w -t "${table}" -s "${ip_or_range}" -j RETURN
+	done
+}
+
 # Создаёт (если нет) цепочку для роутинга данных
 ip4__chain__create_for_data() {
 	if [ -z "${1}" ] ; then
@@ -335,6 +363,8 @@ ip4__chain__create_for_data() {
 	log_warning "Создание цепочки ${chain_name} в ${table} для перенаправления данных"
 
 	iptables -N "${chain_name}" -w -t "${table}"
+
+	ip4__chain__exclude_source_by_config "${table}" "${chain_name}"
 
 	ip4__ipset__fill_reserved
 	iptables -A "${chain_name}" -w -t "${table}" -m set --match-set "${IPSET_RESERVED}" dst -j RETURN
@@ -550,6 +580,9 @@ ip4__dns__create_chain() {
 	log_warning 'Создание цепочки для DNS перенаправления'
 
 	iptables -N "${CHAIN_DNS}" -w -t "${TABLE_DNS}"
+
+	ip4__chain__exclude_source_by_config "${TABLE_DNS}" "${CHAIN_DNS}"
+
 	for protocol in udp tcp ; do
 		iptables -A "${CHAIN_DNS}" -t "${TABLE_DNS}" -p "${protocol}" --dport 53 -j DNAT --to-destination 127.0.0.1:"${DNS_PORT}"
 	done
