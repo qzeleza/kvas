@@ -110,7 +110,7 @@ fastnet_enabled()(fast_hw_enabled || fast_sw_enabled)
 
 # ------------------------------------------------------------------------------------------
 #
-# Функции для работы с iptables
+# Функции для работы с iptables универсальные, подходящие и для IPv6
 #
 # ------------------------------------------------------------------------------------------
 
@@ -257,6 +257,36 @@ ip4__ipset__fill_reserved() {
 
 		ipset -exist add "${IPSET_RESERVED}" "${ip_or_range}"
 	done < "${FILE_RESERVED}"
+}
+
+ip4__ipset__destroy() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — имя"
+		return
+	fi
+	local ipset_name="${1}"
+
+	if ! ip4__ipset__is_exist "${ipset_name}"; then
+		return
+	fi
+
+	log_warning "Уничтожаем набор IP ${ipset_name}"
+
+	#ipset flush "${ipset_name}"
+	ipset destroy "${ipset_name}" \
+	 || {
+		error "[${FUNCNAME}] Ошибка при уничтожении набора IP ${ipset_name}"
+	}
+}
+
+# Для списка условной маршрутизации
+ip4__ipset__destroy_list() {
+	ip4__ipset__destroy "${IPSET_TABLE_NAME}"
+}
+
+# Для постоянного списка исключаемых сетей
+ip4__ipset__destroy_reserved() {
+	ip4__ipset__destroy "${IPSET_RESERVED}"
 }
 
 
@@ -815,13 +845,39 @@ ip4_firewall_ssr_prune() {
 	} &>/dev/null
 }
 
-# Удаляем все правила iptables которые были добавлены при работе пакета
+# Удаляем все маршрутизирующие правила iptables
 ip4_firewall_flush_all_rules() {
 	if has_ssr_enable ; then
 		ip4_firewall_ssr_prune &>/dev/null
 	else
 		ip4_firewall_flush_vpn_rules &>/dev/null
 	fi
+}
+
+# удаляем абсолютно всё с убиванием цепочек и наборов
+# необходимо при удалении или заморозки пакета
+ip4__flush_full() {
+	for guest_inface in $(get_guest_inface_list_from_config) ; do
+		ip4__del_routing_for_net "${guest_inface}"
+	done
+
+	# достаточно для br0, но мало ли выжили от другого роутинга
+	ip4__chain__delete_jump "${TABLE_DNS}" "${CHAIN_DNS}"
+	# входов не осталось, саму цепочку
+	ip4__chain__delete      "${TABLE_DNS}" "${CHAIN_DNS}"
+
+	if has_ssr_enable ; then
+		ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
+		ip4__chain__delete      "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
+	elif fastnet_enabled ; then
+		ip4__chain__delete_jump "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
+		ip4__chain__delete      "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
+	else
+		iptables__delete_rules "${TABLE_MARK_TO_TABLE}" "-j MARK --set-mark ${MARK_NUM}"
+	fi
+
+	ip4__ipset__destroy_list
+	ip4__ipset__destroy_reserved
 }
 
 
@@ -951,11 +1007,6 @@ ip4_flush_cache(){
 
 # Удаляем все таблицы которые были созданы при работе пакета
 ip4_flush_all_tables(){
-
-	log_warning "IPset::Производим очистку записей таблицы ${IPSET_TABLE_NAME}."
-	ipset flush "${IPSET_TABLE_NAME}" &>/dev/null
-	#when_error "${?}" " ${IPv4} Возникла ошибка при очистке записей ipset таблицы ${IPSET_TABLE_NAME}"
-
 	log_warning "IPv4::Производим очистку записей таблицы маршрутизации ID#${TABLE_ID} и удалим ее."
 	/opt/sbin/ip route flush table "${TABLE_ID}" &>/dev/null
 	/opt/sbin/ip rule del table "${TABLE_ID}"  &>/dev/null
