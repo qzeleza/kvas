@@ -889,17 +889,17 @@ ip4__add_routing_by_list_for_net_from_config() {
 
 ip4_mark_vpn_network() {
 	{
-	if fastnet_enabled ; then
-		ip4__vpn_fast__create_chain
-	else
-		ip4__vpn_nofast__set_rules
-	fi
+		if fastnet_enabled ; then
+			ip4__vpn_fast__create_chain
+		else
+			ip4__vpn_nofast__set_rules
+		fi
 
-	ip4__add_routing_by_list_for_net_from_config
+		ip4__add_routing_by_list_for_net_from_config
 
-	if fastnet_enabled ; then
-		ip4__vpn_fast__add_routing_for_home
-	fi
+		if fastnet_enabled ; then
+			ip4__vpn_fast__add_routing_for_home
+		fi
 	} &>/dev/null
 }
 
