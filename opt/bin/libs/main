@@ -400,6 +400,33 @@ get_entware_ikev2_inface() {
 	echo 'br0'
 }
 
+get_from_json() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — файл"
+		return
+	fi
+	if ! [ -f "${1}" ] ; then
+		error "[${FUNCNAME}] Указанный файл не найден"
+		return
+	fi
+	file="${1}"
+
+	if [ -z "${2}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — ключ"
+		return
+	fi
+	key="${2}"
+
+	# если задана секция
+	if [ -n "${3}" ] ; then
+		local file_content=$(jq -c ".${3}" "${file}")
+	else
+		local file_content=$(cat < "${file}")
+	fi
+
+	echo "${file_content}" | grep -oE "${key}"'"?: *"?[^" ,]++' | head -1 | tr -d '" ,' | cut -d':' -f2
+}
+
 get_ip_list(){
 #	{1} - исследуемый домен
 #	{2} - DNS сервер для опроса

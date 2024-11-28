@@ -464,19 +464,17 @@ ip4__proxy__create_chain() {
 }
 
 ip4__shadowsocks__create_chain() {
-	if ! [ -f "${SHADOWSOCKS_CONF}" ] ; then
-		error "[${FUNCNAME}] Не найден файл конфигурации ShadowSocks"
-		return
-	fi
-	local server_ip=$(cat < "${SHADOWSOCKS_CONF}" | grep 'server":' | tr -d '" ,' | cut -d':' -f2 )
+	local server_ip=$(get_from_json "${SHADOWSOCKS_CONF}" 'server')
 	local local_port=$(get_config_value SSR_DNS_PORT)
 
 	ip4__proxy__create_chain "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${local_port}" "${server_ip}"
 }
 
-#ToDo: доделать для VLESS
 ip4__vless__create_chain() {
-	ip4__proxy__create_chain "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${proxy_port}"
+	local local_port=$(get_from_json "${VLESS_CONFIG_FILE}" 'port'    'inbounds')
+	local  server_ip=$(get_from_json "${VLESS_CONFIG_FILE}" 'address' 'outbounds')
+
+	ip4__proxy__create_chain "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${local_port}" "${server_ip}"
 }
 
 # когда ускорение подключено
