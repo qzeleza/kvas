@@ -23,7 +23,7 @@
             "settings": {
                 "vnext": [
                     {
-                        "address": @VLESS_ADDRESS,
+                        "address": "@VLESS_ADDRESS",
                         "port": @VLESS_PORT,
                         "users": [
                             {
