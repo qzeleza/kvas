@@ -676,7 +676,7 @@ ip4__add_routing_for_net() {
 	ip4__dns__add_routing "${iptables_filter}"
 
 	if is_proxy_enabled ; then
-		if ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${CHAIN_DNAT_TO_PORT}" ; then
+		if iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${CHAIN_DNAT_TO_PORT}" ; then
 			return
 		fi
 		log_warning "Подключаем правила гостевого трафика для прокси по критерию ${iptables_filter}"
@@ -725,7 +725,7 @@ ip4__del_routing_for_net() {
 	ip4__dns__delete_routing "${iptables_filter}"
 
 	if is_proxy_enabled ; then
-		if ! ip4save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${CHAIN_DNAT_TO_PORT}" ; then
+		if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${CHAIN_DNAT_TO_PORT}" ; then
 			return
 		fi
 		log_warning "Отключаем правила гостевого трафика для прокси по критерию ${iptables_filter}"
