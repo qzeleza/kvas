@@ -880,14 +880,16 @@ ip4_firewall_rm_ssr_selected_guest_net() {
 #
 # ------------------------------------------------------------------------------------------
 
-# route by_list net add
+# Для команды route by_list net add — роутинг по списку для сетей
 ip4__add_routing_by_list_for_net_from_config() {
 	for net_interface in $(get_guest_inface_list_from_config) ; do
 		ip4__add_routing_by_list_for_net "${net_interface}"
 	done
 }
 
-# расширенный роутинг для перехватов цепочками
+# Расширенный роутинг для перехватов цепочками. Для команд:
+# route by_list ip add — роутинг по списку для IP
+# route full ip add — роутинг всего трафика для IP
 ip4__add_routing_for_ip_from_config() {
 	
 }
@@ -897,7 +899,11 @@ ip4_mark_vpn_network() {
 		if fastnet_enabled ; then
 			ip4__vpn_fast__create_chain
 
+			# Сначала правила по IP, затем по сетям.
+			# Как правила неускоренного VPN перепишутся на цепочки,
+			# обе перенесутся ниже к ip4__add_routing_by_list_for_net_from_config
 			ip4__add_routing_for_ip_from_config
+			#ToDo: сделать home отключаемой
 			ip4__vpn_fast__add_routing_for_home
 		else
 			ip4__vpn_nofast__set_rules
@@ -910,13 +916,17 @@ ip4_firewall_set_all_rules() {
 	if is_shadowsocks_enabled ; then
 		ip4__shadowsocks__create_chain &>/dev/null
 
+		# Сначала правила по IP, затем по сетям
 		ip4__add_routing_for_ip_from_config &> /dev/null
+		#ToDo: сделать home отключаемой
 		ip4__shadowsocks__add_routing_for_home &> /dev/null
 		ip4__add_routing_by_list_for_net_from_config &> /dev/null
 	elif is_vless_enabled ; then
 		ip4__vless__create_chain &>/dev/null
 
+		# Сначала правила по IP, затем по сетям
 		ip4__add_routing_for_ip_from_config &> /dev/null
+		#ToDo: сделать home отключаемой
 		ip4__vless__add_routing_for_home &> /dev/null
 		ip4__add_routing_by_list_for_net_from_config &> /dev/null
 	else
@@ -931,14 +941,16 @@ ip4_firewall_set_all_rules() {
 #
 # ------------------------------------------------------------------------------------------
 
-# route by_list net del
+# Для команды route by_list net del — роутинг по списку для сетей
 ip4__delete_routing_by_list_for_net_from_config() {
 	for net_interface in $(get_guest_inface_list_from_config) ; do
 		ip4__delete_routing_by_list_for_net "${net_interface}"
 	done
 }
 
-# расширенный роутинг для перехватов цепочками
+# Расширенный роутинг для перехватов цепочками. Для команд:
+# route by_list ip del — роутинг по списку для IP
+# route full ip del — роутинг всего трафика для IP
 ip4__delete_routing_for_ip_from_config() {
 	
 }
