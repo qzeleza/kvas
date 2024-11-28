@@ -698,7 +698,7 @@ get_ikev2_net_pool() {
 	echo "${pool_start}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/'
 }
 
-ip4__add_routing_for_net() {
+ip4__add_routing_by_list_for_net() {
 	local net_interface="${1}"
 	if [ -z "${net_interface}" ] ; then
 		error "[${FUNCNAME}] Не передан обязательный параметр — имя интерфейса"
@@ -747,7 +747,7 @@ ip4__add_routing_for_net() {
 	fi
 }
 
-ip4__del_routing_for_net() {
+ip4__del_routing_by_list_for_net() {
 	local net_interface="${1}"
 	if [ -z "${net_interface}" ] ; then
 		error "[${FUNCNAME}] Отсутствует обязательный параметр — имя сетевого интерфейса"
@@ -796,22 +796,22 @@ ip4__del_routing_for_net() {
 
 #TODO: сменить в других файлах обращение на новую обёртку
 ip4_add_selected_guest_to_vpn_network() {
-	ip4__add_routing_for_net "${1}"
+	ip4__add_routing_by_list_for_net "${1}"
 }
 
 #TODO: сменить в других файлах обращение на новую обёртку
 ip4_add_selected_guest_to_ssr_network() {
-	ip4__add_routing_for_net "${1}"
+	ip4__add_routing_by_list_for_net "${1}"
 }
 
 #TODO: сменить в других файлах обращение на новую обёртку
 ip4_firewall_rm_vpn_selected_guest_net() {
-	ip4__del_routing_for_net "${1}"
+	ip4__del_routing_by_list_for_net "${1}"
 }
 
 #TODO: сменить в других файлах обращение на новую обёртку
 ip4_firewall_rm_ssr_selected_guest_net() {
-	ip4__del_routing_for_net "${1}"
+	ip4__del_routing_by_list_for_net "${1}"
 }
 
 
@@ -829,7 +829,7 @@ ip4_mark_vpn_network() {
 	fi
 
 	for guest_inface in $(get_guest_inface_list_from_config) ; do
-		ip4__add_routing_for_net "${guest_inface}" &>/dev/null
+		ip4__add_routing_by_list_for_net "${guest_inface}" &>/dev/null
 	done
 	if fastnet_enabled ; then
 		ip4__vpn_fast__add_routing_for_home &>/dev/null
@@ -841,14 +841,14 @@ ip4_firewall_set_all_rules() {
 		ip4__shadowsocks__create_chain &>/dev/null
 
 		for guest_inface in $(get_guest_inface_list_from_config) ; do
-			ip4__add_routing_for_net "${guest_inface}" &>/dev/null
+			ip4__add_routing_by_list_for_net "${guest_inface}" &>/dev/null
 		done
 		ip4__shadowsocks__add_routing_for_home &> /dev/null
 	elif is_vless_enabled ; then
 		ip4__vless__create_chain &>/dev/null
 
 		for guest_inface in $(get_guest_inface_list_from_config) ; do
-			ip4__add_routing_for_net "${guest_inface}" &>/dev/null
+			ip4__add_routing_by_list_for_net "${guest_inface}" &>/dev/null
 		done
 		ip4__vless__add_routing_for_home &> /dev/null
 	else
@@ -867,7 +867,7 @@ ip4_firewall_set_all_rules() {
 ip4_firewall_flush_vpn_rules() {
 	{
 		for guest_inface in $(get_guest_inface_list_from_config) ; do
-			ip4__del_routing_for_net "${guest_inface}"
+			ip4__del_routing_by_list_for_net "${guest_inface}"
 		done
 
 		if fastnet_enabled ; then
@@ -892,7 +892,7 @@ ip4_firewall_flush_vpn_rules() {
 ip4_firewall_ssr_prune() {
 	{
 		for guest_inface in $(get_guest_inface_list_from_config) ; do
-			ip4__del_routing_for_net "${guest_inface}" &>/dev/null
+			ip4__del_routing_by_list_for_net "${guest_inface}" &>/dev/null
 		done
 
 		# достаточно удалять правила для br0, но на всякий случай
@@ -921,7 +921,7 @@ ip4_firewall_flush_all_rules() {
 # необходимо при удалении или заморозки пакета
 ip4__flush_full() {
 	for guest_inface in $(get_guest_inface_list_from_config) ; do
-		ip4__del_routing_for_net "${guest_inface}"
+		ip4__del_routing_by_list_for_net "${guest_inface}"
 	done
 
 	# достаточно для br0, но мало ли выжили от другого роутинга
@@ -1138,7 +1138,7 @@ ikev2_net_access_add() {
 
 	local net_pool=$(echo "${ikev2_settings}" | grep -F -- 'pool-start' | cut -d':' -f2 | sed 's/[\,\" ]//g;')
 	ready "Добавление гостевого интерфейса \"VPN-сервер IKEv2\" [${net_pool}] завершено" && {
-		ip4__add_routing_for_net 'ikev2'
+		ip4__add_routing_by_list_for_net 'ikev2'
 
 		# сохранение в конфигурацию КВАС
 		add_ikev2_net_to_config
@@ -1147,7 +1147,7 @@ ikev2_net_access_add() {
 
 ikev2_net_access_del() {
 	ready "Удаление интерфейса \"VPN-сервер IKEv2\" завершено" && {
-		ip4__del_routing_for_net 'ikev2'
+		ip4__del_routing_by_list_for_net 'ikev2'
 	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 }
 
@@ -1225,7 +1225,7 @@ recreate_ssr_rules(){
 
 	ready "${prefix}Создаём правила гостевых сетей для ShadowSocks."
 	for guest_inface in $(get_guest_inface_list_from_config) ; do
-		ip4__add_routing_for_net "${guest_inface}" &>/dev/null
+		ip4__add_routing_by_list_for_net "${guest_inface}" &>/dev/null
 	done && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 }
 
