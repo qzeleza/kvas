@@ -832,7 +832,7 @@ ip4__delete_routing_by_list_for_net() {
 	elif fastnet_enabled ; then
 		ip4__delete_routing "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}" "${iptables_filter}" "${IPSET_TABLE_NAME}"
 	else
-		ip4__dns__add_routing "${iptables_filter}"
+		ip4__dns__delete_routing "${iptables_filter}"
 
 		# на выходе не доступен i
 		if [ "${net_interface}" = 'ikev2' ] ; then
