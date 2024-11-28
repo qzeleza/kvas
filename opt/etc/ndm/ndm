@@ -334,6 +334,7 @@ ip4__chain__exclude_source_by_config() {
 	local regexp_ip_or_range=$(get_regexp_ip_or_range)
 
 	for ip_or_range in ${values} ; do
+		# защита от дурака; не обязательна, если проверять входящие данные
 		if ! echo "${ip_or_range}" | grep -qE "${regexp_ip_or_range}" ; then
 			continue
 		fi
@@ -876,7 +877,7 @@ ip4_firewall_rm_ssr_selected_guest_net() {
 
 # ------------------------------------------------------------------------------------------
 #
-# Общие обёртки, добавляющие что-то
+# Общие обёртки, добавляющие правила iptables
 #
 # ------------------------------------------------------------------------------------------
 
@@ -891,24 +892,58 @@ ip4__add_routing_by_list_for_net_from_config() {
 # route by_list ip add — роутинг по списку для IP
 # route full ip add — роутинг всего трафика для IP
 ip4__add_routing_for_ip_from_config() {
-	
+	local regexp_ip_or_range=$(get_regexp_ip_or_range)
+
+	local values=$(get_config_value 'route_full_ip')
+	if [ -n "${values}" ] ; then
+		for ip_or_range in ${values} ; do
+			# защита от дурака; не обязательна, если проверять входящие данные
+			if ! echo "${ip_or_range}" | grep -qE "${regexp_ip_or_range}" ; then
+				continue
+			fi
+
+			if is_proxy_enabled ; then
+				ip4__add_routing "${TABLE_DNAT_TO_PORT}"  "${CHAIN_DNAT_TO_PORT}"  "-s ${ip_or_range}"
+			elif fastnet_enabled ; then
+				ip4__add_routing "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}" "-s ${ip_or_range}"
+			fi
+		done
+	fi
+
+	values=$(get_config_value 'route_by_list_ip')
+	if [ -n "${values}" ] ; then
+		for ip_or_range in ${values} ; do
+			# защита от дурака; не обязательна, если проверять входящие данные
+			if ! echo "${ip_or_range}" | grep -qE "${regexp_ip_or_range}" ; then
+				continue
+			fi
+
+			if is_proxy_enabled ; then
+				ip4__add_routing "${TABLE_DNAT_TO_PORT}"  "${CHAIN_DNAT_TO_PORT}"  "-s ${ip_or_range}" "${IPSET_TABLE_NAME}"
+			elif fastnet_enabled ; then
+				ip4__add_routing "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}" "-s ${ip_or_range}" "${IPSET_TABLE_NAME}"
+			fi
+		done
+	fi
 }
 
 ip4_mark_vpn_network() {
 	{
 		if fastnet_enabled ; then
 			ip4__vpn_fast__create_chain
-
-			# Сначала правила по IP, затем по сетям.
-			# Как правила неускоренного VPN перепишутся на цепочки,
-			# обе перенесутся ниже к ip4__add_routing_by_list_for_net_from_config
-			ip4__add_routing_for_ip_from_config
-			#ToDo: сделать home отключаемой
-			ip4__vpn_fast__add_routing_for_home
 		else
 			ip4__vpn_nofast__set_rules
 		fi
+
+		# Сначала правила по IP, затем по сетям.
+		# Для отключенного ускорения первое не сделает ничего, пока 
+		# оно не будет переписано на цепочки
+		ip4__add_routing_for_ip_from_config
 		ip4__add_routing_by_list_for_net_from_config
+		if fastnet_enabled ; then
+			#ToDo: сделать home отключаемой
+			ip4__vpn_fast__add_routing_for_home
+		fi
 	} &>/dev/null
 }
 
@@ -937,7 +972,7 @@ ip4_firewall_set_all_rules() {
 
 # ------------------------------------------------------------------------------------------
 #
-# Общие обёртки, удаляющие что-то
+# Общие обёртки, удаляющие правила iptables
 #
 # ------------------------------------------------------------------------------------------
 
@@ -952,16 +987,50 @@ ip4__delete_routing_by_list_for_net_from_config() {
 # route by_list ip del — роутинг по списку для IP
 # route full ip del — роутинг всего трафика для IP
 ip4__delete_routing_for_ip_from_config() {
-	
+	local regexp_ip_or_range=$(get_regexp_ip_or_range)
+
+	local values=$(get_config_value 'route_full_ip')
+	if [ -n "${values}" ] ; then
+		for ip_or_range in ${values} ; do
+			# защита от дурака; не обязательна, если проверять входящие данные
+			if ! echo "${ip_or_range}" | grep -qE "${regexp_ip_or_range}" ; then
+				continue
+			fi
+
+			if is_proxy_enabled ; then
+				ip4__delete_routing "${TABLE_DNAT_TO_PORT}"  "${CHAIN_DNAT_TO_PORT}"  "-s ${ip_or_range}"
+			elif fastnet_enabled ; then
+				ip4__delete_routing "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}" "-s ${ip_or_range}"
+			fi
+		done
+	fi
+
+	values=$(get_config_value 'route_by_list_ip')
+	if [ -n "${values}" ] ; then
+		for ip_or_range in ${values} ; do
+			# защита от дурака; не обязательна, если проверять входящие данные
+			if ! echo "${ip_or_range}" | grep -qE "${regexp_ip_or_range}" ; then
+				continue
+			fi
+
+			if is_proxy_enabled ; then
+				ip4__delete_routing "${TABLE_DNAT_TO_PORT}"  "${CHAIN_DNAT_TO_PORT}"  "-s ${ip_or_range}" "${IPSET_TABLE_NAME}"
+			elif fastnet_enabled ; then
+				ip4__delete_routing "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}" "-s ${ip_or_range}" "${IPSET_TABLE_NAME}"
+			fi
+		done
+	fi
 }
 
 # для VPN
 ip4_firewall_flush_vpn_rules() {
 	{
 		ip4__delete_routing_by_list_for_net_from_config
-		if fastnet_enabled ; then
-			ip4__delete_routing_for_ip_from_config
+		# Для отключенного ускорения не сделает ничего, пока 
+		# оно не будет переписано на цепочки
+		ip4__delete_routing_for_ip_from_config
 
+		if fastnet_enabled ; then
 			# достаточно удалять правила для br0, но на всякий случай
 			ip4__chain__delete_jump "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
 			# в бета 9 перехваты DNS не очищались
@@ -1016,15 +1085,14 @@ ip4_firewall_flush_all_rules() {
 # необходимо при удалении или заморозки пакета
 ip4__flush_full() {
 	ip4__delete_routing_by_list_for_net_from_config
+	# Для отключенного ускорения не сделает ничего, пока 
+	# оно не будет переписано на цепочки
+	ip4__delete_routing_for_ip_from_config
 
 	if is_proxy_enabled ; then
-		ip4__delete_routing_for_ip_from_config
-
 		ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
 		ip4__chain__delete      "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
 	elif fastnet_enabled ; then
-		ip4__delete_routing_for_ip_from_config
-
 		ip4__chain__delete_jump "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
 		ip4__chain__delete      "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
 
