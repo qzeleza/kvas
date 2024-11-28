@@ -178,6 +178,8 @@ iptables__delete_rules() {
 		return
 	fi
 
+	log_warning "Удаляем iptables правила в ${table} по критерию ${filter}"
+
 	echo "${rules}" | while IFS= read -r rule ; do
 		iptables__delete_rule "${table}" "${rule}"
 	done
