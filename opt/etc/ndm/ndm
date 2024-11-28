@@ -602,6 +602,10 @@ ip4__dns__add_routing() {
 
 	log_warning "Подключение DNS перенаправления с приоритетом ${rulenum}${submessage}"
 
+	# после включения редиректа DNS ipset начнёт заполняться
+	# нужно его создать автоматически для DNSMasq
+	ip4__ipset__create_list
+
 	ip4__dns__create_chain
 	# без echo дублирование пробелов (что даёт warning и проблему наличия)
 	iptables -I PREROUTING "${rulenum}" -w -t "${TABLE_DNS}"$(echo "${iptables_filter}") -j "${CHAIN_DNS}"
@@ -974,7 +978,7 @@ ip4_rule_set_priority(){
 
 	if ! /opt/sbin/ip rule show | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID}"  ; then
 		log_warning "IPv4::Устанавливаем приоритет таблицы ID#${TABLE_ID} в значение ${PRIORITY}"
-		ip4__ipset__create_list
+
 		if /opt/sbin/ip rule add fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID} priority ${PRIORITY} 2>&1 | grep -vq 'File exists'; then
 				error "[${FUNCNAME}] Ошибка при установке приоритета таблицы с ID#${TABLE_ID} в значение ${PRIORITY}."
 		fi
@@ -1121,9 +1125,6 @@ recreate_ip4tables(){
 
 	ready "${prefix}Удаляем все ранее созданные таблицы для утилит ipset и ip"
 	ip4_flush_all_tables &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-
-	ready "${prefix}Создаем все необходимые таблицы для утилит ipset и ip"
-	ip4__ipset__create_list &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
 #	ready "${prefix}Создаем таблицу маршрутизации ID#${TABLE_ID} для '$(inface_cli)'."
 #	#	Создаем таблицу IP адресов для  VPN подключения отличного от shadowsocks
