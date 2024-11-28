@@ -337,7 +337,7 @@ ip4__chain__create_for_data() {
 	iptables -N "${chain_name}" -w -t "${table}"
 
 	ip4__ipset__fill_reserved
-	ip4tables "${chain_name}" -w -t "${table}" -m set --match-set "${IPSET_RESERVED}" dst -j RETURN
+	iptables -A "${chain_name}" -w -t "${table}" -m set --match-set "${IPSET_RESERVED}" dst -j RETURN
 
 	# если цепочка данных будет подключена выше DNS, то она может 
 	# перехватить направленный вовне трафик
@@ -457,11 +457,11 @@ ip4__vpn_fast__create_chain() {
 		#ip4_add_route_table
 		#ip4_rule_set_priority
 
-		ip4tables "${CHAIN_MARK_TO_TABLE}" -t "${TABLE_MARK_TO_TABLE}" -j CONNMARK --restore-mark
-		ip4tables "${CHAIN_MARK_TO_TABLE}" -t "${TABLE_MARK_TO_TABLE}" -m mark --mark ${MARK_NUM} -j RETURN
-		ip4tables "${CHAIN_MARK_TO_TABLE}" -t "${TABLE_MARK_TO_TABLE}" --syn -j MARK --set-mark ${MARK_NUM}
-		ip4tables "${CHAIN_MARK_TO_TABLE}" -t "${TABLE_MARK_TO_TABLE}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM}
-		ip4tables "${CHAIN_MARK_TO_TABLE}" -t "${TABLE_MARK_TO_TABLE}" -j CONNMARK --save-mark
+		iptables -A "${CHAIN_MARK_TO_TABLE}" -t "${TABLE_MARK_TO_TABLE}" -j CONNMARK --restore-mark
+		iptables -A "${CHAIN_MARK_TO_TABLE}" -t "${TABLE_MARK_TO_TABLE}" -m mark --mark ${MARK_NUM} -j RETURN
+		iptables -A "${CHAIN_MARK_TO_TABLE}" -t "${TABLE_MARK_TO_TABLE}" --syn -j MARK --set-mark ${MARK_NUM}
+		iptables -A "${CHAIN_MARK_TO_TABLE}" -t "${TABLE_MARK_TO_TABLE}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM}
+		iptables -A "${CHAIN_MARK_TO_TABLE}" -t "${TABLE_MARK_TO_TABLE}" -j CONNMARK --save-mark
 	} &>/dev/null || error "[${FUNCNAME}] Возникли ошибки во время маркировки трафика для VPN при включенном ускорении"
 }
 
@@ -517,7 +517,7 @@ ip4__add_routing_for_home() {
 	log_warning "Подключение перенаправления трафика для домашней сети в тоннель ${3}"
 
 	ip4__ipset__create_list
-	ip4tables PREROUTING -w -t "${table}" -i "${net_interface}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${chain_name}"
+	iptables -A PREROUTING -w -t "${table}" -i "${net_interface}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${chain_name}"
 }
 
 ip4__shadowsocks__add_routing_for_home() {
