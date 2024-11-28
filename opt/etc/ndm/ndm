@@ -887,11 +887,17 @@ ip4__add_routing_by_list_for_net_from_config() {
 	done
 }
 
+# расширенный роутинг для перехватов цепочками
+ip4__add_routing_for_ip_from_config() {
+	
+}
+
 ip4_mark_vpn_network() {
 	{
 		if fastnet_enabled ; then
 			ip4__vpn_fast__create_chain
 
+			ip4__add_routing_for_ip_from_config
 			ip4__vpn_fast__add_routing_for_home
 		else
 			ip4__vpn_nofast__set_rules
@@ -904,11 +910,13 @@ ip4_firewall_set_all_rules() {
 	if is_shadowsocks_enabled ; then
 		ip4__shadowsocks__create_chain &>/dev/null
 
+		ip4__add_routing_for_ip_from_config &> /dev/null
 		ip4__shadowsocks__add_routing_for_home &> /dev/null
 		ip4__add_routing_by_list_for_net_from_config &> /dev/null
 	elif is_vless_enabled ; then
 		ip4__vless__create_chain &>/dev/null
 
+		ip4__add_routing_for_ip_from_config &> /dev/null
 		ip4__vless__add_routing_for_home &> /dev/null
 		ip4__add_routing_by_list_for_net_from_config &> /dev/null
 	else
@@ -930,12 +938,18 @@ ip4__delete_routing_by_list_for_net_from_config() {
 	done
 }
 
+# расширенный роутинг для перехватов цепочками
+ip4__delete_routing_for_ip_from_config() {
+	
+}
+
 # для VPN
 ip4_firewall_flush_vpn_rules() {
 	{
 		ip4__delete_routing_by_list_for_net_from_config
-
 		if fastnet_enabled ; then
+			ip4__delete_routing_for_ip_from_config
+
 			# достаточно удалять правила для br0, но на всякий случай
 			ip4__chain__delete_jump "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
 			# в бета 9 перехваты DNS не очищались
@@ -957,6 +971,7 @@ ip4_firewall_flush_vpn_rules() {
 ip4_firewall_flush_proxy() {
 	{
 		ip4__delete_routing_by_list_for_net_from_config
+		ip4__delete_routing_for_ip_from_config
 
 		# достаточно удалять правила для br0, но на всякий случай
 		ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
@@ -991,9 +1006,13 @@ ip4__flush_full() {
 	ip4__delete_routing_by_list_for_net_from_config
 
 	if is_proxy_enabled ; then
+		ip4__delete_routing_for_ip_from_config
+
 		ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
 		ip4__chain__delete      "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
 	elif fastnet_enabled ; then
+		ip4__delete_routing_for_ip_from_config
+
 		ip4__chain__delete_jump "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
 		ip4__chain__delete      "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
 
