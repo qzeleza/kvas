@@ -795,19 +795,6 @@ ip4_firewall_flush_vpn_rules() {
 	} &>/dev/null
 }
 
-# Удаляем все правила iptables которые были добавлены при работе пакета
-ip4_firewall_flush_all_rules() {
-	if has_ssr_enable ; then
-		for guest_inface in $(get_guest_inface_list_from_config) ; do
-			ip4__del_routing_for_net "${guest_inface}" &>/dev/null
-		done
-
-		ip4_firewall_ssr_prune &>/dev/null
-	else
-		ip4_firewall_flush_vpn_rules &>/dev/null
-	fi
-}
-
 # Удаляем правила iptables для ShadowSocks подключений
 ip4_firewall_ssr_prune() {
 	{
@@ -821,6 +808,19 @@ ip4_firewall_ssr_prune() {
 		#ip4__chain__delete "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
 		#ip4__chain__delete "${TABLE_DNS}" "${CHAIN_DNS}"
 	} &>/dev/null
+}
+
+# Удаляем все правила iptables которые были добавлены при работе пакета
+ip4_firewall_flush_all_rules() {
+	if has_ssr_enable ; then
+		for guest_inface in $(get_guest_inface_list_from_config) ; do
+			ip4__del_routing_for_net "${guest_inface}" &>/dev/null
+		done
+
+		ip4_firewall_ssr_prune &>/dev/null
+	else
+		ip4_firewall_flush_vpn_rules &>/dev/null
+	fi
 }
 
 
