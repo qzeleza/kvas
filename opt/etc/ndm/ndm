@@ -338,6 +338,12 @@ ip4__chain__create_for_data() {
 
 	ip4__ipset__fill_reserved
 	ip4tables "${chain_name}" -w -t "${table}" -m set --match-set "${IPSET_RESERVED}" dst -j RETURN
+
+	# если цепочка данных будет подключена выше DNS, то она может 
+	# перехватить направленный вовне трафик
+	for protocol in udp tcp ; do
+		iptables -A "${chain_name}" -w -t "${table}" -p "${protocol}" --dport 53 -j RETURN
+	done
 }
 
 ip4__chain__delete() {
