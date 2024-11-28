@@ -464,7 +464,11 @@ ip4__proxy__create_chain() {
 }
 
 ip4__shadowsocks__create_chain() {
-	ip=$(cat < /opt/etc/shadowsocks.json | grep 'server":' | tr -d '" ,' | cut -d':' -f2 )
+	if ! [ -f "${SHADOWSOCKS_CONF}" ] ; then
+		error "[${FUNCNAME}] Не найден файл конфигурации ShadowSocks"
+		return
+	fi
+	ip=$(cat < "${SHADOWSOCKS_CONF}" | grep 'server":' | tr -d '" ,' | cut -d':' -f2 )
 	proxy_port=$(get_config_value SSR_DNS_PORT)
 
 	ip4__proxy__create_chain "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${proxy_port}" "${ip}"
