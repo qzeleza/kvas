@@ -447,6 +447,10 @@ ip4__vpn_fast__create_chain() {
 
 		ip4__chain__create_for_data "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
 
+		#ToDo: именно здесь надо автостартовать таблицы, их ручной старт нужно везде удалить
+		#ip4_add_route_table
+		#ip4_rule_set_priority
+
 		ip4tables "${CHAIN_MARK_TO_TABLE}" -t "${TABLE_MARK_TO_TABLE}" -j CONNMARK --restore-mark
 		ip4tables "${CHAIN_MARK_TO_TABLE}" -t "${TABLE_MARK_TO_TABLE}" -m mark --mark ${MARK_NUM} -j RETURN
 		ip4tables "${CHAIN_MARK_TO_TABLE}" -t "${TABLE_MARK_TO_TABLE}" --syn -j MARK --set-mark ${MARK_NUM}
@@ -889,6 +893,10 @@ ip4__flush_full() {
 	elif fastnet_enabled ; then
 		ip4__chain__delete_jump "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
 		ip4__chain__delete      "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
+
+		#ToDo: именно здесь надо удалять таблицы, их ручное удаление нужно удалить
+		#ip4_rule_del_priority
+		#ip4_flush_all_tables
 	else
 		iptables__delete_rules "${TABLE_MARK_TO_TABLE}" "-j MARK --set-mark ${MARK_NUM}"
 	fi
