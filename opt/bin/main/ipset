@@ -21,7 +21,7 @@
 # ------------------------------------------------------------------------------
 
 HOST_LIST=/opt/etc/kvas.list
-IPSET_TABLE_NAME=kvas_ipset
+IPSET_TABLE_NAME=KVAS_LIST
 IP_FILTER='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'
 REGEXP_IP_OR_RANGE="${IP_FILTER}|${IP_FILTER}-${IP_FILTER}|${IP_FILTER}/[0-9]{1,2}"
 
