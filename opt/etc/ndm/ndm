@@ -492,12 +492,11 @@ ip4__vpn_fast__create_chain() {
 		#ip4_add_route_table
 		#ip4_rule_set_priority
 
-		# не будет ли задвоения без -w?
-		iptables -A "${CHAIN_MARK_TO_TABLE}" -t "${TABLE_MARK_TO_TABLE}" -j CONNMARK --restore-mark
-		iptables -A "${CHAIN_MARK_TO_TABLE}" -t "${TABLE_MARK_TO_TABLE}" -m mark --mark ${MARK_NUM} -j RETURN
-		iptables -A "${CHAIN_MARK_TO_TABLE}" -t "${TABLE_MARK_TO_TABLE}" --syn -j MARK --set-mark ${MARK_NUM}
-		iptables -A "${CHAIN_MARK_TO_TABLE}" -t "${TABLE_MARK_TO_TABLE}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM}
-		iptables -A "${CHAIN_MARK_TO_TABLE}" -t "${TABLE_MARK_TO_TABLE}" -j CONNMARK --save-mark
+		iptables -A "${CHAIN_MARK_TO_TABLE}" -w -t "${TABLE_MARK_TO_TABLE}" -j CONNMARK --restore-mark
+		iptables -A "${CHAIN_MARK_TO_TABLE}" -w -t "${TABLE_MARK_TO_TABLE}" -m mark --mark ${MARK_NUM} -j RETURN
+		iptables -A "${CHAIN_MARK_TO_TABLE}" -w -t "${TABLE_MARK_TO_TABLE}" --syn -j MARK --set-mark ${MARK_NUM}
+		iptables -A "${CHAIN_MARK_TO_TABLE}" -w -t "${TABLE_MARK_TO_TABLE}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM}
+		iptables -A "${CHAIN_MARK_TO_TABLE}" -w -t "${TABLE_MARK_TO_TABLE}" -j CONNMARK --save-mark
 	} &>/dev/null || error "[${FUNCNAME}] Возникли ошибки во время маркировки трафика для VPN при включенном ускорении"
 }
 
