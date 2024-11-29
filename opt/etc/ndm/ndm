@@ -446,7 +446,7 @@ ip4__proxy__create_chain() {
 	ip="${4}"
 
 	{
-		if ip4__ipset__is_exist "${table}" "${chain_name}" ; then
+		if ip4__chain__is_exist "${table}" "${chain_name}" ; then
 			return
 		fi
 
@@ -481,7 +481,7 @@ ip4__vless__create_chain() {
 # когда ускорение подключено
 ip4__vpn_fast__create_chain() {
 	{
-		if ip4__ipset__is_exist "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}" ; then
+		if ip4__chain__is_exist "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}" ; then
 			return
 		fi
 
