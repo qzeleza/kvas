@@ -138,6 +138,20 @@ iptables__get_subrule_for_network() {
 	echo "-s $(get_ikev2_net_pool) ${subrule}"
 }
 
+ip4__get_subrule_for_ip() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — IP или маска подсети"
+		return
+	fi
+	local ip_or_range="${1}"
+
+	if echo "${ip_or_range}" | grep -qE "^${IP_FILTER}$" ; then
+		ip_or_range="${ip_or_range}/32"
+	fi
+
+	echo "-s ${ip_or_range}"
+}
+
 # удаляет правило, полученное из iptables-save
 iptables__delete_rule() {
 	if [ -z "${1}" ] ; then
@@ -908,10 +922,11 @@ ip4__add_routing_for_ip_from_config() {
 				continue
 			fi
 
+			ip_or_range=$(ip4__get_subrule_for_ip "${ip_or_range}")
 			if is_proxy_enabled ; then
-				ip4__add_routing "${TABLE_DNAT_TO_PORT}"  "${CHAIN_DNAT_TO_PORT}"  "-s ${ip_or_range}"
+				ip4__add_routing "${TABLE_DNAT_TO_PORT}"  "${CHAIN_DNAT_TO_PORT}"  "${ip_or_range}"
 			elif fastnet_enabled ; then
-				ip4__add_routing "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}" "-s ${ip_or_range}"
+				ip4__add_routing "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}" "${ip_or_range}"
 			fi
 		done
 	fi
@@ -924,10 +939,11 @@ ip4__add_routing_for_ip_from_config() {
 				continue
 			fi
 
+			ip_or_range=$(ip4__get_subrule_for_ip "${ip_or_range}")
 			if is_proxy_enabled ; then
-				ip4__add_routing "${TABLE_DNAT_TO_PORT}"  "${CHAIN_DNAT_TO_PORT}"  "-s ${ip_or_range}" "${IPSET_TABLE_NAME}"
+				ip4__add_routing "${TABLE_DNAT_TO_PORT}"  "${CHAIN_DNAT_TO_PORT}"  "${ip_or_range}" "${IPSET_TABLE_NAME}"
 			elif fastnet_enabled ; then
-				ip4__add_routing "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}" "-s ${ip_or_range}" "${IPSET_TABLE_NAME}"
+				ip4__add_routing "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}" "${ip_or_range}" "${IPSET_TABLE_NAME}"
 			fi
 		done
 	fi
@@ -1003,10 +1019,11 @@ ip4__delete_routing_for_ip_from_config() {
 				continue
 			fi
 
+			ip_or_range=$(ip4__get_subrule_for_ip "${ip_or_range}")
 			if is_proxy_enabled ; then
-				ip4__delete_routing "${TABLE_DNAT_TO_PORT}"  "${CHAIN_DNAT_TO_PORT}"  "-s ${ip_or_range}"
+				ip4__delete_routing "${TABLE_DNAT_TO_PORT}"  "${CHAIN_DNAT_TO_PORT}"  "${ip_or_range}"
 			elif fastnet_enabled ; then
-				ip4__delete_routing "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}" "-s ${ip_or_range}"
+				ip4__delete_routing "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}" "${ip_or_range}"
 			fi
 		done
 	fi
@@ -1019,10 +1036,11 @@ ip4__delete_routing_for_ip_from_config() {
 				continue
 			fi
 
+			ip_or_range=$(ip4__get_subrule_for_ip "${ip_or_range}")
 			if is_proxy_enabled ; then
-				ip4__delete_routing "${TABLE_DNAT_TO_PORT}"  "${CHAIN_DNAT_TO_PORT}"  "-s ${ip_or_range}" "${IPSET_TABLE_NAME}"
+				ip4__delete_routing "${TABLE_DNAT_TO_PORT}"  "${CHAIN_DNAT_TO_PORT}"  "${ip_or_range}" "${IPSET_TABLE_NAME}"
 			elif fastnet_enabled ; then
-				ip4__delete_routing "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}" "-s ${ip_or_range}" "${IPSET_TABLE_NAME}"
+				ip4__delete_routing "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}" "${ip_or_range}" "${IPSET_TABLE_NAME}"
 			fi
 		done
 	fi
