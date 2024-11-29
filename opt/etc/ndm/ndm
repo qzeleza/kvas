@@ -458,6 +458,7 @@ ip4__proxy__create_chain() {
 		fi
 
 		for protocol in udp tcp ; do
+			# не будет ли задвоения без -w?
 			iptables -A "${chain_name}" -t "${table}" -p "${protocol}" -j REDIRECT --to-port "${port}"
 		done
 	} &>/dev/null || error "[${FUNCNAME}] Возникли ошибки при установке правил трафика для прокси"
@@ -491,6 +492,7 @@ ip4__vpn_fast__create_chain() {
 		#ip4_add_route_table
 		#ip4_rule_set_priority
 
+		# не будет ли задвоения без -w?
 		iptables -A "${CHAIN_MARK_TO_TABLE}" -t "${TABLE_MARK_TO_TABLE}" -j CONNMARK --restore-mark
 		iptables -A "${CHAIN_MARK_TO_TABLE}" -t "${TABLE_MARK_TO_TABLE}" -m mark --mark ${MARK_NUM} -j RETURN
 		iptables -A "${CHAIN_MARK_TO_TABLE}" -t "${TABLE_MARK_TO_TABLE}" --syn -j MARK --set-mark ${MARK_NUM}
@@ -587,6 +589,7 @@ ip4__dns__create_chain() {
 	ip4__chain__exclude_source_by_config "${TABLE_DNS}" "${CHAIN_DNS}"
 
 	for protocol in udp tcp ; do
+		# не будет ли задвоения без -w?
 		iptables -A "${CHAIN_DNS}" -t "${TABLE_DNS}" -p "${protocol}" --dport 53 -j DNAT --to-destination 127.0.0.1:"${DNS_PORT}"
 	done
 }
@@ -816,7 +819,7 @@ ip4__delete_routing() {
 
 	log_warning "Отключаем перехват трафика по${submessage}"
 
-	iptables -D PREROUTING -w -t "${table}" $(echo "${iptables_filter}") -j "${chain_name}"
+	iptables -D PREROUTING -t "${table}" $(echo "${iptables_filter}") -j "${chain_name}"
 }
 
 ip4__delete_routing_by_list_for_net() {
