@@ -333,7 +333,7 @@ ip4__chain__exclude_source_by_config() {
 	fi
 	local regexp_ip_or_range=$(get_regexp_ip_or_range)
 
-	for ip_or_range in ${values} ; do
+	for ip_or_range in ${values//+/ } ; do
 		# защита от дурака; не обязательна, если проверять входящие данные
 		if ! echo "${ip_or_range}" | grep -qE -- "${regexp_ip_or_range}" ; then
 			continue
@@ -900,7 +900,7 @@ ip4__add_routing_for_ip_from_config() {
 
 	local values=$(get_config_value 'route_full_ip')
 	if [ -n "${values}" ] ; then
-		for ip_or_range in ${values} ; do
+		for ip_or_range in ${values//+/ } ; do
 			# защита от дурака; не обязательна, если проверять входящие данные
 			if ! echo "${ip_or_range}" | grep -qE -- "${regexp_ip_or_range}" ; then
 				continue
@@ -916,7 +916,7 @@ ip4__add_routing_for_ip_from_config() {
 
 	values=$(get_config_value 'route_by_list_ip')
 	if [ -n "${values}" ] ; then
-		for ip_or_range in ${values} ; do
+		for ip_or_range in ${values//+/ } ; do
 			# защита от дурака; не обязательна, если проверять входящие данные
 			if ! echo "${ip_or_range}" | grep -qE -- "${regexp_ip_or_range}" ; then
 				continue
@@ -995,7 +995,7 @@ ip4__delete_routing_for_ip_from_config() {
 
 	local values=$(get_config_value 'route_full_ip')
 	if [ -n "${values}" ] ; then
-		for ip_or_range in ${values} ; do
+		for ip_or_range in ${values//+/ } ; do
 			# защита от дурака; не обязательна, если проверять входящие данные
 			if ! echo "${ip_or_range}" | grep -qE -- "${regexp_ip_or_range}" ; then
 				continue
@@ -1011,7 +1011,7 @@ ip4__delete_routing_for_ip_from_config() {
 
 	values=$(get_config_value 'route_by_list_ip')
 	if [ -n "${values}" ] ; then
-		for ip_or_range in ${values} ; do
+		for ip_or_range in ${values//+/ } ; do
 			# защита от дурака; не обязательна, если проверять входящие данные
 			if ! echo "${ip_or_range}" | grep -qE -- "${regexp_ip_or_range}" ; then
 				continue
