@@ -114,7 +114,7 @@ fastnet_enabled()(fast_hw_enabled || fast_sw_enabled)
 #
 # ------------------------------------------------------------------------------------------
 
-iptables__get_subrule_for_network() {
+iptables__get_subrule_for_net() {
 	if [ -z "${1}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — сетевой интерфейс"
 		return
@@ -769,7 +769,7 @@ ip4__add_routing_by_list_for_net() {
 		exit 1
 	fi
 
-	iptables_filter=$(iptables__get_subrule_for_network "${net_interface}")
+	iptables_filter=$(iptables__get_subrule_for_net "${net_interface}")
 
 	if is_proxy_enabled ; then
 		ip4__add_routing "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${iptables_filter}" "${IPSET_TABLE_NAME}"
@@ -844,7 +844,7 @@ ip4__delete_routing_by_list_for_net() {
 		exit 1
 	fi
 
-	iptables_filter=$(iptables__get_subrule_for_network "${net_interface}")
+	iptables_filter=$(iptables__get_subrule_for_net "${net_interface}")
 
 	ip4__dns__delete_routing "${iptables_filter}"
 
