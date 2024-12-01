@@ -24,24 +24,11 @@
 
 # IPv4
 if [ "${type}" = 'iptables' ] ; then
-	. /opt/apps/kvas/bin/libs/ndm
-
-	# использует только команды ipset
-	ip4set_create_table &> /dev/null
-
-	# обе функции используют только mangle
-	# кроме маркировки включают обход br0
-	if [ "${table}" = 'mangle' ] ; then
-		if fastnet_enabled ; then
-			ip4_firewall_vpn_mark &>/dev/null
-		else
-			ip4_firewall_mark_rules_tcp_udp_on &>/dev/null
-		fi
-	fi
-
-	# обход с ускорением использует mangle
-	# роутинг DNS гостевых и обход без ускорения используют nat
+	# Роутинг данных VPN в mangle
+	# Роутинг DNS в nat
 	if [ "${table}" = 'mangle' ] || [ "${table}" = 'nat' ] ; then
-		set_guest_nets_rules &>/dev/null
+		. /opt/apps/kvas/bin/libs/ndm
+
+		ip4_firewall_set_all_rules &>/dev/null
 	fi
 fi

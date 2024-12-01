@@ -29,7 +29,7 @@ length=$(stty size 2>/dev/null | cut -d' ' -f2)
 PROGRESS_BAR_WIDTH=$((LENGTH-5))  # progress bar length in characters
 
 KVAS_BACKUP_PATH=/opt/etc/.kvas/backup
-IPSET_TABLE_NAME=kvas_ipset
+IPSET_TABLE_NAME=KVAS_LIST
 SSR_NAME=ss-redir
 SSR_CMD=/opt/bin/${SSR_NAME}
 # ssr_run()(/opt/bin/sslocal --protocol redir -c /opt/etc/shadowsocks.json ${@}) )
@@ -78,14 +78,20 @@ KVAS_START_FILE=/opt/etc/init.d/S96kvas
 
 
 
-# Файл в котором содержатся сети, запросы из которых необходимо исключить
-# из обращений к VPN или SHADOWSOCKS подключениям
-EXCLUDED_NET_FILE=/opt/apps/kvas/etc/conf/excluded.net
+# Файл с сетями, запросы к которым не должны попадать в тоннель
+# Данный файл постоянен, не доступен пользователям на редактирование
+# https://en.wikipedia.org/wiki/Reserved_IP_addresses
+# + служебный IP Keenetic 78.47.125.180
+FILE_RESERVED=/opt/apps/kvas/etc/conf/reserved.ip
 
 IP_FILTER='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'
 IP_DEVICE_FILTER='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[1-9]{1,3}' # на конце любая цифра, кроме 0
 IP_PORT_FILTER="[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[1-9]{1,3}[:#][0-9]{2,5}" # на конце любая цифра, кроме 0
 NET_FILTER='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{1,3}'
+
+get_regexp_ip_or_range() {
+	echo "^(${IP_FILTER}|${IP_FILTER}-${IP_FILTER}|${IP_FILTER}/[0-9]{1,2})$"
+}
 
 ERROR_LOG_FILE=/opt/tmp/kvas.err.log
 APP_NAME_DESC=КВАС
@@ -398,6 +404,33 @@ get_entware_ikev2_inface() {
 	echo 'br0'
 }
 
+get_from_json() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — файл"
+		return
+	fi
+	if ! [ -f "${1}" ] ; then
+		error "[${FUNCNAME}] Указанный файл не найден"
+		return
+	fi
+	file="${1}"
+
+	if [ -z "${2}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — ключ"
+		return
+	fi
+	key="${2}"
+
+	# если задана секция
+	if [ -n "${3}" ] ; then
+		local file_content=$(jq -c ".${3}" "${file}")
+	else
+		local file_content=$(cat < "${file}")
+	fi
+
+	echo "${file_content}" | grep -oE "${key}"'"?: *"?[^" ,]++' | head -1 | tr -d '" ,' | cut -d':' -f2
+}
+
 get_ip_list(){
 #	{1} - исследуемый домен
 #	{2} - DNS сервер для опроса
@@ -426,8 +459,25 @@ is_inside_tunnel(){
 	eval "! ${grep_cmd}"
 }
 
+# любой из видов proxy: хоть ShadowSocks, хоть VLESS
+is_proxy_enabled() {
+	[ -f '/opt/etc/ndm/netfilter.d/100-proxy-redirect' ]
+}
 
-has_ssr_enable() ([ -f "/opt/etc/ndm/netfilter.d/100-proxy-redirect" ])
+#ToDo: перейти везде на новые обёртки
+has_ssr_enable() {
+	is_proxy_enabled
+}
+
+is_shadowsocks_enabled() {
+	[ "$(get_config_value INFACE_CLI)" = 'shadowsocks' ]
+}
+
+is_vless_enabled() {
+	[ "$(get_config_value INFACE_ENT)" = "${PROXY_VLESS_NAME}" ]
+}
+
+
 has_adguard_enable() {
 	if [ -f "${ADGUARDHOME_DEMON}" ]; then  
 		"${ADGUARDHOME_DEMON}" status | grep -q alive

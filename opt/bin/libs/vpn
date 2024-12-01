@@ -2610,7 +2610,7 @@ host_add() {
 
 	[ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ] && cmd_adguardhome_status | grep -q ВКЛЮЧЕН && add_host_to_adguard "${clear_host}" &> /dev/null
 
-	if echo "${clear_host}" | grep -qE "$(get_regexp_ip_or_range)" ; then
+	if echo "${clear_host}" | grep -qE -- "$(get_regexp_ip_or_range)" ; then
 		# если строка IP, диапазон или маска; то добавляем напрямую и без ttl
 		ipset -exist add "${IPSET_TABLE_NAME}" "${clear_host}" timeout 0 &>/dev/null
 	elif [ "${wild}" != 'import' ] && [ "${reset}" = 'yes' ] ; then
@@ -2641,7 +2641,7 @@ cmd_add_one_host() {
 
 	#ToDo: использовать эту переменную ниже
 	local regexp_ip_or_range=$(get_regexp_ip_or_range)
-	if echo "${1}" | grep -qE "${regexp_ip_or_range}" ; then
+	if echo "${1}" | grep -qE -- "${regexp_ip_or_range}" ; then
 		host="${1}"
 	else
 		host=$(echo "${1}" | sed 's/\*//;' | sed -n -E 's|^(https?://)?([^/]+).*|\2|p')
@@ -2833,9 +2833,6 @@ del_multy_hosts() {
 #	Очищаем полностью белый список
 #
 # ------------------------------------------------------------------------------------------
-get_regexp_ip_or_range() {
-	echo "^(${IP_FILTER}|${IP_FILTER}-${IP_FILTER}|${IP_FILTER}/[0-9]{1,2})$"
-}
 
 cmd_clear_list() {
 	if ! [ -f "${KVAS_LIST_FILE}" ]; then

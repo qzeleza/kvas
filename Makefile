@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=kvas
 PKG_VERSION:=1.1.9
-PKG_RELEASE:=beta_9
+PKG_RELEASE:=beta_10
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)-$(PKG_RELEASE)
 
 include $(INCLUDE_DIR)/package.mk
@@ -39,7 +39,7 @@ define Package/kvas/install
 	$(INSTALL_DIR) $(1)/opt/etc/ndm/netfilter.d
 	$(INSTALL_DIR) $(1)/opt/apps/kvas
 
-	$(INSTALL_BIN) opt/etc/ndm/fs.d/100-ipset $(1)/opt/etc/ndm/fs.d
+	# $(INSTALL_BIN) opt/etc/ndm/fs.d/100-ipset $(1)/opt/etc/ndm/fs.d
 	$(INSTALL_BIN) opt/etc/ndm/netfilter.d/100-proxy-redirect $(1)/opt/etc/ndm/netfilter.d
 	$(INSTALL_BIN) opt/etc/ndm/netfilter.d/100-dns-local $(1)/opt/etc/ndm/netfilter.d
 

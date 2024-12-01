@@ -1,3 +1,8 @@
+## 1.1.9 beta 10
+- [#233](https://github.com/qzeleza/kvas/pull/233) Iptables правила
+
+  Отдельная благодарность [AltGrF13](https://github.com/AltGrF13).
+
 ## 1.1.9 beta 9
 - Внесены измения по заявкам:
 - [#213](https://github.com/qzeleza/kvas/issues/213) Перехват DNS не работает в отдельных случаях
