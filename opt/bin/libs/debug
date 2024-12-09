@@ -402,7 +402,7 @@ cmd_ipset() {
 	echo
 
 	local cached=$(ipset list "${IPSET_TABLE_NAME}" | grep -vF 'timeout 0' | grep -vF ':')
-	local count=$(echo "${cached}" | wc -l)
+	local count=$(echo -n "${cached}" | wc -l)
 	if [ "$count" -gt 0 ]; then
 		# геморрой из-за неподдержки -k в sort
 		output=''
