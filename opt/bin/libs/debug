@@ -245,13 +245,23 @@ cmd_debug_iptables() {
 		output=$(iptables__get_by_chain "${CHAIN_MARK_TO_TABLE}")
 	fi
 	if [ -z "${output}" ] ; then
-		output='Правила не найдены!\nСообщите об этом https://t.me/kvas_pro и вызовите kvas reset'
+		output='Правила не найдены!'
+
+		# если вызывается как один из дебагов, то можно передать silent/short
+		if [ -z "${1}" ] ; then
+			output="${output}"'\nСообщите об этом https://t.me/kvas_pro и вызовите kvas reset'
+		fi
 	fi
 	echo_debug 'Роутинг подсетей' "${output}"
 
 	output=$(iptables__get_by_chain "${CHAIN_DNS}")
 	if [ -z "${output}" ] ; then
-		output='Правила не найдены!\nСообщите об этом https://t.me/kvas_pro и вызовите kvas reset'
+		output='Правила не найдены!'
+
+		# если вызывается как один из дебагов, то можно передать silent/short
+		if [ -z "${1}" ] ; then
+			output="${output}"'\nСообщите об этом https://t.me/kvas_pro и вызовите kvas reset'
+		fi
 	fi
 	echo_debug 'Роутинг DNS' "${output}"
 
@@ -263,9 +273,9 @@ cmd_debug_iptables() {
 }
 
 cmd_debug_dns() {
-	# если вызывается как один из дебагов, то можно передать silent
+	# если вызывается как один из дебагов, то можно передать silent/short
 	if [ -z "${1}" ] ; then
-		echo 'Для просмотра перехватов DNS вызовите kvas debug iptables'
+		echo 'Для проверки перехватов DNS вызовите kvas debug iptables'
 		echo
 	fi
 
