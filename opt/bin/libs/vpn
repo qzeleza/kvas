@@ -1245,10 +1245,11 @@ cmd_dnsmasq_dns_change() {
 	fi
 
 	dns_new=${1}
-	cmd=${2:-restart}
 	if [ -z "${dns_new}" ] ; then
 		dns_show
-	else
+		return
+	fi
+
 		if ! echo "${dns_new}" | grep -qE "$(get_regexp_ip_with_or_without_port)" ; then
 			error "Параметр ${dns_new} не известен."
 			echo 'Можете передать любой IP с портом или без.'
@@ -1256,8 +1257,8 @@ cmd_dnsmasq_dns_change() {
 			return 2
 		fi
 
+		cmd=${2:-restart}
 		dnsmasq_dns_change "${dns_new}" "${cmd}"
-	fi
 }
 
 # ------------------------------------------------------------------------------------------
