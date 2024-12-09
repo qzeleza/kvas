@@ -122,6 +122,7 @@ case "${1}" in
 
 	dns)
 		case "${2}" in
+			debug) cmd_debug_dns ;;
 			server) 		dns_server_install_remotely "${3}" ;;
 			test) 			cmd_dns_test "${3}";;
 			*) 				cmd_dnsmasq_dns_change "${2}" ;;
