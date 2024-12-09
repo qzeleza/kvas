@@ -1240,7 +1240,10 @@ dnsmasq_dns_change() {
 # ------------------------------------------------------------------------------------------
 cmd_dnsmasq_dns_change() {
 	exit_when_adguard_on status; 
-	[ "${status}" = 0 ] && {
+	if [ "${status}" != 0 ] ; then
+		return 1
+	fi
+
 		dns_new=${1}; cmd=${2:-restart}
 		if [ -z "${dns_new}" ]; then
 			dns_show
@@ -1249,12 +1252,11 @@ cmd_dnsmasq_dns_change() {
 				error "Параметр ${dns_new} не известен."
 				echo 'Можете передать любой IP с портом или без.'
 
-				exit 2
+				return 2
 			fi
 
 			dnsmasq_dns_change "${dns_new}" "${cmd}"
 		fi
-	}
 }
 
 # ------------------------------------------------------------------------------------------
