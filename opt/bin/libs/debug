@@ -403,7 +403,9 @@ cmd_ipset() {
 
 	local cached=$(ipset list "${IPSET_TABLE_NAME}" | grep -vF 'timeout 0' | grep -vF ':')
 	local count=$(echo -n "${cached}" | wc -l)
-	if [ "$count" -gt 0 ]; then
+	if [ "$count" -eq 0 ]; then
+		echo_debug 'Для доменов 0' 'Или нет ни одного домена в kvas list;\nили ни одного DNS-запроса о доменах из списка ещё не приходило;\nили проблема с перехватом DNS, вызовите kvas debug dns.'
+	else
 		# геморрой из-за неподдержки -k в sort
 		output=''
 		for ttl in $(echo "${cached}" | cut -d' ' -f3 | sort -n -r -u | head -n 7); do
