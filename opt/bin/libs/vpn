@@ -1250,15 +1250,15 @@ cmd_dnsmasq_dns_change() {
 		return
 	fi
 
-		if ! echo "${dns_new}" | grep -qE "$(get_regexp_ip_with_or_without_port)" ; then
-			error "Параметр ${dns_new} не известен."
-			echo 'Можете передать любой IP с портом или без.'
+	if ! echo "${dns_new}" | grep -qE "$(get_regexp_ip_with_or_without_port)" ; then
+		error "Параметр ${dns_new} не известен."
+		echo 'Можете передать любой IP с портом или без.'
 
-			return 2
-		fi
+		return 2
+	fi
 
-		cmd=${2:-restart}
-		dnsmasq_dns_change "${dns_new}" "${cmd}"
+	cmd=${2:-restart}
+	dnsmasq_dns_change "${dns_new}" "${cmd}"
 }
 
 # ------------------------------------------------------------------------------------------
