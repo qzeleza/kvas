@@ -244,9 +244,15 @@ cmd_debug_iptables() {
 	else
 		output=$(iptables__get_by_chain "${CHAIN_MARK_TO_TABLE}")
 	fi
+	if [ -z "${output}" ] ; then
+		output='Правила не найдены!\nСообщите об этом https://t.me/kvas_pro и вызовите kvas reset'
+	fi
 	echo_debug 'Роутинг подсетей' "${output}"
 
 	output=$(iptables__get_by_chain "${CHAIN_DNS}")
+	if [ -z "${output}" ] ; then
+		output='Правила не найдены!\nСообщите об этом https://t.me/kvas_pro и вызовите kvas reset'
+	fi
 	echo_debug 'Роутинг DNS' "${output}"
 
 	output=$(iptables -L PREROUTING -t mangle)
