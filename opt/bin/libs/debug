@@ -235,7 +235,6 @@ cmd_debug_iptables() {
 	ready 'Версия ndw4'       && when_ok "$(version_os)"
 	ready 'Внешний интерфейс' && when_ok "$(get_external_interface)"
 	ready 'IKEv2 интерфейс'   && when_ok "$(get_entware_ikev2_inface)"
-	ready 'IKEv2 IP'          && when_ok "$(get_ikev2_net_pool)"
 	echo
 
 	echo_debug 'Маршруты (подключитесь к гостевой заранее)' "${output}"
