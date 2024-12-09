@@ -419,7 +419,7 @@ cmd_ipset() {
 	local cached=$(ipset list "${IPSET_TABLE_NAME}" | grep -vF 'timeout 0' | grep -vF ':')
 	local count=$(echo -n "${cached}" | wc -l)
 	if [ "$count" -eq 0 ]; then
-		output='Или нет корректных доменов в kvas list;\nили ни одного DNS-запроса о доменах из списка ещё не приходило;\nили проблема с перехватом DNS, вызовите kvas debug dns.'
+		output='Или не приходило ещё ни одного DNS-запроса о доменах из kvas list;\nили ошибки в конфигурации DNS, вызовите kvas debug dns;\nили проблема с перехватом DNS, вызовите kvas debug iptables.'
 	else
 		# геморрой из-за неподдержки -k в sort
 		output=''
