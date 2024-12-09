@@ -1239,13 +1239,14 @@ dnsmasq_dns_change() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_dnsmasq_dns_change() {
-	exit_when_adguard_on status; 
+	exit_when_adguard_on status
 	if [ "${status}" != 0 ] ; then
 		return 1
 	fi
 
-	dns_new=${1}; cmd=${2:-restart}
-	if [ -z "${dns_new}" ]; then
+	dns_new=${1}
+	cmd=${2:-restart}
+	if [ -z "${dns_new}" ] ; then
 		dns_show
 	else
 		if ! echo "${dns_new}" | grep -qE "$(get_regexp_ip_with_or_without_port)" ; then
