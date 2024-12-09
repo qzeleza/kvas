@@ -93,6 +93,10 @@ get_regexp_ip_or_range() {
 	echo "^(${IP_FILTER}|${IP_FILTER}-${IP_FILTER}|${IP_FILTER}/[0-9]{1,2})$"
 }
 
+get_regexp_ip_with_or_without_port() {
+	echo "^(${IP_FILTER}|${IP_PORT_FILTER})$"
+}
+
 ERROR_LOG_FILE=/opt/tmp/kvas.err.log
 APP_NAME_DESC=КВАС
 
