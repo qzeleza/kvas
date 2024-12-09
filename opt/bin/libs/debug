@@ -424,10 +424,10 @@ cmd_ipset() {
 			output='Не используются IP или диапазоны в kvas list.'
 		fi
 
-		echo_debug 'IP 0' "${output}"
+		echo_debug 'Для IP 0' "${output}"
 	else
 		output=$(ipset list "${IPSET_TABLE_NAME}" | grep -F 'timeout 0' | head -n 15 | cut -d' ' -f1)
-		echo_debug "IP ${count}, произвольные 15:" "${output}"
+		echo_debug "Для IP ${count}, произвольные 15:" "${output}"
 	fi
 }
 
