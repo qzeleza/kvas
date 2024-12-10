@@ -279,6 +279,13 @@ cmd_debug_dns() {
 		echo
 	fi
 
+	if [ -f "${ADGUARDHOME_DEMON}" ] ; then
+		if "${ADGUARDHOME_DEMON}" status | grep -Fq 'alive' ; then
+			echo 'Полная поддержка AdGuardHome будет возвращена в скором времени.'
+			return
+		fi
+	fi
+
 	if grep -q '^filter-rr=HTTPS' "${DNSMASQ_CONFIG}" ; then
 		local output='Отключен'
 	else
