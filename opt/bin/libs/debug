@@ -278,7 +278,12 @@ cmd_debug_adguard() {
 
 cmd_debug_dnsmasq() {
 	if ! [ -f "${DNSMASQ_CONFIG}" ]; then
-		echo "Не найдена конфигурация DNSMasq ${DNSMASQ_CONFIG}"
+		error "Не найдена конфигурация DNSMasq ${DNSMASQ_CONFIG}"
+		echo 'Дальнейшая проверка остановлена.'
+		return
+	fi
+	if ! command -v dnsmasq 2>&1 >/dev/null ; then
+		error 'Не найдена команда dnsmasq'
 		echo 'Дальнейшая проверка остановлена.'
 		return
 	fi
