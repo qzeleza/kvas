@@ -327,7 +327,7 @@ get_netstat() {
 
 cmd_debug_dnsmasq() {
 	if ! dnsmasq__is_working ; then
-		echo 'Дальнейшая проверка остановлена.'
+		echo 'Дальнейшая проверка DNSMasq остановлена.'
 		return
 	fi
 
@@ -378,17 +378,16 @@ cmd_debug_dnsmasq() {
 }
 
 cmd_debug_dns() {
-	# если вызывается как один из дебагов, то можно передать silent/short
-	if [ -z "${1}" ] ; then
-		echo 'Перехваты DNS можно проверить командой kvas debug iptables'
-		echo 'Список IP для тоннеля можно посмотреть командой kvas ipset'
-		echo
-	fi
-
 	if [ -f "${ADGUARDHOME_DEMON}" ] && "${ADGUARDHOME_DEMON}" status | grep -Fq 'alive' ; then
 		cmd_debug_adguard
 	else
 		cmd_debug_dnsmasq
+	fi
+
+	# если вызывается как один из дебагов, то можно передать silent/short
+	if [ -z "${1}" ] ; then
+		echo 'Перехваты DNS можно проверить командой kvas debug iptables'
+		echo 'Список IP для тоннеля можно посмотреть командой kvas ipset'
 	fi
 }
 
