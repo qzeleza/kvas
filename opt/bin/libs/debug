@@ -419,7 +419,17 @@ cmd_ipset() {
 	local cached=$(ipset list "${IPSET_TABLE_NAME}" | grep -vF 'timeout 0' | grep -vF ':')
 	local count=$(echo -n "${cached}" | wc -l)
 	if [ "$count" -eq 0 ]; then
-		output='Или не приходило ещё ни одного DNS-запроса о доменах из kvas list;\nили ошибки в конфигурации DNS, вызовите kvas debug dns;\nили проблема с перехватом DNS, вызовите kvas debug iptables.'
+		output='Или не приходило ещё ни одного DNS-запроса о доменах из kvas list;\nили ошибки в конфигурации DNS'
+		if [ -z "${1}" ] ; then
+			# если вызывается как один из дебагов, то можно передать silent/short
+			output="${output}, вызовите kvas debug dns"
+		fi
+		output="${output}"';\nили проблема с перехватом DNS'
+		if [ -z "${1}" ] ; then
+			# если вызывается как один из дебагов, то можно передать silent/short
+			output="${output}, вызовите kvas debug iptables"
+		fi
+		output="${output}."
 	else
 		# геморрой из-за неподдержки -k в sort
 		output=''
@@ -435,7 +445,12 @@ cmd_ipset() {
 	count=$(ipset list "${IPSET_TABLE_NAME}" | grep -F 'timeout 0' | wc -l)
 	if [ "$count" -eq 0 ]; then
 		if grep -Eq -- "${IP_FILTER}" "${KVAS_LIST_FILE}"; then
-			output='Или нет корректных IP, диапазонов в kvas list;\nили проблема с их переносом, вызовите kvas ipset clear.'
+			output='Или нет корректных IP, диапазонов в kvas list;\nили проблема с их переносом'
+			if [ -z "${1}" ] ; then
+				# если вызывается как один из дебагов, то можно передать silent/short
+				output="${output}, вызовите kvas ipset clear"
+			fi
+			output="${output}."
 		else
 			output='Не используются IP или диапазоны в kvas list.'
 		fi
