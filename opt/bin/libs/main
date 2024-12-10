@@ -62,6 +62,7 @@ ADBLOCK_SOURCES_LIST_BACKUP=${KVAS_BACKUP_PATH}/sources.list
 ADGUARDHOME_LOG=/opt/var/log/AdGuardHome.log
 ADGUARDHOME_DEMON=/opt/etc/init.d/S99adguardhome
 DNSMASQ_DEMON=/opt/etc/init.d/S56dnsmasq
+DNSCRYPT_DEMON=/opt/etc/init.d/S09dnscrypt-proxy2
 HOME_PATH=/opt/apps/kvas
 
 

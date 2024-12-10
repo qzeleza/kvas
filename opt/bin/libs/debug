@@ -277,6 +277,7 @@ cmd_debug_adguard() {
 }
 
 dnsmasq__is_working() {
+	# DNSMasq
 	if ! [ -f "${DNSMASQ_CONFIG}" ] ; then
 		error "Не найден файл настроек ${DNSMASQ_CONFIG}"
 	elif ! [ -f "${DNSMASQ_IPSET_HOSTS}" ] ; then
@@ -284,11 +285,24 @@ dnsmasq__is_working() {
 	elif ! command -v dnsmasq 2>&1 >/dev/null ; then
 		error 'Не найдена команда dnsmasq'
 	elif ! dnsmasq --test 2>&1 | grep -Fq 'check OK' ; then
-		error "Ошибки в файлах конфигурации ${DNSMASQ_CONFIG} или ${DNSMASQ_IPSET_HOSTS}"
+		error "Ошибка в файлах конфигурации ${DNSMASQ_CONFIG} или ${DNSMASQ_IPSET_HOSTS}"
 	elif ! [ -f "${DNSMASQ_DEMON}" ] ; then
 		error "Не найден файл запуска ${DNSMASQ_DEMON}"
 	elif ! "${DNSMASQ_DEMON}" status | grep -Fq 'alive' ; then
 		error 'Не запущен DNSMasq'
+
+	# DNSCrypt
+	elif ! [ -f "${DNSCRYPT_CONFIG}" ] ; then
+		error "Не найден файл настроек ${DNSCRYPT_CONFIG}"
+	elif ! command -v dnscrypt-proxy 2>&1 >/dev/null ; then
+		error 'Не найдена команда dnscrypt-proxy'
+	elif ! dnscrypt-proxy -config "${DNSCRYPT_CONFIG}" -check 2>&1 | grep -Fq 'successfully checked' ; then
+		error "Ошибка в файле конфигурации ${DNSCRYPT_CONFIG}"
+	elif ! [ -f "${DNSCRYPT_DEMON}" ] ; then
+		error "Не найден файл запуска ${DNSCRYPT_DEMON}"
+	elif ! "${DNSCRYPT_DEMON}" status | grep -Fq 'alive' ; then
+		error 'Не запущен DNSCrypt'
+
 	else
 		true
 		return
