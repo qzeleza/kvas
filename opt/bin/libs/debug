@@ -318,7 +318,7 @@ get_netstat() {
 	fi
 	local filter="${1}"
 
-	local output=$(netstat -tulpn | grep -F -- "${filter}")
+	local output=$(netstat -tulpn | grep -F -- "${filter}" | grep -v -- ':[0-9][0-9][0-9][0-9][0-9]')
 	if [ -z "${output}" ] ; then
 		output="Сетевые соединения для ${filter} не найдены."
 	fi
@@ -384,7 +384,7 @@ cmd_debug_dns() {
 		cmd_debug_dnsmasq
 	fi
 
-	echo_debug 'Комплектный DNS роутера слушает:' "$(get_netstat 'ndnproxy')"
+	echo_debug 'Комплектный DNS роутера (базово) слушает:' "$(get_netstat 'ndnproxy')"
 
 	# если вызывается как один из дебагов, то можно передать silent/short
 	if [ -z "${1}" ] ; then
