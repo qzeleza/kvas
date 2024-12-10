@@ -384,6 +384,7 @@ cmd_debug_dns() {
 		cmd_debug_dnsmasq
 	fi
 
+	ready 'NDNProxy версия' && when_ok "$(ndnproxy 2>&1 | grep -Eo 'ndnproxy [0-9\.]+' | head -n 1 | cut -d ' ' -f2)"
 	echo_debug 'Комплектный DNS роутера (базово) слушает:' "$(get_netstat 'ndnproxy')"
 
 	# если вызывается как один из дебагов, то можно передать silent/short
