@@ -384,6 +384,8 @@ cmd_debug_dns() {
 		cmd_debug_dnsmasq
 	fi
 
+	echo_debug 'Комплектный DNS роутера слушает:' "$(get_netstat 'ndnproxy')"
+
 	# если вызывается как один из дебагов, то можно передать silent/short
 	if [ -z "${1}" ] ; then
 		echo 'Перехваты DNS можно проверить командой kvas debug iptables'
