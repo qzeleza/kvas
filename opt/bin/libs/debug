@@ -308,6 +308,7 @@ cmd_debug_dnsmasq() {
 		return
 	fi
 
+
 	if grep -q '^filter-rr=HTTPS' "${DNSMASQ_CONFIG}" ; then
 		local output='Отключен'
 	else
@@ -316,11 +317,11 @@ cmd_debug_dnsmasq() {
 	ready 'DNS ECH' && when_ok "${output}"
 
 	local cached=$(dnsmasq -v)
-
 	ready 'DNSMasq версия' && when_ok "$(echo "${cached}" | grep -Eo 'version [0-9\.]+' | head -n 1 | cut -d ' ' -f2)"
+	#echo_debug 'DNSMasq модули:' "$(echo "${cached}" | grep -F 'options:' | head -n 1 | cut -d ':' -f2 | xargs | grep -o '[^ ]*')"
+
 	echo_debug 'DNSMasq слушает:' "$(netstat -tulpn | grep -F 'dnsmasq')"
 
-	#echo_debug 'DNSMasq модули:' "$(echo "${cached}" | grep -F 'options:' | head -n 1 | cut -d ':' -f2 | xargs | grep -o '[^ ]*')"
 
 	ready 'Сайтов для сбора IP' && when_ok "$(grep /${IPSET_TABLE_NAME} ${DNSMASQ_IPSET_HOSTS} | wc -l)"
 
@@ -339,6 +340,7 @@ cmd_debug_dnsmasq() {
 	ready 'ifconfig.me' && when_ok "${output}"
 
 	echo_debug 'Часть конфига:' "$(head -n 6 ${DNSMASQ_IPSET_HOSTS})"
+
 
 	cached=$(grep 'server=' "${DNSMASQ_CONFIG}"      | head -1 | cut -d '=' -f2)
 	ready 'DNS запросы передаются' && when_ok "${cached}"
