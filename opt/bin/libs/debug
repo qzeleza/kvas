@@ -276,34 +276,29 @@ cmd_debug_adguard() {
 	echo 'Полная поддержка AdGuardHome будет доделана в скором времени.'
 }
 
-cmd_debug_dnsmasq() {
+dnsmasq__is_working() {
 	if ! [ -f "${DNSMASQ_CONFIG}" ] ; then
 		error "Не найден файл настроек ${DNSMASQ_CONFIG}"
-		echo 'Дальнейшая проверка остановлена.'
-		return
-	fi
-	if ! [ -f "${DNSMASQ_IPSET_HOSTS}" ] ; then
+	elif ! [ -f "${DNSMASQ_IPSET_HOSTS}" ] ; then
 		error "Не найден файл настроек ${DNSMASQ_IPSET_HOSTS}"
-		echo 'Дальнейшая проверка остановлена.'
-		return
-	fi
-	if ! command -v dnsmasq 2>&1 >/dev/null ; then
+	elif ! command -v dnsmasq 2>&1 >/dev/null ; then
 		error 'Не найдена команда dnsmasq'
-		echo 'Дальнейшая проверка остановлена.'
-		return
-	fi
-	if ! dnsmasq --test 2>&1 | grep -Fq 'check OK' ; then
+	elif ! dnsmasq --test 2>&1 | grep -Fq 'check OK' ; then
 		error "Ошибки в файлах конфигурации ${DNSMASQ_CONFIG} или ${DNSMASQ_IPSET_HOSTS}"
-		echo 'Дальнейшая проверка остановлена.'
-		return
-	fi
-	if ! [ -f "${DNSMASQ_DEMON}" ] ; then
+	elif ! [ -f "${DNSMASQ_DEMON}" ] ; then
 		error "Не найден файл запуска ${DNSMASQ_DEMON}"
-		echo 'Дальнейшая проверка остановлена.'
+	elif ! "${DNSMASQ_DEMON}" status | grep -Fq 'alive' ; then
+		error 'Не запущен DNSMasq'
+	else
+		true
 		return
 	fi
-	if ! "${DNSMASQ_DEMON}" status | grep -Fq 'alive' ; then
-		error 'Не запущен DNSMasq'
+
+	false
+}
+
+cmd_debug_dnsmasq() {
+	if ! dnsmasq__is_working ; then
 		echo 'Дальнейшая проверка остановлена.'
 		return
 	fi
