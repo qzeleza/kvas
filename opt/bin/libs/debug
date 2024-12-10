@@ -286,6 +286,12 @@ cmd_debug_dns() {
 		fi
 	fi
 
+	if ! [ -f "${DNSMASQ_CONFIG}" ]; then
+		echo "Не найдена конфигурация DNSMasq ${DNSMASQ_CONFIG}"
+		echo 'Дальнейшая проверка остановлена.'
+		return
+	fi
+
 	if grep -q '^filter-rr=HTTPS' "${DNSMASQ_CONFIG}" ; then
 		local output='Отключен'
 	else
@@ -295,10 +301,10 @@ cmd_debug_dns() {
 
 	local cached=$(dnsmasq -v)
 
-	ready 'DNSMasq версия' && when_ok "$(echo "${cached}" | grep -Eo 'version [0-9\.]+' | head -1 | cut -d ' ' -f2)"
+	ready 'DNSMasq версия' && when_ok "$(echo "${cached}" | grep -Eo 'version [0-9\.]+' | head -n 1 | cut -d ' ' -f2)"
 	echo_debug 'DNSMasq слушает:' "$(netstat -tulpn | grep -F 'dnsmasq')"
 
-	#echo_debug 'DNSMasq модули:' "$(echo "${cached}" | grep -F 'options:' | head -1 | cut -d ':' -f2 | xargs | grep -o '[^ ]*')"
+	#echo_debug 'DNSMasq модули:' "$(echo "${cached}" | grep -F 'options:' | head -n 1 | cut -d ':' -f2 | xargs | grep -o '[^ ]*')"
 
 	ready 'Сайтов для сбора IP' && when_ok "$(grep /${IPSET_TABLE_NAME} ${DNSMASQ_IPSET_HOSTS} | wc -l)"
 
