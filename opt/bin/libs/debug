@@ -405,6 +405,16 @@ cmd_ipset_refill() {
 }
 
 cmd_ipset() {
+	if [ -n "${1}" ]; then
+		if ! echo "${1}" | grep -qE "^${IP_FILTER}$"; then
+			error "Параметр ${1} не известен."
+
+			echo 'Можете передать любой IP для проверки его наличия в списке для попадания в тоннель,'
+			echo 'или вызвать команду без этого параметра.'
+			return 1
+		fi
+	fi
+
 	local output=$(ipset list "${IPSET_TABLE_NAME}" | grep -vF ':' | wc -l)
 	ready 'Количество записей' && when_ok "${output}"
 
@@ -422,18 +432,27 @@ cmd_ipset() {
 	fi
 	ready 'ifconfig.me' && when_ok "${output}"
 
+	if [ -n "${1}" ]; then
+		if ipset list "${IPSET_TABLE_NAME}" | grep -qF "${1}"; then
+			output='есть'
+		else
+			output='нет'
+		fi
+		ready "${1}" && when_ok "${output}"
+	fi
+
 	echo
 
 	local cached=$(ipset list "${IPSET_TABLE_NAME}" | grep -vF 'timeout 0' | grep -vF ':')
 	local count=$(echo -n "${cached}" | wc -l)
 	if [ "$count" -eq 0 ]; then
 		output='Или не приходило ещё ни одного DNS-запроса о доменах из kvas list;\nили ошибки в конфигурации DNS'
-		if [ -z "${1}" ] ; then
+		if [ -z "${2}" ] ; then
 			# если вызывается как один из дебагов, то можно передать silent/short
 			output="${output}, вызовите kvas debug dns"
 		fi
 		output="${output}"';\nили проблема с перехватом DNS'
-		if [ -z "${1}" ] ; then
+		if [ -z "${2}" ] ; then
 			# если вызывается как один из дебагов, то можно передать silent/short
 			output="${output}, вызовите kvas debug iptables"
 		fi
@@ -454,7 +473,7 @@ cmd_ipset() {
 	if [ "$count" -eq 0 ]; then
 		if grep -Eq -- "${IP_FILTER}" "${KVAS_LIST_FILE}"; then
 			output='Или нет корректных IP, диапазонов в kvas list;\nили проблема с их переносом'
-			if [ -z "${1}" ] ; then
+			if [ -z "${2}" ] ; then
 				# если вызывается как один из дебагов, то можно передать silent/short
 				output="${output}, вызовите kvas ipset clear"
 			fi

@@ -181,7 +181,7 @@ case "${1}" in
 			clear | flush) cmd_ipset_flush      ;;
 			refill)        cmd_ipset_refill     ;;
 			add)           cmd_ipset_add "${3}" ;;
-			*)             cmd_ipset            ;;
+			*)             cmd_ipset "${2}"     ;;
 		esac
 		;;
 
