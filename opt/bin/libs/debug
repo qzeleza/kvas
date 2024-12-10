@@ -311,6 +311,20 @@ dnsmasq__is_working() {
 	false
 }
 
+get_netstat() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — фильтр"
+		return
+	fi
+	local filter="${1}"
+
+	local output=$(netstat -tulpn | grep -F -- "${filter}")
+	if [ -z "${output}" ] ; then
+		output="Сетевые соединения для ${filter} не найдены."
+	fi
+	echo "${output}"
+}
+
 cmd_debug_dnsmasq() {
 	if ! dnsmasq__is_working ; then
 		echo 'Дальнейшая проверка остановлена.'
@@ -329,7 +343,7 @@ cmd_debug_dnsmasq() {
 	ready 'DNSMasq версия' && when_ok "$(echo "${cached}" | grep -Eo 'version [0-9\.]+' | head -n 1 | cut -d ' ' -f2)"
 	#echo_debug 'DNSMasq модули:' "$(echo "${cached}" | grep -F 'options:' | head -n 1 | cut -d ':' -f2 | xargs | grep -o '[^ ]*')"
 
-	echo_debug 'DNSMasq слушает:' "$(netstat -tulpn | grep -F 'dnsmasq')"
+	echo_debug 'DNSMasq слушает:' "$(get_netstat 'dnsmasq')"
 
 
 	ready 'Сайтов для сбора IP' && when_ok "$(grep /${IPSET_TABLE_NAME} ${DNSMASQ_IPSET_HOSTS} | wc -l)"
@@ -360,7 +374,7 @@ cmd_debug_dnsmasq() {
 	fi
 
 	ready 'DNSCrypt версия' && when_ok "$(dnscrypt-proxy -version)"
-	echo_debug 'DNSCrypt слушает:' "$(netstat -tulpn | grep -F 'dnscrypt')"
+	echo_debug 'DNSCrypt слушает:' "$(get_netstat 'dnscrypt')"
 }
 
 cmd_debug_dns() {
