@@ -273,12 +273,17 @@ cmd_debug_iptables() {
 }
 
 cmd_debug_adguard() {
-	echo 'Полная поддержка AdGuardHome будет возвращена в скором времени.'
+	echo 'Полная поддержка AdGuardHome будет доделана в скором времени.'
 }
 
 cmd_debug_dnsmasq() {
 	if ! [ -f "${DNSMASQ_CONFIG}" ] ; then
-		error "Не найдена конфигурация DNSMasq ${DNSMASQ_CONFIG}"
+		error "Не найден файл настроек ${DNSMASQ_CONFIG}"
+		echo 'Дальнейшая проверка остановлена.'
+		return
+	fi
+	if ! [ -f "${DNSMASQ_IPSET_HOSTS}" ] ; then
+		error "Не найден файл настроек ${DNSMASQ_IPSET_HOSTS}"
 		echo 'Дальнейшая проверка остановлена.'
 		return
 	fi
@@ -288,7 +293,7 @@ cmd_debug_dnsmasq() {
 		return
 	fi
 	if ! [ -f "${DNSMASQ_DEMON}" ] ; then
-		error "Не найден файл запуска DNSMasq ${DNSMASQ_DEMON}"
+		error "Не найден файл запуска ${DNSMASQ_DEMON}"
 		echo 'Дальнейшая проверка остановлена.'
 		return
 	fi
