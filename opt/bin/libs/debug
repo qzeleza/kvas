@@ -292,6 +292,11 @@ cmd_debug_dnsmasq() {
 		echo 'Дальнейшая проверка остановлена.'
 		return
 	fi
+	if ! dnsmasq --test 2>&1 | grep -Fq 'check OK' ; then
+		error "Ошибки в файлах конфигурации ${DNSMASQ_CONFIG} или ${DNSMASQ_IPSET_HOSTS}"
+		echo 'Дальнейшая проверка остановлена.'
+		return
+	fi
 	if ! [ -f "${DNSMASQ_DEMON}" ] ; then
 		error "Не найден файл запуска ${DNSMASQ_DEMON}"
 		echo 'Дальнейшая проверка остановлена.'
