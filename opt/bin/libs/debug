@@ -275,7 +275,8 @@ cmd_debug_iptables() {
 cmd_debug_dns() {
 	# если вызывается как один из дебагов, то можно передать silent/short
 	if [ -z "${1}" ] ; then
-		echo 'Для проверки перехватов DNS вызовите kvas debug iptables'
+		echo 'Перехваты DNS можно проверить командой kvas debug iptables'
+		echo 'Список IP для тоннеля можно посмотреть командой kvas ipset'
 		echo
 	fi
 
@@ -323,12 +324,6 @@ cmd_debug_dns() {
 	ready 'ifconfig.me' && when_ok "${output}"
 
 	echo_debug 'Часть конфига:' "$(head -n 6 ${DNSMASQ_IPSET_HOSTS})"
-
-	# если вызывается как один из дебагов, то можно передать silent
-	if [ -z "${1}" ] ; then
-		echo 'Для просмотра списка IP для тоннеля вызовите kvas ipset'
-		echo
-	fi
 
 	cached=$(grep 'server=' "${DNSMASQ_CONFIG}"      | head -1 | cut -d '=' -f2)
 	ready 'DNS запросы передаются' && when_ok "${cached}"
