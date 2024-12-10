@@ -272,6 +272,10 @@ cmd_debug_iptables() {
 	echo_debug 'PREROUTING nat' "${output}"
 }
 
+cmd_debug_adguard() {
+	echo 'Полная поддержка AdGuardHome будет возвращена в скором времени.'
+}
+
 cmd_debug_dns() {
 	# если вызывается как один из дебагов, то можно передать silent/short
 	if [ -z "${1}" ] ; then
@@ -280,11 +284,9 @@ cmd_debug_dns() {
 		echo
 	fi
 
-	if [ -f "${ADGUARDHOME_DEMON}" ] ; then
-		if "${ADGUARDHOME_DEMON}" status | grep -Fq 'alive' ; then
-			echo 'Полная поддержка AdGuardHome будет возвращена в скором времени.'
-			return
-		fi
+	if [ -f "${ADGUARDHOME_DEMON}" ] && "${ADGUARDHOME_DEMON}" status | grep -Fq 'alive' ; then
+		cmd_debug_adguard
+		return
 	fi
 
 	if ! [ -f "${DNSMASQ_CONFIG}" ]; then
