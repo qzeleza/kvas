@@ -62,6 +62,7 @@ ADBLOCK_SOURCES_LIST_BACKUP=${KVAS_BACKUP_PATH}/sources.list
 ADGUARDHOME_LOG=/opt/var/log/AdGuardHome.log
 ADGUARDHOME_DEMON=/opt/etc/init.d/S99adguardhome
 DNSMASQ_DEMON=/opt/etc/init.d/S56dnsmasq
+DNSCRYPT_DEMON=/opt/etc/init.d/S09dnscrypt-proxy2
 HOME_PATH=/opt/apps/kvas
 
 
@@ -91,6 +92,10 @@ NET_FILTER='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{1,3}'
 
 get_regexp_ip_or_range() {
 	echo "^(${IP_FILTER}|${IP_FILTER}-${IP_FILTER}|${IP_FILTER}/[0-9]{1,2})$"
+}
+
+get_regexp_ip_with_or_without_port() {
+	echo "^(${IP_FILTER}|${IP_PORT_FILTER})$"
 }
 
 ERROR_LOG_FILE=/opt/tmp/kvas.err.log
@@ -366,23 +371,13 @@ is_ip_private() {
 }
 
 get_external_interface() {
-	local interfaces=$( /opt/sbin/ip a )
-
-	for interface in eth3 eth2.4 eth2.2 ppp0 ppp1 ; do
-		local interface_address=$( echo "$interfaces" | grep "global ${interface}" | tr -s ' ' | cut -d ' ' -f 3 )
-		if [ -z "${interface_address}" ]; then
-			continue
-		fi
-		if is_ip_private $interface_address; then
-			continue
-		fi
-
-		# в этом интерфейсе есть global и нет private IP
-		# в идеале можно ещё проверить, что это вообще IP или диапазон
+	local interface=$( ip route | grep -F 'default' | head -n 1 | grep -oE -- 'dev +[a-zA-Z0-9\+\.\-]+' | cut -d' ' -f2 )
+	if [ -n "${interface}" ] ; then
 		echo "${interface}"
 		return
-	done
+	fi
 
+	log_error 'Внешний сетевой интерфейс найти не удалось'
 	false
 }
 

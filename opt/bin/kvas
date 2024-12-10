@@ -122,9 +122,10 @@ case "${1}" in
 
 	dns)
 		case "${2}" in
-			server) 		dns_server_install_remotely "${3}" ;;
-			test) 			cmd_dns_test "${3}";;
-			*) 				cmd_dnsmasq_dns_change "${2}" ;;
+			debug)           cmd_debug_dns                      ;;
+			test)            cmd_dns_test "${3}"                ;;
+			server | remote) dns_server_install_remotely "${3}" ;;
+			*)               cmd_dnsmasq_dns_change "${2}"      ;;
 		esac
 		;;
 
@@ -180,7 +181,7 @@ case "${1}" in
 			clear | flush) cmd_ipset_flush      ;;
 			refill)        cmd_ipset_refill     ;;
 			add)           cmd_ipset_add "${3}" ;;
-			*)             cmd_ipset            ;;
+			*)             cmd_ipset "${2}"     ;;
 		esac
 		;;
 

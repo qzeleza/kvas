@@ -230,12 +230,11 @@ iptables__get_by_chain() {
 cmd_debug_iptables() {
 	local output=$(ip route)
 
-	ready 'Модель роутера' && when_ok "$(get_model)"
-	ready 'Версия ndw' && when_ok "$(get_version)"
-	ready 'Версия ndw4' && when_ok "$(version_os)"
+	ready 'Модель роутера'    && when_ok "$(get_model)"
+	ready 'Версия ndw'        && when_ok "$(get_version)"
+	ready 'Версия ndw4'       && when_ok "$(version_os)"
 	ready 'Внешний интерфейс' && when_ok "$(get_external_interface)"
-	ready 'IKEv2 интерфейс' && when_ok "$(get_entware_ikev2_inface)"
-	ready 'IKEv2 IP' && when_ok "$(get_ikev2_net_pool)"
+	ready 'IKEv2 интерфейс'   && when_ok "$(get_entware_ikev2_inface)"
 	echo
 
 	echo_debug 'Маршруты (подключитесь к гостевой заранее)' "${output}"
@@ -245,9 +244,25 @@ cmd_debug_iptables() {
 	else
 		output=$(iptables__get_by_chain "${CHAIN_MARK_TO_TABLE}")
 	fi
+	if [ -z "${output}" ] ; then
+		output='Правила не найдены!'
+
+		# если вызывается как один из дебагов, то можно передать silent/short
+		if [ -z "${1}" ] ; then
+			output="${output}"'\nСообщите об этом https://t.me/kvas_pro и вызовите kvas reset'
+		fi
+	fi
 	echo_debug 'Роутинг подсетей' "${output}"
 
 	output=$(iptables__get_by_chain "${CHAIN_DNS}")
+	if [ -z "${output}" ] ; then
+		output='Правила не найдены!'
+
+		# если вызывается как один из дебагов, то можно передать silent/short
+		if [ -z "${1}" ] ; then
+			output="${output}"'\nСообщите об этом https://t.me/kvas_pro и вызовите kvas reset'
+		fi
+	fi
 	echo_debug 'Роутинг DNS' "${output}"
 
 	output=$(iptables -L PREROUTING -t mangle)
@@ -257,12 +272,65 @@ cmd_debug_iptables() {
 	echo_debug 'PREROUTING nat' "${output}"
 }
 
-cmd_debug_dns() {
-	# если вызывается как один из дебагов, то можно передать silent
-	if [ -z "${1}" ] ; then
-		echo 'Для просмотра перехватов DNS вызовите kvas debug iptables'
-		echo
+cmd_debug_adguard() {
+	echo 'Полная поддержка AdGuardHome будет доделана в скором времени.'
+}
+
+dnsmasq__is_working() {
+	# DNSMasq
+	if ! [ -f "${DNSMASQ_CONFIG}" ] ; then
+		error "Не найден файл настроек ${DNSMASQ_CONFIG}"
+	elif ! [ -f "${DNSMASQ_IPSET_HOSTS}" ] ; then
+		error "Не найден файл настроек ${DNSMASQ_IPSET_HOSTS}"
+	elif ! command -v dnsmasq 2>&1 >/dev/null ; then
+		error 'Не найдена команда dnsmasq'
+	elif ! dnsmasq --test 2>&1 | grep -Fq 'check OK' ; then
+		error "Ошибка в файлах конфигурации ${DNSMASQ_CONFIG} или ${DNSMASQ_IPSET_HOSTS}"
+	elif ! [ -f "${DNSMASQ_DEMON}" ] ; then
+		error "Не найден файл запуска ${DNSMASQ_DEMON}"
+	elif ! "${DNSMASQ_DEMON}" status | grep -Fq 'alive' ; then
+		error 'Не запущен DNSMasq'
+
+	# DNSCrypt
+	elif ! [ -f "${DNSCRYPT_CONFIG}" ] ; then
+		error "Не найден файл настроек ${DNSCRYPT_CONFIG}"
+	elif ! command -v dnscrypt-proxy 2>&1 >/dev/null ; then
+		error 'Не найдена команда dnscrypt-proxy'
+	elif ! dnscrypt-proxy -config "${DNSCRYPT_CONFIG}" -check 2>&1 | grep -Fq 'successfully checked' ; then
+		error "Ошибка в файле конфигурации ${DNSCRYPT_CONFIG}"
+	elif ! [ -f "${DNSCRYPT_DEMON}" ] ; then
+		error "Не найден файл запуска ${DNSCRYPT_DEMON}"
+	elif ! "${DNSCRYPT_DEMON}" status | grep -Fq 'alive' ; then
+		error 'Не запущен DNSCrypt'
+
+	else
+		true
+		return
 	fi
+
+	false
+}
+
+get_netstat() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — фильтр"
+		return
+	fi
+	local filter="${1}"
+
+	local output=$(netstat -tulpn | grep -F -- "${filter}" | grep -v -- ':[0-9][0-9][0-9][0-9][0-9]')
+	if [ -z "${output}" ] ; then
+		output="Сетевые соединения для ${filter} не найдены."
+	fi
+	echo "${output}"
+}
+
+cmd_debug_dnsmasq() {
+	if ! dnsmasq__is_working ; then
+		echo 'Дальнейшая проверка DNSMasq остановлена.'
+		return
+	fi
+
 
 	if grep -q '^filter-rr=HTTPS' "${DNSMASQ_CONFIG}" ; then
 		local output='Отключен'
@@ -272,11 +340,11 @@ cmd_debug_dns() {
 	ready 'DNS ECH' && when_ok "${output}"
 
 	local cached=$(dnsmasq -v)
+	ready 'DNSMasq версия' && when_ok "$(echo "${cached}" | grep -Eo 'version [0-9\.]+' | head -n 1 | cut -d ' ' -f2)"
+	#echo_debug 'DNSMasq модули:' "$(echo "${cached}" | grep -F 'options:' | head -n 1 | cut -d ':' -f2 | xargs | grep -o '[^ ]*')"
 
-	ready 'DNSMasq версия' && when_ok "$(echo "${cached}" | grep -Eo 'version [0-9\.]+' | head -1 | cut -d ' ' -f2)"
-	echo_debug 'DNSMasq слушает:' "$(netstat -tulpn | grep -F 'dnsmasq')"
+	echo_debug 'DNSMasq слушает:' "$(get_netstat 'dnsmasq')"
 
-	#echo_debug 'DNSMasq модули:' "$(echo "${cached}" | grep -F 'options:' | head -1 | cut -d ':' -f2 | xargs | grep -o '[^ ]*')"
 
 	ready 'Сайтов для сбора IP' && when_ok "$(grep /${IPSET_TABLE_NAME} ${DNSMASQ_IPSET_HOSTS} | wc -l)"
 
@@ -296,11 +364,6 @@ cmd_debug_dns() {
 
 	echo_debug 'Часть конфига:' "$(head -n 6 ${DNSMASQ_IPSET_HOSTS})"
 
-	# если вызывается как один из дебагов, то можно передать silent
-	if [ -z "${1}" ] ; then
-		echo 'Для просмотра списка IP для тоннеля вызовите kvas ipset'
-		echo
-	fi
 
 	cached=$(grep 'server=' "${DNSMASQ_CONFIG}"      | head -1 | cut -d '=' -f2)
 	ready 'DNS запросы передаются' && when_ok "${cached}"
@@ -311,7 +374,24 @@ cmd_debug_dns() {
 	fi
 
 	ready 'DNSCrypt версия' && when_ok "$(dnscrypt-proxy -version)"
-	echo_debug 'DNSCrypt слушает:' "$(netstat -tulpn | grep -F 'dnscrypt')"
+	echo_debug 'DNSCrypt слушает:' "$(get_netstat 'dnscrypt')"
+}
+
+cmd_debug_dns() {
+	if [ -f "${ADGUARDHOME_DEMON}" ] && "${ADGUARDHOME_DEMON}" status | grep -Fq 'alive' ; then
+		cmd_debug_adguard
+	else
+		cmd_debug_dnsmasq
+	fi
+
+	ready 'NDNProxy версия' && when_ok "$(ndnproxy 2>&1 | grep -Eo 'ndnproxy [0-9\.]+' | head -n 1 | cut -d ' ' -f2)"
+	echo_debug 'Комплектный DNS роутера (базово) слушает:' "$(get_netstat 'ndnproxy')"
+
+	# если вызывается как один из дебагов, то можно передать silent/short
+	if [ -z "${1}" ] ; then
+		echo 'Перехваты DNS можно проверить командой kvas debug iptables'
+		echo 'Список IP для тоннеля можно посмотреть командой kvas ipset'
+	fi
 }
 
 cmd_ipset_flush() {
@@ -382,6 +462,16 @@ cmd_ipset_refill() {
 }
 
 cmd_ipset() {
+	if [ -n "${1}" ]; then
+		if ! echo "${1}" | grep -qE "^${IP_FILTER}$"; then
+			error "Параметр ${1} не известен."
+
+			echo 'Можете передать любой IP для проверки его наличия в списке для попадания в тоннель,'
+			echo 'или вызвать команду без этого параметра.'
+			return 1
+		fi
+	fi
+
 	local output=$(ipset list "${IPSET_TABLE_NAME}" | grep -vF ':' | wc -l)
 	ready 'Количество записей' && when_ok "${output}"
 
@@ -399,11 +489,32 @@ cmd_ipset() {
 	fi
 	ready 'ifconfig.me' && when_ok "${output}"
 
+	if [ -n "${1}" ]; then
+		if ipset list "${IPSET_TABLE_NAME}" | grep -qF "${1}"; then
+			output='есть'
+		else
+			output='нет'
+		fi
+		ready "${1}" && when_ok "${output}"
+	fi
+
 	echo
 
 	local cached=$(ipset list "${IPSET_TABLE_NAME}" | grep -vF 'timeout 0' | grep -vF ':')
-	local count=$(echo "${cached}" | wc -l)
-	if [ "$count" -gt 0 ]; then
+	local count=$(echo -n "${cached}" | wc -l)
+	if [ "$count" -eq 0 ]; then
+		output='Или не приходило ещё ни одного DNS-запроса о доменах из kvas list;\nили ошибки в конфигурации DNS'
+		if [ -z "${2}" ] ; then
+			# если вызывается как один из дебагов, то можно передать silent/short
+			output="${output}, вызовите kvas debug dns"
+		fi
+		output="${output}"';\nили проблема с перехватом DNS'
+		if [ -z "${2}" ] ; then
+			# если вызывается как один из дебагов, то можно передать silent/short
+			output="${output}, вызовите kvas debug iptables"
+		fi
+		output="${output}."
+	else
 		# геморрой из-за неподдержки -k в sort
 		output=''
 		for ttl in $(echo "${cached}" | cut -d' ' -f3 | sort -n -r -u | head -n 7); do
@@ -411,14 +522,30 @@ cmd_ipset() {
 		done
 		output=${output:0:-1}
 
-		echo_debug "Для доменов ${count}, последние:" "${output}"
+		cached=', последние:'
 	fi
+	echo_debug "Для доменов ${count}${cached}" "${output}"
 
 	count=$(ipset list "${IPSET_TABLE_NAME}" | grep -F 'timeout 0' | wc -l)
-	if [ "$count" -gt 0 ]; then
+	if [ "$count" -eq 0 ]; then
+		if grep -Eq -- "${IP_FILTER}" "${KVAS_LIST_FILE}"; then
+			output='Или нет корректных IP, диапазонов в kvas list;\nили проблема с их переносом'
+			if [ -z "${2}" ] ; then
+				# если вызывается как один из дебагов, то можно передать silent/short
+				output="${output}, вызовите kvas ipset clear"
+			fi
+			output="${output}."
+		else
+			output='Не используются IP или диапазоны в kvas list.'
+		fi
+
+		cached=''
+	else
 		output=$(ipset list "${IPSET_TABLE_NAME}" | grep -F 'timeout 0' | head -n 15 | cut -d' ' -f1)
-		echo_debug "IP ${count}, произвольные 15:" "${output}"
+
+		cached=', произвольные 15:'
 	fi
+	echo_debug "Для IP ${count}${cached}" "${output}"
 }
 
 # ------------------------------------------------------------------------------------------
