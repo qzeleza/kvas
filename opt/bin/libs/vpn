@@ -2457,7 +2457,6 @@ cmd_dns_crypt_off() {
 			_dns=$(cat < "${DNSMASQ_CONFIG}" | sed -n 's/^server=\(.*\)$/\1/p')
 
 			set_config_value DNS_DEFAULT "${_dns}#${MAIN_DNS_PORT}"
-			set_config_value DNS_CRYPT_PORT "${crypt_port}"
 
 			# множество конфигов должно обновиться и службы перезапуститься
 			cmd_kvas_init 'no'
