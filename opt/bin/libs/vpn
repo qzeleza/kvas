@@ -2320,8 +2320,8 @@ refresh_dnsmasq_ipset_table(){
 #
 # ------------------------------------------------------------------------------------------
 get_dns_crypt_status() {
-	crypt_port=$(get_config_value DNS_CRYPT_PORT)
-	if cat < '/opt/apps/kvas/bin/main/dnsmasq' | grep -q 'server' ; then
+	# отправляется ли DNS сайтов вне списка в DNSCrypt
+	if grep -Fq "server=127.0.0.1#$(get_config_value DNS_CRYPT_PORT)" "${DNSMASQ_CONFIG}" ; then
 		echo on
 	else
 		echo off
