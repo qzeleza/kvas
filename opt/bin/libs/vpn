@@ -2322,7 +2322,6 @@ refresh_dnsmasq_ipset_table(){
 get_dns_crypt_status() {
 	crypt_port=$(get_config_value DNS_CRYPT_PORT)
 	if [ -f '/opt/sbin/dnscrypt-proxy' ] &&
-		cat < '/opt/apps/kvas/bin/main/ipset_domain' | grep '@' | grep -q "${crypt_port}" &&
 		cat < '/opt/apps/kvas/bin/main/dnsmasq' | grep -q 'server' &&
 		netstat -tulnp 2> /dev/null | grep -q dnscrypt; then
 
@@ -2449,8 +2448,6 @@ cmd_dns_crypt_off() {
 		{
 			crypt_port=$(get_config_value DNS_CRYPT_PORT)
 			static_dns=$(get_config_value DNS_STATIC_1)
-
-			sed -i "s/\(@.*\)\(:[0-9]\{2,6\}\)/@localhost/g" '/opt/apps/kvas/bin/main/ipset_domain'
 
 			sed -i "s/\(^server=\)${LOCALHOST_IP}#${crypt_port}/\1${static_dns}/" /opt/etc/dnsmasq.conf
 			sed -i 's/.*\(filter-rr.*\)/\1/' /opt/etc/dnsmasq.conf
