@@ -2321,16 +2321,13 @@ refresh_dnsmasq_ipset_table(){
 # ------------------------------------------------------------------------------------------
 get_dns_crypt_status() {
 	crypt_port=$(get_config_value DNS_CRYPT_PORT)
-	if [ -f '/opt/sbin/dnscrypt-proxy' ] &&
-		cat < '/opt/apps/kvas/bin/main/dnsmasq' | grep -q 'server' &&
-		netstat -tulnp 2> /dev/null | grep -q dnscrypt; then
-
+	if cat < '/opt/apps/kvas/bin/main/dnsmasq' | grep -q 'server' ; then
 		echo on
 	else
 		echo off
 	fi
-
 }
+
 # ------------------------------------------------------------------------------------------
 #
 #	 Устанавливаем с нуля dnscrypt_proxy2
