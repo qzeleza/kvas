@@ -2409,11 +2409,11 @@ cmd_dns_crypt_on() {
 			dns_cache_enabled=$(get_config_value DNS_CACHE_ENABLED)
 			ready "Шифрование DNS"
 			{
-				# оставляем кеш выключенным за счет работы механизма кеширвоания dnsmasq
-				sed -i "s/\(^cache.=.\).*$/\1false/g" '/opt/etc/dnscrypt-proxy.toml'
-				#sed -i "s/\(^cache_min_ttl.=.\).*$/\10/g" '/opt/etc/dnscrypt-proxy.toml'
-				#sed -i "s/\(^cache_max_ttl.=.\).*$/\10/g" '/opt/etc/dnscrypt-proxy.toml'
-				# из-за отключенного кэша можем повысить безопасность
+				# кэш
+				sed -i "s/\(^cache.=.\).*$/\1true/g" '/opt/etc/dnscrypt-proxy.toml'
+				sed -i "s/\(^cache_min_ttl.=.\).*$/\115/g" '/opt/etc/dnscrypt-proxy.toml'
+				sed -i "s/\(^cache_max_ttl.=.\).*$/\1129600/g" '/opt/etc/dnscrypt-proxy.toml'
+				# требование безопасности к серверам
 				sed -i "s/\(^require_dnssec.=.\).*$/\1true/g" '/opt/etc/dnscrypt-proxy.toml'
 				# пока нет поддержки IPv6
 				sed -i "s/\(^block_ipv6.=.\).*$/\1true/g" '/opt/etc/dnscrypt-proxy.toml'
