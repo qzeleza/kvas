@@ -19,27 +19,6 @@
 # . /opt/apps/kvas/bin/libs/main
 logger -t "kvas" "Запущен файл ${0}"
 
-
-# ------------------------------------------------------------------------------------------
-#
-#	 Статус dnscrypt_proxy2
-#	 on - включен
-#	 off - выключен
-#
-# ------------------------------------------------------------------------------------------
-# get_dns_crypt_status() {
-# 	crypt_port=$(get_config_value DNS_CRYPT_PORT)
-# 	if [ -f '/opt/sbin/dnscrypt-proxy' ] &&
-# 		cat < '/opt/apps/kvas/bin/main/ipset' | grep '@' | grep -q "${crypt_port}" &&
-# 		cat < '/opt/apps/kvas/bin/main/dnsmasq' | grep -q 'server' &&
-# 		netstat -tulnp 2> /dev/null | grep -q dnscrypt; then
-
-# 		echo on
-# 	else
-# 		echo off
-# 	fi
-
-# }
 IPSET_TABLE_NAME=KVAS_LIST
 ipset_file=/opt/etc/dnsmasq.d/kvas.dnsmasq
 host_list=/opt/etc/kvas.list
