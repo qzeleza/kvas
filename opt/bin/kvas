@@ -113,7 +113,7 @@ case "${1}" in
 
 	route)
 		case "${2}" in
-			clear | flush) cmd_route_flush ;;
+			refresh | recreate) cmd_route_refresh ;;
 		esac
 		;;
 
