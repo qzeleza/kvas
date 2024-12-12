@@ -80,14 +80,22 @@ cmd_route_refresh() {
 	echo 'сделано.'
 }
 
+string__separator_to_eol() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не передан обязательный параметр — строка"
+		return
+	fi
+	echo "${1/+/'\n'}"
+}
+
 cmd_route() {
-	local output=$(get_config_value 'route_full_ip2')
+	local output=$(get_config_value 'route_full_ip')
 	if [ -z "${output}" ] ; then
 		output="Отсутствуют. Можете указать строчку в ${KVAS_CONF_FILE}\n"
 		output="${output}route_full_ip=192.168.1.50+192.168.2.51\n"
 		output="${output}и вызвать после этого kvas route refresh"
 	else
-		output="${output/+/'\n'}"
+		output=$(string__separator_to_eol "${output}")
 	fi
 	echo_debug 'IP, весь трафик которых идёт в тоннель' "${output}"
 }
