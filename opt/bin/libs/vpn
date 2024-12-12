@@ -1070,6 +1070,13 @@ ikev2_setup() {
 	fi
 }
 
+add_ikev2_net_to_config(){
+        has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;'| sed 's/[ ]//g')
+        [ -n "${has_guest_nets}" ] && point=',' || point=''
+        del_ikev2_net_from_config
+        sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}ikev2/g; s/[ ]//g" "${KVAS_CONF_FILE}"
+}
+
 ikev2_net_access_add() {
 	local ikev2_settings=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
 
