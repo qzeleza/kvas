@@ -181,7 +181,13 @@ dns__get_ips_by_domain() {
 	fi
 	local host=${1}
 
-	get_iplist_from_domain "${host}" | grep -Eo "${IP_FILTER}" | grep -v '0.0.0.0'
+	local dns_server=$(get_config_value DNS_DEFAULT)
+	if ! is_ip_private $(echo "${dns_server}" | grep -Eo "${IP_FILTER}") ; then
+		# если это внешний нешифрованный DNS, то лучше отправим запрос через DNSCrypt
+		dns_server="127.0.0.1#$(get_config_value DNS_CRYPT_PORT)"
+	fi
+
+	get_iplist_from_domain "${host}" "${dns_server}" | grep -Eo "${IP_FILTER}" | grep -v '0.0.0.0'
 }
 
 ipset__fill_by_domain() {
