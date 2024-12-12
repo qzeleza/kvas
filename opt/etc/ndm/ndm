@@ -1143,12 +1143,12 @@ ip4__flush() {
 			ip4__ipset__destroy_reserved
 		fi
 
-		if echo "${parts}" | grep -Fq ' table ' ; then
+		#if echo "${parts}" | grep -Fq ' table ' ; then
 			#ToDo: именно здесь надо удалять таблицы, их ручное удаление нужно удалить
 			# ведь только эта цепочка использовала эту таблицу
 			#ip4_rule_del_priority
 			#ip4_flush_all_tables
-		fi
+		#fi
 	else
 		iptables__delete_rules "${TABLE_MARK_TO_TABLE}" "-j MARK --set-mark ${MARK_NUM}"
 	fi
