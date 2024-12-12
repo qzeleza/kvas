@@ -1310,28 +1310,6 @@ ip4_flush_all_tables(){
 #
 # ------------------------------------------------------------------------------------------
 
-ikev2_setup() {
-	ikev2_data="${1}"
-	enable=${2:-true}
-
-	ikev2_dns=$(get_router_ip)
-	#TODO: вынести получение параметра в функцию
-	dns_server=$(echo "${ikev2_data}" | grep -F -- 'dns-server' | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-	enable=$(echo "${ikev2_data}"     | grep -F    'enable'     | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-	nat=$(echo "${ikev2_data}"        | grep -F    'nat'        | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-	if [ "${dns_server}" != "${ikev2_dns}" ] || [ "${enable}" != true ] || [ "${nat}" != true ] ; then
-		# Если DNS отличен от IP роутера, или интерфейс, или NAT отключены
-		pool_size=$(echo "${ikev2_data}"   | grep -F -- 'pool-size'   | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-		pool_start=$(echo "${ikev2_data}"  | grep -F -- 'pool-start'  | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-		multi_login=$(echo "${ikev2_data}" | grep -F -- 'multi-login' | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-		sa_compat=$(echo "${ikev2_data}"   | grep -F -- 'sa-compat'   | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-
-		curl -s -d '{"enable": '"${enable}"', "nat": true, "dns-server": "'"${ikev2_dns}"'", "pool-size": "'"${pool_size}"'", "pool-start": "'"${pool_start}"'", "multi-login": "'"${multi_login}"'", "sa-compat": "'"${sa_compat}"'"}' \
-		 "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2" &> /dev/null
-		sleep 1
-	fi
-}
-
 del_all_net_from_config(){
         sed -i 's/\(INFACE_GUEST_ENT=\).*/\1/; s/[ ,]//g' "${KVAS_CONF_FILE}"
 }
