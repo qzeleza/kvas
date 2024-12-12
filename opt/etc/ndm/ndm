@@ -727,9 +727,6 @@ ip4__add_routing() {
 	local iptables_filter="${3}"
 	local submessage=" критерию ${iptables_filter}"
 
-	# перехват DNS
-	ip4__dns__add_routing "${iptables_filter}"
-
 	if [ -z "${1}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
@@ -746,11 +743,14 @@ ip4__add_routing() {
 	if [ -n "${4}" ] ; then
 		local ipset_list="${4}"
 
+		# т.к. используется DNS'ом и в правиле, то лучше бы проверить наличие
+		ip4__ipset__create "${ipset_list}" "$(get_config_value TTL_TIMEOUT)"
+
+		# перехват DNS нужен только при фильтрации по IPSet
+		ip4__dns__add_routing "${iptables_filter}"
+
 		iptables_filter="${iptables_filter} -m set --match-set ${ipset_list} dst"
 		submessage=" ipset ${ipset_list} и${submessage}"
-
-		# т.к. используется в правиле, то лучше бы проверить наличие
-		ip4__ipset__create "${ipset_list}" "$(get_config_value TTL_TIMEOUT)"
 	fi
 
 	if iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${chain_name}" ; then
@@ -805,9 +805,6 @@ ip4__delete_routing() {
 	local iptables_filter="${3}"
 	local submessage=" критерию ${iptables_filter}"
 
-	# перехват DNS
-	ip4__dns__delete_routing "${iptables_filter}"
-
 	if [ -z "${1}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
@@ -823,6 +820,9 @@ ip4__delete_routing() {
 	# необязательный параметр — ipset для фильтра по целевым IP
 	if [ -n "${4}" ] ; then
 		local ipset_list="${4}"
+
+		# перехват DNS нужен только при фильтрации по IPSet
+		ip4__dns__delete_routing "${iptables_filter}"
 
 		iptables_filter="${iptables_filter} -m set --match-set ${ipset_list} dst"
 		submessage=" ipset ${ipset_list} и${submessage}"
