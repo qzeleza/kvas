@@ -65,7 +65,10 @@ case "${1}" in
 							echo "Для удаления пакета наберите 'kvas uninstall'"
 							;;
 
-	vless) 					
+	pause|freeze)           cmd_pause_kvas ;;
+	unpause|unfreeze)       cmd_unpause_kvas ;;
+
+	vless)
 		case "${2}" in
 			new) 	rm -f "${VLESS_CONFIG_FILE}" 
 					start_vless "$(cat ${INFACE_NAMES_FILE} | grep vless | cut -d'|' -f2)"
@@ -75,9 +78,6 @@ case "${1}" in
 		esac	
 			;;
 
-	pause|freeze)           cmd_pause_kvas ;;
-	unpause|unfreeze)       cmd_unpause_kvas ;;
-	
 	dnsmasq)
 		case "${2}" in
 			port) 			cmd_dnsmasq_port_change "${3}" ;;
@@ -89,6 +89,7 @@ case "${1}" in
 							} ;;
 		esac
 		;;
+
 	ssr)
 		case "${2}" in
 			new)			cmd_shadowsocks_read_new_data ;;
