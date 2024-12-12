@@ -20,7 +20,7 @@
 # если делать этот файл автономно запускаемым, то нужна
 #. /opt/apps/kvas/bin/libs/main
 
-logger -t 'КВАС' 'Начато обновление доменной конфигурации DNSMasq'
+logger -t 'КВАС' 'Обновление доменной конфигурации DNSMasq'
 
 IPSET_TABLE_NAME=KVAS_LIST
 ipset_file=/opt/etc/dnsmasq.d/kvas.dnsmasq
