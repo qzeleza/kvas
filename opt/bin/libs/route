@@ -1,6 +1,7 @@
 #!/bin/sh
 
 . /opt/apps/kvas/bin/libs/main
+
 # ------------------------------------------------------------------------------------------
 #
 # 	 Записываем данные маршрута по умолчанию в файл конфигурации
@@ -17,7 +18,6 @@
 #	set_config_value MASK_DEFAULT "${mask}"
 #	set_config_value EXTERNAL_IP "${address}"
 #}
-
 
 # ------------------------------------------------------------------------------------------
 #
@@ -68,3 +68,14 @@ ip4_up_net_default(){
 #		ip4_up_net_default
 #	}
 #}
+
+cmd_route_flush() {
+	echo -n 'Очистка цепочек iptables...'
+	ip4__flush 'chain'
+	echo 'сделана.'
+
+	echo -n 'Создание недостающих правил iptables...'
+	ip4__dns__add_routing_for_home
+	ip4_firewall_set_all_rules
+	echo 'сделано.'
+}
