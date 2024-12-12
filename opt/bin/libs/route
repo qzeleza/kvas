@@ -80,6 +80,17 @@ cmd_route_refresh() {
 	echo 'сделано.'
 }
 
+text_empty() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не передан обязательный параметр — строка настроек"
+		return
+	fi
+
+	echo "Отсутствуют. Можете указать строчку в ${KVAS_CONF_FILE}"
+	echo "${1}"
+	echo 'и вызвать после этого kvas route refresh'
+}
+
 text_from_ips() {
 	if [ -z "${1}" ] ; then
 		error "[${FUNCNAME}] Не передан обязательный параметр — строка"
@@ -93,9 +104,7 @@ cmd_route() {
 
 	output=$(get_config_value 'route_full_ip')
 	if [ -z "${output}" ] ; then
-		output="Отсутствуют. Можете указать строчку в ${KVAS_CONF_FILE}\n"
-		output="${output}route_full_ip=192.168.1.50+192.168.2.51\n"
-		output="${output}и вызвать после этого kvas route refresh"
+		output=$(text_empty 'route_full_ip=192.168.1.50+192.168.2.51')
 	else
 		output=$(text_from_ips "${output}")
 	fi
