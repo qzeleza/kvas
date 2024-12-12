@@ -1413,24 +1413,6 @@ recreate_ip4tables(){
 #	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 }
 
-# Пересоздаем все необходимые правила для корректной работы VPN соединения
-recreate_vpn_rules(){
-	ready "${prefix}Очищаем все ранее созданные iptables правила для VPN."
-	ip4_firewall_flush_all_rules  &>/dev/null
-	when_ok "УСПЕШНО"
-
-	ready "${prefix}Обнуляем приоритет таблицы ID#${TABLE_ID}"
-	ip4_rule_del_priority &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-
-	ready "${prefix}Устанавливаем приоритет таблицы ID#${TABLE_ID} в значение ${PRIORITY}"
-	# Устанавливаем приоритет таблицы
-	ip4_rule_set_priority &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-
-	ready "${prefix}Создаем iptables правила для VPN соединения."
-	# Создаем правила iptables
-	ip4_mark_vpn_network &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-}
-
 
 # ------------------------------------------------------------------------------------------
 #
