@@ -78,6 +78,33 @@ case "${1}" in
 		esac	
 			;;
 
+	ssr)
+		case "${2}" in
+			new)			cmd_shadowsocks_read_new_data ;;
+			port) 			cmd_shadowsocks_local_port_change "${3}" ;;
+			reset) 			cmd_shadowsocks_iptable_reset && all_services_restart;;
+			status | *) 	cmd_vpn_status ;;
+		esac
+		;;
+
+	vpn)
+		case "${2}" in
+			set) 			cmd_interface_change no && cmd_vpn_iptable_reset &> /dev/null ;;
+			gateway) 		cmd_manual_gateway_set "${3}" && cmd_vpn_iptable_reset &> /dev/null ;;
+			reset) 			cmd_vpn_iptable_reset && all_services_restart;;
+			net | guest)
+				case "${3}" in
+					add ) 			cmd_bridge_vpn_access_add && cmd_vpn_iptable_reset &> /dev/null;;
+					del ) 			cmd_bridge_vpn_access_del && cmd_vpn_iptable_reset &> /dev/null;;
+					*) 				cmd_bridge_vpn_access_list ;;
+				esac
+				;;
+
+			rescan | scan)	cmd_scan_interface_list ;;
+			status | *) 	cmd_vpn_status ;;
+		esac
+		;;
+
 	dnsmasq)
 		case "${2}" in
 			port) 			cmd_dnsmasq_port_change "${3}" ;;
@@ -87,15 +114,6 @@ case "${1}" in
 							[ "${status}" = 0 ] && {
 								cmd_dnsmasq_listen_show;
 							} ;;
-		esac
-		;;
-
-	ssr)
-		case "${2}" in
-			new)			cmd_shadowsocks_read_new_data ;;
-			port) 			cmd_shadowsocks_local_port_change "${3}" ;;
-			reset) 			cmd_shadowsocks_iptable_reset && all_services_restart;;
-			status | *) 	cmd_vpn_status ;;
 		esac
 		;;
 
@@ -135,24 +153,6 @@ case "${1}" in
 			test)            cmd_dns_test "${3}"                ;;
 			server | remote) dns_server_install_remotely "${3}" ;;
 			*)               cmd_dnsmasq_dns_change "${2}"      ;;
-		esac
-		;;
-
-	vpn)
-		case "${2}" in
-			set) 			cmd_interface_change no && cmd_vpn_iptable_reset &> /dev/null ;;
-			gateway) 		cmd_manual_gateway_set "${3}" && cmd_vpn_iptable_reset &> /dev/null ;;
-			reset) 			cmd_vpn_iptable_reset && all_services_restart;;
-			net | guest)
-				case "${3}" in
-					add ) 			cmd_bridge_vpn_access_add && cmd_vpn_iptable_reset &> /dev/null;;
-					del ) 			cmd_bridge_vpn_access_del && cmd_vpn_iptable_reset &> /dev/null;;
-					*) 				cmd_bridge_vpn_access_list ;;
-				esac
-				;;
-
-			rescan | scan)	cmd_scan_interface_list ;;
-			status | *) 	cmd_vpn_status ;;
 		esac
 		;;
 
