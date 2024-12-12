@@ -209,7 +209,7 @@ ipset__fill_by_domain() {
 			continue
 		fi
 
-		log_warning "Обнаружен новый IP ${ip} для домена ${host} и добавлен в ipset"
+		log_warning "Добавление в IPSet ${IPSET_TABLE_NAME} ${ip} домена ${host}"
 		ipset -exist add "${IPSET_TABLE_NAME}" "${ip}"
 	done
 }
