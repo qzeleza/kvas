@@ -1677,6 +1677,24 @@ cmd_shadowsocks_iptable_flush() {
 #	Переустанавливаем правила в itables для shadowsocks клиента
 #
 # ------------------------------------------------------------------------------------------
+
+# Пересоздаем все необходимые правила для корректной работы SHADOWSOCKS соединения
+recreate_ssr_rules(){
+	ready "${prefix}Очищаем все ранее созданные iptables правила для ShadowSocks."
+	ip4_firewall_flush_proxy &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+
+	ready "${prefix}Создаём цепочку для ShadowSocks соединения."
+	ip4__shadowsocks__create_chain &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+
+	ready "${prefix}Создаём правила домашней сети для ShadowSocks."
+	ip4__shadowsocks__add_routing_for_home &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+
+	ready "${prefix}Создаём правила гостевых сетей для ShadowSocks."
+	for guest_inface in $(get_guest_inface_list_from_config) ; do
+		ip4__add_routing_by_list_for_net "${guest_inface}" &>/dev/null
+	done && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+}
+
 cmd_shadowsocks_iptable_reset() {
 
 	ready "Переустановка iptables для shadowsocks завершена"
