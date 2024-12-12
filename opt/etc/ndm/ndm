@@ -1105,39 +1105,67 @@ ip4_firewall_flush_all_rules() {
 	fi
 }
 
-# удаляем абсолютно всё с убиванием цепочек и наборов
-# необходимо при удалении или заморозки пакета
+# может прибрать всё (с убиванием цепочек и наборов)
 ip4__flush() {
+	if [ -z "${1}" ] ; then
+		local parts=' net ip jump chain table ipset '
+	else
+		local parts="${1}"
+	fi
+
+	if echo "${parts}" | grep -Fq ' net ' ; then
 	ip4__delete_routing_by_list_for_net_from_config
+	fi
+	if echo "${parts}" | grep -Fq ' ip ' ; then
 	# Для отключенного ускорения не сделает ничего, пока 
 	# оно не будет переписано на цепочки
 	ip4__delete_routing_for_ip_from_config
+	fi
 
 	if is_proxy_enabled ; then
+		if echo "${parts}" | grep -Fq ' jump ' ; then
+			ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
+		fi
+		if echo "${parts}" | grep -Fq ' chain ' ; then
 		ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
 
 		ip4__chain__delete      "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
 		ip4__ipset__destroy_reserved
+		fi
 	elif fastnet_enabled ; then
+		if echo "${parts}" | grep -Fq ' jump ' ; then
+			ip4__chain__delete_jump "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
+		fi
+		if echo "${parts}" | grep -Fq ' chain ' ; then
 		ip4__chain__delete_jump "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
 
 		ip4__chain__delete      "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
 		ip4__ipset__destroy_reserved
+		fi
 
+		if echo "${parts}" | grep -Fq ' table ' ; then
 		#ToDo: именно здесь надо удалять таблицы, их ручное удаление нужно удалить
 		# ведь только эта цепочка использовала эту таблицу
 		#ip4_rule_del_priority
 		#ip4_flush_all_tables
+		fi
 	else
 		iptables__delete_rules "${TABLE_MARK_TO_TABLE}" "-j MARK --set-mark ${MARK_NUM}"
 	fi
 
+	if echo "${parts}" | grep -Fq ' jump ' ; then
+		ip4__chain__delete_jump "${TABLE_DNS}" "${CHAIN_DNS}"
+	fi
+	if echo "${parts}" | grep -Fq ' chain ' ; then
 	# достаточно для br0, но мало ли выжили от другого роутинга
 	ip4__chain__delete_jump "${TABLE_DNS}" "${CHAIN_DNS}"
 	# входов не осталось, саму цепочку
 	ip4__chain__delete      "${TABLE_DNS}" "${CHAIN_DNS}"
+	fi
 
+	if echo "${parts}" | grep -Fq ' ipset ' ; then
 	ip4__ipset__destroy_list
+	fi
 }
 
 
