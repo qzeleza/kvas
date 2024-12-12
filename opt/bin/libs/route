@@ -81,5 +81,13 @@ cmd_route_refresh() {
 }
 
 cmd_route() {
-	echo
+	local output=$(get_config_value 'route_full_ip2')
+	if [ -z "${output}" ] ; then
+		output="Отсутствуют. Можете указать строчку в ${KVAS_CONF_FILE}\n"
+		output="${output}route_full_ip=192.168.1.50+192.168.2.51\n"
+		output="${output}и вызвать после этого kvas route refresh"
+	else
+		output="${output/+/'\n'}"
+	fi
+	echo_debug 'IP, весь трафик которых идёт в тоннель' "${output}"
 }
