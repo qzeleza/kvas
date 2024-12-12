@@ -1063,7 +1063,7 @@ ip4_firewall_flush_vpn_rules() {
 			# Во время работы удалять цепочки бессмысленно, они константны и не влияют ни на что
 			# Достаточно убрать входы туда, что сделано выше
 			# По идее, нижеидущее нужно вызывать лишь при установке или удалении
-			ip4__chain__delete "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
+			#ip4__chain__delete "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
 			#ip4__chain__delete "${TABLE_DNS}" "${CHAIN_DNS}"
 		else
 			# антиправила для ip4__vpn_nofast__set_rules
@@ -1086,7 +1086,7 @@ ip4_firewall_flush_proxy() {
 		# Во время работы удалять цепочки бессмысленно, они константны и не влияют ни на что
 		# Достаточно убрать входы туда, что сделано выше
 		# По идее, нижеидущее нужно вызывать лишь при установке или удалении
-		ip4__chain__delete "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
+		#ip4__chain__delete "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
 		#ip4__chain__delete "${TABLE_DNS}" "${CHAIN_DNS}"
 	} &>/dev/null
 }
