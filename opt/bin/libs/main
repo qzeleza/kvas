@@ -174,10 +174,6 @@ is_dns_server_online(){
     netstat -tunpxl | grep -q ":${dns_port} "
 }
 
-# доступность DNS сервера
-DNS_ENABLE=false
-DNS_DEFAULT=''
-
 dns__get_ips_by_domain() {
 	if [ -z "${1}" ]; then
 		error "[${FUNCNAME}] Не передан обязательный параметр — имя домена"
@@ -188,7 +184,11 @@ dns__get_ips_by_domain() {
 	get_iplist_from_domain "${host}" | grep -Eo "${IP_FILTER}" | grep -v '0.0.0.0'
 }
 
-add_host_by_iplist_to_ipset() {
+ipset__fill_by_domain() {
+	if [ -z "${1}" ]; then
+		error "[${FUNCNAME}] Не передан обязательный параметр — имя домена"
+		return
+	fi
 	# удаление * если есть
 	host=${1//\*/}
 
@@ -207,6 +207,10 @@ add_host_by_iplist_to_ipset() {
 		ipset -exist add "${IPSET_TABLE_NAME}" "${ip}"
 	done
 }
+
+# доступность DNS сервера
+DNS_ENABLE=false
+DNS_DEFAULT=''
 
 get_iplist_from_domain(){
 #---------------------------------------------------------------------------------

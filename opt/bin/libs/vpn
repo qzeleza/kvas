@@ -2609,7 +2609,7 @@ host_add() {
 		# если это одиночное добавление, то можем
 		# прогреть переданный домен (без под*), 
 		# чтобы пользователю не пришлось сбрасывать кэш DNS
-		add_host_by_iplist_to_ipset "${clear_host}" &> /dev/null
+		ipset__fill_by_domain "${clear_host}" &> /dev/null
 	fi
 
 	[ $? = 0 ] && when_ok "ДОБАВЛЕН" || when_bad "НЕ ДОБАВЛЕН"
