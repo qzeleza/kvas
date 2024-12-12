@@ -978,6 +978,12 @@ cmd_bridge_vpn_access_list() {
 #
 # ------------------------------------------------------------------------------------------
 
+del_ikev2_net_from_config(){
+		has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;'| sed 's/[ ,]//g')
+        [ -n "${has_guest_nets}" ] && point=',' || point=''
+        sed -i '/INFACE_GUEST_ENT=/,/^$/ s/ikev2[,]\{0,1\}//; s/[ ]//g' "${KVAS_CONF_FILE}"
+}
+
 ikev2_net_access_del() {
 	ready "Удаление интерфейса \"VPN-сервер IKEv2\" завершено" && {
 		ip4__delete_routing_by_list_for_net 'ikev2'
