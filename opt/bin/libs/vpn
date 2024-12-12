@@ -1048,6 +1048,20 @@ bridge_access_add() {
         [ $? = 0 ] && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 }
 
+ikev2_net_access_add() {
+	local ikev2_settings=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
+
+	# вероятное изменение настроек роутера
+	ikev2_setup "${ikev2_settings}"
+
+	local net_pool=$(echo "${ikev2_settings}" | grep -F -- 'pool-start' | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+	ready "Добавление гостевого интерфейса \"VPN-сервер IKEv2\" [${net_pool}] завершено" && {
+		ip4__add_routing_by_list_for_net 'ikev2'
+
+		# сохранение в конфигурацию КВАС
+		add_ikev2_net_to_config
+	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
+}
 
 bridge_vpn_access_add() {
 	guest_bridge_id=${1}
