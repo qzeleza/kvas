@@ -1,13 +1,13 @@
 #!/bin/sh
 
-. /opt/apps/kvas/bin/libs/vpn
 . /opt/apps/kvas/bin/libs/check
-. /opt/apps/kvas/bin/libs/update
 . /opt/apps/kvas/bin/libs/hosts
 . /opt/apps/kvas/bin/libs/route
-. /opt/apps/kvas/bin/main/setup
 . /opt/apps/kvas/bin/libs/tags
+. /opt/apps/kvas/bin/libs/update
 . /opt/apps/kvas/bin/libs/vless
+. /opt/apps/kvas/bin/libs/vpn
+. /opt/apps/kvas/bin/main/setup
 
 #------------------------------------------------------------------------------
 #
