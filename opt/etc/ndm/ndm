@@ -725,10 +725,10 @@ ip4__add_routing() {
 		return
 	fi
 	local iptables_filter="${3}"
+	local submessage=" критерию ${iptables_filter}"
 
 	# перехват DNS
 	ip4__dns__add_routing "${iptables_filter}"
-	local submessage=" критерию ${iptables_filter}"
 
 	if [ -z "${1}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
@@ -746,8 +746,8 @@ ip4__add_routing() {
 	if [ -n "${4}" ] ; then
 		local ipset_list="${4}"
 
-		submessage=" ipset ${ipset_list} и${submessage}"
 		iptables_filter="${iptables_filter} -m set --match-set ${ipset_list} dst"
+		submessage=" ipset ${ipset_list} и${submessage}"
 
 		# т.к. используется в правиле, то лучше бы проверить наличие
 		ip4__ipset__create "${ipset_list}" "$(get_config_value TTL_TIMEOUT)"
@@ -803,10 +803,10 @@ ip4__delete_routing() {
 		return
 	fi
 	local iptables_filter="${3}"
+	local submessage=" критерию ${iptables_filter}"
 
 	# перехват DNS
 	ip4__dns__delete_routing "${iptables_filter}"
-	local submessage=" критерию ${iptables_filter}"
 
 	if [ -z "${1}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
@@ -824,8 +824,8 @@ ip4__delete_routing() {
 	if [ -n "${4}" ] ; then
 		local ipset_list="${4}"
 
-		submessage=" ipset ${ipset_list} и${submessage}"
 		iptables_filter="${iptables_filter} -m set --match-set ${ipset_list} dst"
+		submessage=" ipset ${ipset_list} и${submessage}"
 	fi
 
 	if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${chain_name}" ; then
