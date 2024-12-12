@@ -1115,10 +1115,14 @@ ip4__flush() {
 
 	if is_proxy_enabled ; then
 		ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
+
 		ip4__chain__delete      "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
+		ip4__ipset__destroy_reserved
 	elif fastnet_enabled ; then
 		ip4__chain__delete_jump "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
+
 		ip4__chain__delete      "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
+		ip4__ipset__destroy_reserved
 
 		#ToDo: именно здесь надо удалять таблицы, их ручное удаление нужно удалить
 		# ведь только эта цепочка использовала эту таблицу
@@ -1134,7 +1138,6 @@ ip4__flush() {
 	ip4__chain__delete      "${TABLE_DNS}" "${CHAIN_DNS}"
 
 	ip4__ipset__destroy_list
-	ip4__ipset__destroy_reserved
 }
 
 
