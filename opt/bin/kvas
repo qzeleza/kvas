@@ -114,6 +114,7 @@ case "${1}" in
 	route)
 		case "${2}" in
 			refresh | recreate) cmd_route_refresh ;;
+			*)                  cmd_route         ;;
 		esac
 		;;
 

@@ -79,3 +79,7 @@ cmd_route_refresh() {
 	ip4_firewall_set_all_rules
 	echo 'сделано.'
 }
+
+cmd_route() {
+	echo
+}
