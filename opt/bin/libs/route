@@ -80,6 +80,13 @@ cmd_route_refresh() {
 	echo 'сделано.'
 }
 
+route__ips_known() {
+	if [ -z "${IPS_KNOWN}" ] ; then
+		IPS_KNOWN=$(curl -s 127.0.0.1:79/rci/show/ip/dhcp/bindings | jq -r '.lease[] | "\(.ip)|\(.name)"')
+	fi
+	echo "${IPS_KNOWN}"
+}
+
 text_empty() {
 	if [ -z "${1}" ] ; then
 		error "[${FUNCNAME}] Не передан обязательный параметр — строка настроек"
@@ -136,4 +143,13 @@ cmd_route() {
 		output=$(text_from_ips "${output}")
 	fi
 	echo_debug 'IP, исключённые из перехвата DNS и трафика' "${output}"
+
+	output=$(route__ips_known)
+	if [ -z "${output}" ] ; then
+		output=$(printf '%s\n' \
+			'Отсутствуют. В админке роутера закрепите постоянный IP-адрес за любым устройством,' \
+			'чтобы использовать его здесь.' \
+		)
+	fi
+	echo_debug 'Зарегистрированные клиенты c постоянным IP-адресом' "${output}"
 }
