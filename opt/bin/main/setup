@@ -135,7 +135,7 @@ cmd_pause_kvas(){
 
 	ready "Временно приостановливаем работу Кваса..."
 	{
-		ip4__flush_full
+		ip4__flush &> /dev/null
 
 		ip4_flush_all_tables
 		route_del
@@ -327,7 +327,7 @@ set_previous_condition(){
 	# 	ОЧИЩЕНИЕ ВСЕХ ПРАВИЛ И ТАБЛИЦ
 	#------------------------------------------------------
 	ready "Очищаем все правила и таблицы..."
-	ip4__flush_full &>/dev/null
+	ip4__flush &> /dev/null
 	ip4_flush_all_tables &>/dev/null
 	if [ $? = 0 ]; then when_ok "УСПЕШНО"; else when_bad "ОШИБКА"; fi
 

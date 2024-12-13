@@ -4,6 +4,7 @@
 . /opt/apps/kvas/bin/libs/check
 . /opt/apps/kvas/bin/libs/update
 . /opt/apps/kvas/bin/libs/hosts
+. /opt/apps/kvas/bin/libs/route
 . /opt/apps/kvas/bin/main/setup
 . /opt/apps/kvas/bin/libs/tags
 . /opt/apps/kvas/bin/libs/vless
@@ -107,6 +108,13 @@ case "${1}" in
 				exit 0
 				;;
 			*) 				cmd_adguardhome_status ;;
+		esac
+		;;
+
+	route)
+		case "${2}" in
+			refresh | recreate) cmd_route_refresh ;;
+			*)                  cmd_route         ;;
 		esac
 		;;
 
