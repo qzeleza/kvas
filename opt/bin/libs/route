@@ -99,6 +99,14 @@ text_from_ips() {
 	echo "${1/+/'\n'}"
 }
 
+text_from_nets() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не передан обязательный параметр — строка"
+		return
+	fi
+	echo "${1/ /'\n'}"
+}
+
 cmd_route() {
 	local output
 
@@ -117,6 +125,9 @@ cmd_route() {
 		output=$(text_from_ips "${output}")
 	fi
 	echo_debug 'IP с перехватом DNS, трафик которых идёт в тоннель согласно списку' "${output}"
+
+	output="br0 $(get_guest_inface_list_from_config)"
+	echo_debug 'Сети с перехватом DNS, трафик которых идёт в тоннель согласно списку' $(text_from_nets "${output}")
 
 	output=$(get_config_value 'route_excluded_ip')
 	if [ -z "${output}" ] ; then
