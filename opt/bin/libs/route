@@ -89,7 +89,7 @@ cmd_route_refresh() {
 	echo 'сделано.'
 }
 
-text_empty() {
+route__text_empty() {
 	if [ -z "${1}" ] ; then
 		error "[${FUNCNAME}] Не передан обязательный параметр — строка настроек"
 		return
@@ -100,7 +100,7 @@ text_empty() {
 	echo 'и вызвать после этого kvas route refresh'
 }
 
-text_from_ips() {
+route__text_from_ips() {
 	if [ -z "${1}" ] ; then
 		error "[${FUNCNAME}] Не передан обязательный параметр — строка"
 		return
@@ -117,7 +117,7 @@ text_from_ips() {
 	done
 }
 
-text_from_nets() {
+route__text_from_nets() {
 	if [ -z "${1}" ] ; then
 		error "[${FUNCNAME}] Не передан обязательный параметр — строка"
 		return
@@ -130,28 +130,28 @@ cmd_route() {
 
 	output=$(get_config_value 'route_full_ip')
 	if [ -z "${output}" ] ; then
-		output=$(text_empty 'route_full_ip=192.168.1.51+192.168.2.51')
+		output=$(route__text_empty 'route_full_ip=192.168.1.51+192.168.2.51')
 	else
-		output=$(text_from_ips "${output}")
+		output=$(route__text_from_ips "${output}")
 	fi
 	echo_debug 'IP, весь трафик которых идёт в тоннель' "${output}"
 
 	output=$(get_config_value 'route_by_list_ip')
 	if [ -z "${output}" ] ; then
-		output=$(text_empty 'route_by_list_ip=192.168.2.52+192.168.2.53')
+		output=$(route__text_empty 'route_by_list_ip=192.168.2.52+192.168.2.53')
 	else
-		output=$(text_from_ips "${output}")
+		output=$(route__text_from_ips "${output}")
 	fi
 	echo_debug 'IP с перехватом DNS, трафик которых идёт в тоннель согласно списку' "${output}"
 
 	output="br0 $(get_guest_inface_list_from_config)"
-	echo_debug 'Сети с перехватом DNS, трафик которых идёт в тоннель согласно списку' $(text_from_nets "${output}")
+	echo_debug 'Сети с перехватом DNS, трафик которых идёт в тоннель согласно списку' $(route__text_from_nets "${output}")
 
 	output=$(get_config_value 'route_excluded_ip')
 	if [ -z "${output}" ] ; then
-		output=$(text_empty 'route_excluded_ip=192.168.1.52+192.168.1.53')
+		output=$(route__text_empty 'route_excluded_ip=192.168.1.52+192.168.1.53')
 	else
-		output=$(text_from_ips "${output}")
+		output=$(route__text_from_ips "${output}")
 	fi
 	echo_debug 'IP, исключённые из перехвата DNS и трафика' "${output}"
 
