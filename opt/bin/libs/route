@@ -103,7 +103,16 @@ text_from_ips() {
 		error "[${FUNCNAME}] Не передан обязательный параметр — строка"
 		return
 	fi
-	echo "${1//+/'\n'}"
+
+	local find
+	for ip_or_range in ${1//+/ } ; do
+		find=$( echo "$(route__ips_known)" | grep -F -- "${ip_or_range} " )
+		if [ -n "${find}" ] ; then
+			echo "${find}"
+		else
+			echo "${ip_or_range}"
+		fi
+	done
 }
 
 text_from_nets() {
