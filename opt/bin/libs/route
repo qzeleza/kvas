@@ -2,6 +2,15 @@
 
 . /opt/apps/kvas/bin/libs/main
 
+IPS_KNOWN=''
+get_ips_known() {
+	# функциональная замена Singleton
+	if [ -z "${IPS_KNOWN}" ] ; then
+		IPS_KNOWN=$(curl -s 127.0.0.1:79/rci/show/ip/dhcp/bindings | jq -r '.lease[] | "\(.ip) \(.name)"')
+	fi
+	echo "${IPS_KNOWN}"
+}
+
 # ------------------------------------------------------------------------------------------
 #
 # 	 Записываем данные маршрута по умолчанию в файл конфигурации
@@ -80,13 +89,6 @@ cmd_route_refresh() {
 	echo 'сделано.'
 }
 
-route__ips_known() {
-	if [ -z "${IPS_KNOWN}" ] ; then
-		IPS_KNOWN=$(curl -s 127.0.0.1:79/rci/show/ip/dhcp/bindings | jq -r '.lease[] | "\(.ip) \(.name)"')
-	fi
-	echo "${IPS_KNOWN}"
-}
-
 text_empty() {
 	if [ -z "${1}" ] ; then
 		error "[${FUNCNAME}] Не передан обязательный параметр — строка настроек"
@@ -106,7 +108,7 @@ text_from_ips() {
 
 	local find
 	for ip_or_range in ${1//+/ } ; do
-		find=$( echo "$(route__ips_known)" | grep -F -- "${ip_or_range} " )
+		find=$( echo "$(get_ips_known)" | grep -F -- "${ip_or_range} " )
 		if [ -n "${find}" ] ; then
 			echo "${find}"
 		else
@@ -153,7 +155,7 @@ cmd_route() {
 	fi
 	echo_debug 'IP, исключённые из перехвата DNS и трафика' "${output}"
 
-	output=$(route__ips_known)
+	output=$(get_ips_known)
 	if [ -z "${output}" ] ; then
 		output=$(printf '%s\n' \
 			'Отсутствуют. В админке роутера закрепите постоянный IP-адрес за любым устройством,' \
