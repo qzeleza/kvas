@@ -725,9 +725,6 @@ ip4__add_routing() {
 		return
 	fi
 	local iptables_filter="${3}"
-
-	# перехват DNS
-	ip4__dns__add_routing "${iptables_filter}"
 	local submessage=" критерию ${iptables_filter}"
 
 	if [ -z "${1}" ] ; then
@@ -746,11 +743,14 @@ ip4__add_routing() {
 	if [ -n "${4}" ] ; then
 		local ipset_list="${4}"
 
-		submessage=" ipset ${ipset_list} и${submessage}"
-		iptables_filter="${iptables_filter} -m set --match-set ${ipset_list} dst"
-
-		# т.к. используется в правиле, то лучше бы проверить наличие
+		# т.к. используется DNS'ом и в правиле, то лучше бы проверить наличие
 		ip4__ipset__create "${ipset_list}" "$(get_config_value TTL_TIMEOUT)"
+
+		# перехват DNS нужен только при фильтрации по IPSet
+		ip4__dns__add_routing "${iptables_filter}"
+
+		iptables_filter="${iptables_filter} -m set --match-set ${ipset_list} dst"
+		submessage=" ipset ${ipset_list} и${submessage}"
 	fi
 
 	if iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${chain_name}" ; then
@@ -803,9 +803,6 @@ ip4__delete_routing() {
 		return
 	fi
 	local iptables_filter="${3}"
-
-	# перехват DNS
-	ip4__dns__delete_routing "${iptables_filter}"
 	local submessage=" критерию ${iptables_filter}"
 
 	if [ -z "${1}" ] ; then
@@ -824,8 +821,11 @@ ip4__delete_routing() {
 	if [ -n "${4}" ] ; then
 		local ipset_list="${4}"
 
-		submessage=" ipset ${ipset_list} и${submessage}"
+		# перехват DNS нужен только при фильтрации по IPSet
+		ip4__dns__delete_routing "${iptables_filter}"
+
 		iptables_filter="${iptables_filter} -m set --match-set ${ipset_list} dst"
+		submessage=" ipset ${ipset_list} и${submessage}"
 	fi
 
 	if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${chain_name}" ; then
@@ -1063,7 +1063,7 @@ ip4_firewall_flush_vpn_rules() {
 			# Во время работы удалять цепочки бессмысленно, они константны и не влияют ни на что
 			# Достаточно убрать входы туда, что сделано выше
 			# По идее, нижеидущее нужно вызывать лишь при установке или удалении
-			ip4__chain__delete "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
+			#ip4__chain__delete "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
 			#ip4__chain__delete "${TABLE_DNS}" "${CHAIN_DNS}"
 		else
 			# антиправила для ip4__vpn_nofast__set_rules
@@ -1086,7 +1086,7 @@ ip4_firewall_flush_proxy() {
 		# Во время работы удалять цепочки бессмысленно, они константны и не влияют ни на что
 		# Достаточно убрать входы туда, что сделано выше
 		# По идее, нижеидущее нужно вызывать лишь при установке или удалении
-		ip4__chain__delete "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
+		#ip4__chain__delete "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
 		#ip4__chain__delete "${TABLE_DNS}" "${CHAIN_DNS}"
 	} &>/dev/null
 }
@@ -1105,42 +1105,73 @@ ip4_firewall_flush_all_rules() {
 	fi
 }
 
-# удаляем абсолютно всё с убиванием цепочек и наборов
-# необходимо при удалении или заморозки пакета
-ip4__flush_full() {
-	ip4__delete_routing_by_list_for_net_from_config
-	# Для отключенного ускорения не сделает ничего, пока 
-	# оно не будет переписано на цепочки
-	ip4__delete_routing_for_ip_from_config
+# может прибрать всё (с убиванием цепочек и наборов)
+ip4__flush() {
+	if [ -z "${1}" ] ; then
+		local parts=' net ip jump chain table ipset '
+	else
+		local parts=" ${1} "
+	fi
+
+	if echo "${parts}" | grep -Fq ' net ' ; then
+		ip4__delete_routing_by_list_for_net_from_config
+	fi
+	if echo "${parts}" | grep -Fq ' ip ' ; then
+		# Для отключенного ускорения не сделает ничего, пока 
+		# оно не будет переписано на цепочки
+		ip4__delete_routing_for_ip_from_config
+	fi
 
 	if is_proxy_enabled ; then
-		ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
-		ip4__chain__delete      "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
-	elif fastnet_enabled ; then
-		ip4__chain__delete_jump "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
-		ip4__chain__delete      "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
+		if echo "${parts}" | grep -Fq ' jump ' ; then
+			ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
+		fi
+		if echo "${parts}" | grep -Fq ' chain ' ; then
+			ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
 
-		#ToDo: именно здесь надо удалять таблицы, их ручное удаление нужно удалить
-		# ведь только эта цепочка использовала эту таблицу
-		#ip4_rule_del_priority
-		#ip4_flush_all_tables
+			ip4__chain__delete      "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
+			ip4__ipset__destroy_reserved
+		fi
+	elif fastnet_enabled ; then
+		if echo "${parts}" | grep -Fq ' jump ' ; then
+			ip4__chain__delete_jump "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
+		fi
+		if echo "${parts}" | grep -Fq ' chain ' ; then
+			ip4__chain__delete_jump "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
+
+			ip4__chain__delete      "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
+			ip4__ipset__destroy_reserved
+		fi
+
+		#if echo "${parts}" | grep -Fq ' table ' ; then
+			#ToDo: именно здесь надо удалять таблицы, их ручное удаление нужно удалить
+			# ведь только эта цепочка использовала эту таблицу
+			#ip4_rule_del_priority
+			#ip4_flush_all_tables
+		#fi
 	else
 		iptables__delete_rules "${TABLE_MARK_TO_TABLE}" "-j MARK --set-mark ${MARK_NUM}"
 	fi
 
-	# достаточно для br0, но мало ли выжили от другого роутинга
-	ip4__chain__delete_jump "${TABLE_DNS}" "${CHAIN_DNS}"
-	# входов не осталось, саму цепочку
-	ip4__chain__delete      "${TABLE_DNS}" "${CHAIN_DNS}"
+	if echo "${parts}" | grep -Fq ' jump ' ; then
+		ip4__chain__delete_jump "${TABLE_DNS}" "${CHAIN_DNS}"
+	fi
+	if echo "${parts}" | grep -Fq ' chain ' ; then
+		ip4__chain__delete_jump "${TABLE_DNS}" "${CHAIN_DNS}"
 
-	ip4__ipset__destroy_list
-	ip4__ipset__destroy_reserved
+		ip4__chain__delete      "${TABLE_DNS}" "${CHAIN_DNS}"
+	fi
+
+	if echo "${parts}" | grep -Fq ' ipset ' ; then
+		ip4__ipset__destroy_list
+	fi
 }
 
 
 # ------------------------------------------------------------------------------------------
 #
 # Всё, касающееся ip route и ip rule
+# ToDo: рефакторинг
 #
 # ------------------------------------------------------------------------------------------
 
@@ -1275,75 +1306,7 @@ ip4_flush_all_tables(){
 
 # ------------------------------------------------------------------------------------------
 #
-# Блок функций IKEv2
-# Имеют человеческий вывод, не выглядят системщиной для этого файла
-#
-# ------------------------------------------------------------------------------------------
-
-ikev2_setup() {
-	ikev2_data="${1}"
-	enable=${2:-true}
-
-	ikev2_dns=$(get_router_ip)
-	#TODO: вынести получение параметра в функцию
-	dns_server=$(echo "${ikev2_data}" | grep -F -- 'dns-server' | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-	enable=$(echo "${ikev2_data}"     | grep -F    'enable'     | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-	nat=$(echo "${ikev2_data}"        | grep -F    'nat'        | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-	if [ "${dns_server}" != "${ikev2_dns}" ] || [ "${enable}" != true ] || [ "${nat}" != true ] ; then
-		# Если DNS отличен от IP роутера, или интерфейс, или NAT отключены
-		pool_size=$(echo "${ikev2_data}"   | grep -F -- 'pool-size'   | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-		pool_start=$(echo "${ikev2_data}"  | grep -F -- 'pool-start'  | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-		multi_login=$(echo "${ikev2_data}" | grep -F -- 'multi-login' | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-		sa_compat=$(echo "${ikev2_data}"   | grep -F -- 'sa-compat'   | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-
-		curl -s -d '{"enable": '"${enable}"', "nat": true, "dns-server": "'"${ikev2_dns}"'", "pool-size": "'"${pool_size}"'", "pool-start": "'"${pool_start}"'", "multi-login": "'"${multi_login}"'", "sa-compat": "'"${sa_compat}"'"}' \
-		 "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2" &> /dev/null
-		sleep 1
-	fi
-}
-
-del_all_net_from_config(){
-        sed -i 's/\(INFACE_GUEST_ENT=\).*/\1/; s/[ ,]//g' "${KVAS_CONF_FILE}"
-}
-
-del_ikev2_net_from_config(){
-		has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;'| sed 's/[ ,]//g')
-        [ -n "${has_guest_nets}" ] && point=',' || point=''
-        sed -i '/INFACE_GUEST_ENT=/,/^$/ s/ikev2[,]\{0,1\}//; s/[ ]//g' "${KVAS_CONF_FILE}"
-}
-
-add_ikev2_net_to_config(){
-        has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;'| sed 's/[ ]//g')
-        [ -n "${has_guest_nets}" ] && point=',' || point=''
-        del_ikev2_net_from_config
-        sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}ikev2/g; s/[ ]//g" "${KVAS_CONF_FILE}"
-}
-
-ikev2_net_access_add() {
-	local ikev2_settings=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
-
-	# вероятное изменение настроек роутера
-	ikev2_setup "${ikev2_settings}"
-
-	local net_pool=$(echo "${ikev2_settings}" | grep -F -- 'pool-start' | cut -d':' -f2 | sed 's/[\,\" ]//g;')
-	ready "Добавление гостевого интерфейса \"VPN-сервер IKEv2\" [${net_pool}] завершено" && {
-		ip4__add_routing_by_list_for_net 'ikev2'
-
-		# сохранение в конфигурацию КВАС
-		add_ikev2_net_to_config
-	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
-}
-
-ikev2_net_access_del() {
-	ready "Удаление интерфейса \"VPN-сервер IKEv2\" завершено" && {
-		ip4__delete_routing_by_list_for_net 'ikev2'
-	} && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
-}
-
-
-# ------------------------------------------------------------------------------------------
-#
-# 	Вызываются из файла vpn, правильнее унести туда же
+# 	Вызываются из файла vpn и зависимых от ndm_d
 # 	Имеют человеческий вывод, не выглядят системщиной для этого файла
 #
 # ------------------------------------------------------------------------------------------
@@ -1369,59 +1332,6 @@ cmd_vpn_iptable_reset() {
 cmd_vpn_iptable_flush() {
 	ready "Очистка iptables для vpn завершена"
 	ip4_firewall_flush_vpn_rules && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
-}
-
-# Пересоздаем все ранее созданные таблицы для утилит ipset и ip
-recreate_ip4tables(){
-
-	ready "${prefix}Удаляем все ранее созданные таблицы для утилит ipset и ip"
-	ip4_flush_all_tables &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-
-#	ready "${prefix}Создаем таблицу маршрутизации ID#${TABLE_ID} для '$(inface_cli)'."
-#	#	Создаем таблицу IP адресов для  VPN подключения отличного от shadowsocks
-#	ip4_add_route_table &> /dev/null
-#	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-}
-
-# Пересоздаем все необходимые правила для корректной работы VPN соединения
-recreate_vpn_rules(){
-	ready "${prefix}Очищаем все ранее созданные iptables правила для VPN."
-	ip4_firewall_flush_all_rules  &>/dev/null
-	when_ok "УСПЕШНО"
-
-	ready "${prefix}Обнуляем приоритет таблицы ID#${TABLE_ID}"
-	ip4_rule_del_priority &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-
-	ready "${prefix}Устанавливаем приоритет таблицы ID#${TABLE_ID} в значение ${PRIORITY}"
-	# Устанавливаем приоритет таблицы
-	ip4_rule_set_priority &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-
-	ready "${prefix}Создаем iptables правила для VPN соединения."
-	# Создаем правила iptables
-	ip4_mark_vpn_network &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-}
-
-# Пересоздаем все необходимые правила для корректной работы SHADOWSOCKS соединения
-recreate_ssr_rules(){
-	ready "${prefix}Очищаем все ранее созданные iptables правила для ShadowSocks."
-	ip4_firewall_flush_proxy &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-
-	ready "${prefix}Создаём цепочку для ShadowSocks соединения."
-	ip4__shadowsocks__create_chain &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-
-	ready "${prefix}Создаём правила домашней сети для ShadowSocks."
-	ip4__shadowsocks__add_routing_for_home &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-
-	ready "${prefix}Создаём правила гостевых сетей для ShadowSocks."
-	for guest_inface in $(get_guest_inface_list_from_config) ; do
-		ip4__add_routing_by_list_for_net "${guest_inface}" &>/dev/null
-	done && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-}
-
-# Пересоздаем таблицу ipset для AdGuard Home и перезапускаем сервис
-refresh_adguard_ipset_table(){
-	ready "${prefix}Заполняем AdGuard таблицу данными из защищенного списка."
-	/opt/apps/kvas/bin/main/adguard &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 }
 
 

@@ -4,6 +4,7 @@
 . /opt/apps/kvas/bin/libs/check
 . /opt/apps/kvas/bin/libs/update
 . /opt/apps/kvas/bin/libs/hosts
+. /opt/apps/kvas/bin/libs/route
 . /opt/apps/kvas/bin/main/setup
 . /opt/apps/kvas/bin/libs/tags
 . /opt/apps/kvas/bin/libs/vless
@@ -110,6 +111,13 @@ case "${1}" in
 		esac
 		;;
 
+	route)
+		case "${2}" in
+			refresh | recreate) cmd_route_refresh ;;
+			*)                  cmd_route         ;;
+		esac
+		;;
+
 	hosts)
 		case "${2}" in
 			add ) 			cmd_hosts_one_add "${3}" "${4}" ;;
@@ -122,9 +130,10 @@ case "${1}" in
 
 	dns)
 		case "${2}" in
-			server) 		dns_server_install_remotely "${3}" ;;
-			test) 			cmd_dns_test "${3}";;
-			*) 				cmd_dnsmasq_dns_change "${2}" ;;
+			debug)           cmd_debug_dns                      ;;
+			test)            cmd_dns_test "${3}"                ;;
+			server | remote) dns_server_install_remotely "${3}" ;;
+			*)               cmd_dnsmasq_dns_change "${2}"      ;;
 		esac
 		;;
 
@@ -180,7 +189,7 @@ case "${1}" in
 			clear | flush) cmd_ipset_flush      ;;
 			refill)        cmd_ipset_refill     ;;
 			add)           cmd_ipset_add "${3}" ;;
-			*)             cmd_ipset            ;;
+			*)             cmd_ipset "${2}"     ;;
 		esac
 		;;
 
