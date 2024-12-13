@@ -82,7 +82,7 @@ cmd_route_refresh() {
 
 route__ips_known() {
 	if [ -z "${IPS_KNOWN}" ] ; then
-		IPS_KNOWN=$(curl -s 127.0.0.1:79/rci/show/ip/dhcp/bindings | jq -r '.lease[] | "\(.ip)|\(.name)"')
+		IPS_KNOWN=$(curl -s 127.0.0.1:79/rci/show/ip/dhcp/bindings | jq -r '.lease[] | "\(.ip) \(.name)"')
 	fi
 	echo "${IPS_KNOWN}"
 }
@@ -150,6 +150,8 @@ cmd_route() {
 			'Отсутствуют. В админке роутера закрепите постоянный IP-адрес за любым устройством,' \
 			'чтобы использовать его здесь.' \
 		)
+	else
+		output=$(echo "${output}" | xargs -n2 printf '%-15s | %s\n')
 	fi
 	echo_debug 'Зарегистрированные клиенты c постоянным IP-адресом' "${output}"
 }
