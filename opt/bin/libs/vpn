@@ -2331,18 +2331,14 @@ refresh_dnsmasq_ipset_table(){
 #
 # ------------------------------------------------------------------------------------------
 get_dns_crypt_status() {
-	crypt_port=$(get_config_value DNS_CRYPT_PORT)
-	if [ -f '/opt/sbin/dnscrypt-proxy' ] &&
-		cat < '/opt/apps/kvas/bin/main/ipset_domain' | grep '@' | grep -q "${crypt_port}" &&
-		cat < '/opt/apps/kvas/bin/main/dnsmasq' | grep -q 'server' &&
-		netstat -tulnp 2> /dev/null | grep -q dnscrypt; then
-
+	# отправляется ли DNS сайтов вне списка в DNSCrypt
+	if grep -Fq "server=127.0.0.1#$(get_config_value DNS_CRYPT_PORT)" "${DNSMASQ_CONFIG}" ; then
 		echo on
 	else
 		echo off
 	fi
-
 }
+
 # ------------------------------------------------------------------------------------------
 #
 #	 Устанавливаем с нуля dnscrypt_proxy2
@@ -2461,8 +2457,6 @@ cmd_dns_crypt_off() {
 			crypt_port=$(get_config_value DNS_CRYPT_PORT)
 			static_dns=$(get_config_value DNS_STATIC_1)
 
-			sed -i "s/\(@.*\)\(:[0-9]\{2,6\}\)/@localhost/g" '/opt/apps/kvas/bin/main/ipset_domain'
-
 			sed -i "s/\(^server=\)${LOCALHOST_IP}#${crypt_port}/\1${static_dns}/" /opt/etc/dnsmasq.conf
 			sed -i 's/.*\(filter-rr.*\)/\1/' /opt/etc/dnsmasq.conf
 
@@ -2471,10 +2465,8 @@ cmd_dns_crypt_off() {
 			sed -i 's/\(done.*\)/\t'"${server_echo}"'\n\n\1/g' '/opt/apps/kvas/bin/main/dnsmasq'
 
 			rm "${DNSMASQ_IPSET_HOSTS}"
-			_dns=$(cat < "${DNSMASQ_CONFIG}" | sed -n 's/^server=\(.*\)$/\1/p')
 
-			set_config_value DNS_DEFAULT "${_dns}#${MAIN_DNS_PORT}"
-			set_config_value DNS_CRYPT_PORT "${crypt_port}"
+			set_config_value DNS_DEFAULT "${static_dns}#53"
 
 			# множество конфигов должно обновиться и службы перезапуститься
 			cmd_kvas_init 'no'
@@ -2628,7 +2620,7 @@ host_add() {
 		# если это одиночное добавление, то можем
 		# прогреть переданный домен (без под*), 
 		# чтобы пользователю не пришлось сбрасывать кэш DNS
-		add_host_by_iplist_to_ipset "${clear_host}" &> /dev/null
+		ipset__fill_by_domain "${clear_host}" &> /dev/null
 	fi
 
 	[ $? = 0 ] && when_ok "ДОБАВЛЕН" || when_bad "НЕ ДОБАВЛЕН"
@@ -2657,9 +2649,6 @@ cmd_add_one_host() {
 	else
 		host=$(echo "${1}" | sed 's/\*//;' | sed -n -E 's|^(https?://)?([^/]+).*|\2|p')
 	fi
-
-	# Выходим из функции при отуствии интернет-соединения или VPN
-	exit_when_no_internet_or_vpn || exit 1 
 
 	# Если первый параметр пуст или равен 'tags', то 
 	# делаем запрос на выбор закваски и добавляем все доменные имена из закваски в список защиты
@@ -2764,11 +2753,8 @@ cmd_add_one_host() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_del_one_host() {
-	
 	local host_="${1}"
-	# Выходим из функции при отуствии интернет-соединения или VPN
-	exit_when_no_internet_or_vpn || exit 1 
-	
+
 	# Если первый параметр пуст или равен 'tags', то 
 	# делаем запрос на выбор закваски и добавляем все доменные имена из закваски в список защиты
 	[ -z "${host_}" ] || [ "${host_}" = tags ] && {
@@ -2776,23 +2762,38 @@ cmd_del_one_host() {
 		return 0
 	}
 
-
 	if cat < "${KVAS_LIST_FILE}" | grep -qe "${host_}$" ; then
 		ready "Удаляем ${YELLOW}${host_}${NOCL} из списка защищенных..."
 		sed -i "/${host_////\\/}/d" "${KVAS_LIST_FILE}"
 
 		cmd_adguardhome_status | grep -q ВКЛЮЧЕН && sed -i "/${host_////\\/}/d" "${ADGUARD_IPSET_FILE}"
 		cmd_kvas_init  &> /dev/null
-#		cmd_kvas_init  "refresh"  &> /dev/null
 		[ $? = 0 ] && when_ok "УДАЛЕН" || when_bad "НЕ УДАЛЕН"
-		#	если включен блокировщик рекламы
+
+		# если включен блокировщик рекламы
 		if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
 			ready "Удаляем ${YELLOW}${host_}${NOCL} из списка блокировки рекламы..."
 			/opt/apps/kvas/bin/main/adblock &> /dev/null
 			[ $? = 0 ] && when_ok "УДАЛЕН" || when_bad "НЕ УДАЛЕН"
 		fi
-		cmd_vpn_iptable_reset &> /dev/null
 
+		if echo "${host_}" | grep -qE -- "$(get_regexp_ip_or_range)" ; then
+			# если строка IP, диапазон или маска
+			ipset -exist del "${IPSET_TABLE_NAME}" "${host_}" &>/dev/null
+		else
+			local ip_list=$( dns__get_ips_by_domain "${host_}" )
+			if [ -n "${ip_list}" ]; then
+				for ip in ${ip_list}; do
+					# если нет в списке
+					if ! ipset list "${IPSET_TABLE_NAME}" | grep -qE "^${ip} " ; then
+						continue
+					fi
+
+					log_warning "Удаление из IPSet ${IPSET_TABLE_NAME} ${ip} домена ${host_}"
+					ipset -exist del "${IPSET_TABLE_NAME}" "${ip}" &>/dev/null
+				done
+			fi
+		fi
 	else
 		error "Такая запись отсутствует в списке защищенных!" no_nln
 	fi

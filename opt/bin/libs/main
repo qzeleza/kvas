@@ -179,19 +179,31 @@ is_dns_server_online(){
     netstat -tunpxl | grep -q ":${dns_port} "
 }
 
-# доступность DNS сервера
-DNS_ENABLE=false
-DNS_DEFAULT=''
+dns__get_ips_by_domain() {
+	if [ -z "${1}" ]; then
+		error "[${FUNCNAME}] Не передан обязательный параметр — имя домена"
+		return
+	fi
+	local host=${1}
 
-add_host_by_iplist_to_ipset() {
+	local dns_server=$(get_config_value DNS_DEFAULT)
+	if ! is_ip_private $(echo "${dns_server}" | grep -Eo "${IP_FILTER}") ; then
+		# если это внешний нешифрованный DNS, то лучше отправим запрос через DNSCrypt
+		dns_server="127.0.0.1#$(get_config_value DNS_CRYPT_PORT)"
+	fi
+
+	get_iplist_from_domain "${host}" "${dns_server}" | grep -Eo "${IP_FILTER}" | grep -v '0.0.0.0'
+}
+
+ipset__fill_by_domain() {
+	if [ -z "${1}" ]; then
+		error "[${FUNCNAME}] Не передан обязательный параметр — имя домена"
+		return
+	fi
+	# удаление * если есть
 	host=${1//\*/}
 
-	# получаем список из адресов от текущего dns сервера
-	# и исключаем из списка адреса типа 0.0.0.0
-	ip_list=$(get_iplist_from_domain "${host}" \
-	 | grep -Eo "${IP_FILTER}" \
-	 | grep -v '0.0.0.0' )
-
+	local ip_list=$( dns__get_ips_by_domain "${host}" )
 	if [ -z "${ip_list}" ]; then
 		return
 	fi
@@ -202,10 +214,14 @@ add_host_by_iplist_to_ipset() {
 			continue
 		fi
 
-		log_warning "Обнаружен новый IP ${ip} для домена ${host} и добавлен в ipset"
+		log_warning "Добавление в IPSet ${IPSET_TABLE_NAME} ${ip} домена ${host}"
 		ipset -exist add "${IPSET_TABLE_NAME}" "${ip}"
 	done
 }
+
+# доступность DNS сервера
+DNS_ENABLE=false
+DNS_DEFAULT=''
 
 get_iplist_from_domain(){
 #---------------------------------------------------------------------------------
