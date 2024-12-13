@@ -96,7 +96,7 @@ text_from_ips() {
 		error "[${FUNCNAME}] Не передан обязательный параметр — строка"
 		return
 	fi
-	echo "${1/+/'\n'}"
+	echo "${1//+/'\n'}"
 }
 
 text_from_nets() {
@@ -104,7 +104,7 @@ text_from_nets() {
 		error "[${FUNCNAME}] Не передан обязательный параметр — строка"
 		return
 	fi
-	echo "${1/ /'\n'}"
+	echo "${1// /'\n'}"
 }
 
 cmd_route() {
