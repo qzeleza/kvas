@@ -167,13 +167,6 @@ case "${1}" in
 		esac
 		;;
 
-	route)
-		case "${2}" in
-			refresh | recreate) cmd_route_refresh ;;
-			*)                  cmd_route         ;;
-		esac
-		;;
-
 	hosts)
 		case "${2}" in
 			add ) 			cmd_hosts_one_add "${3}" "${4}" ;;
@@ -181,6 +174,15 @@ case "${1}" in
 			prune ) 		cmd_hosts_prune ;;
 			edit ) 			cmd_hosts_edit ;;
 			*) 				cmd_hosts_list ;;
+		esac
+		;;
+
+	# Расширенный роутинг
+
+	route)
+		case "${2}" in
+			refresh | recreate) cmd_route_refresh ;;
+			*)                  cmd_route         ;;
 		esac
 		;;
 
