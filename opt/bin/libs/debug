@@ -378,7 +378,7 @@ cmd_debug_dnsmasq() {
 }
 
 cmd_debug_dns() {
-	if [ -f "${ADGUARDHOME_DEMON}" ] && "${ADGUARDHOME_DEMON}" status | grep -Fq 'alive' ; then
+	if has_adguard_enable ; then
 		cmd_debug_adguard
 	else
 		cmd_debug_dnsmasq
