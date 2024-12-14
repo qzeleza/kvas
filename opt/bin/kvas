@@ -233,7 +233,7 @@ case "${1}" in
 
 	# Управление пакетом
 
-	# Обновления
+	# Обновление
 
 	upgrade | update)		sh /opt/apps/kvas/bin/main/upgrade "${2}" "${3}"; exit 0
 		;;
