@@ -237,11 +237,11 @@ case "${1}" in
 
 	# Обновление
 
+	version | ver)			version
+		;;
 	upgrade | update)		sh /opt/apps/kvas/bin/main/upgrade "${2}" "${3}"; exit 0
 		;;
 	rollback)				sh /opt/apps/kvas/bin/main/upgrade rollback "${2}"; exit 0
-		;;
-	version | ver)			version
 		;;
 
 	# Отключение и удаление
