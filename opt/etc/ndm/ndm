@@ -257,7 +257,7 @@ ip4set_create_table() {
 }
 
 # Для постоянного списка исключаемых сетей
-ip4__ipset__fill_reserved() {
+ip4__ipset__fill_destination_excluded() {
 	if ip4__ipset__is_exist "${IPSET_DESTINATION_EXCLUDED}"; then
 		return
 	fi
@@ -301,7 +301,7 @@ ip4__ipset__destroy_list() {
 }
 
 # Для постоянного списка исключаемых сетей
-ip4__ipset__destroy_reserved() {
+ip4__ipset__destroy_destination_excluded() {
 	ip4__ipset__destroy "${IPSET_DESTINATION_EXCLUDED}"
 }
 
@@ -383,7 +383,7 @@ ip4__chain__create_for_data() {
 
 	ip4__chain__exclude_source_by_config "${table}" "${chain_name}"
 
-	ip4__ipset__fill_reserved
+	ip4__ipset__fill_destination_excluded
 	iptables -A "${chain_name}" -w -t "${table}" -m set --match-set "${IPSET_DESTINATION_EXCLUDED}" dst -j RETURN
 
 	# если цепочка данных будет подключена выше DNS, то она может 
@@ -1130,7 +1130,7 @@ ip4__flush() {
 			ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
 
 			ip4__chain__delete      "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
-			ip4__ipset__destroy_reserved
+			ip4__ipset__destroy_destination_excluded
 		fi
 	elif fastnet_enabled ; then
 		if echo "${parts}" | grep -Fq ' jump ' ; then
@@ -1140,7 +1140,7 @@ ip4__flush() {
 			ip4__chain__delete_jump "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
 
 			ip4__chain__delete      "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
-			ip4__ipset__destroy_reserved
+			ip4__ipset__destroy_destination_excluded
 		fi
 
 		#if echo "${parts}" | grep -Fq ' table ' ; then
