@@ -490,7 +490,7 @@ cmd_ipset() {
 	ready 'ifconfig.me' && when_ok "${output}"
 
 	if [ -n "${1}" ]; then
-		if ipset list "${IPSET_TABLE_NAME}" | grep -qF "${1}"; then
+		if ipset list "${IPSET_TABLE_NAME}" | grep -q "^${1} "; then
 			output='есть'
 		else
 			output='нет'
