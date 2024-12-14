@@ -68,6 +68,9 @@ case "${1}" in
 	pause|freeze)           cmd_pause_kvas ;;
 	unpause|unfreeze)       cmd_unpause_kvas ;;
 
+	uninstall ) 			cmd_uninstall  "${2}" "${3}"
+		;;
+
 	vless)
 		case "${2}" in
 			new) 	rm -f "${VLESS_CONFIG_FILE}" 
@@ -195,6 +198,9 @@ case "${1}" in
 							[ -n "${2}" ] && exit 0
 		;;
 
+	reset | init)	        cmd_kvas_init
+		;;
+
 	tags)
 		case "${2}" in
 			list) 			cmd_show_tags_domain_list "${3}" ;;
@@ -218,19 +224,16 @@ case "${1}" in
 	show | list | search | find)	
 							cmd_show_kvas_list "${2}"
 		;;
-	reset | init)	        cmd_kvas_init
-		;;
+
 	upgrade | update)		sh /opt/apps/kvas/bin/main/upgrade "${2}" "${3}"; exit 0
 		;;
 	rollback)				sh /opt/apps/kvas/bin/main/upgrade rollback "${2}"; exit 0
 		;;
 	version | ver)			version
 		;;
+
 	help|-h|--h ) 			[ -n "${2}" ] && cmd_help | grep "${2}" || cmd_help
 		;;
-	uninstall ) 			cmd_uninstall  "${2}" "${3}"
-		;;
-
 	*)						error "Команда '${1}' не известна, список доступных команд:"
 							print_line
 							cmd_help
