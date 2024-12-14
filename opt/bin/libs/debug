@@ -501,8 +501,9 @@ cmd_ipset() {
 	echo
 
 	local cached=$(ipset list "${IPSET_TABLE_NAME}" | grep -vF 'timeout 0' | grep -vF ':')
-	local count=$(echo -n "${cached}" | wc -l)
-	if [ "$count" -eq 0 ]; then
+	if [ -z "${cached}" ]; then
+		local count='0'
+
 		output='Или не приходило ещё ни одного DNS-запроса о доменах из kvas list;\nили ошибки в конфигурации DNS'
 		if [ -z "${2}" ] ; then
 			# если вызывается как один из дебагов, то можно передать silent/short
@@ -515,6 +516,8 @@ cmd_ipset() {
 		fi
 		output="${output}."
 	else
+		local count=$(echo "${cached}" | wc -l)
+
 		# геморрой из-за неподдержки -k в sort
 		output=''
 		for ttl in $(echo "${cached}" | cut -d' ' -f3 | sort -n -r -u | head -n 7); do
