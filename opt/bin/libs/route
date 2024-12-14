@@ -6,7 +6,7 @@ IPS_KNOWN=''
 get_ips_known() {
 	# функциональная замена Singleton
 	if [ -z "${IPS_KNOWN}" ] ; then
-		IPS_KNOWN=$(curl -s 127.0.0.1:79/rci/show/ip/dhcp/bindings | jq -r '.lease[] | "\(.ip) \(.name)"')
+		IPS_KNOWN=$(curl -s 127.0.0.1:79/rci/show/ip/dhcp/bindings | jq -r '.lease[] | "\(.ip) \(.name)"' | sort)
 	fi
 	echo "${IPS_KNOWN}"
 }
