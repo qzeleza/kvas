@@ -61,19 +61,6 @@ clear_file_content "${KVAS_LIST_FILE}"
 print_line
 case "${1}" in
 
-	# Отключение и удаление
-
-	setup)
-							echo "Настройка пакета КВАС завершена!"
-							echo "Для удаления пакета наберите 'kvas uninstall'"
-							;;
-
-	pause|freeze)           cmd_pause_kvas ;;
-	unpause|unfreeze)       cmd_unpause_kvas ;;
-
-	uninstall ) 			cmd_uninstall  "${2}" "${3}"
-		;;
-
 	# Тоннели
 
 	vless)
@@ -212,15 +199,6 @@ case "${1}" in
 							cmd_show_kvas_list "${2}"
 		;;
 
-	# Обновления
-
-	upgrade | update)		sh /opt/apps/kvas/bin/main/upgrade "${2}" "${3}"; exit 0
-		;;
-	rollback)				sh /opt/apps/kvas/bin/main/upgrade rollback "${2}"; exit 0
-		;;
-	version | ver)			version
-		;;
-
 	# Поиск и устранение неисправностей
 
 	ipset)
@@ -245,6 +223,28 @@ case "${1}" in
 		;;
 
 	reset | init)	        cmd_kvas_init
+		;;
+
+	# Обновления
+
+	upgrade | update)		sh /opt/apps/kvas/bin/main/upgrade "${2}" "${3}"; exit 0
+		;;
+	rollback)				sh /opt/apps/kvas/bin/main/upgrade rollback "${2}"; exit 0
+		;;
+	version | ver)			version
+		;;
+
+	# Отключение и удаление
+
+	setup)
+							echo "Настройка пакета КВАС завершена!"
+							echo "Для удаления пакета наберите 'kvas uninstall'"
+							;;
+
+	pause|freeze)           cmd_pause_kvas ;;
+	unpause|unfreeze)       cmd_unpause_kvas ;;
+
+	uninstall ) 			cmd_uninstall  "${2}" "${3}"
 		;;
 
 	# Команды
