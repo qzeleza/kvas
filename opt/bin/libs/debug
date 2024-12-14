@@ -399,6 +399,17 @@ cmd_ipset_flush() {
 	ipset flush "${IPSET_TABLE_NAME}"
 	echo 'сделана.'
 
+	# Как минимум DNSMasq при попадании в кэш не заполняет IPSet
+	# А в нём у нас clear-on-reload
+	echo -n 'Сброс кэша DNS...'
+	if has_adguard_enable ; then
+		local service="${ADGUARDHOME_DEMON}"
+	else
+		local service="${DNSMASQ_DEMON}"
+	fi
+	"${service}" restart &> /dev/null
+	echo 'сделана.'
+
 	echo -n 'Заполнение IPSet IP из списка..'
 	local count=0
 	for ip_or_range in $(grep -E -- "$(get_regexp_ip_or_range)" '/opt/etc/kvas.list'); do
