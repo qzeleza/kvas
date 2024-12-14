@@ -186,32 +186,6 @@ case "${1}" in
 		esac
 		;;
 
-	# Поиск и устранение неисправностей
-
-	ipset)
-		case "${2}" in
-			clear | flush) cmd_ipset_flush      ;;
-			refill)        cmd_ipset_refill     ;;
-			add)           cmd_ipset_add "${3}" ;;
-			*)             cmd_ipset "${2}"     ;;
-		esac
-		;;
-
-	debug)
-		case "${2}" in
-			iptables) cmd_debug_iptables     ;;
-			dns)      cmd_debug_dns          ;;
-			*)        cmd_print_debug "${2}" ;;
-		esac
-		;;
-
-	test | check)			cmd_state_checker "${2}"
-							[ -n "${2}" ] && exit 0
-		;;
-
-	reset | init)	        cmd_kvas_init
-		;;
-
 	# Работа со списком
 
 	tags)
@@ -245,6 +219,32 @@ case "${1}" in
 	rollback)				sh /opt/apps/kvas/bin/main/upgrade rollback "${2}"; exit 0
 		;;
 	version | ver)			version
+		;;
+
+	# Поиск и устранение неисправностей
+
+	ipset)
+		case "${2}" in
+			clear | flush) cmd_ipset_flush      ;;
+			refill)        cmd_ipset_refill     ;;
+			add)           cmd_ipset_add "${3}" ;;
+			*)             cmd_ipset "${2}"     ;;
+		esac
+		;;
+
+	debug)
+		case "${2}" in
+			iptables) cmd_debug_iptables     ;;
+			dns)      cmd_debug_dns          ;;
+			*)        cmd_print_debug "${2}" ;;
+		esac
+		;;
+
+	test | check)			cmd_state_checker "${2}"
+							[ -n "${2}" ] && exit 0
+		;;
+
+	reset | init)	        cmd_kvas_init
 		;;
 
 	# Команды
