@@ -60,6 +60,9 @@ clear_file_content "${KVAS_LIST_FILE}"
 
 print_line
 case "${1}" in
+
+	# Отключение и удаление
+
 	setup)
 							echo "Настройка пакета КВАС завершена!"
 							echo "Для удаления пакета наберите 'kvas uninstall'"
@@ -70,6 +73,8 @@ case "${1}" in
 
 	uninstall ) 			cmd_uninstall  "${2}" "${3}"
 		;;
+
+	# Тоннели
 
 	vless)
 		case "${2}" in
@@ -107,6 +112,8 @@ case "${1}" in
 			status | *) 	cmd_vpn_status ;;
 		esac
 		;;
+
+	# DNS
 
 	dns)
 		case "${2}" in
@@ -177,6 +184,8 @@ case "${1}" in
 		esac
 		;;
 
+	# Поиск и устранение неисправностей
+
 	ipset)
 		case "${2}" in
 			clear | flush) cmd_ipset_flush      ;;
@@ -200,6 +209,8 @@ case "${1}" in
 
 	reset | init)	        cmd_kvas_init
 		;;
+
+	# Работа со списком
 
 	tags)
 		case "${2}" in
@@ -225,12 +236,16 @@ case "${1}" in
 							cmd_show_kvas_list "${2}"
 		;;
 
+	# Обновления
+
 	upgrade | update)		sh /opt/apps/kvas/bin/main/upgrade "${2}" "${3}"; exit 0
 		;;
 	rollback)				sh /opt/apps/kvas/bin/main/upgrade rollback "${2}"; exit 0
 		;;
 	version | ver)			version
 		;;
+
+	# Команды
 
 	help|-h|--h ) 			[ -n "${2}" ] && cmd_help | grep "${2}" || cmd_help
 		;;
