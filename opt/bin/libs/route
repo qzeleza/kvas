@@ -126,6 +126,10 @@ route__text_from_nets() {
 }
 
 cmd_route() {
+	echo 'Вывод критериев попадания в тоннель:'
+	echo 'какие сети и устройства, есть ли проверка вхождения в списки.'
+	echo
+
 	local output
 
 	output=$(get_config_value 'route_full_ip')
@@ -142,10 +146,10 @@ cmd_route() {
 	else
 		output=$(route__text_from_ips "${output}")
 	fi
-	echo_debug 'IP с перехватом DNS, трафик которых идёт в тоннель согласно списку' "${output}"
+	echo_debug 'IP с перехватом DNS, трафик которых идёт в тоннель согласно спискам' "${output}"
 
 	output="br0 $(get_guest_inface_list_from_config)"
-	echo_debug 'Сети с перехватом DNS, трафик которых идёт в тоннель согласно списку' $(route__text_from_nets "${output}")
+	echo_debug 'Сети с перехватом DNS, трафик которых идёт в тоннель согласно спискам' $(route__text_from_nets "${output}")
 
 	output=$(get_config_value 'route_excluded_ip')
 	if [ -z "${output}" ] ; then
