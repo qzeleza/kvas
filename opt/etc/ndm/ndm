@@ -25,7 +25,7 @@ PRIORITY=1778
 MARK_NUM=0xd1000
 DNS_PORT=9753
 
-IPSET_RESERVED=KVAS_DESTINATION_EXCLUDED
+IPSET_DESTINATION_EXCLUDED=KVAS_DESTINATION_EXCLUDED
 
 CHAIN_DNS=KVAS_DNS
 TABLE_DNS=nat
@@ -258,11 +258,11 @@ ip4set_create_table() {
 
 # Для постоянного списка исключаемых сетей
 ip4__ipset__fill_reserved() {
-	if ip4__ipset__is_exist "${IPSET_RESERVED}"; then
+	if ip4__ipset__is_exist "${IPSET_DESTINATION_EXCLUDED}"; then
 		return
 	fi
 
-	ip4__ipset__create "${IPSET_RESERVED}"
+	ip4__ipset__create "${IPSET_DESTINATION_EXCLUDED}"
 
 	while read -r ip_or_range || [ -n "${ip_or_range}" ]; do
 		# пропускаем строки с комментариями
@@ -271,7 +271,7 @@ ip4__ipset__fill_reserved() {
 		# удаляем пробелы
 		ip_or_range=$(echo "${ip_or_range}" | sed 's/#.*$//g' | tr -s ' ' )
 
-		ipset -exist add "${IPSET_RESERVED}" "${ip_or_range}"
+		ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "${ip_or_range}"
 	done < "${FILE_RESERVED}"
 }
 
@@ -302,7 +302,7 @@ ip4__ipset__destroy_list() {
 
 # Для постоянного списка исключаемых сетей
 ip4__ipset__destroy_reserved() {
-	ip4__ipset__destroy "${IPSET_RESERVED}"
+	ip4__ipset__destroy "${IPSET_DESTINATION_EXCLUDED}"
 }
 
 
@@ -384,7 +384,7 @@ ip4__chain__create_for_data() {
 	ip4__chain__exclude_source_by_config "${table}" "${chain_name}"
 
 	ip4__ipset__fill_reserved
-	iptables -A "${chain_name}" -w -t "${table}" -m set --match-set "${IPSET_RESERVED}" dst -j RETURN
+	iptables -A "${chain_name}" -w -t "${table}" -m set --match-set "${IPSET_DESTINATION_EXCLUDED}" dst -j RETURN
 
 	# если цепочка данных будет подключена выше DNS, то она может 
 	# перехватить направленный вовне трафик
@@ -470,7 +470,7 @@ ip4__proxy__create_chain() {
 
 		if [ -n "${ip}" ] ; then
 			# Исключаем обращения к собственному адресу
-			ipset -exist add "${IPSET_RESERVED}" "${ip}"
+			ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "${ip}"
 		fi
 
 		for protocol in udp tcp ; do
