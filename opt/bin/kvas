@@ -61,6 +61,32 @@ clear_file_content "${KVAS_LIST_FILE}"
 print_line
 case "${1}" in
 
+	# Работа со списком
+
+	tags)
+		case "${2}" in
+			list) 			cmd_show_tags_domain_list "${3}" ;;
+			add)			cmd_add_domain_to_tag_list "${3}" "${4}" ;;
+			del)			cmd_del_domain_to_tag_list "${3}" "${4}" ;;
+			update)			cmd_update_tags_domain_list "${3}";;
+			*) 				cmd_show_tags_domain_list "${2}" ;;
+		esac
+		;;
+
+	add | new)				cmd_add_one_host "${2}" "yes" "${3}"
+		;;
+	import)					cmd_import_hosts "${2}"
+		;;
+	export)					cmd_export_hosts "${2}"
+		;;
+	del | rm  )				cmd_del_one_host "${2}"
+		;;
+	purge | clear)			cmd_clear_list "${2}"
+		;;
+	show | list | search | find)	
+							cmd_show_kvas_list "${2}"
+		;;
+
 	# Тоннели
 
 	vless)
@@ -171,32 +197,6 @@ case "${1}" in
 			refresh | recreate) cmd_route_refresh ;;
 			*)                  cmd_route         ;;
 		esac
-		;;
-
-	# Работа со списком
-
-	tags)
-		case "${2}" in
-			list) 			cmd_show_tags_domain_list "${3}" ;;
-			add)			cmd_add_domain_to_tag_list "${3}" "${4}" ;;
-			del)			cmd_del_domain_to_tag_list "${3}" "${4}" ;;
-			update)			cmd_update_tags_domain_list "${3}";;
-			*) 				cmd_show_tags_domain_list "${2}" ;;
-		esac
-		;;
-
-	add | new)				cmd_add_one_host "${2}" "yes" "${3}"
-		;;
-	import)					cmd_import_hosts "${2}"
-		;;
-	export)					cmd_export_hosts "${2}"
-		;;
-	del | rm  )				cmd_del_one_host "${2}"
-		;;
-	purge | clear)			cmd_clear_list "${2}"
-		;;
-	show | list | search | find)	
-							cmd_show_kvas_list "${2}"
 		;;
 
 	# Поиск и устранение неисправностей
