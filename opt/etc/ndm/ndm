@@ -267,6 +267,10 @@ ip4__ipset__fill_destination_excluded() {
 	# Служебный IP Keenetic, например для my.keenetic.net
 	ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" '78.47.125.180'
 
+	# Был случай, когда ресурс из списка совпадал с IP роутера
+	# Это приводило к loopback, проблемам с DDNS и прочим проблемам
+	ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "$(get_external_ip)"
+
 	while read -r ip_or_range || [ -n "${ip_or_range}" ]; do
 		# пропускаем строки с комментариями
 		[ "${ip_or_range:0:1}" = '#' ] && continue
