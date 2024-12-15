@@ -655,9 +655,20 @@ dig_frm() {
 #	Получаем внешний IP роутера через который он выходит в сеть в текущий момент
 #
 # ------------------------------------------------------------------------------------------
+
 get_external_ip() {
 	dns=$(get_config_value DNS_STATIC_1)
 	/opt/sbin/ip route get ${dns} | sed -E 's/.*src (\S+) .*/\1/;t;d'
+}
+
+get_tunnel_ip() {
+	if is_shadowsocks_enabled ; then
+		echo $(get_from_json "${SHADOWSOCKS_CONF}" 'server')
+	elif is_vless_enabled ; then
+		echo $(get_from_json "${VLESS_CONFIG_FILE}" 'address' 'outbounds')
+	else
+		echo ''
+	fi
 }
 
 # ------------------------------------------------------------------------------------------

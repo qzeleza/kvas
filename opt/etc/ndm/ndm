@@ -268,8 +268,15 @@ ip4__ipset__fill_destination_excluded() {
 	ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" '78.47.125.180'
 
 	# Был случай, когда ресурс из списка совпадал с IP роутера
-	# Это приводило к loopback, проблемам с DDNS и прочим проблемам
+	# Это приводило к loopback, не рабочему DDNS и прочим проблемам
 	ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "$(get_external_ip)"
+
+	# Исключаем (loopback) адрес тоннеля из попадания в тоннель
+	# Случай тоже детектирован и чуть более разрушителен
+	local tunnel_ip="$(get_tunnel_ip)"
+	if [ -n "${tunnel_ip}" ] ; then
+		ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "${tunnel_ip}"
+	fi
 
 	while read -r ip_or_range || [ -n "${ip_or_range}" ]; do
 		# пропускаем строки с комментариями
@@ -466,21 +473,12 @@ ip4__proxy__create_chain() {
 	fi
 	port="${3}"
 
-	if [ -z "${4}" ] ; then
-		error "[${FUNCNAME}] Не задан обязательный аргумент — IP сервера"
-		return
-	fi
-	ip="${4}"
-
 	{
 		if ip4__chain__is_exist "${table}" "${chain_name}" ; then
 			return
 		fi
 
 		ip4__chain__create_for_data "${table}" "${chain_name}"
-
-			# Исключаем (loopback) адрес тоннеля из попадания в тоннель
-			ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "${ip}"
 
 		for protocol in udp tcp ; do
 			# не будет ли задвоения без -w?
@@ -490,17 +488,15 @@ ip4__proxy__create_chain() {
 }
 
 ip4__shadowsocks__create_chain() {
-	local server_ip=$(get_from_json "${SHADOWSOCKS_CONF}" 'server')
 	local local_port=$(get_config_value SSR_DNS_PORT)
 
-	ip4__proxy__create_chain "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${local_port}" "${server_ip}"
+	ip4__proxy__create_chain "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${local_port}"
 }
 
 ip4__vless__create_chain() {
-	local local_port=$(get_from_json "${VLESS_CONFIG_FILE}" 'port'    'inbounds')
-	local  server_ip=$(get_from_json "${VLESS_CONFIG_FILE}" 'address' 'outbounds')
+	local local_port=$(get_from_json "${VLESS_CONFIG_FILE}" 'port' 'inbounds')
 
-	ip4__proxy__create_chain "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${local_port}" "${server_ip}"
+	ip4__proxy__create_chain "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${local_port}"
 }
 
 # когда ускорение подключено
