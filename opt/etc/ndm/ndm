@@ -466,6 +466,10 @@ ip4__proxy__create_chain() {
 	fi
 	port="${3}"
 
+	if [ -z "${4}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — IP сервера"
+		return
+	fi
 	ip="${4}"
 
 	{
@@ -475,10 +479,8 @@ ip4__proxy__create_chain() {
 
 		ip4__chain__create_for_data "${table}" "${chain_name}"
 
-		if [ -n "${ip}" ] ; then
-			# Исключаем обращения к собственному адресу
+			# Исключаем (loopback) адрес тоннеля из попадания в тоннель
 			ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "${ip}"
-		fi
 
 		for protocol in udp tcp ; do
 			# не будет ли задвоения без -w?
