@@ -230,11 +230,15 @@ iptables__get_by_chain() {
 cmd_debug_iptables() {
 	local output=$(ip route)
 
-	ready 'Модель роутера'    && when_ok "$(get_model)"
-	ready 'Версия ndw'        && when_ok "$(get_version)"
-	ready 'Версия ndw4'       && when_ok "$(version_os)"
-	ready 'Внешний интерфейс' && when_ok "$(get_external_interface)"
-	ready 'IKEv2 интерфейс'   && when_ok "$(get_entware_ikev2_inface)"
+	# если вызывается как один из дебагов, то можно передать silent/short
+	if [ -z "${1}" ] ; then
+		echo 'Проверьте корректность отображаемой информации:'
+		print_line
+	fi
+	ready 'Модель роутера'                  && when_ok "$(get_model)"
+	ready 'Версия прошивки'                 && when_ok "$(version_os)"
+	ready 'Интерфейс для выхода в интернет' && when_ok "$(get_external_interface)"
+	ready 'IKEv2 интерфейс'                 && when_ok "$(get_entware_ikev2_inface)"
 	echo
 
 	echo_debug 'Маршруты (подключитесь к гостевой заранее)' "${output}"
