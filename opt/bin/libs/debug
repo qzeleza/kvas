@@ -341,7 +341,12 @@ cmd_debug_dnsmasq() {
 
 	local cached=$(dnsmasq -v)
 	ready 'DNSMasq версия' && when_ok "$(echo "${cached}" | grep -Eo 'version [0-9\.]+' | head -n 1 | cut -d ' ' -f2)"
-	#echo_debug 'DNSMasq модули:' "$(echo "${cached}" | grep -F 'options:' | head -n 1 | cut -d ':' -f2 | xargs | grep -o '[^ ]*')"
+	if echo "${cached}" | grep -Fq 'regex' ; then
+		output='есть'
+	else
+		output='нет'
+	fi
+	ready 'Модуль regex' && when_ok "${output}"
 
 	echo_debug 'DNSMasq слушает:' "$(get_netstat 'dnsmasq')"
 
