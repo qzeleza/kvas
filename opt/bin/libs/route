@@ -126,16 +126,19 @@ route__text_from_nets() {
 }
 
 cmd_route() {
-	echo 'Вывод критериев попадания в тоннель:'
-	echo 'какие сети и устройства, есть ли проверка вхождения в списки.'
-	echo
+	# если вызывается как один из дебагов, то можно передать silent/short
+	if [ -z "${1}" ] ; then
+		echo 'Вывод критериев попадания в тоннель:'
+		echo 'какие сети и устройства, есть ли проверка вхождения в списки.'
+		echo
+	fi
 
 	local output
 
 	output=$(get_config_value 'route_full_ip')
 	if [ -n "${output}" ] ; then
 		output=$(route__text_from_ips "${output}")
-	else
+	elif [ -z "${1}" ] ; then
 		output=$(route__text_empty 'route_full_ip=192.168.1.51+192.168.2.51')
 	fi
 	echo_debug 'IP, весь трафик которых идёт в тоннель' "${output}"
@@ -143,7 +146,7 @@ cmd_route() {
 	output=$(get_config_value 'route_by_list_ip')
 	if [ -n "${output}" ] ; then
 		output=$(route__text_from_ips "${output}")
-	else
+	elif [ -z "${1}" ] ; then
 		output=$(route__text_empty 'route_by_list_ip=192.168.2.52+192.168.2.53')
 	fi
 	echo_debug 'IP с перехватом DNS, трафик которых идёт в тоннель согласно спискам' "${output}"
@@ -154,19 +157,22 @@ cmd_route() {
 	output=$(get_config_value 'route_excluded_ip')
 	if [ -n "${output}" ] ; then
 		output=$(route__text_from_ips "${output}")
-	else
+	elif [ -z "${1}" ] ; then
 		output=$(route__text_empty 'route_excluded_ip=192.168.1.52+192.168.1.53')
 	fi
 	echo_debug 'IP, исключённые из перехвата DNS и трафика' "${output}"
 
-	output=$(get_ips_known)
-	if [ -z "${output}" ] ; then
-		output=$(printf '%s\n' \
-			'Отсутствуют. В админке роутера закрепите постоянный IP-адрес за любым устройством,' \
-			'чтобы использовать его здесь.' \
-		)
-	else
-		output=$(echo "${output}" | xargs -n2 printf '%-15s | %s\n')
+	# если вызывается как один из дебагов, то можно передать silent/short
+	if [ -z "${1}" ] ; then
+		output=$(get_ips_known)
+		if [ -z "${output}" ] ; then
+			output=$(printf '%s\n' \
+				'Отсутствуют. В админке роутера закрепите постоянный IP-адрес за любым устройством,' \
+				'чтобы использовать его здесь.' \
+			)
+		else
+			output=$(echo "${output}" | xargs -n2 printf '%-15s | %s\n')
+		fi
+		echo_debug 'Зарегистрированные клиенты c постоянным IP-адресом' "${output}"
 	fi
-	echo_debug 'Зарегистрированные клиенты c постоянным IP-адресом' "${output}"
 }
