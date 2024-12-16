@@ -133,18 +133,18 @@ cmd_route() {
 	local output
 
 	output=$(get_config_value 'route_full_ip')
-	if [ -z "${output}" ] ; then
-		output=$(route__text_empty 'route_full_ip=192.168.1.51+192.168.2.51')
-	else
+	if [ -n "${output}" ] ; then
 		output=$(route__text_from_ips "${output}")
+	else
+		output=$(route__text_empty 'route_full_ip=192.168.1.51+192.168.2.51')
 	fi
 	echo_debug 'IP, весь трафик которых идёт в тоннель' "${output}"
 
 	output=$(get_config_value 'route_by_list_ip')
-	if [ -z "${output}" ] ; then
-		output=$(route__text_empty 'route_by_list_ip=192.168.2.52+192.168.2.53')
-	else
+	if [ -n "${output}" ] ; then
 		output=$(route__text_from_ips "${output}")
+	else
+		output=$(route__text_empty 'route_by_list_ip=192.168.2.52+192.168.2.53')
 	fi
 	echo_debug 'IP с перехватом DNS, трафик которых идёт в тоннель согласно спискам' "${output}"
 
@@ -152,10 +152,10 @@ cmd_route() {
 	echo_debug 'Сети с перехватом DNS, трафик которых идёт в тоннель согласно спискам' $(route__text_from_nets "${output}")
 
 	output=$(get_config_value 'route_excluded_ip')
-	if [ -z "${output}" ] ; then
-		output=$(route__text_empty 'route_excluded_ip=192.168.1.52+192.168.1.53')
-	else
+	if [ -n "${output}" ] ; then
 		output=$(route__text_from_ips "${output}")
+	else
+		output=$(route__text_empty 'route_excluded_ip=192.168.1.52+192.168.1.53')
 	fi
 	echo_debug 'IP, исключённые из перехвата DNS и трафика' "${output}"
 
