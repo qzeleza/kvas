@@ -237,9 +237,9 @@ cmd_debug_iptables() {
 	if [ -z "${1}" ] ; then
 		echo 'Проверьте корректность отображаемой информации'
 		print_line
+		ready 'Модель роутера'  && when_ok "$(get_model)"
+		ready 'Версия прошивки' && when_ok "$(version_os)"
 	fi
-	ready 'Модель роутера'                        && when_ok "$(get_model)"
-	ready 'Версия прошивки'                       && when_ok "$(version_os)"
 	ready 'Внешний IP'                            && when_ok "$(get_external_ip)"
 	ready 'IP тоннеля'                            && when_ok "${output}"
 	ready 'Интерфейс для выхода в интернет'       && when_ok "$(get_external_interface)"
