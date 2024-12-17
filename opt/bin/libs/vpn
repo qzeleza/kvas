@@ -189,9 +189,7 @@ all_services_restart(){
 		service_restart AdGuardHome S99adguardhome
 	else
 		service_restart dnsmasq S56dnsmasq
-		if [ "$(get_dns_crypt_status)" = on ]; then
-			service_restart dnscrypt-proxy2 S09dnscrypt-proxy2
-		fi
+		service_restart dnscrypt-proxy2 S09dnscrypt-proxy2
 	fi
 
 }
