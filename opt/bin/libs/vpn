@@ -3108,6 +3108,19 @@ cmd_import_hosts() {
 		exit 1
 	fi
 
+	# файл с неверными переносами строк
+	if grep -Fq $'\r' "${user_list}"; then
+		if [ $(wc -l < "${user_list}") -gt 1 ]; then
+			# есть оба — Windows/DOS
+			local sed_regex='s/\r//'
+		else
+			# я блочное
+			local sed_regex='s/\r/\n/g'
+		fi
+
+		sed -i "${sed_regex}" "${user_list}"
+	fi
+
 	# Выходим из функции при отсутствии интернет-соединения или VPN
 	exit_when_no_internet_or_vpn || exit 2
 
