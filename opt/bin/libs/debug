@@ -340,13 +340,13 @@ cmd_debug_dnsmasq() {
 	ready 'DNS ECH' && when_ok "${output}"
 
 	local cached=$(dnsmasq -v)
-	ready 'DNSMasq версия' && when_ok "$(echo "${cached}" | grep -Eo 'version [0-9\.]+' | head -n 1 | cut -d ' ' -f2)"
 	if echo "${cached}" | grep -Fq 'regex' ; then
 		output='есть'
 	else
 		output='нет'
 	fi
-	ready 'Модуль regex' && when_ok "${output}"
+	ready 'Модуль regex'   && when_ok "${output}"
+	ready 'DNSMasq версия' && when_ok "$(echo "${cached}" | grep -Eo 'version [0-9\.]+' | head -n 1 | cut -d ' ' -f2)"
 
 	echo_debug 'DNSMasq слушает:' "$(get_netstat 'dnsmasq')"
 
