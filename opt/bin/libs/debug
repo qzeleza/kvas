@@ -242,9 +242,9 @@ cmd_debug_iptables() {
 	fi
 	ready 'Внешний IP'                            && when_ok "$(get_external_ip)"
 	ready 'IP тоннеля'                            && when_ok "${output}"
+	ready 'Исключённых целевых IPv4 и диапазонов' && when_ok "$(ipset list ${IPSET_DESTINATION_EXCLUDED} | grep -vF ':' | wc -l)"
 	ready 'Интерфейс для выхода в интернет'       && when_ok "$(get_external_interface)"
 	ready 'IKEv2 интерфейс'                       && when_ok "$(get_entware_ikev2_inface)"
-	ready 'Исключённых целевых IPv4 и диапазонов' && when_ok "$(ipset list ${IPSET_DESTINATION_EXCLUDED} | grep -vF ':' | wc -l)"
 	echo
 
 	echo_debug 'Маршруты (подключитесь к гостевой заранее)' "$(ip route)"
