@@ -1317,7 +1317,9 @@ ip4_flush_all_tables(){
 
 # Чистим и заполняем таблицу правил iptables для vpn подключений
 cmd_vpn_iptable_reset() {
-	if [ -f /opt/etc/ndm/fs.d/100-vpn ] ; then
+	if is_proxy_enabled ; then
+		warning 'VPN соединение не активно!'
+	else
 		ready "Переустановка iptables для vpn завершена"
 		{
 			cmd_vpn_iptable_flush  #&> /dev/null
@@ -1327,8 +1329,6 @@ cmd_vpn_iptable_reset() {
 
 			ip4_mark_vpn_network #&> /dev/null
 		} &> /dev/null && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
-	else
-		warning "VPN соединение не активно!"
 	fi
 }
 
