@@ -21,7 +21,7 @@
 # имя таблицы для ipset
 
 ROUTE_TABLE_ID=1001
-PRIORITY=1778
+ROUTE_TABLE_PRIORITY=1778
 MARK_NUM=0xd1000
 DNS_PORT=9753
 
@@ -1250,13 +1250,13 @@ ip4_add_route_table() {
 	fi
 }
 
-# Установка приоритета таблицы ID#${ROUTE_TABLE_ID} в значение ${PRIORITY}
+# Установка приоритета таблицы ID#${ROUTE_TABLE_ID} в значение ${ROUTE_TABLE_PRIORITY}
 ip4_rule_set_priority() {
 	if ! ip rule show | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${ROUTE_TABLE_ID}" ; then
-		log_warning "Установка приоритета таблицы ID#${ROUTE_TABLE_ID} в значение ${PRIORITY}"
+		log_warning "Установка приоритета таблицы ID#${ROUTE_TABLE_ID} в значение ${ROUTE_TABLE_PRIORITY}"
 
-		if ip rule add fwmark "${MARK_NUM}/${MARK_NUM}" lookup "${ROUTE_TABLE_ID}" priority "${PRIORITY}" 2>&1 | grep -vFq 'File exists'; then
-			error "[${FUNCNAME}] Ошибка при установке приоритета таблицы с ID#${ROUTE_TABLE_ID} в значение ${PRIORITY}"
+		if ip rule add fwmark "${MARK_NUM}/${MARK_NUM}" lookup "${ROUTE_TABLE_ID}" priority "${ROUTE_TABLE_PRIORITY}" 2>&1 | grep -vFq 'File exists'; then
+			error "[${FUNCNAME}] Ошибка при установке приоритета таблицы с ID#${ROUTE_TABLE_ID} в значение ${ROUTE_TABLE_PRIORITY}"
 		fi
 		if [[ -z "${addr_gateway}" ]]; then
 			if ip route add default dev "$(inface_ent)" table "${ROUTE_TABLE_ID}" 2>&1 | grep -vFq 'File exists' ; then
@@ -1273,7 +1273,7 @@ ip4_rule_del_priority() {
 	if ip rule show | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${ROUTE_TABLE_ID}" ; then
 		log_warning "Обнуление приоритета таблицы ID#${ROUTE_TABLE_ID}"
 
-		ip rule del fwmark "${MARK_NUM}/${MARK_NUM}" lookup "${ROUTE_TABLE_ID}" priority "${PRIORITY}" &>/dev/null
+		ip rule del fwmark "${MARK_NUM}/${MARK_NUM}" lookup "${ROUTE_TABLE_ID}" priority "${ROUTE_TABLE_PRIORITY}" &>/dev/null
 
 		ip4__route__flush_cache
 	fi
