@@ -1263,19 +1263,20 @@ ip4_rule_set_priority() {
 				error "[${FUNCNAME}] Ошибка при установке маршрута по умолчанию таблицы с ID#${ROUTE_TABLE_ID}"
 			fi
 		fi
-	fi
 
-	ip4__route__flush_cache
+		ip4__route__flush_cache
+	fi
 }
 
 # Обнуление приоритета таблицы ID#${ROUTE_TABLE_ID}
 ip4_rule_del_priority() {
 	if ip rule show | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${ROUTE_TABLE_ID}" ; then
 		log_warning "Обнуление приоритета таблицы ID#${ROUTE_TABLE_ID}"
-		ip rule del fwmark "${MARK_NUM}/${MARK_NUM}" lookup "${ROUTE_TABLE_ID}" priority "${PRIORITY}" &>/dev/null
-	fi
 
-	ip4__route__flush_cache
+		ip rule del fwmark "${MARK_NUM}/${MARK_NUM}" lookup "${ROUTE_TABLE_ID}" priority "${PRIORITY}" &>/dev/null
+
+		ip4__route__flush_cache
+	fi
 }
 
 # Удаление всех таблиц, которые были созданы при работе пакета
