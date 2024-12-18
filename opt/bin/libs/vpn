@@ -450,7 +450,7 @@ adguardhome_setup() {
 	sed -i "s/\( port:\) .*/\1 ${port}/" "${ADGUARDHOME_CONFIG}"
 
 	# меняем время обработки TTL адресов 
-	ttl_timeout_min=$(get_config_value TTL_TIMEOUT)
+	ttl_timeout_min=$(get_config_value LIST_IPSET_TTL)
 	ttl_timeout_max=$((ttl_timeout_min + 3600))
 	sed -i "s/\(  cache_ttl_min:\) .*/\1 ${ttl_timeout_min}/" "${ADGUARDHOME_CONFIG}"
 	sed -i "s/\(  cache_ttl_max:\) .*/\1 ${ttl_timeout_max}/" "${ADGUARDHOME_CONFIG}"

@@ -248,7 +248,7 @@ ip4__ipset__create() {
 
 # Для списка условной маршрутизации
 ip4__ipset__create_list() {
-	ip4__ipset__create "${IPSET_TABLE_NAME}" "$(get_config_value TTL_TIMEOUT)"
+	ip4__ipset__create "${IPSET_TABLE_NAME}" "$(get_config_value LIST_IPSET_TTL)"
 }
 
 #TODO: сменить в других файлах обращение на новую обёртку
@@ -748,7 +748,7 @@ ip4__add_routing() {
 		local ipset_list="${4}"
 
 		# т.к. используется DNS'ом и в правиле, то лучше бы проверить наличие
-		ip4__ipset__create "${ipset_list}" "$(get_config_value TTL_TIMEOUT)"
+		ip4__ipset__create "${ipset_list}" "$(get_config_value LIST_IPSET_TTL)"
 
 		# перехват DNS нужен только при фильтрации по IPSet
 		ip4__dns__add_routing "${iptables_filter}"
@@ -1349,7 +1349,7 @@ ip6tables() (if ! /opt/sbin/ip6tables -C "$@" &>/dev/null; then ip6tables -A "$@
 ip6save() (/opt/sbin/ip6tables-save)
 
 ip6set_create_table(){
-	ttl_timeout=$(get_config_value TTL_TIMEOUT)
+	ttl_timeout=$(get_config_value LIST_IPSET_TTL)
 	ipset create "${IPSET_TABLE_NAME}6" hash:net family inet6 -exist timeout ${ttl_timeout} &>/dev/null \
 	 || {
 			_err="${IPv6}Возникла ошибка при создании таблицы с именем '${IPSET_TABLE_NAME}' для ipset"
