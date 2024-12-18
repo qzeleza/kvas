@@ -321,6 +321,10 @@ get_netstat() {
 	local output=$(netstat -tulpn | grep -F -- "${filter}" | grep -v -- ':[0-9][0-9][0-9][0-9][0-9]')
 	if [ -z "${output}" ] ; then
 		output="Сетевые соединения для ${filter} не найдены."
+
+		if [ -n "${2}" ] ; then
+			output="${output}"$'\n'"${2}"
+		fi
 	fi
 	echo "${output}"
 }
@@ -390,7 +394,14 @@ cmd_debug_dns() {
 	fi
 
 	ready 'NDNProxy версия' && when_ok "$(ndnproxy 2>&1 | grep -Eo 'ndnproxy [0-9\.]+' | head -n 1 | cut -d ' ' -f2)"
-	echo_debug 'Комплектный DNS роутера (базово) слушает:' "$(get_netstat 'ndnproxy')"
+
+	# если вызывается как один из дебагов, то можно передать silent/short
+	if [ -n "${1}" ] ; then
+		local output=''
+	else
+		local output='Отключите освобождение 53 порта:\n no opkg dns-override\n system configuration save\n reboot'
+	fi
+	echo_debug 'Комплектный DNS роутера (базово) слушает:' "$(get_netstat 'ndnproxy' "${output}")"
 
 	# если вызывается как один из дебагов, то можно передать silent/short
 	if [ -z "${1}" ] ; then
