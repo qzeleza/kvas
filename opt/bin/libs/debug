@@ -371,9 +371,10 @@ cmd_debug_dnsmasq() {
 	fi
 	ready 'ifconfig.me' && when_ok "${output}"
 
+	# т.к. конфигами часто делятся в открытую, то исключим из них частый РКН
 	echo_debug \
 		"Часть конфига (обязательны строчки вида ipset=/домен/${IPSET_TABLE_NAME}):" \
-		"$(head -n 6 ${DNSMASQ_IPSET_HOSTS})"
+		"$(grep -vE '(eduz|iscor|nstagra|aceboo|fb)' ${DNSMASQ_IPSET_HOSTS} | head -n6)"
 
 
 	cached=$(grep 'server=' "${DNSMASQ_CONFIG}"      | head -1 | cut -d '=' -f2)
