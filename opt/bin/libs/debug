@@ -371,7 +371,9 @@ cmd_debug_dnsmasq() {
 	fi
 	ready 'ifconfig.me' && when_ok "${output}"
 
-	echo_debug 'Часть конфига:' "$(head -n 6 ${DNSMASQ_IPSET_HOSTS})"
+	echo_debug \
+		'Часть конфига:' \
+		"$(head -n 6 ${DNSMASQ_IPSET_HOSTS})"
 
 
 	cached=$(grep 'server=' "${DNSMASQ_CONFIG}"      | head -1 | cut -d '=' -f2)
