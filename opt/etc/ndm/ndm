@@ -1265,7 +1265,7 @@ ip4_rule_set_priority() {
 		fi
 	fi
 
-	ip4__route__flush_cache &>/dev/null
+	ip4__route__flush_cache
 }
 
 # Обнуление приоритета таблицы ID#${TABLE_ID}
@@ -1275,7 +1275,7 @@ ip4_rule_del_priority() {
 		ip rule del fwmark "${MARK_NUM}/${MARK_NUM}" lookup "${TABLE_ID}" priority "${PRIORITY}" &>/dev/null
 	fi
 
-	ip4__route__flush_cache &>/dev/null
+	ip4__route__flush_cache
 }
 
 # Удаление всех таблиц, которые были созданы при работе пакета
@@ -1284,7 +1284,7 @@ ip4_flush_all_tables() {
 	ip route flush table "${TABLE_ID}" &>/dev/null
 	ip rule del table "${TABLE_ID}" &>/dev/null
 
-	ip4__route__flush_cache &>/dev/null
+	ip4__route__flush_cache
 }
 
 
