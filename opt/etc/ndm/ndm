@@ -1271,16 +1271,6 @@ ip4__rule__add_mark_to_table() {
 	fi
 }
 
-#TODO: сменить в других файлах обращение на новую обёртку
-ip4_rule_set_priority() {
-	ip4__rule__add_mark_to_table
-}
-
-#TODO: сменить в других файлах обращение на новую обёртку
-ip4_rule_del_priority() {
-	ip4__rule__delete_mark_to_table
-}
-
 ip4__rule__delete_mark_to_table() {
 	if ! ip rule show | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${ROUTE_TABLE_ID}" ; then
 		return
@@ -1291,6 +1281,16 @@ ip4__rule__delete_mark_to_table() {
 	ip rule del fwmark "${MARK_NUM}/${MARK_NUM}" lookup "${ROUTE_TABLE_ID}" priority "${RULE_PRIORITY}" &>/dev/null
 
 	ip4__route__flush_cache
+}
+
+#TODO: сменить в других файлах обращение на новую обёртку
+ip4_rule_set_priority() {
+	ip4__rule__add_mark_to_table
+}
+
+#TODO: сменить в других файлах обращение на новую обёртку
+ip4_rule_del_priority() {
+	ip4__rule__delete_mark_to_table
 }
 
 # Удаление всех таблиц, которые были созданы при работе пакета
