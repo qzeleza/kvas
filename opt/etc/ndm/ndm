@@ -1264,7 +1264,7 @@ ip4__rule__get_sub() {
 }
 
 ip4__rule__get_submessage() {
-	echo " правила ${RULE_PRIORITY} отправки пакетов с меткой ${MARK_NUM} в таблицу {ROUTE_TABLE_ID}"
+	echo "правила ${RULE_PRIORITY} отправки пакетов с меткой ${MARK_NUM} в таблицу {ROUTE_TABLE_ID}"
 }
 
 ip4__rule__add_mark_to_table() {
@@ -1273,11 +1273,13 @@ ip4__rule__add_mark_to_table() {
 		return
 	fi
 
-	log_warning "Добавление $(ip4__rule__get_submessage)"
+	local submessage="$(ip4__rule__get_submessage)"
+	log_warning "Добавление ${submessage}"
 
-	if ip rule add $(echo "${subrule}") priority "${RULE_PRIORITY}" 2>&1 | grep -vFq 'File exists'; then
-		error "[${FUNCNAME}] Ошибка при установке приоритета таблицы с ID#${ROUTE_TABLE_ID} в значение ${RULE_PRIORITY}"
-	fi
+	ip rule add $(echo "${subrule}") priority "${RULE_PRIORITY}" \
+	 || {
+		error "[${FUNCNAME}] Ошибка при добавлении ${submessage}"
+	}
 }
 
 ip4__rule__delete_mark_to_table() {
@@ -1286,9 +1288,13 @@ ip4__rule__delete_mark_to_table() {
 		return
 	fi
 
-	log_warning "Удаление $(ip4__rule__get_submessage)"
+	local submessage="$(ip4__rule__get_submessage)"
+	log_warning "Удаление ${submessage}"
 
-	ip rule del $(echo "${subrule}") priority "${RULE_PRIORITY}" &>/dev/null
+	ip rule del $(echo "${subrule}") priority "${RULE_PRIORITY}" \
+	 || {
+		error "[${FUNCNAME}] Ошибка при удалении ${submessage}"
+	}
 }
 
 #TODO: сменить в других файлах обращение на новую обёртку
