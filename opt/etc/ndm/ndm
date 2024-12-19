@@ -1266,8 +1266,18 @@ ip4__route__delete_table() {
 
 	log_warning "Удаление таблицы маршрутизации ${ROUTE_TABLE_ID}"
 
-	ip route flush table "${ROUTE_TABLE_ID}" &>/dev/null
-	ip route del table "${ROUTE_TABLE_ID}" &>/dev/null
+	ip route flush table "${ROUTE_TABLE_ID}" \
+	 || {
+		error "[${FUNCNAME}] Ошибка при очистке таблицы маршрутизации ${ROUTE_TABLE_ID}"
+
+		ip4__route__flush_cache
+		return
+	}
+
+	ip route del table "${ROUTE_TABLE_ID}" \
+	 || {
+		error "[${FUNCNAME}] Ошибка при удалении таблицы маршрутизации ${ROUTE_TABLE_ID}"
+	}
 
 	ip4__route__flush_cache
 }
