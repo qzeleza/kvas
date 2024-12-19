@@ -1264,21 +1264,6 @@ ip4__route__add_and_fill_table() {
 			if ip route add "${_net}" via "${_ip_gw}" table "${ROUTE_TABLE_ID}" 2>&1 | grep -vFq 'File exists' ; then
 				error "[${FUNCNAME}] Ошибка при добавлении маршрута ${_net} через ${_ip_gw} в таблицу ${ROUTE_TABLE_ID}"
 			fi
-
-			# Проверка на число записей в таблице ${ROUTE_TABLE_ID} - их должно быть больше чем одна запись
-			if [ "$(ip route show table ${ROUTE_TABLE_ID} | grep -c dev)" -le 1 ] ; then
-				error "[${FUNCNAME}] В таблицу с ID#${ROUTE_TABLE_ID} НЕ БЫЛИ скопированы записи из таблицы main!"
-			fi
-		} && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
-	else
-		mess="Создание таблицы маршрутизации gateway ID#${ROUTE_TABLE_ID} для '${net_interface}' и шлюза ${gateway_ip}"
-		log_warning "${mess}"
-		ready "${mess}"
-		{
-			# Проверка на число записей в таблице ${ROUTE_TABLE_ID} - должна быть хотя бы одна запись
-			if [ "$(ip route show table ${ROUTE_TABLE_ID} | grep -c dev)" -le 0 ] ; then
-				error "[${FUNCNAME}] В таблицу с ID#${ROUTE_TABLE_ID} НЕ БЫЛИ скопированы записи из таблицы main!"
-			fi
 		} && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
 	fi
 
