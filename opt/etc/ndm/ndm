@@ -1175,6 +1175,7 @@ ip4__flush() {
 # ------------------------------------------------------------------------------------------
 #
 # Всё, касающееся ip route и ip rule
+# Используется лишь для VPN
 #
 # ------------------------------------------------------------------------------------------
 
@@ -1192,6 +1193,16 @@ route_del() {
 	if [[ -n "${_route}" ]] && ! [[ "${inface}" = "$(inface_ent)" ]]; then
 		ip route del table "${ROUTE_TABLE_ID}" default via "$(inface_gw4)" dev "$(inface_ent)" &>/dev/null
 	fi
+}
+
+ip4__route__is_exist_table() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — id таблицы"
+		return
+	fi
+	local table_id="${1}"
+
+	[ $(ip route show table "${table_id}" | head -c1 | wc -c) -gt 0 ]
 }
 
 ip4__route__add_and_fill_table() {
@@ -1256,7 +1267,7 @@ ip4__route__add_and_fill_table() {
 }
 
 ip4__route__delete_table() {
-	if [ $(ip route show table "${ROUTE_TABLE_ID}" | head -c1 | wc -c) -eq 0 ] ; then
+	if ! ip4__route__is_exist_table "${ROUTE_TABLE_ID}" ; then
 		return
 	fi
 
