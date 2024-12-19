@@ -1235,6 +1235,7 @@ ip4__route__add_and_fill_table() {
 		log_warning "Очистка таблицы маршрутизации ${ROUTE_TABLE_ID} из-за отсутствия ${subroute}"
 		ip route flush table "${ROUTE_TABLE_ID}" &>/dev/null
 
+		# чтобы передобавилось ниже
 		route_show=$(ip4__route__show_table "${ROUTE_TABLE_ID}")
 	fi
 
@@ -1247,13 +1248,12 @@ ip4__route__add_and_fill_table() {
 		}
 	fi
 
-	if [[ -z "${gateway_ip}" ]]; then
+	if [ -z "${gateway_ip}" ]; then
 		mess="Создание таблицы маршрутизации ID#${ROUTE_TABLE_ID} для ${net_interface}"
 		log_warning "${mess}"
 		ready "${mess}"
 		{
 			_ip_gw=$(ip a | grep global | grep "${net_interface}" | sed 's|.*inet \(.*\).*\/.* scope.*|\1|' | cut -d' ' -f1)
-
 			[ -z "${_ip_gw}" ] && {
 				error "Не удалось определить IP шлюза для соединения ${net_interface}"
 				exit 1
