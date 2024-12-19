@@ -1478,7 +1478,7 @@ recreate_vpn_rules(){
 	ready "${prefix}Обнуляем приоритет таблицы ID#${ROUTE_TABLE_ID}"
 	ip4_rule_del_priority &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
-	ready "${prefix}Устанавливаем приоритет таблицы ID#${ROUTE_TABLE_ID} в значение ${ROUTE_TABLE_PRIORITY}"
+	ready "${prefix}Устанавливаем приоритет таблицы ID#${ROUTE_TABLE_ID} в значение ${RULE_PRIORITY}"
 	# Устанавливаем приоритет таблицы
 	ip4_rule_set_priority &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
