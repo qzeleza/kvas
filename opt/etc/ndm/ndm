@@ -1183,7 +1183,7 @@ ip4__flush() {
 ip4__route__flush_cache() {
 	log_warning 'Очистка кэша маршрутизации'
 
-	ip route flush cache 1>/dev/null 2>"${ERROR_LOG_FILE}"
+	ip route flush cache &>/dev/null
 }
 
 route_del() {
