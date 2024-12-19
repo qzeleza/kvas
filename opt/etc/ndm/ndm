@@ -1251,7 +1251,7 @@ ip4_add_route_table() {
 }
 
 # Установка приоритета таблицы ID#${ROUTE_TABLE_ID} в значение ${ROUTE_TABLE_PRIORITY}
-ip4_rule_set_priority() {
+ip4__route__add_rule_mark_to_table() {
 	if ip rule show | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${ROUTE_TABLE_ID}" ; then
 		return
 	fi
@@ -1270,6 +1270,11 @@ ip4_rule_set_priority() {
 	fi
 
 	ip4__route__flush_cache
+}
+
+#TODO: сменить в других файлах обращение на новую обёртку
+ip4_rule_set_priority() {
+	ip4__route__add_rule_mark_to_table
 }
 
 # Обнуление приоритета таблицы ID#${ROUTE_TABLE_ID}
