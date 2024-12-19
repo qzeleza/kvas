@@ -1253,16 +1253,16 @@ ip4__route__add_and_fill_table() {
 		log_warning "${mess}"
 		ready "${mess}"
 		{
-			_ip_gw=$(get_ip_by_inface "${net_interface}")
-			[ -z "${_ip_gw}" ] && {
+			gateway_ip=$(get_ip_by_inface "${net_interface}")
+			[ -z "${gateway_ip}" ] && {
 				error "Не удалось определить IP шлюза для соединения ${net_interface}"
 				exit 1
 			}
 
 			# Добавление сети vpn соединения.
-			_net="$(echo "${_ip_gw}" | cut -d'.' -f1-3).0/24"
-			if ip route add "${_net}" via "${_ip_gw}" table "${ROUTE_TABLE_ID}" 2>&1 | grep -vFq 'File exists' ; then
-				error "[${FUNCNAME}] Ошибка при добавлении маршрута ${_net} через ${_ip_gw} в таблицу ${ROUTE_TABLE_ID}"
+			_net="$(echo "${gateway_ip}" | cut -d'.' -f1-3).0/24"
+			if ip route add "${_net}" via "${gateway_ip}" table "${ROUTE_TABLE_ID}" 2>&1 | grep -vFq 'File exists' ; then
+				error "[${FUNCNAME}] Ошибка при добавлении маршрута ${_net} через ${gateway_ip} в таблицу ${ROUTE_TABLE_ID}"
 			fi
 		} && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
 	fi
