@@ -1205,7 +1205,7 @@ ip4__route__is_exist_table() {
 	[ $(ip4__route__show_table "${table_id}" | head -c1 | wc -c) -gt 0 ]
 }
 
-ip4__route__add_and_fill_table() {
+ip4__route__add_table() {
 	local net_interface=$(get_config_value 'INFACE_ENT')
 
 	local gateway_ip=$(get_config_value 'ADDR_MAN')
@@ -1238,19 +1238,20 @@ ip4__route__add_and_fill_table() {
 		}
 	fi
 
+	# если не gateway, то нужны 2 роута
 	if [ -z "${gateway_ip}" ] ; then
 		gateway_ip=$(get_ip_by_inface "${net_interface}")
 		if [ -z "${gateway_ip}" ] ; then
-			error "Не удалось определить IP шлюза для соединения ${net_interface}"
+			error "[${FUNCNAME}] При добавлении в таблицу маршрутизации ${ROUTE_TABLE_ID} не удалось определить IP шлюза для ${net_interface}"
 		else
 
-		mess="Создание таблицы маршрутизации ID#${ROUTE_TABLE_ID} для ${net_interface}"
-		log_warning "${mess}"
+			mess="Создание таблицы маршрутизации ID#${ROUTE_TABLE_ID} для ${net_interface}"
+			log_warning "${mess}"
 
-		local gateway_net=$(get_net_by_ip "${gateway_ip}")
-		if ip route add "${gateway_net}" via "${gateway_ip}" table "${ROUTE_TABLE_ID}" 2>&1 | grep -vFq 'File exists' ; then
-			error "[${FUNCNAME}] Ошибка при добавлении маршрута ${gateway_net} через ${gateway_ip} в таблицу ${ROUTE_TABLE_ID}"
-		fi
+			local gateway_net=$(get_net_by_ip "${gateway_ip}")
+			if ip route add "${gateway_net}" via "${gateway_ip}" table "${ROUTE_TABLE_ID}" 2>&1 | grep -vFq 'File exists' ; then
+				error "[${FUNCNAME}] Ошибка при добавлении маршрута ${gateway_net} через ${gateway_ip} в таблицу ${ROUTE_TABLE_ID}"
+			fi
 
 		fi
 	fi
@@ -1283,7 +1284,7 @@ ip4__route__delete_table() {
 
 #TODO: сменить в других файлах обращение на новую обёртку
 ip4_add_route_table() {
-	ip4__route__add_and_fill_table
+	ip4__route__add_table
 }
 
 #TODO: сменить в других файлах обращение на новую обёртку
