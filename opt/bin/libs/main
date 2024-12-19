@@ -757,6 +757,21 @@ get_ip_by_inface() {
 	ip a | grep -F "${net_interface}" | grep -F 'global' | grep -oE "inet ${IP_FILTER}" | cut -d' ' -f2
 }
 
+get_net_by_ip() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — IP"
+		return
+	fi
+	local ip="${1}"
+
+	if ! echo "${ip}" | grep -qE "^${IP_FILTER}$" ; then
+		error "[${FUNCNAME}] Переданный аргумент — не IP"
+		return
+	fi
+
+	echo "$(echo "${ip}" | cut -d'.' -f1-3).0/24"
+}
+
 # ------------------------------------------------------------------------------------------
 #
 #	Получаем ID локального интерфейса

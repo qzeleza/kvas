@@ -1260,7 +1260,7 @@ ip4__route__add_and_fill_table() {
 			}
 
 			# Добавление сети vpn соединения.
-			_net="$(echo "${gateway_ip}" | cut -d'.' -f1-3).0/24"
+			_net=$(get_net_by_ip "${gateway_ip}")
 			if ip route add "${_net}" via "${gateway_ip}" table "${ROUTE_TABLE_ID}" 2>&1 | grep -vFq 'File exists' ; then
 				error "[${FUNCNAME}] Ошибка при добавлении маршрута ${_net} через ${gateway_ip} в таблицу ${ROUTE_TABLE_ID}"
 			fi
