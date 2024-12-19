@@ -1250,15 +1250,18 @@ ip4_add_route_table() {
 	fi
 }
 
-# Установка приоритета таблицы ID#${ROUTE_TABLE_ID} в значение ${RULE_PRIORITY}
-ip4__route__add_rule_mark_to_table() {
+ip4__route__fill_table() {
 	addr_gateway=$(get_config_value 'ADDR_MAN')
 	if [[ -z "${addr_gateway}" ]]; then
 		if ip route add default dev "$(inface_ent)" table "${ROUTE_TABLE_ID}" 2>&1 | grep -vFq 'File exists' ; then
 			error "[${FUNCNAME}] Ошибка при установке маршрута по умолчанию таблицы с ID#${ROUTE_TABLE_ID}"
 		fi
-	fi
 
+		ip4__route__flush_cache
+	fi
+}
+
+ip4__rule__add_mark_to_table() {
 	if ip rule show | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${ROUTE_TABLE_ID}" ; then
 		return
 	fi
@@ -1268,13 +1271,11 @@ ip4__route__add_rule_mark_to_table() {
 	if ip rule add fwmark "${MARK_NUM}/${MARK_NUM}" lookup "${ROUTE_TABLE_ID}" priority "${RULE_PRIORITY}" 2>&1 | grep -vFq 'File exists'; then
 		error "[${FUNCNAME}] Ошибка при установке приоритета таблицы с ID#${ROUTE_TABLE_ID} в значение ${RULE_PRIORITY}"
 	fi
-
-	ip4__route__flush_cache
 }
 
-#TODO: сменить в других файлах обращение на новую обёртку
 ip4_rule_set_priority() {
-	ip4__route__add_rule_mark_to_table
+	ip4__route__fill_table
+	ip4__rule__add_mark_to_table
 }
 
 # Обнуление приоритета таблицы ID#${ROUTE_TABLE_ID}
