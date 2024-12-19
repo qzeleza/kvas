@@ -754,7 +754,7 @@ get_ip_by_inface() {
 	fi
 	local net_interface="${1}"
 
-	ip a | grep -F "${net_interface}" | grep -F 'global' | sed 's/.*inet.\(.*\)\/.*/\1/'
+	ip a | grep -F "${net_interface}" | grep -F 'global' | grep -oE "inet ${IP_FILTER}" | cut -d' ' -f2
 }
 
 # ------------------------------------------------------------------------------------------
