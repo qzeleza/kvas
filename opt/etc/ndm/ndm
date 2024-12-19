@@ -1232,7 +1232,7 @@ ip4__route__add_and_fill_table() {
 	local route_show=$(ip4__route__show_table "${ROUTE_TABLE_ID}")
 	if [ -n "${route_show}" ] && ! echo "${route_show}" | grep -Fq "${subroute}"; then
 		# таблица существует, но не содержит нужного роута
-		log_warning "Очистка таблицы маршрутизации ${ROUTE_TABLE_ID}"
+		log_warning "Очистка таблицы маршрутизации ${ROUTE_TABLE_ID} из-за отсутствия ${subroute}"
 		ip route flush table "${ROUTE_TABLE_ID}" &>/dev/null
 
 		route_show=$(ip4__route__show_table "${ROUTE_TABLE_ID}")
