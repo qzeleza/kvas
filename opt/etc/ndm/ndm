@@ -1195,6 +1195,16 @@ route_del() {
 	fi
 }
 
+ip4__route__show_table() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — id таблицы"
+		return
+	fi
+	local table_id="${1}"
+
+	ip route show table "${table_id}"
+}
+
 ip4__route__is_exist_table() {
 	if [ -z "${1}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — id таблицы"
@@ -1202,7 +1212,7 @@ ip4__route__is_exist_table() {
 	fi
 	local table_id="${1}"
 
-	[ $(ip route show table "${table_id}" | head -c1 | wc -c) -gt 0 ]
+	[ $(ip4__route__show_table "${table_id}" | head -c1 | wc -c) -gt 0 ]
 }
 
 ip4__route__add_and_fill_table() {
