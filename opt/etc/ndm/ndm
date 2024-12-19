@@ -1241,8 +1241,7 @@ ip4__route__add_and_fill_table() {
 	if [ -z "${gateway_ip}" ] ; then
 		mess="Создание таблицы маршрутизации ID#${ROUTE_TABLE_ID} для ${net_interface}"
 		log_warning "${mess}"
-		ready "${mess}"
-		{
+
 			gateway_ip=$(get_ip_by_inface "${net_interface}")
 			if [ -z "${gateway_ip}" ] ; then
 				error "Не удалось определить IP шлюза для соединения ${net_interface}"
@@ -1253,7 +1252,6 @@ ip4__route__add_and_fill_table() {
 			if ip route add "${gateway_net}" via "${gateway_ip}" table "${ROUTE_TABLE_ID}" 2>&1 | grep -vFq 'File exists' ; then
 				error "[${FUNCNAME}] Ошибка при добавлении маршрута ${gateway_net} через ${gateway_ip} в таблицу ${ROUTE_TABLE_ID}"
 			fi
-		} && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
 	fi
 
 	ip4__route__flush_cache
