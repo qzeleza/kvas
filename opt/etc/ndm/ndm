@@ -1264,7 +1264,7 @@ ip4__rule__add_mark_to_table() {
 		return
 	fi
 
-	log_warning "Установка приоритета таблицы ID#${ROUTE_TABLE_ID} в значение ${RULE_PRIORITY}"
+	log_warning "Добавление правила ${RULE_PRIORITY} отправки пакетов с меткой ${MARK_NUM} в таблицу {ROUTE_TABLE_ID}"
 
 	if ip rule add fwmark "${MARK_NUM}/${MARK_NUM}" lookup "${ROUTE_TABLE_ID}" priority "${RULE_PRIORITY}" 2>&1 | grep -vFq 'File exists'; then
 		error "[${FUNCNAME}] Ошибка при установке приоритета таблицы с ID#${ROUTE_TABLE_ID} в значение ${RULE_PRIORITY}"
@@ -1276,7 +1276,7 @@ ip4__rule__delete_mark_to_table() {
 		return
 	fi
 
-	log_warning "Обнуление приоритета таблицы ID#${ROUTE_TABLE_ID}"
+	log_warning "Удаление правила ${RULE_PRIORITY} отправки пакетов с меткой ${MARK_NUM} в таблицу {ROUTE_TABLE_ID}"
 
 	ip rule del fwmark "${MARK_NUM}/${MARK_NUM}" lookup "${ROUTE_TABLE_ID}" priority "${RULE_PRIORITY}" &>/dev/null
 }
