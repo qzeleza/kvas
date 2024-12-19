@@ -1214,8 +1214,6 @@ ip4__route__add_and_fill_table() {
 		log_warning "${mess}"
 		ready "${mess}"
 		{
-			_inface_ent=$(get_config_value 'INFACE_ENT')
-
 			_ip_gw=$(ip a | grep global | grep "${_inface_ent}" | sed 's|.*inet \(.*\).*\/.* scope.*|\1|' | cut -d' ' -f1)
 
 			[ -z "${_ip_gw}" ] && {
