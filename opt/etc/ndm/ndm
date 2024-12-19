@@ -1221,10 +1221,13 @@ ip4__route__add_and_fill_table() {
 	local gateway_ip=$(get_config_value 'ADDR_MAN')
 	if [ -n "${gateway_ip}" ] ; then
 		local subroute=" via ${gateway_ip}"
+		local submessage=" через ${gateway_ip}"
 	else
 		local subroute=''
+		local submessage=''
 	fi
 	subroute="default${subroute} dev ${net_interface}"
+	submessage=" таблицы маршрутизации ${ROUTE_TABLE_ID} для ${net_interface}${submessage}"
 
 	if [[ -z "${gateway_ip}" ]]; then
 		mess="Создание таблицы маршрутизации ID#${ROUTE_TABLE_ID} для ${net_interface}"
