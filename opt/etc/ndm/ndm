@@ -1262,6 +1262,7 @@ ip4_rule_set_priority() {
 		error "[${FUNCNAME}] Ошибка при установке приоритета таблицы с ID#${ROUTE_TABLE_ID} в значение ${ROUTE_TABLE_PRIORITY}"
 	fi
 
+	addr_gateway=$(get_config_value 'ADDR_MAN')
 	if [[ -z "${addr_gateway}" ]]; then
 		if ip route add default dev "$(inface_ent)" table "${ROUTE_TABLE_ID}" 2>&1 | grep -vFq 'File exists' ; then
 			error "[${FUNCNAME}] Ошибка при установке маршрута по умолчанию таблицы с ID#${ROUTE_TABLE_ID}"
