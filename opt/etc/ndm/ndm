@@ -1253,7 +1253,7 @@ ip4__route__add_and_fill_table() {
 		log_warning "${mess}"
 		ready "${mess}"
 		{
-			_ip_gw=$(ip a | grep global | grep "${net_interface}" | sed 's|.*inet \(.*\).*\/.* scope.*|\1|' | cut -d' ' -f1)
+			_ip_gw=$(get_ip_by_inface "${net_interface}")
 			[ -z "${_ip_gw}" ] && {
 				error "Не удалось определить IP шлюза для соединения ${net_interface}"
 				exit 1
