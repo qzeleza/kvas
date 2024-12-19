@@ -1260,6 +1260,10 @@ ip4__route__fill_table() {
 }
 
 ip4__route__delete_table() {
+	if [ $(ip route show table "${ROUTE_TABLE_ID}" | head -c1 | wc -c) -eq 0 ] ; then
+		return
+	fi
+
 	log_warning "Удаление таблицы маршрутизации ${ROUTE_TABLE_ID}"
 
 	ip route flush table "${ROUTE_TABLE_ID}" &>/dev/null
