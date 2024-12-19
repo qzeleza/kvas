@@ -1252,12 +1252,16 @@ ip4_add_route_table() {
 
 # Установка приоритета таблицы ID#${ROUTE_TABLE_ID} в значение ${ROUTE_TABLE_PRIORITY}
 ip4_rule_set_priority() {
-	if ! ip rule show | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${ROUTE_TABLE_ID}" ; then
+	if ip rule show | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${ROUTE_TABLE_ID}" ; then
+		return
+	fi
+
 		log_warning "Установка приоритета таблицы ID#${ROUTE_TABLE_ID} в значение ${ROUTE_TABLE_PRIORITY}"
 
 		if ip rule add fwmark "${MARK_NUM}/${MARK_NUM}" lookup "${ROUTE_TABLE_ID}" priority "${ROUTE_TABLE_PRIORITY}" 2>&1 | grep -vFq 'File exists'; then
 			error "[${FUNCNAME}] Ошибка при установке приоритета таблицы с ID#${ROUTE_TABLE_ID} в значение ${ROUTE_TABLE_PRIORITY}"
 		fi
+
 		if [[ -z "${addr_gateway}" ]]; then
 			if ip route add default dev "$(inface_ent)" table "${ROUTE_TABLE_ID}" 2>&1 | grep -vFq 'File exists' ; then
 				error "[${FUNCNAME}] Ошибка при установке маршрута по умолчанию таблицы с ID#${ROUTE_TABLE_ID}"
@@ -1265,23 +1269,25 @@ ip4_rule_set_priority() {
 		fi
 
 		ip4__route__flush_cache
-	fi
 }
 
 # Обнуление приоритета таблицы ID#${ROUTE_TABLE_ID}
 ip4_rule_del_priority() {
-	if ip rule show | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${ROUTE_TABLE_ID}" ; then
+	if ! ip rule show | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${ROUTE_TABLE_ID}" ; then
+		return
+	fi
+
 		log_warning "Обнуление приоритета таблицы ID#${ROUTE_TABLE_ID}"
 
 		ip rule del fwmark "${MARK_NUM}/${MARK_NUM}" lookup "${ROUTE_TABLE_ID}" priority "${ROUTE_TABLE_PRIORITY}" &>/dev/null
 
 		ip4__route__flush_cache
-	fi
 }
 
 # Удаление всех таблиц, которые были созданы при работе пакета
 ip4_flush_all_tables() {
 	log_warning "Очистка записей таблицы маршрутизации ID#${ROUTE_TABLE_ID} и удаление её"
+
 	ip route flush table "${ROUTE_TABLE_ID}" &>/dev/null
 	ip rule del table "${ROUTE_TABLE_ID}" &>/dev/null
 
