@@ -752,9 +752,9 @@ get_ip_by_inface() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — сетевой интерфейс"
 		return
 	fi
-	local entware_inf="${1}"
+	local net_interface="${1}"
 
-	/opt/sbin/ip a | grep global | grep "${entware_inf}" | sed 's/.*inet.\(.*\)\/.*/\1/'
+	/opt/sbin/ip a | grep global | grep "${net_interface}" | sed 's/.*inet.\(.*\)\/.*/\1/'
 }
 
 # ------------------------------------------------------------------------------------------
