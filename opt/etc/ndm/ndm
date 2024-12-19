@@ -1259,26 +1259,32 @@ ip4_add_route_table() {
 ip4__route__fill_table() {
 }
 
+ip4__rule__get_sub() {
+	echo "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${ROUTE_TABLE_ID}"
+}
+
 ip4__rule__add_mark_to_table() {
-	if ip rule show | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${ROUTE_TABLE_ID}" ; then
+	local subrule="$(ip4__rule__get_sub)"
+	if ip rule show | grep -Fq "${subrule}" ; then
 		return
 	fi
 
 	log_warning "Добавление правила ${RULE_PRIORITY} отправки пакетов с меткой ${MARK_NUM} в таблицу {ROUTE_TABLE_ID}"
 
-	if ip rule add fwmark "${MARK_NUM}/${MARK_NUM}" lookup "${ROUTE_TABLE_ID}" priority "${RULE_PRIORITY}" 2>&1 | grep -vFq 'File exists'; then
+	if ip rule add $(echo "${subrule}") priority "${RULE_PRIORITY}" 2>&1 | grep -vFq 'File exists'; then
 		error "[${FUNCNAME}] Ошибка при установке приоритета таблицы с ID#${ROUTE_TABLE_ID} в значение ${RULE_PRIORITY}"
 	fi
 }
 
 ip4__rule__delete_mark_to_table() {
-	if ! ip rule show | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${ROUTE_TABLE_ID}" ; then
+	local subrule="$(ip4__rule__get_sub)"
+	if ! ip rule show | grep -Fq "${subrule}" ; then
 		return
 	fi
 
 	log_warning "Удаление правила ${RULE_PRIORITY} отправки пакетов с меткой ${MARK_NUM} в таблицу {ROUTE_TABLE_ID}"
 
-	ip rule del fwmark "${MARK_NUM}/${MARK_NUM}" lookup "${ROUTE_TABLE_ID}" priority "${RULE_PRIORITY}" &>/dev/null
+	ip rule del $(echo "${subrule}") priority "${RULE_PRIORITY}" &>/dev/null
 }
 
 #TODO: сменить в других файлах обращение на новую обёртку
