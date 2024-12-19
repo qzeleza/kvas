@@ -1260,7 +1260,7 @@ ip4__route__fill_table() {
 }
 
 ip4__route__delete_table() {
-	log_warning "Очистка записей таблицы маршрутизации ID#${ROUTE_TABLE_ID} и удаление её"
+	log_warning "Удаление таблицы маршрутизации ${ROUTE_TABLE_ID}"
 
 	ip route flush table "${ROUTE_TABLE_ID}" &>/dev/null
 	ip route del table "${ROUTE_TABLE_ID}" &>/dev/null
