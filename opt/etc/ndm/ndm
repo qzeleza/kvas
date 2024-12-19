@@ -1256,7 +1256,7 @@ ip4__route__add_and_fill_table() {
 			gateway_ip=$(get_ip_by_inface "${net_interface}")
 			[ -z "${gateway_ip}" ] && {
 				error "Не удалось определить IP шлюза для соединения ${net_interface}"
-				exit 1
+				return
 			}
 
 			# Добавление сети vpn соединения.
