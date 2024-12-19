@@ -1227,7 +1227,7 @@ ip4__route__add_and_fill_table() {
 		local submessage=''
 	fi
 	subroute="default${subroute} dev ${net_interface}"
-	submessage=" таблицы маршрутизации ${ROUTE_TABLE_ID} для ${net_interface}${submessage}"
+	submessage="таблицы маршрутизации ${ROUTE_TABLE_ID} для ${net_interface}${submessage}"
 
 	local route_show=$(ip4__route__show_table "${ROUTE_TABLE_ID}")
 	if [ -n "${route_show}" ] && ! echo "${route_show}" | grep -Fq "${subroute}"; then
@@ -1236,6 +1236,15 @@ ip4__route__add_and_fill_table() {
 		ip route flush table "${ROUTE_TABLE_ID}" &>/dev/null
 
 		route_show=$(ip4__route__show_table "${ROUTE_TABLE_ID}")
+	fi
+
+	if [ -z "${route_show}" ] ; then
+		log_warning "Добавление ${submessage}"
+
+		ip route add table "${ROUTE_TABLE_ID}" $(echo "${subroute}") \
+		 || {
+			error "[${FUNCNAME}] Ошибка при добавлении ${submessage}"
+		}
 	fi
 
 	if [[ -z "${gateway_ip}" ]]; then
@@ -1248,12 +1257,6 @@ ip4__route__add_and_fill_table() {
 			[ -z "${_ip_gw}" ] && {
 				error "Не удалось определить IP шлюза для соединения ${net_interface}"
 				exit 1
-			}
-
-			! ip route show table "${ROUTE_TABLE_ID}" | grep -Fq 'default' && {
-				if ip route add table "${ROUTE_TABLE_ID}" default dev "${net_interface}" 2>&1 | grep -vFq 'File exists' ; then
-					error "[${FUNCNAME}] Ошибка при создании таблицы маршрутизации ID#${ROUTE_TABLE_ID} для '${net_interface}' интерфейса"
-				fi
 			}
 
 			# Добавление сети vpn соединения.
@@ -1272,12 +1275,6 @@ ip4__route__add_and_fill_table() {
 		log_warning "${mess}"
 		ready "${mess}"
 		{
-			! ip route show table ${ROUTE_TABLE_ID} | grep -q default && {
-				if ip route add table ${ROUTE_TABLE_ID} default via ${gateway_ip} dev ${net_interface} 2>&1 | grep -vq 'File exists' ; then
-					error "[${FUNCNAME}] Ошибка при создании таблицы маршрутизации ID#${ROUTE_TABLE_ID} для '${net_interface}' интерфейса"
-				fi
-			}
-
 			# Проверка на число записей в таблице ${ROUTE_TABLE_ID} - должна быть хотя бы одна запись
 			if [ "$(ip route show table ${ROUTE_TABLE_ID} | grep -c dev)" -le 0 ] ; then
 				error "[${FUNCNAME}] В таблицу с ID#${ROUTE_TABLE_ID} НЕ БЫЛИ скопированы записи из таблицы main!"
