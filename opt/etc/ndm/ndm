@@ -1215,7 +1215,6 @@ ip4__route__add_and_fill_table() {
 		ready "${mess}"
 		{
 			_inface_ent=$(get_config_value 'INFACE_ENT')
-			route_del "${_inface_ent}"
 
 			_ip_gw=$(ip a | grep global | grep "${_inface_ent}" | sed 's|.*inet \(.*\).*\/.* scope.*|\1|' | cut -d' ' -f1)
 
@@ -1225,7 +1224,7 @@ ip4__route__add_and_fill_table() {
 			}
 
 			! ip route show table "${ROUTE_TABLE_ID}" | grep -Fq 'default' && {
-				if ip route add table "${ROUTE_TABLE_ID}" default via "${_ip_gw}" dev "${_inface_ent}" 2>&1 | grep -vFq 'File exists' ; then
+				if ip route add table "${ROUTE_TABLE_ID}" default dev "${_inface_ent}" 2>&1 | grep -vFq 'File exists' ; then
 					error "[${FUNCNAME}] Ошибка при создании таблицы маршрутизации ID#${ROUTE_TABLE_ID} для '${_inface_cli}' интерфейса"
 				fi
 			}
@@ -1241,10 +1240,6 @@ ip4__route__add_and_fill_table() {
 				error "[${FUNCNAME}] В таблицу с ID#${ROUTE_TABLE_ID} НЕ БЫЛИ скопированы записи из таблицы main!"
 			fi
 		} && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
-
-		if ip route add default dev "$(inface_ent)" table "${ROUTE_TABLE_ID}" 2>&1 | grep -vFq 'File exists' ; then
-			error "[${FUNCNAME}] Ошибка при установке маршрута по умолчанию таблицы с ID#${ROUTE_TABLE_ID}"
-		fi
 	else
 		mess="Создание таблицы маршрутизации gateway ID#${ROUTE_TABLE_ID} для '${_inface_ent}' и шлюза ${addr_gateway}"
 		log_warning "${mess}"
