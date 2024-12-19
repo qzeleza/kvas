@@ -1194,8 +1194,7 @@ route_del() {
 	fi
 }
 
-# Создание ip таблицы ${ROUTE_TABLE_ID} и копирование в неё данных из таблицы main
-ip4_add_route_table() {
+ip4__route__add_and_fill_table() {
 	addr_gateway=$(get_config_value 'ADDR_MAN')
 	_inface_ent=$(get_config_value 'INFACE_ENT')
 	if [[ -z "${addr_gateway}" ]]; then
@@ -1256,9 +1255,6 @@ ip4_add_route_table() {
 	ip4__route__flush_cache
 }
 
-ip4__route__fill_table() {
-}
-
 ip4__route__delete_table() {
 	if [ $(ip route show table "${ROUTE_TABLE_ID}" | head -c1 | wc -c) -eq 0 ] ; then
 		return
@@ -1280,6 +1276,11 @@ ip4__route__delete_table() {
 	}
 
 	ip4__route__flush_cache
+}
+
+#TODO: сменить в других файлах обращение на новую обёртку
+ip4_add_route_table() {
+	ip4__route__add_and_fill_table
 }
 
 #TODO: сменить в других файлах обращение на новую обёртку
