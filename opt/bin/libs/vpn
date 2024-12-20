@@ -33,12 +33,10 @@ CMD_LIST="address prefix name-servers"
 #
 # ------------------------------------------------------------------------------------------
 update_iptables(){
-
-    recreate_ip4tables
+	recreate_ip4tables
 
 	if has_ssr_enable; then
 		recreate_ssr_rules
-
 	else
 		recreate_vpn_rules
 	fi
@@ -1788,8 +1786,9 @@ cmd_shadowsocks_iptable_reset() {
 		local_ip=$(get_router_ip)
 		inface=$(get_inface_by_ip "${local_ip}")
 		proxy_port=$(get_config_value SSR_DNS_PORT)
-		recreate_ssr_rules &>/dev/null
 
+		recreate_ip4tables
+		recreate_ssr_rules
 	else
 		exit 1
 	fi
