@@ -14,11 +14,10 @@
 # ------------------------------------------------------------------------------------------
 
 # ------------------------------------------------------------------------------------------
-# Подключаем функции логирования
+# Подключаем основные функции
 . /opt/apps/kvas/bin/libs/main
 # ------------------------------------------------------------------------------------------
 
-# имя таблицы для ipset
 
 ROUTE_TABLE_ID=1001
 RULE_PRIORITY=1778
@@ -251,7 +250,7 @@ ip4__ipset__create_list() {
 	ip4__ipset__create "${IPSET_TABLE_NAME}" "$(get_config_value LIST_IPSET_TTL)"
 }
 
-#TODO: сменить в других файлах обращение на новую обёртку
+#ToDo: сменить в других файлах обращение на новую обёртку
 ip4set_create_table() {
 	ip4__ipset__create_list
 }
@@ -876,22 +875,22 @@ ip4__delete_routing_by_list_for_net() {
 	fi
 }
 
-#TODO: сменить в других файлах обращение на новую обёртку
+#ToDo: сменить в других файлах обращение на новую обёртку
 ip4_add_selected_guest_to_vpn_network() {
 	ip4__add_routing_by_list_for_net "${1}"
 }
 
-#TODO: сменить в других файлах обращение на новую обёртку
+#ToDo: сменить в других файлах обращение на новую обёртку
 ip4_add_selected_guest_to_ssr_network() {
 	ip4__add_routing_by_list_for_net "${1}"
 }
 
-#TODO: сменить в других файлах обращение на новую обёртку
+#ToDo: сменить в других файлах обращение на новую обёртку
 ip4_firewall_rm_vpn_selected_guest_net() {
 	ip4__delete_routing_by_list_for_net "${1}"
 }
 
-#TODO: сменить в других файлах обращение на новую обёртку
+#ToDo: сменить в других файлах обращение на новую обёртку
 ip4_firewall_rm_ssr_selected_guest_net() {
 	ip4__delete_routing_by_list_for_net "${1}"
 }
@@ -1292,12 +1291,12 @@ ip4__route__delete_table() {
 	ip4__route__flush_cache
 }
 
-#TODO: сменить в других файлах обращение на новую обёртку
+#ToDo: сменить в других файлах обращение на новую обёртку
 ip4_add_route_table() {
 	ip4__route__add_table
 }
 
-#TODO: сменить в других файлах обращение на новую обёртку
+#ToDo: сменить в других файлах обращение на новую обёртку
 ip4_flush_all_tables() {
 	ip4__route__delete_table
 }
@@ -1340,12 +1339,12 @@ ip4__rule__delete_mark_to_table() {
 	}
 }
 
-#TODO: сменить в других файлах обращение на новую обёртку
+#ToDo: сменить в других файлах обращение на новую обёртку
 ip4_rule_set_priority() {
 	ip4__rule__add_mark_to_table
 }
 
-#TODO: сменить в других файлах обращение на новую обёртку
+#ToDo: сменить в других файлах обращение на новую обёртку
 ip4_rule_del_priority() {
 	ip4__rule__delete_mark_to_table
 }
@@ -1365,12 +1364,12 @@ cmd_vpn_iptable_reset() {
 	else
 		ready "Переустановка iptables для vpn завершена"
 		{
-			cmd_vpn_iptable_flush  #&> /dev/null
+			cmd_vpn_iptable_flush
 
-			ip4_add_route_table #&> /dev/null
-			ip4_rule_set_priority #&> /dev/null
+			ip4_add_route_table
+			ip4_rule_set_priority
 
-			ip4_mark_vpn_network #&> /dev/null
+			ip4_mark_vpn_network
 		} &> /dev/null && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
 	fi
 }
