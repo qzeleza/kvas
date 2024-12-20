@@ -2083,7 +2083,7 @@ show_vpn_list() {
 		ent_inface=$(echo "${line}" | cut -d"|" -f2)
 		net_ip=$(get_ip_by_inface "${ent_inface}")
 		[ -n "${net_ip}" ] && net_ip=" [${net_ip}]"
-		mess="${num}. Интерфейс ${cli_inface_desc}${net_ip}"
+		mess="${num}. ${cli_inface_desc}${net_ip}"
 		sleep 1
 		connected=$(is_vpn_interface_connected "${cli_inface}")
 
