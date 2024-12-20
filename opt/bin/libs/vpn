@@ -2078,7 +2078,7 @@ show_vpn_list() {
 
 		num=$((num + 1))
 		is_current_vpn=$(echo "${line}" | grep -i "${inface_entware}")
-		cli_inface_desc=$(echo "${line}" | cut -d"|" -f3)
+		cli_inface_desc=$(echo "${line}" | cut -d'|' -f3 | xargs)
 		cli_inface=$(echo "${line}" | cut -d"|" -f1)
 		ent_inface=$(echo "${line}" | cut -d"|" -f2)
 		net_ip=$(get_ip_by_inface "${ent_inface}")
