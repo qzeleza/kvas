@@ -33,13 +33,13 @@ CMD_LIST="address prefix name-servers"
 #
 # ------------------------------------------------------------------------------------------
 update_iptables(){
-	recreate_ip4tables
+	ready "${prefix}Очищаем все ранее созданные iptables правила."
+	# возможно чистить цепочки и роутинг — лишнее
+	ip4__flush 'jump chain table' &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
-	if has_ssr_enable; then
-		recreate_ssr_rules
-	else
-		recreate_vpn_rules
-	fi
+	ready "${prefix}Создаем iptables правила."
+	# Создаем правила iptables
+	ip4_firewall_set_all_rules &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 }
 
 # ------------------------------------------------------------------------------------------
@@ -1466,30 +1466,6 @@ ndm_gateway_change() {
 #
 # ------------------------------------------------------------------------------------------
 
-# Пересоздаем все необходимые правила для корректной работы VPN соединения
-recreate_vpn_rules(){
-	ready "${prefix}Очищаем все ранее созданные iptables правила для VPN."
-	# возможно чистить цепочки и роутинг — лишнее
-	ip4__flush 'jump chain table' &>/dev/null
-	when_ok "УСПЕШНО"
-
-	ready "${prefix}Создаем iptables правила для VPN соединения."
-	# Создаем правила iptables
-	ip4_mark_vpn_network &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-}
-
-# Пересоздаем все ранее созданные таблицы для утилит ipset и ip
-recreate_ip4tables(){
-
-	ready "${prefix}Удаляем все ранее созданные таблицы для утилит ipset и ip"
-	ip4_flush_all_tables &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-
-#	ready "${prefix}Создаем таблицу маршрутизации ID#${ROUTE_TABLE_ID} для '$(inface_cli)'."
-#	#	Создаем таблицу IP адресов для  VPN подключения отличного от shadowsocks
-#	ip4_add_route_table &> /dev/null
-#	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-}
-
 vpn_on() {
 
 	inface_entware="${1}"
@@ -1527,8 +1503,7 @@ vpn_on() {
 			error "Проверьте доступность сервера и настройки клиента!"
 			exit 1
 		else
-			recreate_ip4tables
-			recreate_vpn_rules
+			update_iptables
 		fi
 	} 1> /dev/null 2> "${ERROR_LOG_FILE}"
 	ready_status "${?}" "Возникла ошибка при подключении VPN соединения [${inface_cli_desc}]" "УСПЕШНО"
@@ -1762,23 +1737,6 @@ cmd_shadowsocks_iptable_flush() {
 #
 # ------------------------------------------------------------------------------------------
 
-# Пересоздаем все необходимые правила для корректной работы SHADOWSOCKS соединения
-recreate_ssr_rules(){
-	ready "${prefix}Очищаем все ранее созданные iptables правила для ShadowSocks."
-	ip4_firewall_flush_proxy &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-
-	ready "${prefix}Создаём цепочку для ShadowSocks соединения."
-	ip4__shadowsocks__create_chain &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-
-	ready "${prefix}Создаём правила домашней сети для ShadowSocks."
-	ip4__shadowsocks__add_routing_for_home &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-
-	ready "${prefix}Создаём правила гостевых сетей для ShadowSocks."
-	for guest_inface in $(get_guest_inface_list_from_config) ; do
-		ip4__add_routing_by_list_for_net "${guest_inface}" &>/dev/null
-	done && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-}
-
 cmd_shadowsocks_iptable_reset() {
 
 	ready "Переустановка iptables для shadowsocks завершена"
@@ -1787,8 +1745,7 @@ cmd_shadowsocks_iptable_reset() {
 		inface=$(get_inface_by_ip "${local_ip}")
 		proxy_port=$(get_config_value SSR_DNS_PORT)
 
-		recreate_ip4tables
-		recreate_ssr_rules
+		update_iptables
 	else
 		exit 1
 	fi
