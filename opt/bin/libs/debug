@@ -228,22 +228,33 @@ iptables__get_by_chain() {
 }
 
 cmd_debug_iptables() {
-	local output=$(ip route)
+	local output="$(get_tunnel_ip | xargs)"
+	if [ -z "${output}" ] ; then
+		output='Не найден!'
+	fi
 
-	ready 'Модель роутера'    && when_ok "$(get_model)"
-	ready 'Версия ndw'        && when_ok "$(get_version)"
-	ready 'Версия ndw4'       && when_ok "$(version_os)"
-	ready 'Внешний интерфейс' && when_ok "$(get_external_interface)"
-	ready 'IKEv2 интерфейс'   && when_ok "$(get_entware_ikev2_inface)"
+	# если вызывается как один из дебагов, то можно передать silent/short
+	if [ -z "${1}" ] ; then
+		echo 'Проверьте корректность отображаемой информации'
+		print_line
+		ready 'Модель роутера'  && when_ok "$(get_model)"
+		ready 'Версия прошивки' && when_ok "$(version_os)"
+	fi
+	ready 'Внешний IP'                            && when_ok "$(get_external_ip)"
+	ready 'IP тоннеля'                            && when_ok "${output}"
+	ready 'Исключённых целевых IPv4 и диапазонов' && when_ok "$(ipset list ${IPSET_DESTINATION_EXCLUDED} | grep -vF ':' | wc -l)"
+	ready 'Интерфейс для выхода в интернет'       && when_ok "$(get_external_interface)"
+	ready 'IKEv2 интерфейс'                       && when_ok "$(get_entware_ikev2_inface)"
 	echo
 
-	echo_debug 'Маршруты (подключитесь к гостевой заранее)' "${output}"
+	echo_debug 'Маршруты (подключитесь к гостевой заранее)' "$(ip route)"
 
 	if is_proxy_enabled ; then
-		output=$(iptables__get_by_chain "${CHAIN_DNAT_TO_PORT}")
+		output="${CHAIN_DNAT_TO_PORT}"
 	else
-		output=$(iptables__get_by_chain "${CHAIN_MARK_TO_TABLE}")
+		output="${CHAIN_MARK_TO_TABLE}"
 	fi
+	output=$(iptables__get_by_chain "${output}")
 	if [ -z "${output}" ] ; then
 		output='Правила не найдены!'
 
