@@ -1207,6 +1207,7 @@ ip4__route__is_exist_table() {
 
 ip4__route__add_table() {
 	local net_interface=$(get_config_value 'INFACE_ENT')
+	local is_need_flush=''
 
 	local gateway_ip=$(get_config_value 'ADDR_MAN')
 	if [ -n "${gateway_ip}" ] ; then
@@ -1225,6 +1226,8 @@ ip4__route__add_table() {
 		log_warning "Очистка таблицы маршрутизации ${ROUTE_TABLE_ID} из-за отсутствия ${subroute}"
 		ip route flush table "${ROUTE_TABLE_ID}" &>/dev/null
 
+		is_need_flush='1'
+
 		# чтобы передобавилось ниже
 		route_show=$(ip4__route__show_table "${ROUTE_TABLE_ID}")
 	fi
@@ -1236,6 +1239,8 @@ ip4__route__add_table() {
 		 || {
 			error "[${FUNCNAME}] Ошибка при добавлении ${submessage}"
 		}
+
+		is_need_flush='2'
 	fi
 
 	# если не gateway, то нужны 2 роута
@@ -1255,11 +1260,15 @@ ip4__route__add_table() {
 				 || {
 					error "[${FUNCNAME}] Ошибка при добавлении ${submessage}"
 				}
+
+				is_need_flush='3'
 			fi
 		fi
 	fi
 
-	ip4__route__flush_cache
+	if [ -n "${is_need_flush}" ] ; then
+		ip4__route__flush_cache
+	fi
 }
 
 ip4__route__delete_table() {
