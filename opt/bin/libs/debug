@@ -252,7 +252,7 @@ cmd_debug_iptables() {
 	if is_proxy_enabled ; then
 		output="${CHAIN_DNAT_TO_PORT}"
 	else
-		output="${CHAIN_MARK_TO_TABLE}"
+		output="${CHAIN_MARK}"
 	fi
 	output=$(iptables__get_by_chain "${output}")
 	if [ -z "${output}" ] ; then
