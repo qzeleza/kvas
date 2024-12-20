@@ -137,10 +137,6 @@ cmd_pause_kvas(){
 	{
 		ip4__flush &> /dev/null
 
-		ip4_flush_all_tables
-		route_del
-		ip4_rule_del_priority
-
 		# Архивируем файлы механизма ndm
 		[ -f /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn ] && {
 			mv /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn ${KVAS_BACKUP_PATH}/100-kvas-vpn-layer
