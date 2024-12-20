@@ -323,7 +323,6 @@ set_previous_condition(){
 	#------------------------------------------------------
 	ready "Очищаем все правила и таблицы..."
 	ip4__flush &> /dev/null
-	ip4_flush_all_tables &>/dev/null
 	if [ $? = 0 ]; then when_ok "УСПЕШНО"; else when_bad "ОШИБКА"; fi
 
 	if [ -f /opt/etc/init.d/S99adguardhome ]; then
