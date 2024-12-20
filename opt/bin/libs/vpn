@@ -134,7 +134,7 @@ reset_all_connection(){
 #		update 		- режим обновления при выполнении kvas update
 #		refresh 	- режим обновления списка доменов при командах add/del/import
 #	    initd		- обновить время при установке пакета
-# --------cmd_kvas_init----------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------
 cmd_kvas_init(){
 
 	stage="${1:-no}"
@@ -153,12 +153,6 @@ cmd_kvas_init(){
 	update_iptables
 	update_ipset "${stage}"
 	update_adblock
-
-	ip4_add_route_table
-#	ready "${prefix}Создаем таблицу маршрутизации ID#${ROUTE_TABLE_ID} для '$(inface_cli)'."
-#	#	Создаем таблицу IP адресов для  VPN подключения отличного от shadowsocks
-#
-#	ip4_add_route_table &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
 	[ "${stage}" = initd ] && update_time || all_services_restart
 
