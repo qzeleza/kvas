@@ -1421,7 +1421,6 @@ vpn_off() {
 	[ -f "/opt/etc/ndm/netfilter.d/100-vpn-mark" ] && rm -f "/opt/etc/ndm/netfilter.d/100-vpn-mark"
 	[ -f /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn ] && rm -f /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
 	[ -f /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn ] && rm -f /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn
-	[ -f "/opt/etc/ndm/fs.d/100-vpn" ] && rm -f "/opt/etc/ndm/fs.d/100-vpn"
 	cmd_vpn_iptable_flush  &> /dev/null
 }
 # ------------------------------------------------------------------------------------------
@@ -1507,10 +1506,7 @@ vpn_on() {
 
 	ready "Интерфейс ${inface_cli_desc} подключен "
 	{
-
-		cp "/opt/apps/${APP_NAME}/etc/ndm/fs.d/100-vpn" "/opt/etc/ndm/fs.d/100-vpn"
-		chmod +x "/opt/etc/ndm/fs.d/100-vpn"
-	#	Производим замену в библиотеке ndm основных значения интерфейсов
+		# Производим замену в библиотеке ndm основных значения интерфейсов
 		ndm_interface_change "${inface_entware}" "${inface_cli}"
 
 		cp "/opt/apps/${APP_NAME}/etc/ndm/netfilter.d/100-vpn-mark" "/opt/etc/ndm/netfilter.d/100-vpn-mark"

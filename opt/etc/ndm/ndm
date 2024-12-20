@@ -506,10 +506,10 @@ ip4__vpn_fast__create_chain() {
 
 		ip4__chain__create_for_data "${TABLE_MARK}" "${CHAIN_MARK}"
 
-		#ToDo: именно здесь надо автостартовать таблицы, их ручной старт нужно везде удалить
-		# ведь только после завершения этой цепочки таблица нужна и сможет получить трафик
-		#ip4__route__add_table
-		#ip4__rule__add_mark_to_table
+		# т.к. мы начнём маркировать трафик, то заранее
+		# стартанём таблицы для него и повесим правило захвата
+		ip4__route__add_table
+		ip4__rule__add_mark_to_table
 
 		iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -j CONNMARK --restore-mark
 		iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -m mark --mark ${MARK_NUM} -j RETURN
@@ -1144,12 +1144,10 @@ ip4__flush() {
 			ip4__ipset__destroy_destination_excluded
 		fi
 
-		#if echo "${parts}" | grep -Fq ' table ' ; then
-			#ToDo: именно здесь надо удалять таблицы, их ручное удаление нужно удалить
-			# ведь только эта цепочка использовала эту таблицу
-			#ip4__rule__delete_mark_to_table
-			#ip4__route__delete_table
-		#fi
+		if echo "${parts}" | grep -Fq ' table ' ; then
+			ip4__rule__delete_mark_to_table
+			ip4__route__delete_table
+		fi
 	else
 		iptables__delete_rules "${TABLE_MARK}" "-j MARK --set-mark ${MARK_NUM}"
 	fi
