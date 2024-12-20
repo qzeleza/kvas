@@ -1072,11 +1072,6 @@ ip4_firewall_flush_proxy() {
 	} &>/dev/null
 }
 
-#ToDo: сменить в других файлах обращение на новую обёртку
-ip4_firewall_ssr_prune() {
-	ip4_firewall_flush_proxy
-}
-
 # Удаляем все маршрутизирующие правила iptables
 ip4_firewall_flush_all_rules() {
 	if is_proxy_enabled ; then
