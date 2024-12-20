@@ -808,11 +808,7 @@ bridge_vpn_access_del() {
 		ready "Удаление гостевого интерфейса '${cli_inface}' завершено"
 		{
 
-			if has_ssr_enable ; then
-				ip4_firewall_rm_ssr_selected_guest_net "${guest_bridge_id}"
-			else
-				ip4_firewall_rm_vpn_selected_guest_net "${guest_bridge_id}"
-			fi
+			ip4__delete_routing_by_list_for_net "${guest_bridge_id}"
 
 			#       Слушаем 53 порт гостевого интерфейса
 			guest_net_ip=$(/opt/sbin/ip a | grep global | grep -E ' '"${guest_bridge_id}" | sed 's/inet \(.*\)\/.*/\1/' | tr -d ' ')
@@ -1104,7 +1100,7 @@ bridge_vpn_access_add() {
 			bridge_access_add "${guest_bridge_id}"
 
 			if has_ssr_enable; then
-				ip4_add_selected_guest_to_ssr_network "${guest_bridge_id}"
+				ip4__add_routing_by_list_for_net "${guest_bridge_id}"
 			fi
 		fi
 	fi

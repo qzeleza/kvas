@@ -875,26 +875,6 @@ ip4__delete_routing_by_list_for_net() {
 	fi
 }
 
-#ToDo: сменить в других файлах обращение на новую обёртку
-ip4_add_selected_guest_to_vpn_network() {
-	ip4__add_routing_by_list_for_net "${1}"
-}
-
-#ToDo: сменить в других файлах обращение на новую обёртку
-ip4_add_selected_guest_to_ssr_network() {
-	ip4__add_routing_by_list_for_net "${1}"
-}
-
-#ToDo: сменить в других файлах обращение на новую обёртку
-ip4_firewall_rm_vpn_selected_guest_net() {
-	ip4__delete_routing_by_list_for_net "${1}"
-}
-
-#ToDo: сменить в других файлах обращение на новую обёртку
-ip4_firewall_rm_ssr_selected_guest_net() {
-	ip4__delete_routing_by_list_for_net "${1}"
-}
-
 
 # ------------------------------------------------------------------------------------------
 #
