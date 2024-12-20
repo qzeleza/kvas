@@ -544,6 +544,10 @@ ip4__dns__delete_routing_for_home() {
 }
 
 ip4__dns__add_routing_for_home() {
+	# после включения редиректа DNS ipset начнёт заполняться
+	# нужно его создать автоматически для DNSMasq, если ещё нет
+	ip4__ipset__create_list
+
 	ip4__dns__add_routing "-i $(get_local_inface)"
 }
 
@@ -668,10 +672,6 @@ ip4__dns__add_routing() {
 	local rulenum=$(ip4__dns__get_rulenum)
 
 	log_warning "Подключение DNS перенаправления с приоритетом ${rulenum}${submessage}"
-
-	# после включения редиректа DNS ipset начнёт заполняться
-	# нужно его создать автоматически для DNSMasq
-	ip4__ipset__create_list
 
 	ip4__dns__create_chain
 	# без echo дублирование пробелов (что даёт warning и проблему наличия)
