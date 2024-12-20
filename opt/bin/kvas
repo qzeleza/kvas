@@ -1,13 +1,13 @@
 #!/bin/sh
 
-. /opt/apps/kvas/bin/libs/vpn
 . /opt/apps/kvas/bin/libs/check
-. /opt/apps/kvas/bin/libs/update
 . /opt/apps/kvas/bin/libs/hosts
 . /opt/apps/kvas/bin/libs/route
-. /opt/apps/kvas/bin/main/setup
 . /opt/apps/kvas/bin/libs/tags
+. /opt/apps/kvas/bin/libs/update
 . /opt/apps/kvas/bin/libs/vless
+. /opt/apps/kvas/bin/libs/vpn
+. /opt/apps/kvas/bin/main/setup
 
 #------------------------------------------------------------------------------
 #
@@ -65,7 +65,39 @@ case "${1}" in
 							echo "Для удаления пакета наберите 'kvas uninstall'"
 							;;
 
-	vless) 					
+	# Работа со списком
+
+	show | list | search | find)
+							cmd_show_kvas_list "${2}"
+		;;
+	purge | clear)			cmd_clear_list "${2}"
+		;;
+
+	import)					cmd_import_hosts "${2}"
+		;;
+	export)					cmd_export_hosts "${2}"
+		;;
+
+	add | new)				cmd_add_one_host "${2}" "yes" "${3}"
+		;;
+	del | rm  )				cmd_del_one_host "${2}"
+		;;
+
+	tags)
+		case "${2}" in
+			list) 			cmd_show_tags_domain_list "${3}" ;;
+			add)			cmd_add_domain_to_tag_list "${3}" "${4}" ;;
+			del)			cmd_del_domain_to_tag_list "${3}" "${4}" ;;
+			update)			cmd_update_tags_domain_list "${3}";;
+			*) 				cmd_show_tags_domain_list "${2}" ;;
+		esac
+		;;
+
+	# Расширенные настройки
+
+	# Тоннели
+
+	vless)
 		case "${2}" in
 			new) 	rm -f "${VLESS_CONFIG_FILE}" 
 					start_vless "$(cat ${INFACE_NAMES_FILE} | grep vless | cut -d'|' -f2)"
@@ -75,65 +107,12 @@ case "${1}" in
 		esac	
 			;;
 
-	pause|freeze)           cmd_pause_kvas ;;
-	unpause|unfreeze)       cmd_unpause_kvas ;;
-	
-	dnsmasq)
-		case "${2}" in
-			port) 			cmd_dnsmasq_port_change "${3}" ;;
-			ip) 			cmd_dnsmasq_dns_change "${3}";;
-			on)				cmd_adguardhome_off ;;
-			status | *) 	exit_when_adguard_on status;
-							[ "${status}" = 0 ] && {
-								cmd_dnsmasq_listen_show;
-							} ;;
-		esac
-		;;
 	ssr)
 		case "${2}" in
 			new)			cmd_shadowsocks_read_new_data ;;
 			port) 			cmd_shadowsocks_local_port_change "${3}" ;;
 			reset) 			cmd_shadowsocks_iptable_reset && all_services_restart;;
 			status | *) 	cmd_vpn_status ;;
-		esac
-		;;
-
-	adguard)
-		case "${2}" in
-			on) 			cmd_adguardhome_on ;;
-			off) 			cmd_adguardhome_off ;;
-			test)			cmd_adguard_check ;;
-			update)			cmd_adguard_update ;;
-			restart)		/opt/etc/init.d/S99adguardhome restart
-				exit 0
-				;;
-			*) 				cmd_adguardhome_status ;;
-		esac
-		;;
-
-	route)
-		case "${2}" in
-			refresh | recreate) cmd_route_refresh ;;
-			*)                  cmd_route         ;;
-		esac
-		;;
-
-	hosts)
-		case "${2}" in
-			add ) 			cmd_hosts_one_add "${3}" "${4}" ;;
-			del ) 			cmd_hosts_one_del "${3}";;
-			prune ) 		cmd_hosts_prune ;;
-			edit ) 			cmd_hosts_edit ;;
-			*) 				cmd_hosts_list ;;
-		esac
-		;;
-
-	dns)
-		case "${2}" in
-			debug)           cmd_debug_dns                      ;;
-			test)            cmd_dns_test "${3}"                ;;
-			server | remote) dns_server_install_remotely "${3}" ;;
-			*)               cmd_dnsmasq_dns_change "${2}"      ;;
 		esac
 		;;
 
@@ -152,6 +131,28 @@ case "${1}" in
 
 			rescan | scan)	cmd_scan_interface_list ;;
 			status | *) 	cmd_vpn_status ;;
+		esac
+		;;
+
+	# DNS
+
+	dns)
+		case "${2}" in
+			server) 		dns_server_install_remotely "${3}" ;;
+			test) 			cmd_dns_test "${3}";;
+			*) 				cmd_dnsmasq_dns_change "${2}" ;;
+		esac
+		;;
+
+	dnsmasq)
+		case "${2}" in
+			port) 			cmd_dnsmasq_port_change "${3}" ;;
+			ip) 			cmd_dnsmasq_dns_change "${3}";;
+			on)				cmd_adguardhome_off ;;
+			status | *) 	exit_when_adguard_on status;
+							[ "${status}" = 0 ] && {
+								cmd_dnsmasq_listen_show;
+							} ;;
 		esac
 		;;
 
@@ -174,29 +175,53 @@ case "${1}" in
 		esac
 		;;
 
-	tags)
+	adguard)
 		case "${2}" in
-			list) 			cmd_show_tags_domain_list "${3}" ;;
-			add)			cmd_add_domain_to_tag_list "${3}" "${4}" ;;
-			del)			cmd_del_domain_to_tag_list "${3}" "${4}" ;;
-			update)			cmd_update_tags_domain_list "${3}";;
-			*) 				cmd_show_tags_domain_list "${2}" ;;
+			on) 			cmd_adguardhome_on ;;
+			off) 			cmd_adguardhome_off ;;
+			test)			cmd_adguard_check ;;
+			update)			cmd_adguard_update ;;
+			restart)		/opt/etc/init.d/S99adguardhome restart
+				exit 0
+				;;
+			*) 				cmd_adguardhome_status ;;
 		esac
 		;;
 
+	hosts)
+		case "${2}" in
+			add ) 			cmd_hosts_one_add "${3}" "${4}" ;;
+			del ) 			cmd_hosts_one_del "${3}";;
+			prune ) 		cmd_hosts_prune ;;
+			edit ) 			cmd_hosts_edit ;;
+			*) 				cmd_hosts_list ;;
+		esac
+		;;
+
+	# Роутинг
+
+	route)
+		case "${2}" in
+			refresh | recreate) cmd_route_refresh ;;
+			*)                  cmd_route         ;;
+		esac
+		;;
+
+	# Поиск и устранение неисправностей
+
 	ipset)
 		case "${2}" in
+			add)           cmd_ipset_add "${3}" ;;
 			clear | flush) cmd_ipset_flush      ;;
 			refill)        cmd_ipset_refill     ;;
-			add)           cmd_ipset_add "${3}" ;;
 			*)             cmd_ipset "${2}"     ;;
 		esac
 		;;
 
 	debug)
 		case "${2}" in
-			iptables) cmd_debug_iptables     ;;
 			dns)      cmd_debug_dns          ;;
+			iptables) cmd_debug_iptables     ;;
 			*)        cmd_print_debug "${2}" ;;
 		esac
 		;;
@@ -204,32 +229,33 @@ case "${1}" in
 	test | check)			cmd_state_checker "${2}"
 							[ -n "${2}" ] && exit 0
 		;;
-	add | new)				cmd_add_one_host "${2}" "yes" "${3}"
-		;;
-	import)					cmd_import_hosts "${2}"
-		;;
-	export)					cmd_export_hosts "${2}"
-		;;
-	del | rm  )				cmd_del_one_host "${2}"
-		;;
-	purge | clear)			cmd_clear_list "${2}"
-		;;
-	show | list | search | find)	
-							cmd_show_kvas_list "${2}"
-		;;
+
 	reset | init)	        cmd_kvas_init
+		;;
+
+	# Управление пакетом
+
+	# Обновление
+
+	version | ver)			version
 		;;
 	upgrade | update)		sh /opt/apps/kvas/bin/main/upgrade "${2}" "${3}"; exit 0
 		;;
 	rollback)				sh /opt/apps/kvas/bin/main/upgrade rollback "${2}"; exit 0
 		;;
-	version | ver)			version
-		;;
-	help|-h|--h ) 			[ -n "${2}" ] && cmd_help | grep "${2}" || cmd_help
-		;;
+
+	# Отключение и удаление
+
+	pause|freeze)           cmd_pause_kvas ;;
+	unpause|unfreeze)       cmd_unpause_kvas ;;
+
 	uninstall ) 			cmd_uninstall  "${2}" "${3}"
 		;;
 
+	# Команды
+
+	help|-h|--h ) 			[ -n "${2}" ] && cmd_help | grep "${2}" || cmd_help
+		;;
 	*)						error "Команда '${1}' не известна, список доступных команд:"
 							print_line
 							cmd_help

@@ -189,9 +189,7 @@ all_services_restart(){
 		service_restart AdGuardHome S99adguardhome
 	else
 		service_restart dnsmasq S56dnsmasq
-		if [ "$(get_dns_crypt_status)" = on ]; then
-			service_restart dnscrypt-proxy2 S09dnscrypt-proxy2
-		fi
+		service_restart dnscrypt-proxy2 S09dnscrypt-proxy2
 	fi
 
 }
@@ -3106,6 +3104,19 @@ cmd_import_hosts() {
 		error "Не найдены IP или имена доменов в файле ${user_list}!"
 		error 'Заполните его данными.'
 		exit 1
+	fi
+
+	# файл с неверными переносами строк
+	if grep -Fq $'\r' "${user_list}"; then
+		if [ $(wc -l < "${user_list}") -gt 1 ]; then
+			# есть оба — Windows/DOS
+			local sed_regex='s/\r//'
+		else
+			# я блочное
+			local sed_regex='s/\r/\n/g'
+		fi
+
+		sed -i "${sed_regex}" "${user_list}"
 	fi
 
 	# Выходим из функции при отсутствии интернет-соединения или VPN

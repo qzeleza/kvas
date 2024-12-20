@@ -25,7 +25,7 @@ PRIORITY=1778
 MARK_NUM=0xd1000
 DNS_PORT=9753
 
-IPSET_RESERVED=KVAS_RESERVED
+IPSET_DESTINATION_EXCLUDED=KVAS_DESTINATION_EXCLUDED
 
 CHAIN_DNS=KVAS_DNS
 TABLE_DNS=nat
@@ -257,12 +257,25 @@ ip4set_create_table() {
 }
 
 # Для постоянного списка исключаемых сетей
-ip4__ipset__fill_reserved() {
-	if ip4__ipset__is_exist "${IPSET_RESERVED}"; then
+ip4__ipset__fill_destination_excluded() {
+	if ip4__ipset__is_exist "${IPSET_DESTINATION_EXCLUDED}"; then
 		return
 	fi
 
-	ip4__ipset__create "${IPSET_RESERVED}"
+	ip4__ipset__create "${IPSET_DESTINATION_EXCLUDED}"
+
+	# Служебный IP Keenetic, например для my.keenetic.net
+	ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" '78.47.125.180'
+
+	# Был случай, когда ресурс из списка совпадал с IP роутера
+	# Это приводило к не рабочему DDNS и прочим проблемам
+	ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "$(get_external_ip)"
+
+	# Исключаем (loopback) адреса тоннеля из попадания в тоннель
+	# Случай тоже детектирован и чуть более разрушителен
+	for ip in $(get_tunnel_ip) ; do
+		ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "${ip}"
+	done
 
 	while read -r ip_or_range || [ -n "${ip_or_range}" ]; do
 		# пропускаем строки с комментариями
@@ -271,7 +284,7 @@ ip4__ipset__fill_reserved() {
 		# удаляем пробелы
 		ip_or_range=$(echo "${ip_or_range}" | sed 's/#.*$//g' | tr -s ' ' )
 
-		ipset -exist add "${IPSET_RESERVED}" "${ip_or_range}"
+		ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "${ip_or_range}"
 	done < "${FILE_RESERVED}"
 }
 
@@ -301,8 +314,8 @@ ip4__ipset__destroy_list() {
 }
 
 # Для постоянного списка исключаемых сетей
-ip4__ipset__destroy_reserved() {
-	ip4__ipset__destroy "${IPSET_RESERVED}"
+ip4__ipset__destroy_destination_excluded() {
+	ip4__ipset__destroy "${IPSET_DESTINATION_EXCLUDED}"
 }
 
 
@@ -383,8 +396,8 @@ ip4__chain__create_for_data() {
 
 	ip4__chain__exclude_source_by_config "${table}" "${chain_name}"
 
-	ip4__ipset__fill_reserved
-	iptables -A "${chain_name}" -w -t "${table}" -m set --match-set "${IPSET_RESERVED}" dst -j RETURN
+	ip4__ipset__fill_destination_excluded
+	iptables -A "${chain_name}" -w -t "${table}" -m set --match-set "${IPSET_DESTINATION_EXCLUDED}" dst -j RETURN
 
 	# если цепочка данных будет подключена выше DNS, то она может 
 	# перехватить направленный вовне трафик
@@ -459,19 +472,12 @@ ip4__proxy__create_chain() {
 	fi
 	port="${3}"
 
-	ip="${4}"
-
 	{
 		if ip4__chain__is_exist "${table}" "${chain_name}" ; then
 			return
 		fi
 
 		ip4__chain__create_for_data "${table}" "${chain_name}"
-
-		if [ -n "${ip}" ] ; then
-			# Исключаем обращения к собственному адресу
-			ipset -exist add "${IPSET_RESERVED}" "${ip}"
-		fi
 
 		for protocol in udp tcp ; do
 			# не будет ли задвоения без -w?
@@ -481,17 +487,15 @@ ip4__proxy__create_chain() {
 }
 
 ip4__shadowsocks__create_chain() {
-	local server_ip=$(get_from_json "${SHADOWSOCKS_CONF}" 'server')
 	local local_port=$(get_config_value SSR_DNS_PORT)
 
-	ip4__proxy__create_chain "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${local_port}" "${server_ip}"
+	ip4__proxy__create_chain "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${local_port}"
 }
 
 ip4__vless__create_chain() {
-	local local_port=$(get_from_json "${VLESS_CONFIG_FILE}" 'port'    'inbounds')
-	local  server_ip=$(get_from_json "${VLESS_CONFIG_FILE}" 'address' 'outbounds')
+	local local_port=$(get_from_json "${VLESS_CONFIG_FILE}" 'port' 'inbounds')
 
-	ip4__proxy__create_chain "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${local_port}" "${server_ip}"
+	ip4__proxy__create_chain "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${local_port}"
 }
 
 # когда ускорение подключено
@@ -1130,7 +1134,7 @@ ip4__flush() {
 			ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
 
 			ip4__chain__delete      "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
-			ip4__ipset__destroy_reserved
+			ip4__ipset__destroy_destination_excluded
 		fi
 	elif fastnet_enabled ; then
 		if echo "${parts}" | grep -Fq ' jump ' ; then
@@ -1140,7 +1144,7 @@ ip4__flush() {
 			ip4__chain__delete_jump "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
 
 			ip4__chain__delete      "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
-			ip4__ipset__destroy_reserved
+			ip4__ipset__destroy_destination_excluded
 		fi
 
 		#if echo "${parts}" | grep -Fq ' table ' ; then
