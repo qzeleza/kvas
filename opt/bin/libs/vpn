@@ -2070,6 +2070,9 @@ is_vpn_interface_connected() {
 #
 # ------------------------------------------------------------------------------------------
 show_vpn_list() {
+	# Удаляем интерфейсы без человеческого имени
+	sed -i '/|$/d;/|""$/d' "${INFACE_NAMES_FILE}"
+
 # set -xeu
 	inface_entware=$(get_current_vpn_interface 'entware')
 	num=0;
