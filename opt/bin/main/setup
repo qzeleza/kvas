@@ -294,11 +294,11 @@ rm_package_files(){
 			rm_file /opt/etc/inface_equals
 			rm_file	/opt/etc/shadowsocks.json
 			rm_file	/opt/etc/init.d/S22shadowsocks
-			rm_file /opt/etc/cron.5mins/check_vpn
 
 		} && when_ok || when_bad
 	fi
 	ready "Удаляем файлы пакета Квас" && {
+		rm_file /opt/etc/cron.5mins/check_vpn
 		rm_file	/opt/etc/ndm/fs.d/100-vpn
 		rm_file	/opt/etc/ndm/fs.d/100-ipset
 		rm_file	/opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
