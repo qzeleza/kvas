@@ -1251,9 +1251,10 @@ ip4__route__add_table() {
 			if ! echo "${route_show}" | grep -Fq "${subroute}" ; then
 				log_warning "Добавление ${submessage}"
 
-				if ip route add $(echo "${subroute}") table "${ROUTE_TABLE_ID}" 2>&1 | grep -vFq 'File exists' ; then
+				ip route add $(echo "${subroute}") table "${ROUTE_TABLE_ID}" \
+				 || {
 					error "[${FUNCNAME}] Ошибка при добавлении ${submessage}"
-				fi
+				}
 			fi
 		fi
 	fi
