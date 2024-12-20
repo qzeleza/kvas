@@ -621,7 +621,7 @@ all_services_rm_develop_mode() {
 		ready "Останавливаем и удаляем службу AdGuardHome "
 		{
 			${ADGUARDHOME_DEMON} stop &> /dev/null 
-			rm_file_or_dir /opt/etc/AdGuardHome/AdGuardHome.yaml
+			rm_file /opt/etc/AdGuardHome/AdGuardHome.yaml
 			opkg remove adguardhome-go --force-depends &> /dev/null
 		} && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 		
@@ -632,7 +632,7 @@ all_services_rm_develop_mode() {
 			{
 				# Останавливаем сервер SSR
 				/opt/etc/init.d/S22shadowsocks stop &> /dev/null 
-				rm_file_or_dir /opt/etc/shadowsocks.json
+				rm_file /opt/etc/shadowsocks.json
 				opkg remove shadowsocks-libev --force-depends &> /dev/null
 
 			} && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
@@ -640,7 +640,7 @@ all_services_rm_develop_mode() {
 			ready "Останавливаем службу dnsmasq "
 			{
 				/opt/etc/init.d/S56dnsmasq stop &> /dev/null 
-				rm_file_or_dir /opt/etc/dnsmasq.conf
+				rm_file /opt/etc/dnsmasq.conf
 				opkg remove dnsmasq --force-depends &> /dev/null
 			} && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
@@ -648,7 +648,7 @@ all_services_rm_develop_mode() {
 				ready "Останавливаем службу dnscrypt-proxy2 "
 				{
 					/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null 
-					rm_file_or_dir /opt/etc/dnscrypt-proxy.toml
+					rm_file /opt/etc/dnscrypt-proxy.toml
 					opkg remove dnscrypt-proxy2 --force-depends &> /dev/null
 				} && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 			}
