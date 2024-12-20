@@ -526,7 +526,6 @@ ip4__vpn_nofast__set_rules() {
 		#ToDo: должны работать таблицы или переписать на цепочки
 		log_warning 'Маркировка трафика для VPN при отключенном ускорении'
 
-		ip4__ipset__create_list
 		# правило не переписывалось, таким и было
 		ip4tables PREROUTING -t "${TABLE_MARK}" -i "$(inface_ent)" -m set --match-set ${IPSET_TABLE_NAME} dst -j MARK --set-mark ${MARK_NUM}
 	} &>/dev/null || error "[${FUNCNAME}] Возникли ошибки во время маркировки трафика для VPN при отключенном ускорении"
@@ -571,7 +570,6 @@ ip4__add_routing_for_home() {
 
 	log_warning "Подключение перенаправления трафика для домашней сети в тоннель ${3}"
 
-	ip4__ipset__create_list
 	iptables -A PREROUTING -w -t "${table}" -i "${net_interface}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${chain_name}"
 }
 
