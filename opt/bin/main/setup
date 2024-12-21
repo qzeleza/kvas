@@ -294,11 +294,11 @@ rm_package_files(){
 			rm_file /opt/etc/inface_equals
 			rm_file	/opt/etc/shadowsocks.json
 			rm_file	/opt/etc/init.d/S22shadowsocks
-			rm_file /opt/etc/cron.5mins/check_vpn
 
 		} && when_ok || when_bad
 	fi
 	ready "Удаляем файлы пакета Квас" && {
+		rm_file /opt/etc/cron.5mins/check_vpn
 		rm_file	/opt/etc/ndm/fs.d/100-vpn
 		rm_file	/opt/etc/ndm/fs.d/100-ipset
 		rm_file	/opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
@@ -309,7 +309,6 @@ rm_package_files(){
 		rm_file	/opt/etc/ndm/iflayerchanged.d/kvas-ips-reset
 		rm_file	/opt/etc/ndm/ifcreated.d/kvas-iface-add
 		rm_file	/opt/etc/ndm/ifdestroyed.d/kvas-iface-del
-		# rm_file	/opt/etc/ndm/wan.d/internet-up
 		rm_file	/opt/bin/kvas
 		rm_file	/opt/etc/adblock
 		rm_dir	/opt/apps/kvas
@@ -413,7 +412,10 @@ rm_previous_version_files(){
 	rm_file /opt/etc/ndm/ifdestroyed.d/kvas-iface-del
 	rm_file /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn
 	rm_file /opt/etc/ndm/iflayerchanged.d/kvas-ips-reset
+	rm_file /opt/etc/ndm/wan.d/internet-up
 	rm_file /opt/etc/cron.5mins/check_vpn
+	rm_file /opt/etc/cron.5mins/ipset.kvas
+
 	rm_dir /opt/etc/.kvas
 }
 
@@ -443,8 +445,6 @@ cmd_install(){
 	[ "${update_mode}" ] || setup_print_welcome
 	mkdir -p "${KVAS_BACKUP_PATH}"
 	cat /dev/null > "${INSTALL_LOG}"
-
-	# ln -sf /opt/apps/kvas/bin/main/ipset /opt/etc/cron.5mins/ipset.kvas
 
 	[ -d "/opt/etc/ndm/iflayerchanged.d" ] || mkdir -p /opt/etc/ndm/iflayerchanged.d
 	hook_dir=$(get_hook_dir); home_dir=/opt/apps/kvas
@@ -560,9 +560,6 @@ cmd_install(){
 	#	fi
 	fi
 
-	# Удаляем если есть от старых версий
-	[ -f /opt/etc/cron.5mins/ipset.kvas ] && rm -f /opt/etc/cron.5mins/ipset.kvas
-
 	# Подключаем библиотеку keen_api
 	#source /opt/apps/kvas/bin/libs/keen_api
 	# Устанавливаем DNS роутера и порт по умолчанию
@@ -621,7 +618,7 @@ all_services_rm_develop_mode() {
 		ready "Останавливаем и удаляем службу AdGuardHome "
 		{
 			${ADGUARDHOME_DEMON} stop &> /dev/null 
-			rm_file_or_dir /opt/etc/AdGuardHome/AdGuardHome.yaml
+			rm_file /opt/etc/AdGuardHome/AdGuardHome.yaml
 			opkg remove adguardhome-go --force-depends &> /dev/null
 		} && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 		
@@ -632,7 +629,7 @@ all_services_rm_develop_mode() {
 			{
 				# Останавливаем сервер SSR
 				/opt/etc/init.d/S22shadowsocks stop &> /dev/null 
-				rm_file_or_dir /opt/etc/shadowsocks.json
+				rm_file /opt/etc/shadowsocks.json
 				opkg remove shadowsocks-libev --force-depends &> /dev/null
 
 			} && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
@@ -640,7 +637,7 @@ all_services_rm_develop_mode() {
 			ready "Останавливаем службу dnsmasq "
 			{
 				/opt/etc/init.d/S56dnsmasq stop &> /dev/null 
-				rm_file_or_dir /opt/etc/dnsmasq.conf
+				rm_file /opt/etc/dnsmasq.conf
 				opkg remove dnsmasq --force-depends &> /dev/null
 			} && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
@@ -648,7 +645,7 @@ all_services_rm_develop_mode() {
 				ready "Останавливаем службу dnscrypt-proxy2 "
 				{
 					/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null 
-					rm_file_or_dir /opt/etc/dnscrypt-proxy.toml
+					rm_file /opt/etc/dnscrypt-proxy.toml
 					opkg remove dnscrypt-proxy2 --force-depends &> /dev/null
 				} && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 			}
