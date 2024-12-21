@@ -2545,15 +2545,11 @@ cmd_dns_crypt_status_show() {
 }
 
 iptables_reset(){
-	#	Производим переустановку правил в iptable таблице
 	if has_ssr_enable; then
 		cmd_shadowsocks_iptable_reset
-		export type=iptables; export table=mangle && /opt/etc/ndm/netfilter.d/100-proxy-redirect &> /dev/null
 	else
 		cmd_vpn_iptable_reset
 	fi
-
-
 }
 
 
