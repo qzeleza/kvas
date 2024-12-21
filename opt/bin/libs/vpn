@@ -149,11 +149,6 @@ cmd_kvas_init(){
 			reset_all_connection
 	fi
 
-	if has_ssr_enable; then
-		cmd_shadowsocks_iptable_reset
-	else
-		cmd_vpn_iptable_reset
-	fi
 	update_iptables
 	update_ipset "${stage}"
 	update_adblock
