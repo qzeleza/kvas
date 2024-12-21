@@ -31,19 +31,13 @@ TABLE_DNS=nat
 
 CHAIN_MARK=KVAS_MARK
 TABLE_MARK=mangle
-#ToDo: попробовать вышестоящее и на отключенном ускорении
 
 CHAIN_DNAT_TO_PORT=KVAS_DNAT_TO_PORT
 TABLE_DNAT_TO_PORT=nat
-#ToDo: попробовать -p udp -j TPROXY --on-port "${port}" --tproxy-mark 0x01/0x01
-CHAIN_TPROXY_TO_PORT=KVAS_TPROXY_TO_PORT
-TABLE_TPROXY_TO_PORT=mangle
-
+#ToDo: переписать на https://github.com/shadowsocks/shadowsocks-libev?tab=readme-ov-file#transparent-proxy-pure-tproxy
 
 IPv4='IPv4::'
 IPv6='IPv6::'
-
-
 
 ip4() (/opt/sbin/ip -4 "$@")
 ip4tables() (/opt/sbin/iptables -C "$@" &>/dev/null || /opt/sbin/iptables -A "$@")
