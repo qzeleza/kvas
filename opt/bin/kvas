@@ -226,9 +226,9 @@ case "${1}" in
 		esac
 		;;
 
-	test | check)			cmd_state_checker "${2}"
-							[ -n "${2}" ] && exit 0
-		;;
+	test | check) cmd_state_checker "${2}"
+	              [ -n "${2}" ] && exit 0
+	;;
 
 	reset | init)	        cmd_kvas_init
 		;;
