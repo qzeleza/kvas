@@ -681,6 +681,13 @@ function vpn__get_tunnel_ip() {
 		return
 	fi
 
+	# формат IKEv2
+	ip=$(echo "${api_response}" | jq -r '.tunnel.destination' | grep -oE "${IP_FILTER}")
+	if [ -n "${ip}" ] && ! is_ip_private "${ip}" ; then
+		echo "${ip}"
+		return
+	fi
+
 	local ips
 
 	# формат Wireguard
