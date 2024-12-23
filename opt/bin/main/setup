@@ -415,6 +415,17 @@ rm_previous_version_files(){
 	rm_dir /opt/etc/.kvas
 }
 
+clear_previous_version_net_rules() {
+	#24-11-29 0dabaa19b8dc788d56650b20092dec4a9dce1acc
+	ip4__ipset__destroy 'KVAS_LIST'
+	#24-11-09 fb1f8cb5755dd4c7b683b314096ccf903ee05525
+	ip4__ipset__destroy 'kvas_ipset'
+	#24-09-07 f78979503e9866f2dca3770455b241c3db8f850d
+	ip4__ipset__destroy 'kvas'
+	# давно
+	ip4__ipset__destroy 'unblock'
+}
+
 cmd_install(){
 
 #	Если режим обновления, то не спрашиваем про выбор соединения,
@@ -424,10 +435,16 @@ cmd_install(){
 	LOG_HEADER="PACKAGE INSTALLATION"
 	# Пишем сообщение в лог роутера о начале установки пакета
 	log_alert "УСТАНОВКА ПАКЕТА КВАС" "${LOG_HEADER}"
-	
-	# Удлаяем предыдущие файлы Кваса
+
 	ready "Удаляем файлы предыдущей версии пакета Квас" 
 	rm_previous_version_files  && when_ok || when_bad
+
+	ready 'Очищаем сетевые правила предыдущей версии Квас'
+	clear_previous_version_net_rules && when_ok || when_bad
+
+	# стартуем ipset'ы, используемые DNS-серверами
+	# до старта самих DNS-серверов
+	ip4__ipset__create_list
 
 #	обновляем itpables
 	opkg update &> /dev/null
