@@ -709,8 +709,8 @@ get_guest_net() {
 # Получение маски локальной подсети клиентов IKEv2
 #Example: 192.168.3.0/24
 get_ikev2_net_pool() {
-	ikev2_settings=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
-	pool_start=$(echo "${ikev2_settings}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+	local ikev2_settings=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
+	local pool_start=$(echo "${ikev2_settings}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
 	echo "${pool_start}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/'
 }
 
@@ -764,7 +764,7 @@ ip4__add_routing_by_list_for_net() {
 		exit 1
 	fi
 
-	iptables_filter=$(iptables__get_subrule_for_net "${net_interface}")
+	local iptables_filter=$(iptables__get_subrule_for_net "${net_interface}")
 
 	if is_proxy_enabled ; then
 		ip4__add_routing "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${iptables_filter}" "${IPSET_TABLE_NAME}"
@@ -839,7 +839,7 @@ ip4__delete_routing_by_list_for_net() {
 		exit 1
 	fi
 
-	iptables_filter=$(iptables__get_subrule_for_net "${net_interface}")
+	local iptables_filter=$(iptables__get_subrule_for_net "${net_interface}")
 
 	ip4__dns__delete_routing "${iptables_filter}"
 
@@ -1358,7 +1358,7 @@ ip6tables() (if ! /opt/sbin/ip6tables -C "$@" &>/dev/null; then ip6tables -A "$@
 ip6save() (/opt/sbin/ip6tables-save)
 
 ip6set_create_table(){
-	ttl_timeout=$(get_config_value LIST_IPSET_TTL)
+	local ttl_timeout=$(get_config_value LIST_IPSET_TTL)
 	ipset create "${IPSET_TABLE_NAME}6" hash:net family inet6 -exist timeout ${ttl_timeout} &>/dev/null \
 	 || {
 			_err="${IPv6}Возникла ошибка при создании таблицы с именем '${IPSET_TABLE_NAME}' для ipset"
