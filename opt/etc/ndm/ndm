@@ -151,13 +151,13 @@ iptables__delete_rule() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table="${1}"
+	local table="${1}"
 
 	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — правило"
 		return
 	fi
-	rule="${2}"
+	local rule="${2}"
 
 	if [ "${rule:0:3}" != '-A ' ]; then
 		return
@@ -172,13 +172,13 @@ iptables__delete_rules() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table="${1}"
+	local table="${1}"
 
 	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — фильтр"
 		return
 	fi
-	filter="${2}"
+	local filter="${2}"
 
 	local rules=$(iptables-save -t "${table}" | grep -F -- "${filter}")
 	if [ -z "${rules}" ] ; then
@@ -323,13 +323,13 @@ ip4__chain__is_exist() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table="${1}"
+	local table="${1}"
 
 	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
 		return
 	fi
-	chain_name="${2}"
+	local chain_name="${2}"
 
 	iptables-save -t "${table}" | grep -Fq "${chain_name}"
 }
@@ -339,13 +339,13 @@ ip4__chain__exclude_source_by_config() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table="${1}"
+	local table="${1}"
 
 	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
 		return
 	fi
-	chain_name="${2}"
+	local chain_name="${2}"
 
 	local values=$(get_config_value 'route_excluded_ip')
 	if [ -z "${values}" ] ; then
@@ -371,13 +371,13 @@ ip4__chain__create_for_data() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table="${1}"
+	local table="${1}"
 
 	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
 		return
 	fi
-	chain_name="${2}"
+	local chain_name="${2}"
 
 	if ip4__chain__is_exist "${table}" "${chain_name}" ; then
 		return
@@ -404,13 +404,13 @@ ip4__chain__delete() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table="${1}"
+	local table="${1}"
 
 	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
 		return
 	fi
-	chain_name="${2}"
+	local chain_name="${2}"
 
 	if ! ip4__chain__is_exist "${table}" "${chain_name}"; then
 		return
@@ -428,13 +428,13 @@ ip4__chain__delete_jump() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table="${1}"
+	local table="${1}"
 
 	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
 		return
 	fi
-	chain_name="${2}"
+	local chain_name="${2}"
 
 	iptables__delete_rules "${table}" "-j ${chain_name}"
 }
@@ -451,19 +451,19 @@ ip4__proxy__create_chain() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table="${1}"
+	local table="${1}"
 
 	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
 		return
 	fi
-	chain_name="${2}"
+	local chain_name="${2}"
 
 	if [ -z "${3}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — порт"
 		return
 	fi
-	port="${3}"
+	local port="${3}"
 
 	{
 		if ip4__chain__is_exist "${table}" "${chain_name}" ; then
@@ -549,13 +549,13 @@ ip4__add_routing_for_home() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table="${1}"
+	local table="${1}"
 
 	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
 		return
 	fi
-	chain_name="${2}"
+	local chain_name="${2}"
 
 	#ToDo: использовать обёртку, а не код дальше
 
@@ -726,13 +726,13 @@ ip4__add_routing() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table="${1}"
+	local table="${1}"
 
 	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
 		return
 	fi
-	chain_name="${2}"
+	local chain_name="${2}"
 
 	# необязательный параметр — ipset для фильтра по целевым IP
 	if [ -n "${4}" ] ; then
@@ -804,13 +804,13 @@ ip4__delete_routing() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table="${1}"
+	local table="${1}"
 
 	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
 		return
 	fi
-	chain_name="${2}"
+	local chain_name="${2}"
 
 	# необязательный параметр — ipset для фильтра по целевым IP
 	if [ -n "${4}" ] ; then
