@@ -635,7 +635,7 @@ ip4__dns__get_rulenum() {
 	fi
 
 	# после NDM_DNAT
-	local rulenum=$(ip4__get_rulenum 'NDM_DNAT')
+	rulenum=$(ip4__get_rulenum 'NDM_DNAT')
 	if [ -n "${rulenum}" ]; then
 		echo $((rulenum + 1))
 		return
