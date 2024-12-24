@@ -695,9 +695,14 @@ function vpn__get_tunnel_addresses() {
 	# формат Wireguard
 	addresses=''
 	for address in $(echo "${api_response}" | jq -r '.wireguard.peer[]? .endpoint.address' | grep -oE "${IP_FILTER}") ; do
-		if [ -n "${address}" ] && ! is_ip_private "${address}" ; then
-			addresses="${addresses}${address}"$'\n'
+		if [ -z "${address}" ] ; then
+			continue
 		fi
+		if is_ip_private "${address}" ; then
+			continue
+		fi
+
+		addresses="${addresses}${address}"$'\n'
 	done
 	if [ -n "${addresses}" ]; then
 		echo "${addresses}"
@@ -708,9 +713,14 @@ function vpn__get_tunnel_addresses() {
 	#ToDo: проверить на всех типах VPN! Для каждого добавить json-блок выше и исключение сюда мусорных массивов.
 	addresses=''
 	for address in $(echo "${api_response}" | sed '/allow-ips/,/]/d' | grep -oE "${IP_FILTER}") ; do
-		if [ -n "${address}" ] && ! is_ip_private "${address}" ; then
-			addresses="${addresses}${address}"$'\n'
+		if [ -z "${address}" ] ; then
+			continue
 		fi
+		if is_ip_private "${address}" ; then
+			continue
+		fi
+
+		addresses="${addresses}${address}"$'\n'
 	done
 	if [ -n "${addresses}" ]; then
 		echo "${addresses}"
