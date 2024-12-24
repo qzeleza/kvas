@@ -37,8 +37,10 @@ update_iptables(){
 	# возможно чистить цепочки и роутинг — лишнее
 	ip4__flush 'jump chain table' &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
+	ready "${prefix}Создаем перехват DNS для домашней сети."
+	ip4__dns__add_routing_for_home &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+
 	ready "${prefix}Создаем iptables правила."
-	# Создаем правила iptables
 	ip4_firewall_set_all_rules &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 }
 
@@ -472,8 +474,8 @@ adguardhome_setup() {
 
 #	Обновляем правила ip4tables для доступного соединения
 	ip4_firewall_flush_all_rules
+	ip4__dns__add_routing_for_home
 	ip4_firewall_set_all_rules
-	
 
 	[ -f "${ADGUARDHOME_DEMON}" ] && "${ADGUARDHOME_DEMON}" start &> /dev/null
 #	отслеживаем результат запуска сервиса adguard
@@ -776,6 +778,7 @@ cmd_adguardhome_off(){
 	dnsmasq_install '' &> /dev/null
 	#	Обновляем правила ip4tables для доступного соединения
 	ip4_firewall_flush_all_rules
+	ip4__dns__add_routing_for_home
 	ip4_firewall_set_all_rules
 
 	if [ $? = 0 ]; then
