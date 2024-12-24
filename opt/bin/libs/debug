@@ -263,7 +263,7 @@ cmd_debug_iptables() {
 			output="${output}"'\nСообщите об этом https://t.me/kvas_pro и вызовите kvas reset'
 		fi
 	fi
-	echo_debug 'Роутинг подсетей' "${output}"
+	echo_debug 'Перехват' "${output}"
 
 	output=$(iptables__get_by_chain "${CHAIN_DNS}")
 	if [ -z "${output}" ] ; then
@@ -274,7 +274,7 @@ cmd_debug_iptables() {
 			output="${output}"'\nСообщите об этом https://t.me/kvas_pro и вызовите kvas reset'
 		fi
 	fi
-	echo_debug 'Роутинг DNS' "${output}"
+	echo_debug 'DNS' "${output}"
 
 	output=$(iptables -L PREROUTING -t mangle)
 	echo_debug 'PREROUTING mangle' "${output}"
