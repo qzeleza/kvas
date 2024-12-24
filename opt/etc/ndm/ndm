@@ -1115,7 +1115,7 @@ ip4__flush() {
 
 		if echo "${parts}" | grep -Fq ' table ' ; then
 			ip4__rule__delete_mark_to_table
-			ip4__route__delete_table
+			ip4__route__flush_table
 		fi
 	else
 		iptables__delete_rules "${TABLE_MARK}" "-j MARK --set-mark ${MARK_NUM}"
@@ -1235,24 +1235,16 @@ ip4__route__add_table() {
 	fi
 }
 
-ip4__route__delete_table() {
+ip4__route__flush_table() {
 	if ! ip4__route__is_exist_table "${ROUTE_TABLE_ID}" ; then
 		return
 	fi
 
-	log_warning "Удаление таблицы маршрутизации ${ROUTE_TABLE_ID}"
+	log_warning "Очистка таблицы маршрутизации ${ROUTE_TABLE_ID}"
 
 	ip route flush table "${ROUTE_TABLE_ID}" \
 	 || {
 		error "[${FUNCNAME}] Ошибка при очистке таблицы маршрутизации ${ROUTE_TABLE_ID}"
-
-		ip4__route__flush_cache
-		return
-	}
-
-	ip route del table "${ROUTE_TABLE_ID}" \
-	 || {
-		error "[${FUNCNAME}] Ошибка при удалении таблицы маршрутизации ${ROUTE_TABLE_ID}"
 	}
 
 	ip4__route__flush_cache
@@ -1265,7 +1257,7 @@ ip4_add_route_table() {
 
 #ToDo: сменить в других файлах обращение на новую обёртку
 ip4_flush_all_tables() {
-	ip4__route__delete_table
+	ip4__route__flush_table
 }
 
 ip4__rule__get_sub() {
@@ -1273,7 +1265,7 @@ ip4__rule__get_sub() {
 }
 
 ip4__rule__get_submessage() {
-	echo "правила ${RULE_PRIORITY} отправки пакетов с меткой ${MARK_NUM} в таблицу {ROUTE_TABLE_ID}"
+	echo "правила ${RULE_PRIORITY} отправки пакетов с меткой ${MARK_NUM} в таблицу ${ROUTE_TABLE_ID}"
 }
 
 ip4__rule__add_mark_to_table() {

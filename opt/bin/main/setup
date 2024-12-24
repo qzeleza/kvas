@@ -417,7 +417,7 @@ rm_previous_version_files(){
 
 clear_previous_version_net_rules() {
 	ip4__rule__delete_mark_to_table
-	ip4__route__delete_table
+	ip4__route__flush_table
 
 	#24-11-29 0dabaa19b8dc788d56650b20092dec4a9dce1acc
 	ip4__ipset__destroy 'KVAS_LIST'
