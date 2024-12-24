@@ -677,7 +677,7 @@ vpn__get_tunnel_addresses() {
 	local address
 
 	# формат L2TP
-	address=$(echo "${api_response}" | jq -r '.peer')
+	address=$(echo "${api_response}" | jq -r '.peer // empty')
 	if [ -n "${address}" ]; then
 		log_warning "Адрес подключения L2TP ${address}"
 		echo "${address}"
@@ -685,7 +685,7 @@ vpn__get_tunnel_addresses() {
 	fi
 
 	# формат IKEv2
-	address=$(echo "${api_response}" | jq -r '.tunnel.destination')
+	address=$(echo "${api_response}" | jq -r '.tunnel.destination // empty')
 	if [ -n "${address}" ]; then
 		log_warning "Адрес подключения IKEv2 ${address}"
 		echo "${address}"
@@ -696,7 +696,7 @@ vpn__get_tunnel_addresses() {
 
 	# формат Wireguard
 	addresses=''
-	for address in $(echo "${api_response}" | jq -r '.wireguard.peer[]? .endpoint.address') ; do
+	for address in $(echo "${api_response}" | jq -r '.wireguard.peer[]? .endpoint.address // empty') ; do
 		if [ -z "${address}" ]; then
 			continue
 		fi
