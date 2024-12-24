@@ -719,6 +719,10 @@ function vpn__get_tunnel_addresses() {
 		if is_ip_private "${address}" ; then
 			continue
 		fi
+		# часто встречается, не является тоннелем
+		if [ "${address}" = '8.8.8.8' ] ; then
+			continue
+		fi
 
 		addresses="${addresses}${address}"$'\n'
 	done
@@ -739,6 +743,7 @@ get_tunnel_ip() {
 	else
 		local addresses=$(vpn__get_tunnel_addresses "$(get_config_value INFACE_CLI)")
 	fi
+
 	echo "${addresses}"
 }
 
