@@ -267,16 +267,6 @@ ip4__ipset__fill_destination_excluded() {
 	# Служебный IP Keenetic, например для my.keenetic.net
 	ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" '78.47.125.180'
 
-	# Был случай, когда ресурс из списка совпадал с IP роутера
-	# Это приводило к не рабочему DDNS и прочим проблемам
-	ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "$(get_external_ip)"
-
-	# Исключаем (loopback) адреса тоннеля из попадания в тоннель
-	# Случай тоже детектирован и чуть более разрушителен
-	for ip in $(get_tunnel_ip) ; do
-		ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "${ip}"
-	done
-
 	while read -r ip_or_range || [ -n "${ip_or_range}" ]; do
 		# пропускаем строки с комментариями
 		[ "${ip_or_range:0:1}" = '#' ] && continue
@@ -286,6 +276,16 @@ ip4__ipset__fill_destination_excluded() {
 
 		ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "${ip_or_range}"
 	done < "${FILE_RESERVED}"
+
+	# Был случай, когда ресурс из списка совпадал с IP роутера
+	# Это приводило к не рабочему DDNS и прочим проблемам
+	ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "$(get_external_ip)"
+
+	# Исключаем (loopback) адреса тоннеля из попадания в тоннель
+	# Случай тоже детектирован и чуть более разрушителен
+	for ip in $(get_tunnel_ip) ; do
+		ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "${ip}"
+	done
 }
 
 ip4__ipset__destroy() {
