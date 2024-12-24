@@ -699,7 +699,7 @@ function vpn__get_tunnel_addresses() {
 			continue
 		fi
 
-		addresses="${addresses}${address}"$'\n'
+		addresses="${addresses}$(echo "${address}" | cut -d':' -f1)"$'\n'
 	done
 	if [ -n "${addresses}" ]; then
 		echo "${addresses}"
@@ -743,19 +743,17 @@ get_tunnel_addresses() {
 }
 
 get_tunnel_ip() {
-	local without_port
 	for address in $( get_tunnel_addresses ) ; do
 		if [ -z "${address}" ] ; then
 			continue
 		fi
-		without_port=$(echo "${address}" | cut -d':' -f1)
 
-		if echo "${without_port}" | grep -qE "^${IP_FILTER}$" ; then
-			echo "${without_port}"
+		if echo "${address}" | grep -qE "^${IP_FILTER}$" ; then
+			echo "${address}"
 			continue
 		fi
 
-		for ip in $( dns__get_ips_by_domain "${without_port}" ) ; do
+		for ip in $( dns__get_ips_by_domain "${address}" ) ; do
 			if [ -z "${ip}" ] ; then
 				continue
 			fi
