@@ -661,7 +661,7 @@ get_external_ip() {
 	/opt/sbin/ip route get ${dns} | sed -E 's/.*src (\S+) .*/\1/;t;d'
 }
 
-function vpn__get_tunnel_addresses() {
+vpn__get_tunnel_addresses() {
 	if [ -z "${1}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — название соединения"
 		return
