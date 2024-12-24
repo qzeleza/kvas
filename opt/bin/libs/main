@@ -679,6 +679,7 @@ function vpn__get_tunnel_addresses() {
 	# формат L2TP
 	address=$(echo "${api_response}" | jq -r '.peer')
 	if [ -n "${address}" ]; then
+		log_warning "Адрес подключения L2TP ${address}"
 		echo "${address}"
 		return
 	fi
@@ -686,6 +687,7 @@ function vpn__get_tunnel_addresses() {
 	# формат IKEv2
 	address=$(echo "${api_response}" | jq -r '.tunnel.destination')
 	if [ -n "${address}" ]; then
+		log_warning "Адрес подключения IKEv2 ${address}"
 		echo "${address}"
 		return
 	fi
@@ -702,6 +704,7 @@ function vpn__get_tunnel_addresses() {
 		addresses="${addresses}$(echo "${address}" | cut -d':' -f1)"$'\n'
 	done
 	if [ -n "${addresses}" ]; then
+		log_warning "Адреса подключения Wireguard $(echo "${addresses}" | xargs)"
 		echo "${addresses}"
 		return
 	fi
@@ -724,6 +727,7 @@ function vpn__get_tunnel_addresses() {
 		addresses="${addresses}${address}"$'\n'
 	done
 	if [ -n "${addresses}" ]; then
+		log_warning "IP неизвестного VPN-подключения $(echo "${addresses}" | xargs)"
 		echo "${addresses}"
 		return
 	fi
@@ -743,6 +747,7 @@ get_tunnel_addresses() {
 }
 
 get_tunnel_ip() {
+	local ips=
 	for address in $( get_tunnel_addresses ) ; do
 		if [ -z "${address}" ] ; then
 			continue
@@ -753,13 +758,16 @@ get_tunnel_ip() {
 			continue
 		fi
 
+		ips=''
 		for ip in $( dns__get_ips_by_domain "${address}" ) ; do
 			if [ -z "${ip}" ] ; then
 				continue
 			fi
-
 			echo "${ip}"
+
+			ips="${ips} ${ip}"
 		done
+		log_warning "IP для домена ${address}: ${ips}"
 	done
 }
 
