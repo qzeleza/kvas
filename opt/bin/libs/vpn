@@ -35,7 +35,7 @@ CMD_LIST="address prefix name-servers"
 update_iptables(){
 	ready "${prefix}Очищаем все ранее созданные iptables правила."
 	# возможно чистить цепочки и роутинг — лишнее
-	ip4__flush 'jump chain table' &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+	ip4__flush 'chain table' &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
 	ready "${prefix}Создаем перехват DNS для домашней сети."
 	ip4__dns__add_routing_for_home &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
@@ -473,7 +473,7 @@ adguardhome_setup() {
 #	ndm_interface_change
 
 #	Обновляем правила ip4tables для доступного соединения
-	ip4_firewall_flush_all_rules
+	ip4__flush 'chain'
 	ip4__dns__add_routing_for_home
 	ip4_firewall_set_all_rules
 
@@ -777,7 +777,7 @@ cmd_adguardhome_off(){
 	cp /opt/apps/kvas/etc/init.d/S96kvas "${KVAS_START_FILE}"
 	dnsmasq_install '' &> /dev/null
 	#	Обновляем правила ip4tables для доступного соединения
-	ip4_firewall_flush_all_rules
+	ip4__flush 'chain'
 	ip4__dns__add_routing_for_home
 	ip4_firewall_set_all_rules
 
@@ -1719,7 +1719,7 @@ cmd_shadowsocks_iptable_flush() {
 	if [ -f /opt/apps/kvas/bin/libs/ndm ]; then
 		ready "Удаление правил iptables для shadowsocks завершено"
 		# возможно чистить цепочки и роутинг — лишнее
-		ip4__flush 'jump chain table' &>/dev/null
+		ip4__flush 'chain table' &>/dev/null
 		[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
 	fi
 
