@@ -677,15 +677,15 @@ function vpn__get_tunnel_addresses() {
 	local address
 
 	# формат L2TP
-	address=$(echo "${api_response}" | jq -r '.peer' | grep -oE "${IP_FILTER}")
-	if [ -n "${address}" ] && ! is_ip_private "${address}" ; then
+	address=$(echo "${api_response}" | jq -r '.peer')
+	if [ -n "${address}" ]; then
 		echo "${address}"
 		return
 	fi
 
 	# формат IKEv2
-	address=$(echo "${api_response}" | jq -r '.tunnel.destination' | grep -oE "${IP_FILTER}")
-	if [ -n "${address}" ] && ! is_ip_private "${address}" ; then
+	address=$(echo "${api_response}" | jq -r '.tunnel.destination')
+	if [ -n "${address}" ]; then
 		echo "${address}"
 		return
 	fi
@@ -694,11 +694,8 @@ function vpn__get_tunnel_addresses() {
 
 	# формат Wireguard
 	addresses=''
-	for address in $(echo "${api_response}" | jq -r '.wireguard.peer[]? .endpoint.address' | grep -oE "${IP_FILTER}") ; do
-		if [ -z "${address}" ] ; then
-			continue
-		fi
-		if is_ip_private "${address}" ; then
+	for address in $(echo "${api_response}" | jq -r '.wireguard.peer[]? .endpoint.address') ; do
+		if [ -z "${address}" ]; then
 			continue
 		fi
 
@@ -735,16 +732,37 @@ function vpn__get_tunnel_addresses() {
 	echo ''
 }
 
-get_tunnel_ip() {
+get_tunnel_addresses() {
 	if is_shadowsocks_enabled ; then
-		local addresses=$(get_from_json "${SHADOWSOCKS_CONF}" 'server')
+		echo $(get_from_json "${SHADOWSOCKS_CONF}" 'server')
 	elif is_vless_enabled ; then
-		local addresses=$(get_from_json "${VLESS_CONFIG_FILE}" 'address' 'outbounds')
+		echo $(get_from_json "${VLESS_CONFIG_FILE}" 'address' 'outbounds')
 	else
-		local addresses=$(vpn__get_tunnel_addresses "$(get_config_value INFACE_CLI)")
+		echo $(vpn__get_tunnel_ip "$(get_config_value INFACE_CLI)")
 	fi
+}
 
-	echo "${addresses}"
+get_tunnel_ip() {
+	local without_port
+	for address in $( get_tunnel_addresses ) ; do
+		if [ -z "${address}" ] ; then
+			continue
+		fi
+		without_port=$(echo "${address}" | cut -d':' -f1)
+
+		if echo "${without_port}" | grep -qE "^${IP_FILTER}$" ; then
+			echo "${without_port}"
+			continue
+		fi
+
+		for ip in $( dns__get_ips_by_domain "${without_port}" ) ; do
+			if [ -z "${ip}" ] ; then
+				continue
+			fi
+
+			echo "${ip}"
+		done
+	done
 }
 
 # ------------------------------------------------------------------------------------------
