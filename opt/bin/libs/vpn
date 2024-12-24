@@ -1411,7 +1411,7 @@ vpn_off() {
 	[ -f "/opt/etc/ndm/netfilter.d/100-vpn-mark" ] && rm -f "/opt/etc/ndm/netfilter.d/100-vpn-mark"
 	[ -f /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn ] && rm -f /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
 	[ -f /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn ] && rm -f /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn
-	cmd_vpn_iptable_flush  &> /dev/null
+	ip4__flush 'chain table' &> /dev/null
 }
 # ------------------------------------------------------------------------------------------
 #
