@@ -267,6 +267,19 @@ cmd_debug_iptables() {
 		title='Перенаправление в порт'
 		output="${CHAIN_DNAT_TO_PORT}"
 	else
+		output=$(ip route show table "${ROUTE_TABLE_ID}")
+		if [ -z "${output}" ] ; then
+			output=$(iptables__text_empty 'Маршруты тоннеля' "${1}")
+		else
+			title=$(ip rule show | grep -F "$(ip4__rule__get_sub)")
+			if [ -z "${title}" ] ; then
+				output=$(iptables__text_empty 'Правила перенаправления' "${1}")
+			else
+				output="${output}"'\n'"${title}"
+			fi
+		fi
+		echo_debug 'VPN' "${output}"
+
 		title='Маркировка'
 		output="${CHAIN_MARK}"
 	fi
