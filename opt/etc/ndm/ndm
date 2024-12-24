@@ -1332,7 +1332,6 @@ cmd_vpn_iptable_reset() {
 		ready "Переустановка iptables для vpn завершена"
 		{
 			cmd_vpn_iptable_flush
-			ip4__dns__add_routing_for_home
 			ip4_mark_vpn_network
 		} &> /dev/null && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
 	fi
