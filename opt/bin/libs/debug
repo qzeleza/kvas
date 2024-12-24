@@ -249,9 +249,12 @@ cmd_debug_iptables() {
 
 	echo_debug 'Маршруты (подключитесь к гостевой заранее)' "$(ip route)"
 
+	local title
 	if is_proxy_enabled ; then
+		title='Перенаправление в порт'
 		output="${CHAIN_DNAT_TO_PORT}"
 	else
+		title='Маркировка'
 		output="${CHAIN_MARK}"
 	fi
 	output=$(iptables__get_by_chain "${output}")
@@ -263,7 +266,7 @@ cmd_debug_iptables() {
 			output="${output}"'\nСообщите об этом https://t.me/kvas_pro и вызовите kvas reset'
 		fi
 	fi
-	echo_debug 'Перехват' "${output}"
+	echo_debug "${title}" "${output}"
 
 	output=$(iptables__get_by_chain "${CHAIN_DNS}")
 	if [ -z "${output}" ] ; then
