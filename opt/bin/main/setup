@@ -451,6 +451,9 @@ clear_previous_version_net_rules() {
 	ip4__chain__delete_jump 'nat'    'SHADOWSOCKS_UDP_MARK'
 	ip4__chain__delete      'nat'    'SHADOWSOCKS_UDP_MARK'
 
+	#ToDo: через iptables__delete_rules "${table}" "уникальный кусок правила"
+	# вычистить всё из доцепочечных времён
+
 	#24-12-15 b3dec7293bb8e3de59cce200b4e8dc8d4b9f3dac
 	ip4__ipset__destroy 'KVAS_DESTINATION_EXCLUDED'
 	#24-11-26 5efb5035c33fffb18c5d17cd7c56e453b0b64ac8
