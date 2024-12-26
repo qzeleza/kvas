@@ -694,12 +694,12 @@ all_services_rm_develop_mode() {
 				opkg remove dnsmasq --force-depends &> /dev/null
 			} && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
-				ready "Останавливаем службу dnscrypt-proxy2 "
-				{
-					/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null 
-					rm_file /opt/etc/dnscrypt-proxy.toml
-					opkg remove dnscrypt-proxy2 --force-depends &> /dev/null
-				} && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+			ready "Останавливаем службу dnscrypt-proxy2 "
+			{
+				/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null 
+				rm_file /opt/etc/dnscrypt-proxy.toml
+				opkg remove dnscrypt-proxy2 --force-depends &> /dev/null
+			} && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 		fi
 	fi
 }
@@ -765,8 +765,8 @@ cmd_uninstall() {
 				ready "Останавливаем службу dnsmasq "
 				/opt/etc/init.d/S56dnsmasq stop &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
-					ready "Останавливаем службу dnscrypt-proxy2 "
-					/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+				ready "Останавливаем службу dnscrypt-proxy2 "
+				/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 			fi
 		fi
 
