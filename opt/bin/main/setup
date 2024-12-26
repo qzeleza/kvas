@@ -737,6 +737,7 @@ cmd_uninstall() {
 	fi
 
 	if echo "${answer}" | grep -qi y ; then
+		ip4__flush &> /dev/null
 
 		if [ "${rm_type}" = full ]; then
 			mess="Удаляем все архивные данные и все зависимые пакеты..."
