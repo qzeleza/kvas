@@ -276,40 +276,36 @@ rm_file()( [ -f "${1}" ] && rm -f "${1}"  || true )
 # 	УДАЛЕНИЕ ФАЙЛОВ КОНФИГУРАЦИИ
 #------------------------------------------------------
 rm_package_files(){
-
 	local full=${1:-no}
 
 	if [ "${full}" = full ] ; then
-		
-		ready "Удаляем архивные копии пакета Квас" && {
-
+		ready 'Удаляем архивные копии пакета Квас' && {
 			find /opt ! -path "/opt/packages/*" ! -path "/opt/lib/opkg/*" -name '*kvas*' ! -regex '.*/kvas[a-zA-Z].*' -exec rm -rf {} +
-			
+
 			rm_file /opt/tmp/adblock
 			rm_file /opt/etc/ads_exception.list
 			rm_file /opt/etc/inface_equals
-			rm_file	/opt/etc/shadowsocks.json
-			rm_file	/opt/etc/init.d/S22shadowsocks
-
+			rm_file /opt/etc/shadowsocks.json
+			rm_file /opt/etc/init.d/S22shadowsocks
 		} && when_ok || when_bad
 	fi
-	ready "Удаляем файлы пакета Квас" && {
+	ready 'Удаляем файлы пакета Квас' && {
 		rm_file /opt/etc/cron.5mins/check_vpn
-		rm_file	/opt/etc/ndm/fs.d/100-vpn
-		rm_file	/opt/etc/ndm/fs.d/15_kvas_start.sh
-		rm_file	/opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
-		rm_file	/opt/etc/ndm/netfilter.d/100-vpn-mark
-		rm_file	/opt/etc/ndm/netfilter.d/100-proxy-redirect
-		rm_file	/opt/etc/ndm/netfilter.d/100-dns-local
-		rm_file	/opt/etc/ndm/iflayerchanged.d/100-kvas-vpn
-		rm_file	/opt/etc/ndm/iflayerchanged.d/kvas-ips-reset
-		rm_file	/opt/etc/ndm/ifcreated.d/kvas-iface-add
-		rm_file	/opt/etc/ndm/ifdestroyed.d/kvas-iface-del
-		rm_file	/opt/bin/kvas
-		rm_file	/opt/etc/adblock
-		rm_dir	/opt/apps/kvas
-	} && when_ok || when_bad
+		rm_file /opt/etc/ndm/fs.d/100-vpn
+		rm_file /opt/etc/ndm/fs.d/15_kvas_start.sh
+		rm_file /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
+		rm_file /opt/etc/ndm/netfilter.d/100-vpn-mark
+		rm_file /opt/etc/ndm/netfilter.d/100-proxy-redirect
+		rm_file /opt/etc/ndm/netfilter.d/100-dns-local
+		rm_file /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn
+		rm_file /opt/etc/ndm/iflayerchanged.d/kvas-ips-reset
+		rm_file /opt/etc/ndm/ifcreated.d/kvas-iface-add
+		rm_file /opt/etc/ndm/ifdestroyed.d/kvas-iface-del
+		rm_file /opt/bin/kvas
+		rm_file /opt/etc/adblock
 
+		rm_dir /opt/apps/kvas
+	} && when_ok || when_bad
 }
 
 set_previous_condition(){
