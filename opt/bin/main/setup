@@ -419,6 +419,36 @@ clear_previous_version_net_rules() {
 	ip4__rule__delete_mark_to_table
 	ip4__route__flush_table
 
+	ip4__chain__delete_jump 'nat'    'KVAS_DNS'
+	ip4__chain__delete      'nat'    'KVAS_DNS'
+
+	#24-12-21 7791b886b2f233a71447c985ec8dfe57c53cab40
+	ip4__chain__delete_jump 'mangle' 'KVAS_MARK'
+	ip4__chain__delete      'mangle' 'KVAS_MARK'
+	#24-11-27 7bda08de3472da3a8e6f17903f65ff10c899ceb7
+	ip4__chain__delete_jump 'mangle' 'KVAS_MARK_TO_TABLE'
+	ip4__chain__delete      'mangle' 'KVAS_MARK_TO_TABLE'
+	ip4__chain__delete_jump 'nat'    'KVAS_DNAT_TO_PORT'
+	ip4__chain__delete      'nat'    'KVAS_DNAT_TO_PORT'
+	#24-11-26 10c31fcf4c1a9b201b7e21946a9ee055a82a9183
+	ip4__chain__delete_jump 'mangle' 'KVAS_VPN_FAST'
+	ip4__chain__delete      'mangle' 'KVAS_VPN_FAST'
+	#24-11-26 df8b36e2e64ae3844073518ce9a6db64c8bb7efd
+	ip4__chain__delete_jump 'nat'    'KVAS_PROXY_TCP'
+	ip4__chain__delete      'nat'    'KVAS_PROXY_TCP'
+	ip4__chain__delete_jump 'nat'    'KVAS_PROXY_UDP'
+	ip4__chain__delete      'nat'    'KVAS_PROXY_UDP'
+	#24-11-26 0e67e8aa45ba287c02a1e270f9f56afe76b72b2c
+	ip4__chain__delete_jump 'mangle' 'KVAS_VPN'
+	ip4__chain__delete      'mangle' 'KVAS_VPN'
+	# давно
+	ip4__chain__delete_jump 'mangle' 'VPNREDIR'
+	ip4__chain__delete      'mangle' 'VPNREDIR'
+	ip4__chain__delete_jump 'nat'    'SHADOWSOCKS'
+	ip4__chain__delete      'nat'    'SHADOWSOCKS'
+	ip4__chain__delete_jump 'nat'    'SHADOWSOCKS_UDP_MARK'
+	ip4__chain__delete      'nat'    'SHADOWSOCKS_UDP_MARK'
+
 	#24-12-15 b3dec7293bb8e3de59cce200b4e8dc8d4b9f3dac
 	ip4__ipset__destroy 'KVAS_DESTINATION_EXCLUDED'
 	#24-11-26 5efb5035c33fffb18c5d17cd7c56e453b0b64ac8
