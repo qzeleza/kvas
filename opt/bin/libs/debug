@@ -868,16 +868,6 @@ print_debug() {
 	#ToDo: после приборки публиковать конфигурацию Квас
 	show_install_log
 
-	internet_check
-	show_interfaces_debug
-
-	print_line
-	if has_ssr_enable; then
-		shadowsocks_debug
-	else
-		vpn_debug
-	fi
-
 	print_line
 	echo -e " ${BLUE}Сетевые правила [kvas debug iptables]${NOCL}"
 	print_line
@@ -897,4 +887,17 @@ print_debug() {
 	echo -e " ${BLUE}Список IP для попадания в тоннель [kvas ipset]${NOCL}"
 	print_line
 	cmd_ipset
+
+	#ToDo: завершить приборку
+	print_line
+	echo -e " ${BLUE}Сети${NOCL}"
+	print_line
+	internet_check
+	show_interfaces_debug
+	print_line
+	if has_ssr_enable; then
+		shadowsocks_debug
+	else
+		vpn_debug
+	fi
 }
