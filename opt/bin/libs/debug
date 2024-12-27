@@ -287,14 +287,6 @@ cmd_debug_iptables() {
 	if [ -z "${output}" ] ; then
 		output='Не найден!'
 	fi
-
-	# если вызывается как один из дебагов, то можно передать silent/short
-	if [ -z "${1}" ] ; then
-		echo 'Проверьте корректность отображаемой информации'
-		print_line
-		ready 'Модель роутера'  && when_ok "$(get_model)"
-		ready 'Версия прошивки' && when_ok "$(version_os)"
-	fi
 	ready 'Внешний IP'                            && when_ok "$(get_external_ip)"
 	ready 'IP тоннеля'                            && when_ok "${output}"
 	ready 'Исключённых целевых IPv4 и диапазонов' && when_ok "$(ipset list ${IPSET_DESTINATION_EXCLUDED} | grep -vF ':' | wc -l)"
@@ -802,25 +794,6 @@ adblock_dnsmasq_debug() {
 #	 Формируем лог отладочной информации
 #
 # ------------------------------------------------------------------------------------------
-iptables_debug() {
-	if has_ssr_enable; then
-		print_line
-		cmd_shadowsocks_iptable_reset
-		result=$(/opt/sbin/iptables-save 2>/dev/null | grep -E ${IPSET_TABLE_NAME}'|SHADOWSOCKS')
-	else
-		print_line
-		. /opt/apps/kvas/bin/libs/ndm
-		cmd_vpn_iptable_reset
-		result=$(/opt/sbin/iptables-save | grep -E 'VPNREDIR|'${IPSET_TABLE_NAME} )
-	fi
-	echo_debug "Правила перенаправления трафика ${IPSET_TABLE_NAME} в iptables\nкоманда: iptables-save | grep -E 'SHADOWSOCKS|VPNREDIR|'${IPSET_TABLE_NAME}" "${result}"
-}
-
-# ------------------------------------------------------------------------------------------
-#
-#	 Формируем лог отладочной информации
-#
-# ------------------------------------------------------------------------------------------
 syslog_debug() {
 
 	result=$(curl -s -d '{"once": false, "max-lines": 66}' "${LOCALHOST_IP}"':79/rci/show/log' \
@@ -971,16 +944,19 @@ print_debug() {
 	else
 		vpn_debug
 	fi
-#	print_line
-	iptables_debug
 
 	print_line
-	echo -e " ${BLUE}Список${NOCL}"
+	echo -e " ${BLUE}Сетевые правила [kvas debug iptables]${NOCL}"
+	print_line
+	cmd_debug_iptables
+
+	print_line
+	echo -e " ${BLUE}Список пользователя [kvas list]${NOCL}"
 	print_line
 	debug__list
 
 	print_line
-	echo -e " ${BLUE}IPSET${NOCL}"
+	echo -e " ${BLUE}Список IP для попадания в тоннель [kvas ipset]${NOCL}"
 	print_line
 	cmd_ipset
 }
