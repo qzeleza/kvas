@@ -137,10 +137,6 @@ cmd_pause_kvas(){
 	{
 		ip4__flush &> /dev/null
 
-		ip4_flush_all_tables
-		route_del
-		ip4_rule_del_priority
-
 		# Архивируем файлы механизма ndm
 		[ -f /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn ] && {
 			mv /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn ${KVAS_BACKUP_PATH}/100-kvas-vpn-layer
@@ -300,7 +296,7 @@ rm_package_files(){
 	ready "Удаляем файлы пакета Квас" && {
 		rm_file /opt/etc/cron.5mins/check_vpn
 		rm_file	/opt/etc/ndm/fs.d/100-vpn
-		rm_file	/opt/etc/ndm/fs.d/100-ipset
+		rm_file	/opt/etc/ndm/fs.d/15_kvas_start.sh
 		rm_file	/opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
 		rm_file	/opt/etc/ndm/netfilter.d/100-vpn-mark
 		rm_file	/opt/etc/ndm/netfilter.d/100-proxy-redirect
@@ -327,7 +323,6 @@ set_previous_condition(){
 	#------------------------------------------------------
 	ready "Очищаем все правила и таблицы..."
 	ip4__flush &> /dev/null
-	ip4_flush_all_tables &>/dev/null
 	if [ $? = 0 ]; then when_ok "УСПЕШНО"; else when_bad "ОШИБКА"; fi
 
 	if [ -f /opt/etc/init.d/S99adguardhome ]; then
@@ -408,6 +403,7 @@ rm_previous_version_files(){
 	rm_file /opt/etc/ndm/netfilter.d/100-vpn-mark
 	rm_file /opt/etc/ndm/fs.d/100-vpn
 	rm_file /opt/etc/ndm/fs.d/100-ipset
+	rm_file /opt/etc/ndm/fs.d/15_kvas_start.sh
 	rm_file /opt/etc/ndm/ifcreated.d/kvas-iface-add
 	rm_file /opt/etc/ndm/ifdestroyed.d/kvas-iface-del
 	rm_file /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn
@@ -419,6 +415,20 @@ rm_previous_version_files(){
 	rm_dir /opt/etc/.kvas
 }
 
+clear_previous_version_net_rules() {
+	ip4__rule__delete_mark_to_table
+	ip4__route__flush_table
+
+	#24-11-29 0dabaa19b8dc788d56650b20092dec4a9dce1acc
+	ip4__ipset__destroy 'KVAS_LIST'
+	#24-11-09 fb1f8cb5755dd4c7b683b314096ccf903ee05525
+	ip4__ipset__destroy 'kvas_ipset'
+	#24-09-07 f78979503e9866f2dca3770455b241c3db8f850d
+	ip4__ipset__destroy 'kvas'
+	# давно
+	ip4__ipset__destroy 'unblock'
+}
+
 cmd_install(){
 
 #	Если режим обновления, то не спрашиваем про выбор соединения,
@@ -428,10 +438,16 @@ cmd_install(){
 	LOG_HEADER="PACKAGE INSTALLATION"
 	# Пишем сообщение в лог роутера о начале установки пакета
 	log_alert "УСТАНОВКА ПАКЕТА КВАС" "${LOG_HEADER}"
-	
-	# Удлаяем предыдущие файлы Кваса
+
 	ready "Удаляем файлы предыдущей версии пакета Квас" 
 	rm_previous_version_files  && when_ok || when_bad
+
+	ready 'Очищаем сетевые правила предыдущей версии Квас'
+	clear_previous_version_net_rules && when_ok || when_bad
+
+	# стартуем ipset'ы, используемые DNS-серверами
+	# до старта самих DNS-серверов
+	ip4__ipset__create_list
 
 #	обновляем itpables
 	opkg update &> /dev/null

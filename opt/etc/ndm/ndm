@@ -14,14 +14,13 @@
 # ------------------------------------------------------------------------------------------
 
 # ------------------------------------------------------------------------------------------
-# Подключаем функции логирования
+# Подключаем основные функции
 . /opt/apps/kvas/bin/libs/main
 # ------------------------------------------------------------------------------------------
 
-# имя таблицы для ipset
 
-TABLE_ID=1001
-PRIORITY=1778
+ROUTE_TABLE_ID=1001
+RULE_PRIORITY=1778
 MARK_NUM=0xd1000
 DNS_PORT=9753
 
@@ -30,21 +29,15 @@ IPSET_DESTINATION_EXCLUDED=KVAS_DESTINATION_EXCLUDED
 CHAIN_DNS=KVAS_DNS
 TABLE_DNS=nat
 
-CHAIN_MARK_TO_TABLE=KVAS_MARK_TO_TABLE
-TABLE_MARK_TO_TABLE=mangle
-#ToDo: попробовать вышестоящее и на отключенном ускорении
+CHAIN_MARK=KVAS_MARK
+TABLE_MARK=mangle
 
 CHAIN_DNAT_TO_PORT=KVAS_DNAT_TO_PORT
 TABLE_DNAT_TO_PORT=nat
-#ToDo: попробовать -p udp -j TPROXY --on-port "${port}" --tproxy-mark 0x01/0x01
-CHAIN_TPROXY_TO_PORT=KVAS_TPROXY_TO_PORT
-TABLE_TPROXY_TO_PORT=mangle
-
+#ToDo: переписать на https://github.com/shadowsocks/shadowsocks-libev?tab=readme-ov-file#transparent-proxy-pure-tproxy
 
 IPv4='IPv4::'
 IPv6='IPv6::'
-
-
 
 ip4() (/opt/sbin/ip -4 "$@")
 ip4tables() (/opt/sbin/iptables -C "$@" &>/dev/null || /opt/sbin/iptables -A "$@")
@@ -158,13 +151,13 @@ iptables__delete_rule() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table="${1}"
+	local table="${1}"
 
 	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — правило"
 		return
 	fi
-	rule="${2}"
+	local rule="${2}"
 
 	if [ "${rule:0:3}" != '-A ' ]; then
 		return
@@ -179,13 +172,13 @@ iptables__delete_rules() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table="${1}"
+	local table="${1}"
 
 	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — фильтр"
 		return
 	fi
-	filter="${2}"
+	local filter="${2}"
 
 	local rules=$(iptables-save -t "${table}" | grep -F -- "${filter}")
 	if [ -z "${rules}" ] ; then
@@ -248,10 +241,10 @@ ip4__ipset__create() {
 
 # Для списка условной маршрутизации
 ip4__ipset__create_list() {
-	ip4__ipset__create "${IPSET_TABLE_NAME}" "$(get_config_value TTL_TIMEOUT)"
+	ip4__ipset__create "${IPSET_TABLE_NAME}" "$(get_config_value LIST_IPSET_TTL)"
 }
 
-#TODO: сменить в других файлах обращение на новую обёртку
+#ToDo: сменить в других файлах обращение на новую обёртку
 ip4set_create_table() {
 	ip4__ipset__create_list
 }
@@ -330,13 +323,13 @@ ip4__chain__is_exist() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table="${1}"
+	local table="${1}"
 
 	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
 		return
 	fi
-	chain_name="${2}"
+	local chain_name="${2}"
 
 	iptables-save -t "${table}" | grep -Fq "${chain_name}"
 }
@@ -346,13 +339,13 @@ ip4__chain__exclude_source_by_config() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table="${1}"
+	local table="${1}"
 
 	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
 		return
 	fi
-	chain_name="${2}"
+	local chain_name="${2}"
 
 	local values=$(get_config_value 'route_excluded_ip')
 	if [ -z "${values}" ] ; then
@@ -378,13 +371,13 @@ ip4__chain__create_for_data() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table="${1}"
+	local table="${1}"
 
 	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
 		return
 	fi
-	chain_name="${2}"
+	local chain_name="${2}"
 
 	if ip4__chain__is_exist "${table}" "${chain_name}" ; then
 		return
@@ -411,13 +404,13 @@ ip4__chain__delete() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table="${1}"
+	local table="${1}"
 
 	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
 		return
 	fi
-	chain_name="${2}"
+	local chain_name="${2}"
 
 	if ! ip4__chain__is_exist "${table}" "${chain_name}"; then
 		return
@@ -435,13 +428,13 @@ ip4__chain__delete_jump() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table="${1}"
+	local table="${1}"
 
 	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
 		return
 	fi
-	chain_name="${2}"
+	local chain_name="${2}"
 
 	iptables__delete_rules "${table}" "-j ${chain_name}"
 }
@@ -458,19 +451,19 @@ ip4__proxy__create_chain() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table="${1}"
+	local table="${1}"
 
 	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
 		return
 	fi
-	chain_name="${2}"
+	local chain_name="${2}"
 
 	if [ -z "${3}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — порт"
 		return
 	fi
-	port="${3}"
+	local port="${3}"
 
 	{
 		if ip4__chain__is_exist "${table}" "${chain_name}" ; then
@@ -501,22 +494,22 @@ ip4__vless__create_chain() {
 # когда ускорение подключено
 ip4__vpn_fast__create_chain() {
 	{
-		if ip4__chain__is_exist "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}" ; then
+		if ip4__chain__is_exist "${TABLE_MARK}" "${CHAIN_MARK}" ; then
 			return
 		fi
 
-		ip4__chain__create_for_data "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
+		ip4__chain__create_for_data "${TABLE_MARK}" "${CHAIN_MARK}"
 
-		#ToDo: именно здесь надо автостартовать таблицы, их ручной старт нужно везде удалить
-		# ведь только после завершения этой цепочки таблица нужна и сможет получить трафик
-		#ip4_add_route_table
-		#ip4_rule_set_priority
+		# т.к. мы начнём маркировать трафик, то заранее
+		# стартанём таблицы для него и повесим правило захвата
+		ip4__route__add_table
+		ip4__rule__add_mark_to_table
 
-		iptables -A "${CHAIN_MARK_TO_TABLE}" -w -t "${TABLE_MARK_TO_TABLE}" -j CONNMARK --restore-mark
-		iptables -A "${CHAIN_MARK_TO_TABLE}" -w -t "${TABLE_MARK_TO_TABLE}" -m mark --mark ${MARK_NUM} -j RETURN
-		iptables -A "${CHAIN_MARK_TO_TABLE}" -w -t "${TABLE_MARK_TO_TABLE}" --syn -j MARK --set-mark ${MARK_NUM}
-		iptables -A "${CHAIN_MARK_TO_TABLE}" -w -t "${TABLE_MARK_TO_TABLE}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM}
-		iptables -A "${CHAIN_MARK_TO_TABLE}" -w -t "${TABLE_MARK_TO_TABLE}" -j CONNMARK --save-mark
+		iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -j CONNMARK --restore-mark
+		iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -m mark --mark ${MARK_NUM} -j RETURN
+		iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" --syn -j MARK --set-mark ${MARK_NUM}
+		iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM}
+		iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -j CONNMARK --save-mark
 	} &>/dev/null || error "[${FUNCNAME}] Возникли ошибки во время маркировки трафика для VPN при включенном ускорении"
 }
 
@@ -526,9 +519,8 @@ ip4__vpn_nofast__set_rules() {
 		#ToDo: должны работать таблицы или переписать на цепочки
 		log_warning 'Маркировка трафика для VPN при отключенном ускорении'
 
-		ip4__ipset__create_list
 		# правило не переписывалось, таким и было
-		ip4tables PREROUTING -t "${TABLE_MARK_TO_TABLE}" -i "$(inface_ent)" -m set --match-set ${IPSET_TABLE_NAME} dst -j MARK --set-mark ${MARK_NUM}
+		ip4tables PREROUTING -t "${TABLE_MARK}" -i "$(inface_ent)" -m set --match-set ${IPSET_TABLE_NAME} dst -j MARK --set-mark ${MARK_NUM}
 	} &>/dev/null || error "[${FUNCNAME}] Возникли ошибки во время маркировки трафика для VPN при отключенном ускорении"
 }
 
@@ -545,6 +537,10 @@ ip4__dns__delete_routing_for_home() {
 }
 
 ip4__dns__add_routing_for_home() {
+	# после включения редиректа DNS ipset начнёт заполняться
+	# нужно его создать автоматически для DNSMasq, если ещё нет
+	ip4__ipset__create_list
+
 	ip4__dns__add_routing "-i $(get_local_inface)"
 }
 
@@ -553,13 +549,13 @@ ip4__add_routing_for_home() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table="${1}"
+	local table="${1}"
 
 	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
 		return
 	fi
-	chain_name="${2}"
+	local chain_name="${2}"
 
 	#ToDo: использовать обёртку, а не код дальше
 
@@ -571,7 +567,6 @@ ip4__add_routing_for_home() {
 
 	log_warning "Подключение перенаправления трафика для домашней сети в тоннель ${3}"
 
-	ip4__ipset__create_list
 	iptables -A PREROUTING -w -t "${table}" -i "${net_interface}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${chain_name}"
 }
 
@@ -585,7 +580,7 @@ ip4__vless__add_routing_for_home() {
 
 # когда ускорение подключено
 ip4__vpn_fast__add_routing_for_home() {
-	ip4__add_routing_for_home "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}" 'VPN со включенным ускорением'
+	ip4__add_routing_for_home "${TABLE_MARK}" "${CHAIN_MARK}" 'VPN со включенным ускорением'
 }
 
 
@@ -640,7 +635,7 @@ ip4__dns__get_rulenum() {
 	fi
 
 	# после NDM_DNAT
-	local rulenum=$(ip4__get_rulenum 'NDM_DNAT')
+	rulenum=$(ip4__get_rulenum 'NDM_DNAT')
 	if [ -n "${rulenum}" ]; then
 		echo $((rulenum + 1))
 		return
@@ -670,10 +665,6 @@ ip4__dns__add_routing() {
 	local rulenum=$(ip4__dns__get_rulenum)
 
 	log_warning "Подключение DNS перенаправления с приоритетом ${rulenum}${submessage}"
-
-	# после включения редиректа DNS ipset начнёт заполняться
-	# нужно его создать автоматически для DNSMasq
-	ip4__ipset__create_list
 
 	ip4__dns__create_chain
 	# без echo дублирование пробелов (что даёт warning и проблему наличия)
@@ -718,8 +709,8 @@ get_guest_net() {
 # Получение маски локальной подсети клиентов IKEv2
 #Example: 192.168.3.0/24
 get_ikev2_net_pool() {
-	ikev2_settings=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
-	pool_start=$(echo "${ikev2_settings}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
+	local ikev2_settings=$(curl -s "${LOCALHOST_IP}:79/rci/crypto/virtual-ip-server-ikev2")
+	local pool_start=$(echo "${ikev2_settings}" | grep pool-start | cut -d':' -f2 | sed 's/[\,\" ]//g;')
 	echo "${pool_start}" | sed 's/\.[0-9]\{1,3\}$/.0\/24/'
 }
 
@@ -735,20 +726,20 @@ ip4__add_routing() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table="${1}"
+	local table="${1}"
 
 	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
 		return
 	fi
-	chain_name="${2}"
+	local chain_name="${2}"
 
 	# необязательный параметр — ipset для фильтра по целевым IP
 	if [ -n "${4}" ] ; then
 		local ipset_list="${4}"
 
 		# т.к. используется DNS'ом и в правиле, то лучше бы проверить наличие
-		ip4__ipset__create "${ipset_list}" "$(get_config_value TTL_TIMEOUT)"
+		ip4__ipset__create "${ipset_list}" "$(get_config_value LIST_IPSET_TTL)"
 
 		# перехват DNS нужен только при фильтрации по IPSet
 		ip4__dns__add_routing "${iptables_filter}"
@@ -773,12 +764,12 @@ ip4__add_routing_by_list_for_net() {
 		exit 1
 	fi
 
-	iptables_filter=$(iptables__get_subrule_for_net "${net_interface}")
+	local iptables_filter=$(iptables__get_subrule_for_net "${net_interface}")
 
 	if is_proxy_enabled ; then
 		ip4__add_routing "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${iptables_filter}" "${IPSET_TABLE_NAME}"
 	elif fastnet_enabled ; then
-		ip4__add_routing "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}" "${iptables_filter}" "${IPSET_TABLE_NAME}"
+		ip4__add_routing "${TABLE_MARK}" "${CHAIN_MARK}" "${iptables_filter}" "${IPSET_TABLE_NAME}"
 	else
 		ip4__dns__add_routing "${iptables_filter}"
 
@@ -813,13 +804,13 @@ ip4__delete_routing() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
 	fi
-	table="${1}"
+	local table="${1}"
 
 	if [ -z "${2}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
 		return
 	fi
-	chain_name="${2}"
+	local chain_name="${2}"
 
 	# необязательный параметр — ipset для фильтра по целевым IP
 	if [ -n "${4}" ] ; then
@@ -848,14 +839,14 @@ ip4__delete_routing_by_list_for_net() {
 		exit 1
 	fi
 
-	iptables_filter=$(iptables__get_subrule_for_net "${net_interface}")
+	local iptables_filter=$(iptables__get_subrule_for_net "${net_interface}")
 
 	ip4__dns__delete_routing "${iptables_filter}"
 
 	if is_proxy_enabled ; then
 		ip4__delete_routing "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${iptables_filter}" "${IPSET_TABLE_NAME}"
 	elif fastnet_enabled ; then
-		ip4__delete_routing "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}" "${iptables_filter}" "${IPSET_TABLE_NAME}"
+		ip4__delete_routing "${TABLE_MARK}" "${CHAIN_MARK}" "${iptables_filter}" "${IPSET_TABLE_NAME}"
 	else
 		ip4__dns__delete_routing "${iptables_filter}"
 
@@ -876,26 +867,6 @@ ip4__delete_routing_by_list_for_net() {
 
 		iptables -D POSTROUTING -t nat -s "${net_pool}" -o "${net_interface}" -j MASQUERADE
 	fi
-}
-
-#TODO: сменить в других файлах обращение на новую обёртку
-ip4_add_selected_guest_to_vpn_network() {
-	ip4__add_routing_by_list_for_net "${1}"
-}
-
-#TODO: сменить в других файлах обращение на новую обёртку
-ip4_add_selected_guest_to_ssr_network() {
-	ip4__add_routing_by_list_for_net "${1}"
-}
-
-#TODO: сменить в других файлах обращение на новую обёртку
-ip4_firewall_rm_vpn_selected_guest_net() {
-	ip4__delete_routing_by_list_for_net "${1}"
-}
-
-#TODO: сменить в других файлах обращение на новую обёртку
-ip4_firewall_rm_ssr_selected_guest_net() {
-	ip4__delete_routing_by_list_for_net "${1}"
 }
 
 
@@ -930,7 +901,7 @@ ip4__add_routing_for_ip_from_config() {
 			if is_proxy_enabled ; then
 				ip4__add_routing "${TABLE_DNAT_TO_PORT}"  "${CHAIN_DNAT_TO_PORT}"  "${ip_or_range}"
 			elif fastnet_enabled ; then
-				ip4__add_routing "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}" "${ip_or_range}"
+				ip4__add_routing "${TABLE_MARK}" "${CHAIN_MARK}" "${ip_or_range}"
 			fi
 		done
 	fi
@@ -947,7 +918,7 @@ ip4__add_routing_for_ip_from_config() {
 			if is_proxy_enabled ; then
 				ip4__add_routing "${TABLE_DNAT_TO_PORT}"  "${CHAIN_DNAT_TO_PORT}"  "${ip_or_range}" "${IPSET_TABLE_NAME}"
 			elif fastnet_enabled ; then
-				ip4__add_routing "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}" "${ip_or_range}" "${IPSET_TABLE_NAME}"
+				ip4__add_routing "${TABLE_MARK}" "${CHAIN_MARK}" "${ip_or_range}" "${IPSET_TABLE_NAME}"
 			fi
 		done
 	fi
@@ -1027,7 +998,7 @@ ip4__delete_routing_for_ip_from_config() {
 			if is_proxy_enabled ; then
 				ip4__delete_routing "${TABLE_DNAT_TO_PORT}"  "${CHAIN_DNAT_TO_PORT}"  "${ip_or_range}"
 			elif fastnet_enabled ; then
-				ip4__delete_routing "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}" "${ip_or_range}"
+				ip4__delete_routing "${TABLE_MARK}" "${CHAIN_MARK}" "${ip_or_range}"
 			fi
 		done
 	fi
@@ -1044,7 +1015,7 @@ ip4__delete_routing_for_ip_from_config() {
 			if is_proxy_enabled ; then
 				ip4__delete_routing "${TABLE_DNAT_TO_PORT}"  "${CHAIN_DNAT_TO_PORT}"  "${ip_or_range}" "${IPSET_TABLE_NAME}"
 			elif fastnet_enabled ; then
-				ip4__delete_routing "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}" "${ip_or_range}" "${IPSET_TABLE_NAME}"
+				ip4__delete_routing "${TABLE_MARK}" "${CHAIN_MARK}" "${ip_or_range}" "${IPSET_TABLE_NAME}"
 			fi
 		done
 	fi
@@ -1060,18 +1031,18 @@ ip4_firewall_flush_vpn_rules() {
 
 		if fastnet_enabled ; then
 			# достаточно удалять правила для br0, но на всякий случай
-			ip4__chain__delete_jump "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
+			ip4__chain__delete_jump "${TABLE_MARK}" "${CHAIN_MARK}"
 			# в бета 9 перехваты DNS не очищались, да и они универсальны меж подключениями
 			#ip4__chain__delete_jump "${TABLE_DNS}" "${CHAIN_DNS}"
 
 			# Во время работы удалять цепочки бессмысленно, они константны и не влияют ни на что
 			# Достаточно убрать входы туда, что сделано выше
 			# По идее, нижеидущее нужно вызывать лишь при установке или удалении
-			#ip4__chain__delete "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
+			#ip4__chain__delete "${TABLE_MARK}" "${CHAIN_MARK}"
 			#ip4__chain__delete "${TABLE_DNS}" "${CHAIN_DNS}"
 		else
 			# антиправила для ip4__vpn_nofast__set_rules
-			iptables__delete_rules "${TABLE_MARK_TO_TABLE}" "-j MARK --set-mark ${MARK_NUM}"
+			iptables__delete_rules "${TABLE_MARK}" "-j MARK --set-mark ${MARK_NUM}"
 		fi
 	} &>/dev/null
 }
@@ -1093,11 +1064,6 @@ ip4_firewall_flush_proxy() {
 		#ip4__chain__delete "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
 		#ip4__chain__delete "${TABLE_DNS}" "${CHAIN_DNS}"
 	} &>/dev/null
-}
-
-#ToDo: сменить в других файлах обращение на новую обёртку
-ip4_firewall_ssr_prune() {
-	ip4_firewall_flush_proxy
 }
 
 # Удаляем все маршрутизирующие правила iptables
@@ -1138,23 +1104,21 @@ ip4__flush() {
 		fi
 	elif fastnet_enabled ; then
 		if echo "${parts}" | grep -Fq ' jump ' ; then
-			ip4__chain__delete_jump "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
+			ip4__chain__delete_jump "${TABLE_MARK}" "${CHAIN_MARK}"
 		fi
 		if echo "${parts}" | grep -Fq ' chain ' ; then
-			ip4__chain__delete_jump "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
+			ip4__chain__delete_jump "${TABLE_MARK}" "${CHAIN_MARK}"
 
-			ip4__chain__delete      "${TABLE_MARK_TO_TABLE}" "${CHAIN_MARK_TO_TABLE}"
+			ip4__chain__delete      "${TABLE_MARK}" "${CHAIN_MARK}"
 			ip4__ipset__destroy_destination_excluded
 		fi
 
-		#if echo "${parts}" | grep -Fq ' table ' ; then
-			#ToDo: именно здесь надо удалять таблицы, их ручное удаление нужно удалить
-			# ведь только эта цепочка использовала эту таблицу
-			#ip4_rule_del_priority
-			#ip4_flush_all_tables
-		#fi
+		if echo "${parts}" | grep -Fq ' table ' ; then
+			ip4__rule__delete_mark_to_table
+			ip4__route__flush_table
+		fi
 	else
-		iptables__delete_rules "${TABLE_MARK_TO_TABLE}" "-j MARK --set-mark ${MARK_NUM}"
+		iptables__delete_rules "${TABLE_MARK}" "-j MARK --set-mark ${MARK_NUM}"
 	fi
 
 	if echo "${parts}" | grep -Fq ' jump ' ; then
@@ -1175,136 +1139,173 @@ ip4__flush() {
 # ------------------------------------------------------------------------------------------
 #
 # Всё, касающееся ip route и ip rule
-# ToDo: рефакторинг
+# Используется лишь для VPN
 #
 # ------------------------------------------------------------------------------------------
 
-# Производим очистку кэша маршрутизации
-ip4_flush_cache(){
-	log_warning "Проводим очистку кеша маршрутизации."
-	/opt/sbin/ip route flush cache 1> /dev/null 2> "${ERROR_LOG_FILE}"
-#		|| error "[${FUNCNAME}] Возникла ошибка при очистки кеша маршрутизации."
+ip4__route__flush_cache() {
+	log_warning 'Очистка кэша маршрутизации'
+
+	ip route flush cache &>/dev/null
 }
 
-route_del(){
-	inface_ent=${1}
-	_route=$(/opt/sbin/ip route show table ${TABLE_ID})
-	inface=$(echo ${_route} | grep default | cut -d' ' -f5)
-	if [[ -n "${_route}" ]] && ! [[ "${inface}" = "$(inface_ent)" ]]; then
-		/opt/sbin/ip route del table ${TABLE_ID} default via "$(inface_gw4)" dev $(inface_ent) &>/dev/null
+ip4__route__show_table() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — id таблицы"
+		return
+	fi
+	local table_id="${1}"
+
+	ip route show table "${table_id}"
+}
+
+ip4__route__is_exist_table() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — id таблицы"
+		return
+	fi
+	local table_id="${1}"
+
+	[ $(ip4__route__show_table "${table_id}" | head -c1 | wc -c) -gt 0 ]
+}
+
+ip4__route__add_table() {
+	local net_interface=$(get_config_value 'INFACE_ENT')
+	local is_need_flush=''
+
+	local gateway_ip=$(get_config_value 'ADDR_MAN')
+	if [ -n "${gateway_ip}" ] ; then
+		local subroute=" via ${gateway_ip}"
+		local submessage=" через ${gateway_ip}"
+	else
+		local subroute=''
+		local submessage=''
+	fi
+	subroute="default${subroute} dev ${net_interface}"
+	submessage="таблицы маршрутизации ${ROUTE_TABLE_ID} для ${net_interface}${submessage}"
+
+	local route_show=$(ip4__route__show_table "${ROUTE_TABLE_ID}")
+	if [ -n "${route_show}" ] && ! echo "${route_show}" | grep -Fq "${subroute}" ; then
+		# таблица существует, но не содержит нужного роута
+		log_warning "Очистка таблицы маршрутизации ${ROUTE_TABLE_ID} из-за отсутствия ${subroute}"
+		ip route flush table "${ROUTE_TABLE_ID}" &>/dev/null
+
+		is_need_flush='1'
+
+		# чтобы передобавилось ниже
+		route_show=$(ip4__route__show_table "${ROUTE_TABLE_ID}")
 	fi
 
-}
+	if [ -z "${route_show}" ] ; then
+		log_warning "Добавление ${submessage}"
 
-# Создаем ip таблицу ${TABLE_ID} и копируем в нее данные из таблицы main
-ip4_add_route_table(){
-		
-	addr_gateway=$(get_config_value "ADDR_MAN")
-	_inface_ent=$(get_config_value "INFACE_ENT")
-        if [[ -z "$addr_gateway" ]]; then
-		_inface_cli=$(inface_cli)
-		mess="Создаем таблицу маршрутизации ID#${TABLE_ID} для '${_inface_cli}'."
-		log_warning "${mess}"
-		ready "${mess}"
-
-		{
-		_inface_ent=$(get_config_value "INFACE_ENT")
-#		rm -f "${ERROR_LOG_FILE}"
-		route_del "${_inface_ent}"
-
-		_ip_gw=$(/opt/sbin/ip a | grep global | grep "${_inface_ent}" | sed 's|.*inet \(.*\).*\/.* scope.*|\1|' | cut -d' ' -f1)
-
-		[ -z "${_ip_gw}" ] && {
-			error "Не удалось определить IP шлюза для соединения ${_inface_ent}"
-			exit 1
+		ip route add table "${ROUTE_TABLE_ID}" $(echo "${subroute}") \
+		 || {
+			error "[${FUNCNAME}] Ошибка при добавлении ${submessage}"
 		}
 
-		! /opt/sbin/ip route show table ${TABLE_ID} | grep -q default && {
-			if /opt/sbin/ip route add table ${TABLE_ID} default via ${_ip_gw} dev ${_inface_ent} 2>&1 | grep -vq 'File exists' ; then
-				error "[${FUNCNAME}] Ошибка при создании таблицы маршрутизации ID#${TABLE_ID} для '${_inface_cli}' интерфейса."
+		is_need_flush='2'
+	fi
+
+	# если не gateway, то нужны 2 роута
+	if [ -z "${gateway_ip}" ] ; then
+		gateway_ip=$(get_ip_by_inface "${net_interface}")
+		if [ -z "${gateway_ip}" ] ; then
+			error "[${FUNCNAME}] При добавлении в таблицу маршрутизации ${ROUTE_TABLE_ID} не удалось определить IP шлюза для ${net_interface}"
+		else
+			local gateway_net=$(get_net_by_ip "${gateway_ip}")
+			subroute="${gateway_net} via ${gateway_ip}" # dev ${net_interface}
+			submessage="в таблицу маршрутизации ${ROUTE_TABLE_ID} для ${gateway_net} через ${gateway_ip}"
+
+			if ! echo "${route_show}" | grep -Fq "${subroute}" ; then
+				log_warning "Добавление ${submessage}"
+
+				ip route add $(echo "${subroute}") table "${ROUTE_TABLE_ID}" \
+				 || {
+					error "[${FUNCNAME}] Ошибка при добавлении ${submessage}"
+				}
+
+				is_need_flush='3'
 			fi
-#			log_error "${IPv4} Возникла ошибка при создании таблицы маршрутизации ID#${TABLE_ID} для '${_inface_cli}' интерфейса"
-			}
-
-#		Добавляем сеть vpn соединения.
-		_net="$(echo "${_ip_gw}" | cut -d'.' -f1-3).0/24"
-		if /opt/sbin/ip route add ${_net} via ${_ip_gw} table ${TABLE_ID} 2>&1 | grep -vq 'File exists' ; then
-			error "[${FUNCNAME}] Ошибка при добавлении маршрута ${_net} через ${_ip_gw} в таблицу ${TABLE_ID}"
-		fi
-
-#		Проверяем на число записей в таблице ${TABLE_ID} - их должно быть больше чем одна запись
-		if [ "$(/opt/sbin/ip route show table ${TABLE_ID} | grep -c dev)" -le 1 ] ; then
-			_err="В таблицу с ID#${TABLE_ID} НЕ БЫЛИ скопированы записи из таблицы main!"
-			error "[${FUNCNAME}] ${_err}"
-		fi
-
-		} && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-		
-		
-		
-        	else
-        		mess="Создаем таблицу маршрутизации gateway ID#${TABLE_ID} для '${_inface_ent}' и шлюза ${addr_gateway}."
-			log_warning "${mess}"
-			ready "${mess}"
-
-			{
-
-			! /opt/sbin/ip route show table ${TABLE_ID} | grep -q default && {
-				if /opt/sbin/ip route add table ${TABLE_ID} default via ${addr_gateway} dev ${_inface_ent} 2>&1 | grep -vq 'File exists' ; then
-					error "[${FUNCNAME}] Ошибка при создании таблицы маршрутизации ID#${TABLE_ID} для '${_inface_ent}' интерфейса."
-				fi
-			}
-
-
-#		Проверяем на число записей в таблице ${TABLE_ID} - должна быть хотя бы одна запись
-			if [ "$(/opt/sbin/ip route show table ${TABLE_ID} | grep -c dev)" -le 0 ] ; then
-				_err="В таблицу с ID#${TABLE_ID} НЕ БЫЛИ скопированы записи из таблицы main!"
-				error "[${FUNCNAME}] ${_err}"
-			fi
-
-			} && when_ok "УСПЕШНО" || when_bad "ОШИБКА"	
-		fi
-}
-
-# Устанавливаем приоритет таблицы ID#${TABLE_ID} в значение ${PRIORITY}
-ip4_rule_set_priority(){
-
-	if ! /opt/sbin/ip rule show | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID}"  ; then
-		log_warning "IPv4::Устанавливаем приоритет таблицы ID#${TABLE_ID} в значение ${PRIORITY}"
-
-		if /opt/sbin/ip rule add fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID} priority ${PRIORITY} 2>&1 | grep -vq 'File exists'; then
-				error "[${FUNCNAME}] Ошибка при установке приоритета таблицы с ID#${TABLE_ID} в значение ${PRIORITY}."
-		fi
-                if [[ -z "$addr_gateway" ]]; then
-		    if /opt/sbin/ip route add default dev $(inface_ent) table ${TABLE_ID} 2>&1 | grep -vq 'File exists' ; then
-				error "[${FUNCNAME}] Ошибка при установке маршрута по умолчанию таблицы с ID#${TABLE_ID}."
-		    fi
 		fi
 	fi
 
-	ip4_flush_cache &>/dev/null
+	if [ -n "${is_need_flush}" ] ; then
+		ip4__route__flush_cache
+	fi
 }
 
-# Обнуляем приоритет таблицы ID#${TABLE_ID}
-ip4_rule_del_priority(){
-
-	if /opt/sbin/ip rule show | grep -q "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID}"  ; then
-		log_warning "IPv4::Обнуляем приоритет таблицы ID#${TABLE_ID}"
-		/opt/sbin/ip rule del fwmark ${MARK_NUM}/${MARK_NUM} lookup ${TABLE_ID} priority ${PRIORITY} &>/dev/null
-#		when_error "${?}" " ${IPv4} Обнуление приоритета таблицы с ID#${TABLE_ID}"
+ip4__route__flush_table() {
+	if ! ip4__route__is_exist_table "${ROUTE_TABLE_ID}" ; then
+		return
 	fi
 
-	ip4_flush_cache &>/dev/null
+	log_warning "Очистка таблицы маршрутизации ${ROUTE_TABLE_ID}"
+
+	ip route flush table "${ROUTE_TABLE_ID}" \
+	 || {
+		error "[${FUNCNAME}] Ошибка при очистке таблицы маршрутизации ${ROUTE_TABLE_ID}"
+	}
+
+	ip4__route__flush_cache
 }
 
-# Удаляем все таблицы которые были созданы при работе пакета
-ip4_flush_all_tables(){
-	log_warning "IPv4::Производим очистку записей таблицы маршрутизации ID#${TABLE_ID} и удалим ее."
-	/opt/sbin/ip route flush table "${TABLE_ID}" &>/dev/null
-	/opt/sbin/ip rule del table "${TABLE_ID}"  &>/dev/null
-	#when_error "${?}" " ${IPv4} Возникла ошибка при очистке таблицы маршрутизации ID#${TABLE_ID}"
+#ToDo: сменить в других файлах обращение на новую обёртку
+ip4_add_route_table() {
+	ip4__route__add_table
+}
 
-	ip4_flush_cache &>/dev/null
+#ToDo: сменить в других файлах обращение на новую обёртку
+ip4_flush_all_tables() {
+	ip4__route__flush_table
+}
+
+ip4__rule__get_sub() {
+	echo "fwmark ${MARK_NUM}/${MARK_NUM} lookup ${ROUTE_TABLE_ID}"
+}
+
+ip4__rule__get_submessage() {
+	echo "правила ${RULE_PRIORITY} отправки пакетов с меткой ${MARK_NUM} в таблицу ${ROUTE_TABLE_ID}"
+}
+
+ip4__rule__add_mark_to_table() {
+	local subrule="$(ip4__rule__get_sub)"
+	if ip rule show | grep -Fq "${subrule}" ; then
+		return
+	fi
+
+	local submessage="$(ip4__rule__get_submessage)"
+	log_warning "Добавление ${submessage}"
+
+	ip rule add $(echo "${subrule}") priority "${RULE_PRIORITY}" \
+	 || {
+		error "[${FUNCNAME}] Ошибка при добавлении ${submessage}"
+	}
+}
+
+ip4__rule__delete_mark_to_table() {
+	local subrule="$(ip4__rule__get_sub)"
+	if ! ip rule show | grep -Fq "${subrule}" ; then
+		return
+	fi
+
+	local submessage="$(ip4__rule__get_submessage)"
+	log_warning "Удаление ${submessage}"
+
+	ip rule del $(echo "${subrule}") priority "${RULE_PRIORITY}" \
+	 || {
+		error "[${FUNCNAME}] Ошибка при удалении ${submessage}"
+	}
+}
+
+#ToDo: сменить в других файлах обращение на новую обёртку
+ip4_rule_set_priority() {
+	ip4__rule__add_mark_to_table
+}
+
+#ToDo: сменить в других файлах обращение на новую обёртку
+ip4_rule_del_priority() {
+	ip4__rule__delete_mark_to_table
 }
 
 
@@ -1317,18 +1318,14 @@ ip4_flush_all_tables(){
 
 # Чистим и заполняем таблицу правил iptables для vpn подключений
 cmd_vpn_iptable_reset() {
-	if [ -f /opt/etc/ndm/fs.d/100-vpn ] ; then
+	if is_proxy_enabled ; then
+		warning 'VPN соединение не активно!'
+	else
 		ready "Переустановка iptables для vpn завершена"
 		{
-			cmd_vpn_iptable_flush  #&> /dev/null
-
-			ip4_add_route_table #&> /dev/null
-			ip4_rule_set_priority #&> /dev/null
-
-			ip4_mark_vpn_network #&> /dev/null
+			cmd_vpn_iptable_flush
+			ip4_mark_vpn_network
 		} &> /dev/null && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
-	else
-		warning "VPN соединение не активно!"
 	fi
 }
 
@@ -1349,7 +1346,7 @@ ip6tables() (if ! /opt/sbin/ip6tables -C "$@" &>/dev/null; then ip6tables -A "$@
 ip6save() (/opt/sbin/ip6tables-save)
 
 ip6set_create_table(){
-	ttl_timeout=$(get_config_value TTL_TIMEOUT)
+	local ttl_timeout=$(get_config_value LIST_IPSET_TTL)
 	ipset create "${IPSET_TABLE_NAME}6" hash:net family inet6 -exist timeout ${ttl_timeout} &>/dev/null \
 	 || {
 			_err="${IPv6}Возникла ошибка при создании таблицы с именем '${IPSET_TABLE_NAME}' для ipset"

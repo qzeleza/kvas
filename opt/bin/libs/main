@@ -797,8 +797,28 @@ get_inface_by_ip() {
 #
 # ------------------------------------------------------------------------------------------
 get_ip_by_inface() {
-	entware_inf="${1}"
-	/opt/sbin/ip a | grep global | grep "${entware_inf}" | sed 's/.*inet.\(.*\)\/.*/\1/'
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — сетевой интерфейс"
+		return
+	fi
+	local net_interface="${1}"
+
+	ip a | grep -F "${net_interface}" | grep -F 'global' | grep -oE "inet ${IP_FILTER}" | cut -d' ' -f2
+}
+
+get_net_by_ip() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — IP"
+		return
+	fi
+	local ip="${1}"
+
+	if ! echo "${ip}" | grep -qE "^${IP_FILTER}$" ; then
+		error "[${FUNCNAME}] Переданный аргумент — не IP"
+		return
+	fi
+
+	echo "$(echo "${ip}" | cut -d'.' -f1-3).0/24"
 }
 
 # ------------------------------------------------------------------------------------------
