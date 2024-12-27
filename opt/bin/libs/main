@@ -399,7 +399,7 @@ get_external_interface() {
 
 get_entware_ikev2_inface() {
 	if ! is_os_below_4_2 ; then
-		# на последних прошивках IKEv2 на этом интерфейсе, но у всех ли?
+		# на последних прошивках IKEv2 на этом интерфейсе
 		echo 'xfrms+'
 		return
 	fi
@@ -661,7 +661,7 @@ get_external_ip() {
 	/opt/sbin/ip route get ${dns} | sed -E 's/.*src (\S+) .*/\1/;t;d'
 }
 
-function vpn__get_tunnel_ip() {
+vpn__get_tunnel_addresses() {
 	if [ -z "${1}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — название соединения"
 		return
@@ -674,37 +674,61 @@ function vpn__get_tunnel_ip() {
 		return
 	fi
 
+	local address
+
 	# формат L2TP
-	local ip=$(echo "${api_response}" | jq -r '.peer' | grep -oE "${IP_FILTER}")
-	if [ -n "${ip}" ] && ! is_ip_private "${ip}" ; then
-		echo "${ip}"
+	address=$(echo "${api_response}" | jq -r '.peer // empty')
+	if [ -n "${address}" ]; then
+		log_warning "Адрес подключения L2TP ${address}"
+		echo "${address}"
 		return
 	fi
 
-	local ips
+	# формат IKEv2
+	address=$(echo "${api_response}" | jq -r '.tunnel.destination // empty')
+	if [ -n "${address}" ]; then
+		log_warning "Адрес подключения IKEv2 ${address}"
+		echo "${address}"
+		return
+	fi
+
+	local addresses
 
 	# формат Wireguard
-	ips=''
-	for ip in $(echo "${api_response}" | jq -r '.wireguard.peer[]? .endpoint.address' | grep -oE "${IP_FILTER}") ; do
-		if [ -n "${ip}" ] && ! is_ip_private "${ip}" ; then
-			ips="${ips}${ip}"$'\n'
+	addresses=''
+	for address in $(echo "${api_response}" | jq -r '.wireguard.peer[]? .endpoint.address // empty') ; do
+		if [ -z "${address}" ]; then
+			continue
 		fi
+
+		addresses="${addresses}$(echo "${address}" | cut -d':' -f1)"$'\n'
 	done
-	if [ -n "${ips}" ]; then
-		echo "${ips}"
+	if [ -n "${addresses}" ]; then
+		log_warning "Адреса подключения Wireguard $(echo "${addresses}" | xargs)"
+		echo "${addresses}"
 		return
 	fi
 
 	# универсальный код по поиску внешнего IP вне allow-ips
 	#ToDo: проверить на всех типах VPN! Для каждого добавить json-блок выше и исключение сюда мусорных массивов.
-	ips=''
-	for ip in $(echo "${api_response}" | sed '/allow-ips/,/]/d' | grep -oE "${IP_FILTER}") ; do
-		if [ -n "${ip}" ] && ! is_ip_private "${ip}" ; then
-			ips="${ips}${ip}"$'\n'
+	addresses=''
+	for address in $(echo "${api_response}" | sed '/allow-ips/,/]/d' | grep -oE "${IP_FILTER}") ; do
+		if [ -z "${address}" ] ; then
+			continue
 		fi
+		if is_ip_private "${address}" ; then
+			continue
+		fi
+		# часто встречается, не является тоннелем
+		if [ "${address}" = '8.8.8.8' ] ; then
+			continue
+		fi
+
+		addresses="${addresses}${address}"$'\n'
 	done
-	if [ -n "${ips}" ]; then
-		echo "${ips}"
+	if [ -n "${addresses}" ]; then
+		log_warning "IP неизвестного VPN-подключения $(echo "${addresses}" | xargs)"
+		echo "${addresses}"
 		return
 	fi
 
@@ -712,14 +736,39 @@ function vpn__get_tunnel_ip() {
 	echo ''
 }
 
-get_tunnel_ip() {
+get_tunnel_addresses() {
 	if is_shadowsocks_enabled ; then
 		echo $(get_from_json "${SHADOWSOCKS_CONF}" 'server')
 	elif is_vless_enabled ; then
 		echo $(get_from_json "${VLESS_CONFIG_FILE}" 'address' 'outbounds')
 	else
-		echo $(vpn__get_tunnel_ip "$(get_config_value INFACE_CLI)")
+		echo $(vpn__get_tunnel_addresses "$(get_config_value INFACE_CLI)")
 	fi
+}
+
+get_tunnel_ip() {
+	local ips=
+	for address in $( get_tunnel_addresses ) ; do
+		if [ -z "${address}" ] ; then
+			continue
+		fi
+
+		if echo "${address}" | grep -qE "^${IP_FILTER}$" ; then
+			echo "${address}"
+			continue
+		fi
+
+		ips=''
+		for ip in $( dns__get_ips_by_domain "${address}" ) ; do
+			if [ -z "${ip}" ] ; then
+				continue
+			fi
+			echo "${ip}"
+
+			ips="${ips} ${ip}"
+		done
+		log_warning "IP для домена ${address}: ${ips}"
+	done
 }
 
 # ------------------------------------------------------------------------------------------
