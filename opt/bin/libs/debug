@@ -796,7 +796,7 @@ router_info() {
 }
 
 kvas__show_config() {
-	cat < "${KVAS_CONF_FILE}"
+	cat < "${KVAS_CONF_FILE}" | grep -v '=$' | grep -v '^$'
 }
 
 kvas__show_log_install() {
@@ -874,6 +874,7 @@ print_debug() {
 	echo -e " ${BLUE}КВАС${NOCL}"
 	print_line
 	kvas__show_config
+	echo
 	kvas__show_log_install
 
 	print_line
