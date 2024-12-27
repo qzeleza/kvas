@@ -137,7 +137,7 @@ shadowsocks_debug() {
 #	 Формируем лог отладочной информации
 #
 # ------------------------------------------------------------------------------------------
-debug__list() {
+kvas__show_list() {
 	if ! [ -f "${KVAS_LIST_FILE}" ] ; then
 		error "Не найден файл списка ${KVAS_LIST_FILE}"
 		return
@@ -890,7 +890,7 @@ print_debug() {
 	print_line
 	echo -e " ${BLUE}Список пользователя [kvas list]${NOCL}"
 	print_line
-	debug__list
+	kvas__show_list
 
 	print_line
 	echo -e " ${BLUE}Список IP для попадания в тоннель [kvas ipset]${NOCL}"
