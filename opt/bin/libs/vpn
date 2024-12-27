@@ -33,15 +33,15 @@ CMD_LIST="address prefix name-servers"
 #
 # ------------------------------------------------------------------------------------------
 update_iptables(){
+	ready "${prefix}Очищаем все ранее созданные iptables правила."
+	# возможно чистить цепочки и роутинг — лишнее
+	ip4__flush 'chain table' &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
-    recreate_ip4tables
+	ready "${prefix}Создаем перехват DNS для домашней сети."
+	ip4__dns__add_routing_for_home &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
-	if has_ssr_enable; then
-		recreate_ssr_rules
-
-	else
-		recreate_vpn_rules
-	fi
+	ready "${prefix}Создаем iptables правила."
+	ip4_firewall_set_all_rules &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 }
 
 # ------------------------------------------------------------------------------------------
@@ -136,7 +136,7 @@ reset_all_connection(){
 #		update 		- режим обновления при выполнении kvas update
 #		refresh 	- режим обновления списка доменов при командах add/del/import
 #	    initd		- обновить время при установке пакета
-# --------cmd_kvas_init----------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------
 cmd_kvas_init(){
 
 	stage="${1:-no}"
@@ -151,16 +151,9 @@ cmd_kvas_init(){
 			reset_all_connection
 	fi
 
-	iptables_reset
 	update_iptables
 	update_ipset "${stage}"
 	update_adblock
-
-	ip4_add_route_table
-#	ready "${prefix}Создаем таблицу маршрутизации ID#${TABLE_ID} для '$(inface_cli)'."
-#	#	Создаем таблицу IP адресов для  VPN подключения отличного от shadowsocks
-#
-#	ip4_add_route_table &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
 	[ "${stage}" = initd ] && update_time || all_services_restart
 
@@ -450,7 +443,7 @@ adguardhome_setup() {
 	sed -i "s/\( port:\) .*/\1 ${port}/" "${ADGUARDHOME_CONFIG}"
 
 	# меняем время обработки TTL адресов 
-	ttl_timeout_min=$(get_config_value TTL_TIMEOUT)
+	ttl_timeout_min=$(get_config_value LIST_IPSET_TTL)
 	ttl_timeout_max=$((ttl_timeout_min + 3600))
 	sed -i "s/\(  cache_ttl_min:\) .*/\1 ${ttl_timeout_min}/" "${ADGUARDHOME_CONFIG}"
 	sed -i "s/\(  cache_ttl_max:\) .*/\1 ${ttl_timeout_max}/" "${ADGUARDHOME_CONFIG}"
@@ -480,9 +473,9 @@ adguardhome_setup() {
 #	ndm_interface_change
 
 #	Обновляем правила ip4tables для доступного соединения
-	ip4_firewall_flush_all_rules
+	ip4__flush 'chain'
+	ip4__dns__add_routing_for_home
 	ip4_firewall_set_all_rules
-	
 
 	[ -f "${ADGUARDHOME_DEMON}" ] && "${ADGUARDHOME_DEMON}" start &> /dev/null
 #	отслеживаем результат запуска сервиса adguard
@@ -784,7 +777,8 @@ cmd_adguardhome_off(){
 	cp /opt/apps/kvas/etc/init.d/S96kvas "${KVAS_START_FILE}"
 	dnsmasq_install '' &> /dev/null
 	#	Обновляем правила ip4tables для доступного соединения
-	ip4_firewall_flush_all_rules
+	ip4__flush 'chain'
+	ip4__dns__add_routing_for_home
 	ip4_firewall_set_all_rules
 
 	if [ $? = 0 ]; then
@@ -810,11 +804,7 @@ bridge_vpn_access_del() {
 		ready "Удаление гостевого интерфейса '${cli_inface}' завершено"
 		{
 
-			if has_ssr_enable ; then
-				ip4_firewall_rm_ssr_selected_guest_net "${guest_bridge_id}"
-			else
-				ip4_firewall_rm_vpn_selected_guest_net "${guest_bridge_id}"
-			fi
+			ip4__delete_routing_by_list_for_net "${guest_bridge_id}"
 
 			#       Слушаем 53 порт гостевого интерфейса
 			guest_net_ip=$(/opt/sbin/ip a | grep global | grep -E ' '"${guest_bridge_id}" | sed 's/inet \(.*\)\/.*/\1/' | tr -d ' ')
@@ -1106,7 +1096,7 @@ bridge_vpn_access_add() {
 			bridge_access_add "${guest_bridge_id}"
 
 			if has_ssr_enable; then
-				ip4_add_selected_guest_to_ssr_network "${guest_bridge_id}"
+				ip4__add_routing_by_list_for_net "${guest_bridge_id}"
 			fi
 		fi
 	fi
@@ -1421,8 +1411,7 @@ vpn_off() {
 	[ -f "/opt/etc/ndm/netfilter.d/100-vpn-mark" ] && rm -f "/opt/etc/ndm/netfilter.d/100-vpn-mark"
 	[ -f /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn ] && rm -f /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
 	[ -f /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn ] && rm -f /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn
-	[ -f "/opt/etc/ndm/fs.d/100-vpn" ] && rm -f "/opt/etc/ndm/fs.d/100-vpn"
-	cmd_vpn_iptable_flush  &> /dev/null
+	ip4__flush 'chain table' &> /dev/null
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -1469,36 +1458,6 @@ ndm_gateway_change() {
 #
 # ------------------------------------------------------------------------------------------
 
-# Пересоздаем все необходимые правила для корректной работы VPN соединения
-recreate_vpn_rules(){
-	ready "${prefix}Очищаем все ранее созданные iptables правила для VPN."
-	ip4_firewall_flush_all_rules  &>/dev/null
-	when_ok "УСПЕШНО"
-
-	ready "${prefix}Обнуляем приоритет таблицы ID#${TABLE_ID}"
-	ip4_rule_del_priority &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-
-	ready "${prefix}Устанавливаем приоритет таблицы ID#${TABLE_ID} в значение ${PRIORITY}"
-	# Устанавливаем приоритет таблицы
-	ip4_rule_set_priority &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-
-	ready "${prefix}Создаем iptables правила для VPN соединения."
-	# Создаем правила iptables
-	ip4_mark_vpn_network &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-}
-
-# Пересоздаем все ранее созданные таблицы для утилит ipset и ip
-recreate_ip4tables(){
-
-	ready "${prefix}Удаляем все ранее созданные таблицы для утилит ipset и ip"
-	ip4_flush_all_tables &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-
-#	ready "${prefix}Создаем таблицу маршрутизации ID#${TABLE_ID} для '$(inface_cli)'."
-#	#	Создаем таблицу IP адресов для  VPN подключения отличного от shadowsocks
-#	ip4_add_route_table &> /dev/null
-#	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-}
-
 vpn_on() {
 
 	inface_entware="${1}"
@@ -1507,10 +1466,7 @@ vpn_on() {
 
 	ready "Интерфейс ${inface_cli_desc} подключен "
 	{
-
-		cp "/opt/apps/${APP_NAME}/etc/ndm/fs.d/100-vpn" "/opt/etc/ndm/fs.d/100-vpn"
-		chmod +x "/opt/etc/ndm/fs.d/100-vpn"
-	#	Производим замену в библиотеке ndm основных значения интерфейсов
+		# Производим замену в библиотеке ndm основных значения интерфейсов
 		ndm_interface_change "${inface_entware}" "${inface_cli}"
 
 		cp "/opt/apps/${APP_NAME}/etc/ndm/netfilter.d/100-vpn-mark" "/opt/etc/ndm/netfilter.d/100-vpn-mark"
@@ -1539,8 +1495,7 @@ vpn_on() {
 			error "Проверьте доступность сервера и настройки клиента!"
 			exit 1
 		else
-			recreate_ip4tables
-			recreate_vpn_rules
+			update_iptables
 		fi
 	} 1> /dev/null 2> "${ERROR_LOG_FILE}"
 	ready_status "${?}" "Возникла ошибка при подключении VPN соединения [${inface_cli_desc}]" "УСПЕШНО"
@@ -1763,7 +1718,8 @@ shadowsocks_read_link(){
 cmd_shadowsocks_iptable_flush() {
 	if [ -f /opt/apps/kvas/bin/libs/ndm ]; then
 		ready "Удаление правил iptables для shadowsocks завершено"
-		ip4_firewall_ssr_prune &>/dev/null
+		# возможно чистить цепочки и роутинг — лишнее
+		ip4__flush 'chain table' &>/dev/null
 		[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "C ОШИБКАМИ"
 	fi
 
@@ -1774,23 +1730,6 @@ cmd_shadowsocks_iptable_flush() {
 #
 # ------------------------------------------------------------------------------------------
 
-# Пересоздаем все необходимые правила для корректной работы SHADOWSOCKS соединения
-recreate_ssr_rules(){
-	ready "${prefix}Очищаем все ранее созданные iptables правила для ShadowSocks."
-	ip4_firewall_flush_proxy &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-
-	ready "${prefix}Создаём цепочку для ShadowSocks соединения."
-	ip4__shadowsocks__create_chain &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-
-	ready "${prefix}Создаём правила домашней сети для ShadowSocks."
-	ip4__shadowsocks__add_routing_for_home &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-
-	ready "${prefix}Создаём правила гостевых сетей для ShadowSocks."
-	for guest_inface in $(get_guest_inface_list_from_config) ; do
-		ip4__add_routing_by_list_for_net "${guest_inface}" &>/dev/null
-	done && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-}
-
 cmd_shadowsocks_iptable_reset() {
 
 	ready "Переустановка iptables для shadowsocks завершена"
@@ -1798,8 +1737,8 @@ cmd_shadowsocks_iptable_reset() {
 		local_ip=$(get_router_ip)
 		inface=$(get_inface_by_ip "${local_ip}")
 		proxy_port=$(get_config_value SSR_DNS_PORT)
-		recreate_ssr_rules &>/dev/null
 
+		update_iptables
 	else
 		exit 1
 	fi
@@ -2226,6 +2165,7 @@ start_vless(){
 		exit 1
 	fi
 }
+
 switch_vpn_on(){
 #	entware интерфейс
 	inface_entware=${1}
@@ -2607,19 +2547,6 @@ cmd_dns_crypt_status_show() {
 
 }
 
-iptables_reset(){
-	#	Производим переустановку правил в iptable таблице
-	if has_ssr_enable; then
-		cmd_shadowsocks_iptable_reset
-		export type=iptables; export table=mangle && /opt/etc/ndm/netfilter.d/100-proxy-redirect &> /dev/null
-	else
-		cmd_vpn_iptable_reset
-	fi
-
-
-}
-
-
 # ------------------------------------------------------------------------------------------
 #
 #	Тестируем хост на доступность
@@ -2950,7 +2877,7 @@ del_multy_hosts() {
 		fi
 		print_line
 		ready "Перегружаем все правила конфигурации iptables и ipset"
-		cmd_kvas_init  &> /dev/null && cmd_vpn_iptable_reset &> /dev/null
+		cmd_kvas_init  &> /dev/null
 		[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 	fi
 
