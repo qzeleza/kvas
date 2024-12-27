@@ -16,7 +16,7 @@
 
 IP_MYIP2='81.90.181.105'
 IP_IFCONFIG='34.160.111.145'
-DOMAINS_EXCLUDE='(eduz|iscor|nstagra|aceboo|fb)'
+DOMAINS_EXCLUDE='(eduz|iscor|nstagra|aceboo|fb|twi|t.c)'
 
 # ------------------------------------------------------------------------------------------
 #
@@ -205,7 +205,7 @@ debug__list() {
 	if [ "$count" -eq 0 ]; then
 		output='Не используются домены.'
 	else
-		output=$(grep -Ev -- "${IP_FILTER}" "${KVAS_LIST_FILE}" | head -n 6)
+		output=$(grep -Ev -- "${IP_FILTER}" "${KVAS_LIST_FILE}" | grep -vE "${DOMAINS_EXCLUDE}" | head -n 6)
 
 		count="${count}:"
 	fi
