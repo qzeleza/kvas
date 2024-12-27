@@ -1092,40 +1092,30 @@ ip4__flush() {
 		ip4__delete_routing_for_ip_from_config
 	fi
 
-	if is_proxy_enabled ; then
-		if echo "${parts}" | grep -Fq ' jump ' ; then
-			ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
-		fi
-		if echo "${parts}" | grep -Fq ' chain ' ; then
-			ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
-
-			ip4__chain__delete      "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
-			ip4__ipset__destroy_destination_excluded
-		fi
-	elif fastnet_enabled ; then
-		if echo "${parts}" | grep -Fq ' jump ' ; then
-			ip4__chain__delete_jump "${TABLE_MARK}" "${CHAIN_MARK}"
-		fi
-		if echo "${parts}" | grep -Fq ' chain ' ; then
-			ip4__chain__delete_jump "${TABLE_MARK}" "${CHAIN_MARK}"
-
-			ip4__chain__delete      "${TABLE_MARK}" "${CHAIN_MARK}"
-			ip4__ipset__destroy_destination_excluded
-		fi
-
+	if echo "${parts}" | grep -Fq ' chain ' ; then
 		if echo "${parts}" | grep -Fq ' table ' ; then
 			ip4__rule__delete_mark_to_table
 			ip4__route__flush_table
 		fi
-	fi
 
-	if echo "${parts}" | grep -Fq ' jump ' ; then
 		ip4__chain__delete_jump "${TABLE_DNS}" "${CHAIN_DNS}"
-	fi
-	if echo "${parts}" | grep -Fq ' chain ' ; then
-		ip4__chain__delete_jump "${TABLE_DNS}" "${CHAIN_DNS}"
-
 		ip4__chain__delete      "${TABLE_DNS}" "${CHAIN_DNS}"
+
+		# можно оптимизировать, удаляя лишь нужный с проверкой is_proxy_enabled
+		# но тогда нужно переписать код в смене интерфейса
+		ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
+		ip4__chain__delete      "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
+		ip4__chain__delete_jump "${TABLE_MARK}" "${CHAIN_MARK}"
+		ip4__chain__delete      "${TABLE_MARK}" "${CHAIN_MARK}"
+
+		ip4__ipset__destroy_destination_excluded
+	elseif echo "${parts}" | grep -Fq ' jump ' ; then
+		ip4__chain__delete_jump "${TABLE_DNS}"          "${CHAIN_DNS}"
+
+		# можно оптимизировать, удаляя лишь нужный с проверкой is_proxy_enabled
+		# но тогда нужно переписать код в смене интерфейса
+		ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
+		ip4__chain__delete_jump "${TABLE_MARK}"         "${CHAIN_MARK}"
 	fi
 
 	if echo "${parts}" | grep -Fq ' ipset ' ; then
