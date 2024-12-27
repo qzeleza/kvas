@@ -395,12 +395,19 @@ cmd_debug_dnsmasq() {
 	fi
 
 
-	if grep -q '^filter-rr=HTTPS' "${DNSMASQ_CONFIG}" ; then
-		local output='Отключен'
+	if grep -q -- '^filter-rr=HTTPS' "${DNSMASQ_CONFIG}" ; then
+		local output='отключен'
 	else
-		local output='Включен'
+		local output='включен'
 	fi
 	ready 'DNS ECH' && when_ok "${output}"
+
+	if grep -q -- '^cache-size=0' "${DNSMASQ_CONFIG}" ; then
+		output='отключен'
+	else
+		output='включен'
+	fi
+	ready 'Кэш' && when_ok "${output}"
 
 	local cached=$(dnsmasq -v)
 	if echo "${cached}" | grep -Fq 'regex' ; then
@@ -442,6 +449,13 @@ cmd_debug_dnsmasq() {
 	if [ -n "${cached}" ] ; then
 		ready 'DNS запросы списка передаются' && when_ok "${cached}"
 	fi
+
+	if grep -q '^cache = true' "${DNSCRYPT_CONFIG}" ; then
+		output='включен'
+	else
+		output='отключен'
+	fi
+	ready 'Кэш' && when_ok "${output}"
 
 	ready 'DNSCrypt версия' && when_ok "$(dnscrypt-proxy -version)"
 	echo_debug 'DNSCrypt слушает:' "$(get_netstat 'dnscrypt')"
