@@ -795,14 +795,20 @@ router_info() {
 	ready 'Версия KeenOS' && when_ok $(echo "${info_cache}" | jq -r '.title // empty')
 }
 
-show_install_log(){
-	if [ -f "${INSTALL_LOG}" ] ; then
+kvas__show_config() {
+	cat < "${KVAS_CONF_FILE}"
+}
+
+kvas__show_log_install() {
+	if ! [ -f "${INSTALL_LOG}" ] ; then
+		return
+	fi
+
 		print_line
 		echo 'Журнал установки:'
 		print_line
 		cat < "${INSTALL_LOG}" | sed 's/\(^Текущее.*\) .*$/\1/'
 		echo
-	fi
 }
 
 # ------------------------------------------------------------------------------------------
@@ -867,7 +873,8 @@ print_debug() {
 	print_line
 	echo -e " ${BLUE}КВАС${NOCL}"
 	print_line
-	show_install_log
+	kvas__show_config
+	kvas__show_log_install
 
 	print_line
 	echo -e " ${BLUE}Сетевые правила [kvas debug iptables]${NOCL}"
