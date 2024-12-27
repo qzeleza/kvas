@@ -2468,7 +2468,6 @@ cmd_dns_crypt_on() {
 			ready "Шифрование DNS уже";	when_ok "ПОДКЛЮЧЕНО"
 		else
 			dns_crypt_port=$(get_config_value DNS_CRYPT_PORT)
-			dns_cache_enabled=$(get_config_value DNS_CACHE_ENABLED)
 			ready "Шифрование DNS"
 			{
 				# кэш
