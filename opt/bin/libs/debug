@@ -89,11 +89,6 @@ vpn_debug() {
 	ready "Состояние vpn соединения ${vpn_cli_desc}"
 	if [ "${connected}" = 'on' ]; then
 		when_ok "ПОДКЛЮЧЕНО"
-		result="$(/opt/sbin/ip route show table 1001)"
-		echo_debug "Таблица заполнения маршрутов VPN списка id=1001\nкоманда: 'ip route show table 1001'" "${result}"
-		result="$(/opt/sbin/ip rule show)"
-		echo_debug "Таблица правил маршрутизации VPN списка id=1001\nкоманда: 'ip rule show'" "${result}"
-
 #		ip_vpn=$(ip a | grep "${vpn_entware}:" -A2 | grep inet | tr -s ' ' | cut -d" " -f3 | cut -d"/" -f1)
 #		result=$()
 	else
