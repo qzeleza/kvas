@@ -804,11 +804,11 @@ kvas__show_log_install() {
 		return
 	fi
 
-		print_line
-		echo 'Журнал установки:'
-		print_line
-		cat < "${INSTALL_LOG}" | sed 's/\(^Текущее.*\) .*$/\1/'
-		echo
+	print_line
+	echo 'Журнал установки:'
+	print_line
+	cat < "${INSTALL_LOG}" | sed 's/\(^Текущее.*\) .*$/\1/'
+	echo
 }
 
 # ------------------------------------------------------------------------------------------
