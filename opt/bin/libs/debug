@@ -209,18 +209,6 @@ check_words_in_multiline_var() {
     return 0
 }
 
-# ------------------------------------------------------------------------------------------
-#
-#	 Печатаем текущую конфигурацию Кваса
-#
-# ------------------------------------------------------------------------------------------
-print_curent_congiguration() {
-	
-	echo "Текущая конфигурация Кваса"
-	print_line
-	
-}
-
 iptables__get_by_chain() {
 	if [ -z "${1}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — цепочка"
@@ -813,7 +801,7 @@ show_install_log(){
 		echo "Журнал установки пакета:"
 		print_line
 		cat < "${INSTALL_LOG}" | sed 's/\(^Текущее.*\) .*$/\1/'
-		echo ''
+		echo
 	fi
 }
 
@@ -874,13 +862,11 @@ print_debug() {
 	print_line
 	router_info
 	echo
-
-	print_curent_congiguration
-#	ping_debug
-	show_install_log
-#	 show_services_status
-	print_line
 	syslog_debug
+
+	#ToDo: Синий заголовок категории КВАС
+	#ToDo: после приборки публиковать конфигурацию Квас
+	show_install_log
 
 	internet_check
 	show_interfaces_debug
