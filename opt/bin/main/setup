@@ -478,8 +478,8 @@ cmd_install(){
 	ready "Удаляем файлы предыдущей версии пакета Квас" 
 	rm_previous_version_files  && when_ok || when_bad
 
-	ready 'Очищаем сетевые правила предыдущей версии Квас'
-	clear_previous_version_net_rules && when_ok || when_bad
+	echo 'Очищаем сетевые правила предыдущей версии Квас'
+	clear_previous_version_net_rules &>/dev/null
 
 	# стартуем ipset'ы, используемые DNS-серверами
 	# до старта самих DNS-серверов
