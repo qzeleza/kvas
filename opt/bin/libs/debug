@@ -787,30 +787,24 @@ ping_debug() {
 #
 # ------------------------------------------------------------------------------------------
 router_info() {
+	ready 'Время' && when_ok "$(date +'%y-%m-%d %T %Z')"
 
-	result=$(curl -s "${LOCALHOST_IP}:79/rci/show/defaults" \
-			| grep -Ei "country|ndmhwid|product" \
-			| tr -d ' ",' \
-			| sed 's/:/: /; s/country/Страна/; s/ndmhwid/Модель/; s/product/Продукт/' \
-			)
-	arch=$(grep "arch" /opt/etc/entware_release | sed 's/arch=/Тип архитектуры: /')
-	keenos=$(curl -s localhost:79/rci/show/version | jq -s '.[] | .title'| tr -d '"')
-	result="${result}\n${arch}\nВерсия KeenOS: ${keenos}"
-	echo_debug "Информация о роутере" "${result}"
+	local info_cache=$(curl -s "${LOCALHOST_IP}:79/rci/show/defaults")
+	ready 'Модель'   && when_ok $(echo "${info_cache}" | jq -r '.ndmhwid  // empty')
+	ready 'Название' && when_ok $(echo "${info_cache}" | jq -r '.product  // empty')
+	ready 'Страна'   && when_ok $(echo "${info_cache}" | jq -r '.country  // empty')
+	ready 'Регион'   && when_ok $(echo "${info_cache}" | jq -r '.country_ // empty')
 
-}
+	info_cache=$(cat /opt/etc/entware_release)
+	ready 'Архитектура' \
+		&& when_ok $(echo "${info_cache}" | grep -F 'arch='   | cut -d'=' -f2 | xargs)
+	ready 'Версия ядра Linux' \
+		&& when_ok $(echo "${info_cache}" | grep -F 'Kernel' | grep -oE '[0-9\.]+')
+	ready        $(echo "${info_cache}" | grep -F 'NAME'    | cut -d'=' -f2 | xargs) \
+		&& when_ok $(echo "${info_cache}" | grep -F 'VERSION' | cut -d'=' -f2 | xargs)
 
-# ------------------------------------------------------------------------------------------
-#
-#	 Формируем лог отладочной информации
-#
-# ------------------------------------------------------------------------------------------
-date_info() {
-#	[ -n "${APP_RELEASE}" ] && rel="-${APP_RELEASE}" || rel=''
-#	echo "КВАС версии ${APP_VERSION}${rel}"
-	version
-	print_line
-	echo "Текущая дата и время $(date)"
+	info_cache=$(curl -s "${LOCALHOST_IP}:79/rci/show/version")
+	ready 'Версия KeenOS' && when_ok $(echo "${info_cache}" | jq -r '.title // empty')
 }
 
 show_install_log(){
@@ -876,16 +870,19 @@ cmd_print_debug() {
 }
 
 print_debug() {
-	internet_check
-	# dns_override_check
-	date_info
+	echo -e " ${BLUE}Роутер${NOCL}"
+	print_line
 	router_info
+	echo
+
 	print_curent_congiguration
 #	ping_debug
 	show_install_log
 #	 show_services_status
 	print_line
 	syslog_debug
+
+	internet_check
 	show_interfaces_debug
 
 	print_line
