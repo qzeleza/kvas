@@ -463,12 +463,6 @@ cmd_debug_dns() {
 		local output='Отключите освобождение 53 порта:\n no opkg dns-override\n system configuration save\n reboot'
 	fi
 	echo_debug 'Комплектный DNS роутера (базово) слушает:' "$(get_netstat 'ndnproxy' "${output}")"
-
-	# если вызывается как один из дебагов, то можно передать silent/short
-	if [ -z "${1}" ] ; then
-		echo 'Перехваты DNS можно проверить командой kvas debug iptables'
-		echo 'Список IP для тоннеля можно посмотреть командой kvas ipset'
-	fi
 }
 
 cmd_ipset_flush() {
@@ -944,6 +938,11 @@ print_debug() {
 	echo -e " ${BLUE}Сетевые правила [kvas debug iptables]${NOCL}"
 	print_line
 	cmd_debug_iptables
+
+	print_line
+	echo -e " ${BLUE}DNS-сервера [kvas debug dns]${NOCL}"
+	print_line
+	cmd_debug_dns
 
 	print_line
 	echo -e " ${BLUE}Список пользователя [kvas list]${NOCL}"
