@@ -1141,7 +1141,7 @@ ip4__flush() {
 ip4__route__flush_cache() {
 	log_warning 'Очистка кэша маршрутизации'
 
-	ip route flush cache &>/dev/null
+	/opt/sbin/ip route flush cache &>/dev/null
 }
 
 ip4__route__show_table() {
@@ -1151,7 +1151,7 @@ ip4__route__show_table() {
 	fi
 	local table_id="${1}"
 
-	ip route show table "${table_id}"
+	/opt/sbin/ip route show table "${table_id}"
 }
 
 ip4__route__is_exist_table() {
@@ -1183,7 +1183,7 @@ ip4__route__add_table() {
 	if [ -n "${route_show}" ] && ! echo "${route_show}" | grep -Fq "${subroute}" ; then
 		# таблица существует, но не содержит нужного роута
 		log_warning "Очистка таблицы маршрутизации ${ROUTE_TABLE_ID} из-за отсутствия ${subroute}"
-		ip route flush table "${ROUTE_TABLE_ID}" &>/dev/null
+		/opt/sbin/ip route flush table "${ROUTE_TABLE_ID}" &>/dev/null
 
 		is_need_flush='1'
 
@@ -1194,7 +1194,7 @@ ip4__route__add_table() {
 	if [ -z "${route_show}" ] ; then
 		log_warning "Добавление ${submessage}"
 
-		ip route add table "${ROUTE_TABLE_ID}" $(echo "${subroute}") \
+		/opt/sbin/ip route add table "${ROUTE_TABLE_ID}" $(echo "${subroute}") \
 		 || {
 			error "[${FUNCNAME}] Ошибка при добавлении ${submessage}"
 		}
@@ -1215,7 +1215,7 @@ ip4__route__add_table() {
 			if ! echo "${route_show}" | grep -Fq "${subroute}" ; then
 				log_warning "Добавление ${submessage}"
 
-				ip route add $(echo "${subroute}") table "${ROUTE_TABLE_ID}" \
+				/opt/sbin/ip route add $(echo "${subroute}") table "${ROUTE_TABLE_ID}" \
 				 || {
 					error "[${FUNCNAME}] Ошибка при добавлении ${submessage}"
 				}
@@ -1237,7 +1237,7 @@ ip4__route__flush_table() {
 
 	log_warning "Очистка таблицы маршрутизации ${ROUTE_TABLE_ID}"
 
-	ip route flush table "${ROUTE_TABLE_ID}" \
+	/opt/sbin/ip route flush table "${ROUTE_TABLE_ID}" \
 	 || {
 		error "[${FUNCNAME}] Ошибка при очистке таблицы маршрутизации ${ROUTE_TABLE_ID}"
 	}
@@ -1272,7 +1272,7 @@ ip4__rule__add_mark_to_table() {
 	local submessage="$(ip4__rule__get_submessage)"
 	log_warning "Добавление ${submessage}"
 
-	ip rule add $(echo "${subrule}") priority "${RULE_PRIORITY}" \
+	/opt/sbin/ip rule add $(echo "${subrule}") priority "${RULE_PRIORITY}" \
 	 || {
 		error "[${FUNCNAME}] Ошибка при добавлении ${submessage}"
 	}
@@ -1287,7 +1287,7 @@ ip4__rule__delete_mark_to_table() {
 	local submessage="$(ip4__rule__get_submessage)"
 	log_warning "Удаление ${submessage}"
 
-	ip rule del $(echo "${subrule}") priority "${RULE_PRIORITY}" \
+	/opt/sbin/ip rule del $(echo "${subrule}") priority "${RULE_PRIORITY}" \
 	 || {
 		error "[${FUNCNAME}] Ошибка при удалении ${submessage}"
 	}
