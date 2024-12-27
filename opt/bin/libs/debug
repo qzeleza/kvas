@@ -137,39 +137,6 @@ shadowsocks_debug() {
 #	 Формируем лог отладочной информации
 #
 # ------------------------------------------------------------------------------------------
-dnscrypt_proxy_debug() {
-
-	ready "Состояние службы dnscrypt-proxy2"
-
-	if /opt/etc/init.d/S09dnscrypt-proxy2 status &> /dev/null; then
-		when_ok "ЗАПУЩЕНА"
-		port=$(cat /opt/etc/dnscrypt-proxy.toml | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep listen_addresses | cut -d ":" -f4)
-		port="${port::-2}"
-		result=$(netstat -ltunp 2> /dev/null | grep "dnscrypt" | tr -s " ")
-		echo_debug "Отчет по прослушиванию порта dnscrypt-proxy [${port}]\nкоманда: netstat -ltunp | grep \"dnscrypt\"" "${result}"
-
-	else
-		when_bad "ОСТАНОВЛЕНА"
-		print_line
-		warning "Файл конфигурации dnscrypt-proxy"
-		print_line
-		config=$(cat < "/opt/etc/dnscrypt-proxy.toml" | tr -d '^ '| grep -vE "^#" | grep -vE '^$')
-		echo_debug "Содержание файла конфигурации /opt/etc/dnscrypt-proxy.toml" "${config}"
-
-		log=$(netstat -ltunp 2> /dev/null | grep 'dnscrypt')
-		echo_debug "Журнал с фильтрацией по порту ${port::-2} dnscrypt-proxy2\nКоманда: netstat -ltunp" "${log}"
-	fi
-
-	result=$(cat < "/opt/etc/dnscrypt-proxy.toml" | grep -vE "^#" | grep -E 'listen_addresses.=|cache.=')
-	echo_debug "Выборка из файла конфигурации dnscrypt-proxy2 /opt/etc/dnscrypt-proxy.toml" "${result}"
-
-}
-
-# ------------------------------------------------------------------------------------------
-#
-#	 Формируем лог отладочной информации
-#
-# ------------------------------------------------------------------------------------------
 debug__list() {
 	if ! [ -f "${KVAS_LIST_FILE}" ] ; then
 		error "Не найден файл списка ${KVAS_LIST_FILE}"
@@ -755,16 +722,6 @@ kvas_list_ipset_check(){
 #	 Формируем лог отладочной информации
 #
 # ------------------------------------------------------------------------------------------
-kvas_dnsmasq_debug() {
-
-	result=$(cat < "${DNSMASQ_IPSET_HOSTS}" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | sed 's/^...../*****/'  )
-	echo_debug "Защищенный список в ${DNSMASQ_IPSET_HOSTS} (все записи)" "${result}"
-}
-# ------------------------------------------------------------------------------------------
-#
-#	 Формируем лог отладочной информации
-#
-# ------------------------------------------------------------------------------------------
 kvas_adguard_debug() {
 
 #	result=$(cat < "/opt/apps/kvas/bin/main/adguard" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
@@ -930,16 +887,6 @@ print_debug() {
 	print_line
 	syslog_debug
 	show_interfaces_debug
-
-	if cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then
-		kvas_adguard_debug
-	else
-		print_line
-		dnsmasq_debug
-		dnscrypt_proxy_debug
-		adblock_dnsmasq_debug
-		kvas_dnsmasq_debug
-	fi
 
 	print_line
 	if has_ssr_enable; then
