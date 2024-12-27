@@ -1116,7 +1116,7 @@ ip4__flush() {
 		ip4__chain__delete      "${TABLE_MARK}" "${CHAIN_MARK}"
 
 		ip4__ipset__destroy_destination_excluded
-	elseif echo "${parts}" | grep -Fq ' jump ' ; then
+	elif echo "${parts}" | grep -Fq ' jump ' ; then
 		ip4__chain__delete_jump "${TABLE_DNS}"          "${CHAIN_DNS}"
 
 		# можно оптимизировать, удаляя лишь нужный с проверкой is_proxy_enabled
