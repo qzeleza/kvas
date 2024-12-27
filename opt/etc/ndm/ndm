@@ -276,8 +276,8 @@ ip4__ipset__fill_destination_excluded() {
 
 	# Исключаем (loopback) адреса тоннеля из попадания в тоннель
 	# Случай тоже детектирован и чуть более разрушителен
-	for ip in $(get_tunnel_ip) ; do
-		ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "${ip}"
+	for tunnel_ip in $(get_tunnel_ip) ; do
+		ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "${tunnel_ip}"
 	done
 }
 
