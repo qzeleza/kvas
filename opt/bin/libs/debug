@@ -175,8 +175,7 @@ dnscrypt_proxy_debug() {
 #	 Формируем лог отладочной информации
 #
 # ------------------------------------------------------------------------------------------
-kvas_list_debug() {
-
+debug__list() {
 	result=$(cat < "${KVAS_LIST_FILE}" | sed 's/^\(.*\)\(#.*\)/\2/; s/^...../*****/; /^#/d; /^$/d')
 	echo_debug "Защищенный список /opt/etc/kvas.list (все записи)" "${result}"
 }
@@ -933,7 +932,10 @@ print_debug() {
 #	print_line
 	iptables_debug
 
-	kvas_list_debug
+	print_line
+	echo -e " ${BLUE}Список${NOCL}"
+	print_line
+	debug__list
 
 	print_line
 	echo -e " ${BLUE}IPSET${NOCL}"
