@@ -208,14 +208,14 @@ ipset__fill_by_domain() {
 		return
 	fi
 
-	for ip in ${ip_list}; do
+	for domain_ip in ${ip_list}; do
 		# если уже есть в списке
-		if ipset list "${IPSET_TABLE_NAME}" | grep -qE "^${ip} " ; then
+		if ipset list "${IPSET_TABLE_NAME}" | grep -qE "^${domain_ip} " ; then
 			continue
 		fi
 
-		log_warning "Добавление в IPSet ${IPSET_TABLE_NAME} ${ip} домена ${host}"
-		ipset -exist add "${IPSET_TABLE_NAME}" "${ip}"
+		log_warning "Добавление в IPSet ${IPSET_TABLE_NAME} ${domain_ip} домена ${host}"
+		/opt/sbin/ipset -exist add "${IPSET_TABLE_NAME}" "${domain_ip}"
 	done
 }
 
@@ -759,13 +759,13 @@ get_tunnel_ip() {
 		fi
 
 		ips=''
-		for ip in $( dns__get_ips_by_domain "${address}" ) ; do
-			if [ -z "${ip}" ] ; then
+		for tunnel_ip in $( dns__get_ips_by_domain "${address}" ) ; do
+			if [ -z "${tunnel_ip}" ] ; then
 				continue
 			fi
-			echo "${ip}"
+			echo "${tunnel_ip}"
 
-			ips="${ips} ${ip}"
+			ips="${ips} ${tunnel_ip}"
 		done
 		log_warning "IP для домена ${address}: ${ips}"
 	done
@@ -803,7 +803,7 @@ get_ip_by_inface() {
 	fi
 	local net_interface="${1}"
 
-	ip a | grep -F "${net_interface}" | grep -F 'global' | grep -oE "inet ${IP_FILTER}" | cut -d' ' -f2
+	/opt/sbin/ip a | grep -F "${net_interface}" | grep -F 'global' | grep -oE "inet ${IP_FILTER}" | cut -d' ' -f2
 }
 
 get_net_by_ip() {
@@ -811,14 +811,14 @@ get_net_by_ip() {
 		error "[${FUNCNAME}] Не задан обязательный аргумент — IP"
 		return
 	fi
-	local ip="${1}"
+	local ipa="${1}"
 
-	if ! echo "${ip}" | grep -qE "^${IP_FILTER}$" ; then
+	if ! echo "${ipa}" | grep -qE "^${IP_FILTER}$" ; then
 		error "[${FUNCNAME}] Переданный аргумент — не IP"
 		return
 	fi
 
-	echo "$(echo "${ip}" | cut -d'.' -f1-3).0/24"
+	echo "$(echo ${ipa} | cut -d'.' -f1-3).0/24"
 }
 
 # ------------------------------------------------------------------------------------------

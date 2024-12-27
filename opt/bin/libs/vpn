@@ -2657,7 +2657,7 @@ host_add() {
 
 	if echo "${clear_host}" | grep -qE -- "$(get_regexp_ip_or_range)" ; then
 		# если строка IP, диапазон или маска; то добавляем напрямую и без ttl
-		ipset -exist add "${IPSET_TABLE_NAME}" "${clear_host}" timeout 0 &>/dev/null
+		/opt/sbin/ipset -exist add "${IPSET_TABLE_NAME}" "${clear_host}" timeout 0 &>/dev/null
 	elif [ "${wild}" != 'import' ] && [ "${reset}" = 'yes' ] ; then
 		# если это одиночное добавление, то можем
 		# прогреть переданный домен (без под*), 
@@ -2821,7 +2821,7 @@ cmd_del_one_host() {
 
 		if echo "${host_}" | grep -qE -- "$(get_regexp_ip_or_range)" ; then
 			# если строка IP, диапазон или маска
-			ipset -exist del "${IPSET_TABLE_NAME}" "${host_}" &>/dev/null
+			/opt/sbin/ipset -exist del "${IPSET_TABLE_NAME}" "${host_}" &>/dev/null
 		else
 			local ip_list=$( dns__get_ips_by_domain "${host_}" )
 			if [ -n "${ip_list}" ]; then
@@ -2832,7 +2832,7 @@ cmd_del_one_host() {
 					fi
 
 					log_warning "Удаление из IPSet ${IPSET_TABLE_NAME} ${ip} домена ${host_}"
-					ipset -exist del "${IPSET_TABLE_NAME}" "${ip}" &>/dev/null
+					/opt/sbin/ipset -exist del "${IPSET_TABLE_NAME}" "${ip}" &>/dev/null
 				done
 			fi
 		fi
@@ -2961,7 +2961,7 @@ cmd_clear_list() {
 
 						# IP вычищаем из ipset и считаем
 						if echo "${line}" | grep -qE -- "${regexp_ip}"; then
-							ipset -exist del "${IPSET_TABLE_NAME}" "${line}"
+							/opt/sbin/ipset -exist del "${IPSET_TABLE_NAME}" "${line}"
 							deleted_count=$((deleted_count + 1))
 							continue
 						fi
@@ -3082,7 +3082,7 @@ cmd_import_hosts() {
 			fi
 
 			# IP не умеют самовосстанавливаться, ttl бесконечность
-			ipset -exist add "${IPSET_TABLE_NAME}" "${line}" timeout 0
+			/opt/sbin/ipset -exist add "${IPSET_TABLE_NAME}" "${line}" timeout 0
 
 			lines_cache="${lines_cache}${line}"$'\n'
 			added_count=$((added_count + 1))

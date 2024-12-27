@@ -233,7 +233,7 @@ ip4__ipset__create() {
 
 	log_warning "Cоздание набора IP ${ipset_name}${submessage}"
 
-	ipset create "${ipset_name}" hash:net family inet -exist$(echo "${subcomand}") \
+	/opt/sbin/ipset create "${ipset_name}" hash:net family inet -exist$(echo "${subcomand}") \
 	 || {
 		error "[${FUNCNAME}] Ошибка при создании набора IP ${ipset_name}${submessage}"
 	}
@@ -258,7 +258,7 @@ ip4__ipset__fill_destination_excluded() {
 	ip4__ipset__create "${IPSET_DESTINATION_EXCLUDED}"
 
 	# Служебный IP Keenetic, например для my.keenetic.net
-	ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" '78.47.125.180'
+	/opt/sbin/ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" '78.47.125.180'
 
 	while read -r ip_or_range || [ -n "${ip_or_range}" ]; do
 		# пропускаем строки с комментариями
@@ -267,17 +267,17 @@ ip4__ipset__fill_destination_excluded() {
 		# удаляем пробелы
 		ip_or_range=$(echo "${ip_or_range}" | sed 's/#.*$//g' | tr -s ' ' )
 
-		ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "${ip_or_range}"
+		/opt/sbin/ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "${ip_or_range}"
 	done < "${FILE_RESERVED}"
 
 	# Был случай, когда ресурс из списка совпадал с IP роутера
 	# Это приводило к не рабочему DDNS и прочим проблемам
-	ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "$(get_external_ip)"
+	/opt/sbin/ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "$(get_external_ip)"
 
 	# Исключаем (loopback) адреса тоннеля из попадания в тоннель
 	# Случай тоже детектирован и чуть более разрушителен
-	for ip in $(get_tunnel_ip) ; do
-		ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "${ip}"
+	for tunnel_ip in $(get_tunnel_ip) ; do
+		/opt/sbin/ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "${tunnel_ip}"
 	done
 }
 
@@ -295,7 +295,7 @@ ip4__ipset__destroy() {
 	log_warning "Уничтожение набора IP ${ipset_name}"
 
 	#ipset flush "${ipset_name}"
-	ipset destroy "${ipset_name}" \
+	/opt/sbin/ipset destroy "${ipset_name}" \
 	 || {
 		error "[${FUNCNAME}] Ошибка при уничтожении набора IP ${ipset_name}"
 	}
@@ -650,19 +650,22 @@ ip4__dns__get_rulenum() {
 #Example input param:-s 192.168.3.0/24 -i eth3
 #Example input param:-i sstp+
 ip4__dns__add_routing() {
+	local iptables_filter
+	local submessage
 	if [ -n "${1}" ]; then
-		local iptables_filter=$(echo "${1}" | xargs)
-		local submessage=" по критерию ${iptables_filter}"
+		iptables_filter=$(echo "${1}" | xargs)
+		submessage=" по критерию ${iptables_filter}"
 		iptables_filter=" ${iptables_filter}"
 	else
-		local iptables_filter=''
-		local submessage=''
+		iptables_filter=''
+		submessage=''
 	fi
 
 	if iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${CHAIN_DNS}" ; then
 		return
 	fi
-	local rulenum=$(ip4__dns__get_rulenum)
+	local rulenum
+	rulenum=$(ip4__dns__get_rulenum)
 
 	log_warning "Подключение DNS перенаправления с приоритетом ${rulenum}${submessage}"
 
@@ -675,13 +678,15 @@ ip4__dns__add_routing() {
 #Example input param:-s 192.168.3.0/24 -i eth3
 #Example input param:-i sstp+
 ip4__dns__delete_routing() {
+	local iptables_filter
+	local submessage
 	if [ -n "${1}" ]; then
-		local iptables_filter=$(echo "${1}" | xargs)
-		local submessage=" по критерию ${iptables_filter}"
+		iptables_filter=$(echo "${1}" | xargs)
+		submessage=" по критерию ${iptables_filter}"
 		iptables_filter=" ${iptables_filter}"
 	else
-		local iptables_filter=''
-		local submessage=''
+		iptables_filter=''
+		submessage=''
 	fi
 
 	if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${CHAIN_DNS}" ; then
@@ -764,7 +769,8 @@ ip4__add_routing_by_list_for_net() {
 		exit 1
 	fi
 
-	local iptables_filter=$(iptables__get_subrule_for_net "${net_interface}")
+	local iptables_filter
+	iptables_filter=$(iptables__get_subrule_for_net "${net_interface}")
 
 	if is_proxy_enabled ; then
 		ip4__add_routing "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${iptables_filter}" "${IPSET_TABLE_NAME}"
@@ -839,7 +845,8 @@ ip4__delete_routing_by_list_for_net() {
 		exit 1
 	fi
 
-	local iptables_filter=$(iptables__get_subrule_for_net "${net_interface}")
+	local iptables_filter
+	iptables_filter=$(iptables__get_subrule_for_net "${net_interface}")
 
 	ip4__dns__delete_routing "${iptables_filter}"
 
@@ -1092,42 +1099,30 @@ ip4__flush() {
 		ip4__delete_routing_for_ip_from_config
 	fi
 
-	if is_proxy_enabled ; then
-		if echo "${parts}" | grep -Fq ' jump ' ; then
-			ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
-		fi
-		if echo "${parts}" | grep -Fq ' chain ' ; then
-			ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
-
-			ip4__chain__delete      "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
-			ip4__ipset__destroy_destination_excluded
-		fi
-	elif fastnet_enabled ; then
-		if echo "${parts}" | grep -Fq ' jump ' ; then
-			ip4__chain__delete_jump "${TABLE_MARK}" "${CHAIN_MARK}"
-		fi
-		if echo "${parts}" | grep -Fq ' chain ' ; then
-			ip4__chain__delete_jump "${TABLE_MARK}" "${CHAIN_MARK}"
-
-			ip4__chain__delete      "${TABLE_MARK}" "${CHAIN_MARK}"
-			ip4__ipset__destroy_destination_excluded
-		fi
-
+	if echo "${parts}" | grep -Fq ' chain ' ; then
 		if echo "${parts}" | grep -Fq ' table ' ; then
 			ip4__rule__delete_mark_to_table
 			ip4__route__flush_table
 		fi
-	else
-		iptables__delete_rules "${TABLE_MARK}" "-j MARK --set-mark ${MARK_NUM}"
-	fi
 
-	if echo "${parts}" | grep -Fq ' jump ' ; then
 		ip4__chain__delete_jump "${TABLE_DNS}" "${CHAIN_DNS}"
-	fi
-	if echo "${parts}" | grep -Fq ' chain ' ; then
-		ip4__chain__delete_jump "${TABLE_DNS}" "${CHAIN_DNS}"
-
 		ip4__chain__delete      "${TABLE_DNS}" "${CHAIN_DNS}"
+
+		# можно оптимизировать, удаляя лишь нужный с проверкой is_proxy_enabled
+		# но тогда нужно переписать код в смене интерфейса
+		ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
+		ip4__chain__delete      "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
+		ip4__chain__delete_jump "${TABLE_MARK}" "${CHAIN_MARK}"
+		ip4__chain__delete      "${TABLE_MARK}" "${CHAIN_MARK}"
+
+		ip4__ipset__destroy_destination_excluded
+	elseif echo "${parts}" | grep -Fq ' jump ' ; then
+		ip4__chain__delete_jump "${TABLE_DNS}"          "${CHAIN_DNS}"
+
+		# можно оптимизировать, удаляя лишь нужный с проверкой is_proxy_enabled
+		# но тогда нужно переписать код в смене интерфейса
+		ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
+		ip4__chain__delete_jump "${TABLE_MARK}"         "${CHAIN_MARK}"
 	fi
 
 	if echo "${parts}" | grep -Fq ' ipset ' ; then
@@ -1146,7 +1141,7 @@ ip4__flush() {
 ip4__route__flush_cache() {
 	log_warning 'Очистка кэша маршрутизации'
 
-	ip route flush cache &>/dev/null
+	/opt/sbin/ip route flush cache &>/dev/null
 }
 
 ip4__route__show_table() {
@@ -1156,7 +1151,7 @@ ip4__route__show_table() {
 	fi
 	local table_id="${1}"
 
-	ip route show table "${table_id}"
+	/opt/sbin/ip route show table "${table_id}"
 }
 
 ip4__route__is_exist_table() {
@@ -1188,7 +1183,7 @@ ip4__route__add_table() {
 	if [ -n "${route_show}" ] && ! echo "${route_show}" | grep -Fq "${subroute}" ; then
 		# таблица существует, но не содержит нужного роута
 		log_warning "Очистка таблицы маршрутизации ${ROUTE_TABLE_ID} из-за отсутствия ${subroute}"
-		ip route flush table "${ROUTE_TABLE_ID}" &>/dev/null
+		/opt/sbin/ip route flush table "${ROUTE_TABLE_ID}" &>/dev/null
 
 		is_need_flush='1'
 
@@ -1199,7 +1194,7 @@ ip4__route__add_table() {
 	if [ -z "${route_show}" ] ; then
 		log_warning "Добавление ${submessage}"
 
-		ip route add table "${ROUTE_TABLE_ID}" $(echo "${subroute}") \
+		/opt/sbin/ip route add table "${ROUTE_TABLE_ID}" $(echo "${subroute}") \
 		 || {
 			error "[${FUNCNAME}] Ошибка при добавлении ${submessage}"
 		}
@@ -1220,7 +1215,7 @@ ip4__route__add_table() {
 			if ! echo "${route_show}" | grep -Fq "${subroute}" ; then
 				log_warning "Добавление ${submessage}"
 
-				ip route add $(echo "${subroute}") table "${ROUTE_TABLE_ID}" \
+				/opt/sbin/ip route add $(echo "${subroute}") table "${ROUTE_TABLE_ID}" \
 				 || {
 					error "[${FUNCNAME}] Ошибка при добавлении ${submessage}"
 				}
@@ -1242,7 +1237,7 @@ ip4__route__flush_table() {
 
 	log_warning "Очистка таблицы маршрутизации ${ROUTE_TABLE_ID}"
 
-	ip route flush table "${ROUTE_TABLE_ID}" \
+	/opt/sbin/ip route flush table "${ROUTE_TABLE_ID}" \
 	 || {
 		error "[${FUNCNAME}] Ошибка при очистке таблицы маршрутизации ${ROUTE_TABLE_ID}"
 	}
@@ -1277,7 +1272,7 @@ ip4__rule__add_mark_to_table() {
 	local submessage="$(ip4__rule__get_submessage)"
 	log_warning "Добавление ${submessage}"
 
-	ip rule add $(echo "${subrule}") priority "${RULE_PRIORITY}" \
+	/opt/sbin/ip rule add $(echo "${subrule}") priority "${RULE_PRIORITY}" \
 	 || {
 		error "[${FUNCNAME}] Ошибка при добавлении ${submessage}"
 	}
@@ -1292,7 +1287,7 @@ ip4__rule__delete_mark_to_table() {
 	local submessage="$(ip4__rule__get_submessage)"
 	log_warning "Удаление ${submessage}"
 
-	ip rule del $(echo "${subrule}") priority "${RULE_PRIORITY}" \
+	/opt/sbin/ip rule del $(echo "${subrule}") priority "${RULE_PRIORITY}" \
 	 || {
 		error "[${FUNCNAME}] Ошибка при удалении ${submessage}"
 	}
@@ -1347,7 +1342,7 @@ ip6save() (/opt/sbin/ip6tables-save)
 
 ip6set_create_table(){
 	local ttl_timeout=$(get_config_value LIST_IPSET_TTL)
-	ipset create "${IPSET_TABLE_NAME}6" hash:net family inet6 -exist timeout ${ttl_timeout} &>/dev/null \
+	/opt/sbin/ipset create "${IPSET_TABLE_NAME}6" hash:net family inet6 -exist timeout ${ttl_timeout} &>/dev/null \
 	 || {
 			_err="${IPv6}Возникла ошибка при создании таблицы с именем '${IPSET_TABLE_NAME}' для ipset"
 			error "[${FUNCNAME}] ${_err}"
