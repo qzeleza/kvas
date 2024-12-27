@@ -233,7 +233,7 @@ ip4__ipset__create() {
 
 	log_warning "Cоздание набора IP ${ipset_name}${submessage}"
 
-	ipset create "${ipset_name}" hash:net family inet -exist$(echo "${subcomand}") \
+	/opt/sbin/ipset create "${ipset_name}" hash:net family inet -exist$(echo "${subcomand}") \
 	 || {
 		error "[${FUNCNAME}] Ошибка при создании набора IP ${ipset_name}${submessage}"
 	}
@@ -258,7 +258,7 @@ ip4__ipset__fill_destination_excluded() {
 	ip4__ipset__create "${IPSET_DESTINATION_EXCLUDED}"
 
 	# Служебный IP Keenetic, например для my.keenetic.net
-	ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" '78.47.125.180'
+	/opt/sbin/ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" '78.47.125.180'
 
 	while read -r ip_or_range || [ -n "${ip_or_range}" ]; do
 		# пропускаем строки с комментариями
@@ -267,17 +267,17 @@ ip4__ipset__fill_destination_excluded() {
 		# удаляем пробелы
 		ip_or_range=$(echo "${ip_or_range}" | sed 's/#.*$//g' | tr -s ' ' )
 
-		ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "${ip_or_range}"
+		/opt/sbin/ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "${ip_or_range}"
 	done < "${FILE_RESERVED}"
 
 	# Был случай, когда ресурс из списка совпадал с IP роутера
 	# Это приводило к не рабочему DDNS и прочим проблемам
-	ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "$(get_external_ip)"
+	/opt/sbin/ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "$(get_external_ip)"
 
 	# Исключаем (loopback) адреса тоннеля из попадания в тоннель
 	# Случай тоже детектирован и чуть более разрушителен
 	for tunnel_ip in $(get_tunnel_ip) ; do
-		ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "${tunnel_ip}"
+		/opt/sbin/ipset -exist add "${IPSET_DESTINATION_EXCLUDED}" "${tunnel_ip}"
 	done
 }
 
@@ -295,7 +295,7 @@ ip4__ipset__destroy() {
 	log_warning "Уничтожение набора IP ${ipset_name}"
 
 	#ipset flush "${ipset_name}"
-	ipset destroy "${ipset_name}" \
+	/opt/sbin/ipset destroy "${ipset_name}" \
 	 || {
 		error "[${FUNCNAME}] Ошибка при уничтожении набора IP ${ipset_name}"
 	}
@@ -1342,7 +1342,7 @@ ip6save() (/opt/sbin/ip6tables-save)
 
 ip6set_create_table(){
 	local ttl_timeout=$(get_config_value LIST_IPSET_TTL)
-	ipset create "${IPSET_TABLE_NAME}6" hash:net family inet6 -exist timeout ${ttl_timeout} &>/dev/null \
+	/opt/sbin/ipset create "${IPSET_TABLE_NAME}6" hash:net family inet6 -exist timeout ${ttl_timeout} &>/dev/null \
 	 || {
 			_err="${IPv6}Возникла ошибка при создании таблицы с именем '${IPSET_TABLE_NAME}' для ipset"
 			error "[${FUNCNAME}] ${_err}"

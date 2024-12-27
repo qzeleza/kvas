@@ -215,7 +215,7 @@ ipset__fill_by_domain() {
 		fi
 
 		log_warning "Добавление в IPSet ${IPSET_TABLE_NAME} ${domain_ip} домена ${host}"
-		ipset -exist add "${IPSET_TABLE_NAME}" "${domain_ip}"
+		/opt/sbin/ipset -exist add "${IPSET_TABLE_NAME}" "${domain_ip}"
 	done
 }
 
