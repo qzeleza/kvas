@@ -798,7 +798,7 @@ router_info() {
 show_install_log(){
 	if [ -f "${INSTALL_LOG}" ] ; then
 		print_line
-		echo "Журнал установки пакета:"
+		echo 'Журнал установки:'
 		print_line
 		cat < "${INSTALL_LOG}" | sed 's/\(^Текущее.*\) .*$/\1/'
 		echo
@@ -864,8 +864,9 @@ print_debug() {
 	echo
 	syslog_debug
 
-	#ToDo: Синий заголовок категории КВАС
-	#ToDo: после приборки публиковать конфигурацию Квас
+	print_line
+	echo -e " ${BLUE}КВАС${NOCL}"
+	print_line
 	show_install_log
 
 	print_line
