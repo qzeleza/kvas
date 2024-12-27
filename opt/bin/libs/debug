@@ -16,6 +16,7 @@
 
 IP_MYIP2='81.90.181.105'
 IP_IFCONFIG='34.160.111.145'
+DOMAINS_EXCLUDE='(eduz|iscor|nstagra|aceboo|fb)'
 
 # ------------------------------------------------------------------------------------------
 #
@@ -401,10 +402,9 @@ cmd_debug_dnsmasq() {
 	fi
 	ready 'ifconfig.me' && when_ok "${output}"
 
-	# т.к. конфигами часто делятся в открытую, то исключим из них частый РКН
 	echo_debug \
 		"Часть конфига (обязательны строчки вида ipset=/домен/${IPSET_TABLE_NAME}):" \
-		"$(grep -vE '(eduz|iscor|nstagra|aceboo|fb)' ${DNSMASQ_IPSET_HOSTS} | head -n6)"
+		"$(grep -vE ${DOMAINS_EXCLUDE} ${DNSMASQ_IPSET_HOSTS} | head -n6)"
 
 
 	cached=$(grep 'server=' "${DNSMASQ_CONFIG}"      | head -1 | cut -d '=' -f2)
@@ -932,6 +932,7 @@ print_debug() {
 	fi
 #	print_line
 	iptables_debug
+
 	kvas_list_debug
 
 	print_line
