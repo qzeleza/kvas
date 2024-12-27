@@ -176,8 +176,50 @@ dnscrypt_proxy_debug() {
 #
 # ------------------------------------------------------------------------------------------
 debug__list() {
-	result=$(cat < "${KVAS_LIST_FILE}" | sed 's/^\(.*\)\(#.*\)/\2/; s/^...../*****/; /^#/d; /^$/d')
-	echo_debug "Защищенный список /opt/etc/kvas.list (все записи)" "${result}"
+	if ! [ -f "${KVAS_LIST_FILE}" ] ; then
+		error "Не найден файл списка ${KVAS_LIST_FILE}"
+		return
+	fi
+
+	ready 'Количество записей' && when_ok "$(wc -l < ${KVAS_LIST_FILE})"
+
+	if grep -Fq 'myip2.ru' "${KVAS_LIST_FILE}" ; then
+		output='есть'
+	else
+		output='нет'
+	fi
+	ready 'myip2.ru' && when_ok "${output}"
+
+	if grep -Fq 'ifconfig.me' "${KVAS_LIST_FILE}" ; then
+		output='есть'
+	else
+		output='нет'
+	fi
+	ready 'ifconfig.me' && when_ok "${output}"
+
+	echo
+	local count
+	local output
+
+	count=$(grep -Evc -- "${IP_FILTER}" "${KVAS_LIST_FILE}")
+	if [ "$count" -eq 0 ]; then
+		output='Не используются домены.'
+	else
+		output=$(grep -Ev -- "${IP_FILTER}" "${KVAS_LIST_FILE}" | head -n 6)
+
+		count="${count}:"
+	fi
+	echo_debug "Доменов ${count}" "${output}"
+
+	count=$(grep -Ec -- "${IP_FILTER}" "${KVAS_LIST_FILE}")
+	if [ "$count" -eq 0 ]; then
+		output='Не используются IP или диапазоны.'
+	else
+		output=$(grep -E -- "${IP_FILTER}" "${KVAS_LIST_FILE}" | head -n 6)
+
+		count="${count}:"
+	fi
+	echo_debug "IP ${count}" "${output}"
 }
 
 hide_num_letters(){
