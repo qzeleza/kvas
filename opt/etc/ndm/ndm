@@ -1117,8 +1117,6 @@ ip4__flush() {
 			ip4__rule__delete_mark_to_table
 			ip4__route__flush_table
 		fi
-	else
-		iptables__delete_rules "${TABLE_MARK}" "-j MARK --set-mark ${MARK_NUM}"
 	fi
 
 	if echo "${parts}" | grep -Fq ' jump ' ; then
