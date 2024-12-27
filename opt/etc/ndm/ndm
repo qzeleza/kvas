@@ -650,19 +650,22 @@ ip4__dns__get_rulenum() {
 #Example input param:-s 192.168.3.0/24 -i eth3
 #Example input param:-i sstp+
 ip4__dns__add_routing() {
+	local iptables_filter
+	local submessage
 	if [ -n "${1}" ]; then
-		local iptables_filter=$(echo "${1}" | xargs)
-		local submessage=" по критерию ${iptables_filter}"
+		iptables_filter=$(echo "${1}" | xargs)
+		submessage=" по критерию ${iptables_filter}"
 		iptables_filter=" ${iptables_filter}"
 	else
-		local iptables_filter=''
-		local submessage=''
+		iptables_filter=''
+		submessage=''
 	fi
 
 	if iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${CHAIN_DNS}" ; then
 		return
 	fi
-	local rulenum=$(ip4__dns__get_rulenum)
+	local rulenum
+	rulenum=$(ip4__dns__get_rulenum)
 
 	log_warning "Подключение DNS перенаправления с приоритетом ${rulenum}${submessage}"
 
@@ -675,13 +678,15 @@ ip4__dns__add_routing() {
 #Example input param:-s 192.168.3.0/24 -i eth3
 #Example input param:-i sstp+
 ip4__dns__delete_routing() {
+	local iptables_filter
+	local submessage
 	if [ -n "${1}" ]; then
-		local iptables_filter=$(echo "${1}" | xargs)
-		local submessage=" по критерию ${iptables_filter}"
+		iptables_filter=$(echo "${1}" | xargs)
+		submessage=" по критерию ${iptables_filter}"
 		iptables_filter=" ${iptables_filter}"
 	else
-		local iptables_filter=''
-		local submessage=''
+		iptables_filter=''
+		submessage=''
 	fi
 
 	if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${CHAIN_DNS}" ; then
@@ -764,7 +769,8 @@ ip4__add_routing_by_list_for_net() {
 		exit 1
 	fi
 
-	local iptables_filter=$(iptables__get_subrule_for_net "${net_interface}")
+	local iptables_filter
+	iptables_filter=$(iptables__get_subrule_for_net "${net_interface}")
 
 	if is_proxy_enabled ; then
 		ip4__add_routing "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${iptables_filter}" "${IPSET_TABLE_NAME}"
@@ -839,7 +845,8 @@ ip4__delete_routing_by_list_for_net() {
 		exit 1
 	fi
 
-	local iptables_filter=$(iptables__get_subrule_for_net "${net_interface}")
+	local iptables_filter
+	iptables_filter=$(iptables__get_subrule_for_net "${net_interface}")
 
 	ip4__dns__delete_routing "${iptables_filter}"
 
