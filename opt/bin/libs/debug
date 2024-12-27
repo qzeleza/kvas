@@ -227,6 +227,19 @@ iptables__get_by_chain() {
 	iptables-save | grep -F "${chain_name}" | grep -Fv :"${chain_name}"
 }
 
+iptables__text_empty() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не передан обязательный параметр — что именно не найдено"
+		return
+	fi
+	echo "${1} не найдены!"
+
+	# если вызывается как один из дебагов, то можно передать silent/short
+	if [ -z "${2}" ] ; then
+		echo 'Сообщите об этом https://t.me/kvas_pro и вызовите kvas reset'
+	fi
+}
+
 cmd_debug_iptables() {
 	local output="$(get_tunnel_ip | xargs)"
 	if [ -z "${output}" ] ; then
@@ -249,32 +262,38 @@ cmd_debug_iptables() {
 
 	echo_debug 'Маршруты (подключитесь к гостевой заранее)' "$(ip route)"
 
+	local title
 	if is_proxy_enabled ; then
+		title='Перенаправление в порт'
 		output="${CHAIN_DNAT_TO_PORT}"
 	else
-		output="${CHAIN_MARK_TO_TABLE}"
+		output=$(ip route show table "${ROUTE_TABLE_ID}")
+		if [ -z "${output}" ] ; then
+			output=$(iptables__text_empty 'Маршруты тоннеля' "${1}")
+		else
+			title=$(ip rule show | grep -F "$(ip4__rule__get_sub)")
+			if [ -z "${title}" ] ; then
+				output=$(iptables__text_empty 'Правила перенаправления' "${1}")
+			else
+				output="${output}"'\n'"${title}"
+			fi
+		fi
+		echo_debug 'VPN' "${output}"
+
+		title='Маркировка'
+		output="${CHAIN_MARK}"
 	fi
 	output=$(iptables__get_by_chain "${output}")
 	if [ -z "${output}" ] ; then
-		output='Правила не найдены!'
-
-		# если вызывается как один из дебагов, то можно передать silent/short
-		if [ -z "${1}" ] ; then
-			output="${output}"'\nСообщите об этом https://t.me/kvas_pro и вызовите kvas reset'
-		fi
+		output=$(iptables__text_empty 'Правила' "${1}")
 	fi
-	echo_debug 'Роутинг подсетей' "${output}"
+	echo_debug "${title}" "${output}"
 
 	output=$(iptables__get_by_chain "${CHAIN_DNS}")
 	if [ -z "${output}" ] ; then
-		output='Правила не найдены!'
-
-		# если вызывается как один из дебагов, то можно передать silent/short
-		if [ -z "${1}" ] ; then
-			output="${output}"'\nСообщите об этом https://t.me/kvas_pro и вызовите kvas reset'
-		fi
+		output=$(iptables__text_empty 'Правила' "${1}")
 	fi
-	echo_debug 'Роутинг DNS' "${output}"
+	echo_debug 'DNS' "${output}"
 
 	output=$(iptables -L PREROUTING -t mangle)
 	echo_debug 'PREROUTING mangle' "${output}"
