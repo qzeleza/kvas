@@ -795,13 +795,13 @@ syslog__show() {
 	fi
 
 	if [ -n "${3}" ] ; then
-		# передан лимит
-		command="${command} | tail -n${3}"
-	fi
-	if [ -n "${4}" ] ; then
-		local title="${4}"
+		local title="${3}"
 	else
 		local title='Лог:'
+	fi
+	if [ -n "${4}" ] ; then
+		# передан лимит
+		command="${command} | tail -n${4}"
 	fi
 
 	print_line
@@ -922,8 +922,8 @@ print_debug() {
 	print_line
 	router_info
 	echo
-	syslog__show 'info'  '!КВАС' 20 'Последние события:'
-	syslog__show 'error' '!КВАС' 20 'Последние ошибки:'
+	syslog__show 'info'  '!КВАС' 'Последние события:' 20
+	syslog__show 'error' '!КВАС' 'Последние ошибки:'  20
 
 	print_line
 	echo -e " ${BLUE}КВАС${NOCL}"
@@ -931,8 +931,8 @@ print_debug() {
 	kvas__show_config
 	echo
 	kvas__show_install_log
-	syslog__show 'info'  'КВАС' 20 'Последние события:'
-	syslog__show 'error' 'КВАС' 20 'Последние ошибки:'
+	syslog__show 'info'  'КВАС' 'Последние события:' 20
+	syslog__show 'error' 'КВАС' 'Последние ошибки:'  20
 
 	print_line
 	echo -e " ${BLUE}Сетевые правила [kvas debug iptables]${NOCL}"
