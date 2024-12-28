@@ -87,14 +87,6 @@ cmd_tunnel() {
 
 	cache=$(curl -s '127.0.0.1:79/rci/show/internet/status')
 
-	output=$(echo "${cache}" | jq -r '.internet // empty')
-	if [ "${output}" == 'true' ]; then
-		output='есть'
-	else
-		output='нет'
-	fi
-	ready 'Подключение' && when_ok "${output}"
-
 	output=$(echo "${cache}" | jq -r '.gateway.interface // empty')
 	if [ -z "${output}" ]; then
 		output='Не найден!'
@@ -106,6 +98,14 @@ cmd_tunnel() {
 		output='Не найден!'
 	fi
 	ready 'Сетевой интерфейс' && when_ok "${output}"
+
+	output=$(echo "${cache}" | jq -r '.internet // empty')
+	if [ "${output}" == 'true' ]; then
+		output='есть'
+	else
+		output='нет'
+	fi
+	ready 'Подключение' && when_ok "${output}"
 
 	output=$(get_external_ip)
 	if [ -z "${output}" ]; then
@@ -129,6 +129,13 @@ cmd_tunnel() {
 	else
 		ready 'Keenetic-имя'      && when_ok "${tunnel_api_name}"
 		ready 'Сетевой интерфейс' && when_ok "${tunnel_net_name}"
+
+		if is_interface_online "${tunnel_api_name}"; then
+			output='есть'
+		else
+			output='нет'
+		fi
+		ready 'Подключение' && when_ok "${output}"
 
 		output="$(get_tunnel_ip | xargs)"
 		if [ -z "${output}" ]; then
