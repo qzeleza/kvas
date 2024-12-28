@@ -82,7 +82,7 @@ cmd_tunnel() {
 	local output cache
 
 
-	echo 'Интернет шлюз'
+	echo 'Интернет шлюз:'
 	print_line
 
 	cache=$(curl -s '127.0.0.1:79/rci/show/internet/status')
@@ -108,17 +108,17 @@ cmd_tunnel() {
 	ready 'Подключение' && when_ok "${output}"
 
 	if [ "${output}" == 'есть' ]; then
-	output=$(get_external_ip)
-	if [ -z "${output}" ]; then
-		output='Не найден!'
-	fi
-	ready 'IP' && when_ok "${output}"
+		output=$(get_external_ip)
+		if [ -z "${output}" ]; then
+			output='Не найден!'
+		fi
+		ready 'IP' && when_ok "${output}"
 	fi
 
 
 	echo
 	print_line
-	echo 'Тоннель'
+	echo 'Тоннель:'
 	print_line
 
 	local tunnel_net_name tunnel_api_name
@@ -140,11 +140,11 @@ cmd_tunnel() {
 		ready 'Подключение' && when_ok "${output}"
 
 		if [ "${output}" == 'есть' ]; then
-		output="$(get_tunnel_ip | xargs)"
-		if [ -z "${output}" ]; then
-			output='Не найден!'
-		fi
-		ready 'IP' && when_ok "${output}"
+			output="$(get_tunnel_ip | xargs)"
+			if [ -z "${output}" ]; then
+				output='Не найден!'
+			fi
+			ready 'IP' && when_ok "${output}"
 		fi
 	fi
 
@@ -155,7 +155,7 @@ cmd_tunnel() {
 
 	echo
 	print_line
-	echo 'Известные сети'
+	echo 'Известные сети:'
 	print_line
 	cat < "${INFACE_NAMES_FILE}"
 	echo
