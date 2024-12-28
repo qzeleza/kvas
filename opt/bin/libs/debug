@@ -870,14 +870,6 @@ kvas__show_install_log() {
 #	 Формируем лог доступных подключений и их названия в entware и CLI
 #
 # ------------------------------------------------------------------------------------------
-show_interfaces_debug() {
-	if [ -f "${INFACE_NAMES_FILE}" ] ; then
-		echo "Доступные VPN интерфейсы в системе "
-		print_line
-		cat < "${INFACE_NAMES_FILE}" | sed 's/^\(.*\)|\(.*\)|\(.*\)$/\3 = [\1 | \3]/' | grep -v '^ '
-		echo ''
-	fi
-}
 
 show_guest_nets(){
 	list=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;'| sed 's/[ ]//g; s/^\,//')
@@ -957,8 +949,6 @@ print_debug() {
 	#ToDo: завершить приборку
 	print_line
 	echo -e " ${BLUE}Сети${NOCL}"
-	print_line
-	show_interfaces_debug
 	print_line
 	if has_ssr_enable; then
 		shadowsocks_debug

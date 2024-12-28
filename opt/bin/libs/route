@@ -82,6 +82,7 @@ cmd_tunnel() {
 	local output
 	local cache
 
+
 	print_line
 	echo 'Интернет'
 	print_line
@@ -113,6 +114,17 @@ cmd_tunnel() {
 		output='Не найден!'
 	fi
 	ready 'Внешний IP' && when_ok "${output}"
+
+
+	#ToDo: сменить на новый механизм
+	# Удаляем интерфейсы без человеческого имени
+	sed -i '/|$/d;/|""$/d' "${INFACE_NAMES_FILE}"
+
+	echo
+	print_line
+	echo 'Известные сети'
+	print_line
+	cat < "${INFACE_NAMES_FILE}"
 }
 
 cmd_route_refresh() {
