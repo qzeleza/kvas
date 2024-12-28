@@ -146,6 +146,8 @@ cmd_tunnel() {
 			fi
 			ready 'IP' && when_ok "${output}"
 		fi
+
+		#ToDo: конфиг, если не VPN
 	fi
 
 
