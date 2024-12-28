@@ -121,18 +121,20 @@ cmd_tunnel() {
 	echo 'Тоннель:'
 	print_line
 
-	local tunnel_net_name tunnel_api_name
-	tunnel_net_name=$(get_config_value 'INFACE_ENT')
-	tunnel_api_name=$(get_config_value 'INFACE_CLI')
+	local tunnel_net_name tunnel_keenetic_name
+	tunnel_net_name=$(     get_config_value 'INFACE_ENT')
+	tunnel_keenetic_name=$(get_config_value 'INFACE_CLI')
 	if [ -z "${tunnel_net_name}" ]; then
-		echo ''
-	elif [ -z "${tunnel_api_name}" ]; then
-		echo ''
+		echo 'Не найдено имя сетевого интерфейса.'
+		echo 'Настройте тоннель заново kvas tunnel set'
+	elif [ -z "${tunnel_keenetic_name}" ]; then
+		echo 'Не найдено Keenetic-имя.'
+		echo 'Настройте тоннель заново kvas tunnel set'
 	else
-		ready 'Keenetic-имя'      && when_ok "${tunnel_api_name}"
+		ready 'Keenetic-имя'      && when_ok "${tunnel_keenetic_name}"
 		ready 'Сетевой интерфейс' && when_ok "${tunnel_net_name}"
 
-		if is_interface_online "${tunnel_api_name}"; then
+		if is_interface_online "${tunnel_keenetic_name}"; then
 			output='есть'
 		else
 			output='нет'
