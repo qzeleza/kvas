@@ -79,12 +79,11 @@ ip4_up_net_default(){
 #}
 
 cmd_tunnel() {
-	local output
-	local cache
+	local output cache
 
 
 	print_line
-	echo 'Интернет'
+	echo 'Интернет шлюз'
 	print_line
 
 	cache=$(curl -s '127.0.0.1:79/rci/show/internet/status')
@@ -95,25 +94,43 @@ cmd_tunnel() {
 	else
 		output='нет'
 	fi
-	ready 'Доступ' && when_ok "${output}"
+	ready 'Подключение' && when_ok "${output}"
 
 	output=$(echo "${cache}" | jq -r '.gateway.interface // empty')
 	if [ -z "${output}" ]; then
 		output='Не найден!'
 	fi
-	ready 'Keenetic-имя шлюза' && when_ok "${output}"
+	ready 'Keenetic-имя' && when_ok "${output}"
 
 	output=$(get_external_interface)
 	if [ -z "${output}" ]; then
 		output='Не найден!'
 	fi
-	ready 'Сетевой интерфейс шлюза' && when_ok "${output}"
+	ready 'Сетевой интерфейс' && when_ok "${output}"
 
 	output=$(get_external_ip)
 	if [ -z "${output}" ]; then
 		output='Не найден!'
 	fi
 	ready 'Внешний IP' && when_ok "${output}"
+
+
+	echo
+	print_line
+	echo 'Тоннель'
+	print_line
+
+	local tunnel_net_name tunnel_api_name
+	tunnel_net_name=$(get_config_value 'INFACE_ENT')
+	tunnel_api_name=$(get_config_value 'INFACE_CLI')
+	if [ -z "${tunnel_net_name}" ]; then
+		echo ''
+	elif [ -z "${tunnel_api_name}" ]; then
+		echo ''
+	else
+		ready 'Keenetic-имя'      && when_ok "${tunnel_api_name}"
+		ready 'Сетевой интерфейс' && when_ok "${tunnel_net_name}"
+	fi
 
 
 	#ToDo: сменить на новый механизм
@@ -125,6 +142,7 @@ cmd_tunnel() {
 	echo 'Известные сети'
 	print_line
 	cat < "${INFACE_NAMES_FILE}"
+	echo
 }
 
 cmd_route_refresh() {
