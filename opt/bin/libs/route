@@ -107,11 +107,13 @@ cmd_tunnel() {
 	fi
 	ready 'Подключение' && when_ok "${output}"
 
+	if [ "${output}" == 'есть' ]; then
 	output=$(get_external_ip)
 	if [ -z "${output}" ]; then
 		output='Не найден!'
 	fi
 	ready 'IP' && when_ok "${output}"
+	fi
 
 
 	echo
@@ -137,11 +139,13 @@ cmd_tunnel() {
 		fi
 		ready 'Подключение' && when_ok "${output}"
 
+		if [ "${output}" == 'есть' ]; then
 		output="$(get_tunnel_ip | xargs)"
 		if [ -z "${output}" ]; then
 			output='Не найден!'
 		fi
 		ready 'IP' && when_ok "${output}"
+		fi
 	fi
 
 
