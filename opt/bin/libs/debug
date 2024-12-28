@@ -944,16 +944,6 @@ print_debug() {
 	print_line
 	cmd_ipset
 
-	#ToDo: завершить приборку
-	print_line
-	echo -e " ${BLUE}Сети${NOCL}"
-	print_line
-	if has_ssr_enable; then
-		shadowsocks_debug
-	else
-		vpn_debug
-	fi
-
 	print_line
 	echo -e " ${BLUE}Подключения [kvas tunnel]${NOCL}"
 	print_line
