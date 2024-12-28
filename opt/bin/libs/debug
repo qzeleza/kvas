@@ -862,7 +862,7 @@ kvas__show_install_log() {
 	fi
 
 	print_line
-	echo 'Журнал установки:'
+	echo "Журнал установки [${INSTALL_LOG}]:"
 	print_line
 	cat < "${INSTALL_LOG}" | sed 's/\(^Текущее.*\) .*$/\1/'
 	echo
