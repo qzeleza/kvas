@@ -101,6 +101,18 @@ cmd_tunnel() {
 		output='Не найден!'
 	fi
 	ready 'Keenetic-имя шлюза' && when_ok "${output}"
+
+	output=$(get_external_interface)
+	if [ -z "${output}" ]; then
+		output='Не найден!'
+	fi
+	ready 'Сетевой интерфейс шлюза' && when_ok "${output}"
+
+	output=$(get_external_ip)
+	if [ -z "${output}" ]; then
+		output='Не найден!'
+	fi
+	ready 'Внешний IP' && when_ok "${output}"
 }
 
 cmd_route_refresh() {
