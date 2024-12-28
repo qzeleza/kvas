@@ -758,6 +758,9 @@ syslog__get_command() {
 		fi
 
 		command="${command} | grep '^${facility}'"
+	else
+		# мешает пустая строка с неизвестным символом
+		command="${command} | grep -F ' '"
 	fi
 	if [ -n "${2}" ] ; then
 		command="${command} | grep -"
