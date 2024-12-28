@@ -742,20 +742,6 @@ adblock_dnsmasq_debug() {
 #	 Формируем лог отладочной информации
 #
 # ------------------------------------------------------------------------------------------
-syslog_debug() {
-
-	result=$(curl -s -d '{"once": false, "max-lines": 66}' "${LOCALHOST_IP}"':79/rci/show/log' \
-			| grep -A3 -B1 \"E\" | grep -E "message|timestamp" \
-			| cut -d":" -f2- | tr -d '"' | sed 's/\,$/\n/g' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' \
-			)
-	[ -n "${result}" ] && {
-		echo "Список ошибок из системного журнала"
-		print_line
-		echo "${result}"
-		echo ''
-	}
-	
-}
 
 syslog__get() {
 	if [ -n "${1}" ] ; then
@@ -913,7 +899,7 @@ print_debug() {
 	print_line
 	router_info
 	echo
-	syslog_debug
+	syslog__show 100 '.message.label=="E"' 'Последние ошибки:'
 
 	print_line
 	echo -e " ${BLUE}КВАС${NOCL}"
