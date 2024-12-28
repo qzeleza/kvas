@@ -745,7 +745,7 @@ adblock_dnsmasq_debug() {
 
 syslog__get_command() {
 	local command='ndmc -c show log'
-	if [ -n "${1}" ] ; then
+	if [ -n "${1}" ] && [ "${1}" != 'all' ] ; then
 		# emerg alert crit err warning notice info debug
 		local facility="${1}"
 		if [ "${facility}" == 'info' ]; then
