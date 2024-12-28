@@ -971,6 +971,11 @@ print_debug() {
 	fi
 
 	print_line
+	echo -e " ${BLUE}Подключения [kvas tunnel]${NOCL}"
+	print_line
+	cmd_tunnel
+
+	print_line
 	echo -e " ${BLUE}Маршрутизация [kvas route]${NOCL}"
 	print_line
 	cmd_route 'short'

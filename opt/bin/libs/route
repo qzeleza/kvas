@@ -78,6 +78,10 @@ ip4_up_net_default(){
 #	}
 #}
 
+cmd_tunnel() {
+	echo xxx
+}
+
 cmd_route_refresh() {
 	echo -n 'Очистка цепочек iptables...'
 	ip4__flush 'chain'
