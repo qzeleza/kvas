@@ -111,7 +111,7 @@ cmd_tunnel() {
 	if [ -z "${output}" ]; then
 		output='Не найден!'
 	fi
-	ready 'Внешний IP' && when_ok "${output}"
+	ready 'IP' && when_ok "${output}"
 
 
 	echo
@@ -129,6 +129,12 @@ cmd_tunnel() {
 	else
 		ready 'Keenetic-имя'      && when_ok "${tunnel_api_name}"
 		ready 'Сетевой интерфейс' && when_ok "${tunnel_net_name}"
+
+		output="$(get_tunnel_ip | xargs)"
+		if [ -z "${output}" ]; then
+			output='Не найден!'
+		fi
+		ready 'IP' && when_ok "${output}"
 	fi
 
 
