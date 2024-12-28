@@ -95,6 +95,12 @@ cmd_tunnel() {
 		output='нет'
 	fi
 	ready 'Доступ' && when_ok "${output}"
+
+	output=$(echo "${cache}" | jq -r '.gateway.interface // empty')
+	if [ -z "${output}" ]; then
+		output='Не найден!'
+	fi
+	ready 'Keenetic-имя шлюза' && when_ok "${output}"
 }
 
 cmd_route_refresh() {
