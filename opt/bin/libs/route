@@ -82,7 +82,6 @@ cmd_tunnel() {
 	local output cache
 
 
-	print_line
 	echo 'Интернет шлюз'
 	print_line
 
