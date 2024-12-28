@@ -757,6 +757,51 @@ syslog_debug() {
 	
 }
 
+syslog__get() {
+	if [ -n "${1}" ] ; then
+		local limit="${1}"
+	else
+		local limit=3000
+	fi
+	if [ -n "${2}" ] ; then
+		local filter=" | select(${2})"
+	else
+		local filter=''
+	fi
+
+	curl -s -d '{"once": false, "max-lines": '"${limit}"'}' '127.0.0.1:79/rci/show/log' | jq -r '.log[]?'"${filter}"' | "\(.timestamp) | \(.message.message)" // empty'
+}
+
+syslog__show() {
+	if [ -n "${1}" ] ; then
+		local limit="${1}"
+	else
+		local limit=3000
+	fi
+	if [ -n "${2}" ] ; then
+		local filter="${2}"
+	else
+		local filter=''
+	fi
+	if [ -n "${3}" ] ; then
+		local title="${3}"
+	else
+		local title='Лог:'
+	fi
+
+	local output
+	output=$(syslog__get "${limit}" "${filter}")
+	if [ -z "${output}" ] ; then
+		return
+	fi
+
+	print_line
+	echo "${title}"
+	print_line
+	echo "${output}"
+	echo
+}
+
 # ------------------------------------------------------------------------------------------
 #
 #	 Формируем лог отладочной информации
@@ -799,7 +844,7 @@ kvas__show_config() {
 	cat < "${KVAS_CONF_FILE}" | grep -v '=$' | grep -v '^$'
 }
 
-kvas__show_log_install() {
+kvas__show_install_log() {
 	if ! [ -f "${INSTALL_LOG}" ] ; then
 		return
 	fi
@@ -875,7 +920,8 @@ print_debug() {
 	print_line
 	kvas__show_config
 	echo
-	kvas__show_log_install
+	kvas__show_install_log
+	syslog__show 100 '.ident=="КВАС"' 'Последние события:'
 
 	print_line
 	echo -e " ${BLUE}Сетевые правила [kvas debug iptables]${NOCL}"
