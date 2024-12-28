@@ -961,7 +961,6 @@ print_debug() {
 	print_line
 	echo -e " ${BLUE}Сети${NOCL}"
 	print_line
-	internet_check
 	show_interfaces_debug
 	print_line
 	if has_ssr_enable; then

@@ -79,7 +79,15 @@ ip4_up_net_default(){
 #}
 
 cmd_tunnel() {
-	echo xxx
+	local output
+
+	output=$(curl -s '127.0.0.1:79/rci/show/internet/status' | jq -r '.internet // empty')
+	if [ "${output}" == 'true' ]; then
+		output='есть'
+	else
+		output='нет'
+	fi
+	ready 'Интернет' && when_ok "${output}"
 }
 
 cmd_route_refresh() {
