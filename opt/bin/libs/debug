@@ -757,10 +757,19 @@ syslog__get_command() {
 			return
 		fi
 
-		command="$command | grep '^${facility}'"
+		command="${command} | grep '^${facility}'"
 	fi
 	if [ -n "${2}" ] ; then
-		command="$command | grep -F -- '${2}'"
+		command="${command} | grep -"
+
+		local filter="${2}"
+		if [ "${filter:0:1}" == '!' ]; then
+			filter="${filter:1}"
+
+			command="${command}v"
+		fi
+
+		command="${command}F -- '${filter}'"
 	fi
 
 	echo "${command}"
@@ -787,7 +796,7 @@ syslog__show() {
 
 	if [ -n "${3}" ] ; then
 		# передан лимит
-		command="$command | tail -n${3}"
+		command="${command} | tail -n${3}"
 	fi
 	if [ -n "${4}" ] ; then
 		local title="${4}"
@@ -913,8 +922,8 @@ print_debug() {
 	print_line
 	router_info
 	echo
-	syslog__show 'info'  '' 20 'Последние события:'
-	syslog__show 'error' '' 20 'Последние ошибки:'
+	syslog__show 'info'  '!КВАС' 20 'Последние события:'
+	syslog__show 'error' '!КВАС' 20 'Последние ошибки:'
 
 	print_line
 	echo -e " ${BLUE}КВАС${NOCL}"
