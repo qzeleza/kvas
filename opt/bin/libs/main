@@ -318,13 +318,17 @@ has_no_internet_here(){
 # $1 - VPN интерфейс в терминах CLI (например OpenVPN0)
 #---------------------------------------------------------------------------------
 is_interface_online() {
-	local cli_inface=${1}
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не передан обязательный параметр — Keenetic-имя"
+		return
+	fi
+	local keenetic_name="${1}"
 
-	if [ "${cli_inface}" = shadowsocks ] && [ -f /opt/etc/init.d/S22shadowsocks ] ; then
+	if [ "${keenetic_name}" = 'shadowsocks' ] && [ -f /opt/etc/init.d/S22shadowsocks ] ; then
 		/opt/etc/init.d/S22shadowsocks status | grep -q 'alive' &> /dev/null
 	else
-		inface_desc=$(curl -s "${INFACE_REQUEST}/${cli_inface}" | jq -r 'select(.state=="up" and .link=="up" and .connected=="yes")')
-		[ -n "${inface_desc}" ]
+		keenetic_name=$(curl -s "${INFACE_REQUEST}/${keenetic_name}" | jq -r 'select(.state=="up" and .link=="up" and .connected=="yes")')
+		[ -n "${keenetic_name}" ]
 	fi
 }
 
