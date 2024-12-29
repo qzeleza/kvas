@@ -234,7 +234,7 @@ iptables__text_empty() {
 
 cmd_debug_iptables() {
 	local output
-	output=$(ipset list "${IPSET_DESTINATION_EXCLUDED}" | grep -vF ':' | wc -l)
+	output=$(/opt/sbin/ipset list "${IPSET_DESTINATION_EXCLUDED}" | grep -vF ':' | wc -l)
 	ready 'Исключённых целевых IPv4 и диапазонов' && when_ok "${output}"
 	echo
 
@@ -431,7 +431,7 @@ cmd_debug_dns() {
 
 cmd_ipset_flush() {
 	echo -n 'Очистка IPSet...'
-	ipset flush "${IPSET_TABLE_NAME}"
+	/opt/sbin/ipset flush "${IPSET_TABLE_NAME}"
 	echo 'сделана.'
 
 	# Как минимум DNSMasq при попадании в кэш не заполняет IPSet
@@ -448,7 +448,7 @@ cmd_ipset_flush() {
 	echo -n 'Заполнение IPSet IP из списка..'
 	local count=0
 	for ip_or_range in $(grep -E -- "$(get_regexp_ip_or_range)" '/opt/etc/kvas.list'); do
-		ipset -exist add "${IPSET_TABLE_NAME}" "${ip_or_range}" timeout 0
+		/opt/sbin/ipset -exist add "${IPSET_TABLE_NAME}" "${ip_or_range}" timeout 0
 
 		count=$((count + 1))
 		if [ "$(( ${count} % 50 ))" -eq 0 ]; then
@@ -493,7 +493,7 @@ cmd_ipset_add() {
 	fi
 
 	echo -n "Добавление ${ip} в IPSet..."
-	ipset -exist add "${IPSET_TABLE_NAME}" "${ip}"
+	/opt/sbin/ipset -exist add "${IPSET_TABLE_NAME}" "${ip}"
 	echo 'сделано.'
 
 	echo
@@ -523,17 +523,17 @@ cmd_ipset() {
 		fi
 	fi
 
-	local output=$(ipset list "${IPSET_TABLE_NAME}" | grep -vF ':' | wc -l)
+	local output=$(/opt/sbin/ipset list "${IPSET_TABLE_NAME}" | grep -vF ':' | wc -l)
 	ready 'Количество записей' && when_ok "${output}"
 
-	if ipset list "${IPSET_TABLE_NAME}" | grep -qF "${IP_MYIP2}"; then
+	if /opt/sbin/ipset list "${IPSET_TABLE_NAME}" | grep -qF "${IP_MYIP2}"; then
 		output='есть'
 	else
 		output='нет'
 	fi
 	ready 'myip2.ru' && when_ok "${output}"
 
-	if ipset list "${IPSET_TABLE_NAME}" | grep -qF "${IP_IFCONFIG}"; then
+	if /opt/sbin/ipset list "${IPSET_TABLE_NAME}" | grep -qF "${IP_IFCONFIG}"; then
 		output='есть'
 	else
 		output='нет'
@@ -541,7 +541,7 @@ cmd_ipset() {
 	ready 'ifconfig.me' && when_ok "${output}"
 
 	if [ -n "${1}" ]; then
-		if ipset list "${IPSET_TABLE_NAME}" | grep -q "^${1} "; then
+		if /opt/sbin/ipset list "${IPSET_TABLE_NAME}" | grep -q "^${1} "; then
 			output='есть'
 		else
 			output='нет'
@@ -551,7 +551,7 @@ cmd_ipset() {
 
 	echo
 
-	local cached=$(ipset list "${IPSET_TABLE_NAME}" | grep -vF 'timeout 0' | grep -vF ':')
+	local cached=$(/opt/sbin/ipset list "${IPSET_TABLE_NAME}" | grep -vF 'timeout 0' | grep -vF ':')
 	if [ -z "${cached}" ]; then
 		local count='0'
 
@@ -580,7 +580,7 @@ cmd_ipset() {
 	fi
 	echo_debug "Для доменов ${count}${cached}" "${output}"
 
-	count=$(ipset list "${IPSET_TABLE_NAME}" | grep -F 'timeout 0' | wc -l)
+	count=$(/opt/sbin/ipset list "${IPSET_TABLE_NAME}" | grep -F 'timeout 0' | wc -l)
 	if [ "$count" -eq 0 ]; then
 		if grep -Eq -- "${IP_FILTER}" "${KVAS_LIST_FILE}"; then
 			output='Или нет корректных IP, диапазонов в kvas list;\nили проблема с их переносом'
@@ -595,7 +595,7 @@ cmd_ipset() {
 
 		cached=''
 	else
-		output=$(ipset list "${IPSET_TABLE_NAME}" | grep -F 'timeout 0' | head -n 15 | cut -d' ' -f1)
+		output=$(/opt/sbin/ipset list "${IPSET_TABLE_NAME}" | grep -F 'timeout 0' | head -n 15 | cut -d' ' -f1)
 
 		cached=', произвольные 15:'
 	fi
