@@ -149,7 +149,14 @@ cmd_tunnel() {
 			ready 'IP' && when_ok "${output}"
 		fi
 
-		#ToDo: конфиг, если не VPN
+		if is_shadowsocks_enabled; then
+			echo
+			print_line
+			echo "Конфигурация ${SHADOWSOCKS_CONF}:"
+			print_line
+			grep -E '(port|method)' "${SHADOWSOCKS_CONF}"
+			echo 'server и password проверьте самостоятельно!'
+		fi
 	fi
 
 
