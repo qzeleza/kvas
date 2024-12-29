@@ -1090,6 +1090,7 @@ ip4__flush() {
 		local parts=" ${1} "
 	fi
 
+	# если не нужно точечно, то используем общий jump
 	if echo "${parts}" | grep -Fq ' net ' ; then
 		ip4__delete_routing_by_list_for_net_from_config
 	fi
@@ -1099,12 +1100,12 @@ ip4__flush() {
 		ip4__delete_routing_for_ip_from_config
 	fi
 
-	if echo "${parts}" | grep -Fq ' chain ' ; then
-		if echo "${parts}" | grep -Fq ' table ' ; then
-			ip4__rule__delete_mark_to_table
-			ip4__route__flush_table
-		fi
+	if echo "${parts}" | grep -Fq ' table ' ; then
+		ip4__rule__delete_mark_to_table
+		ip4__route__flush_table
+	fi
 
+	if echo "${parts}" | grep -Fq ' chain ' ; then
 		ip4__chain__delete_jump "${TABLE_DNS}" "${CHAIN_DNS}"
 		ip4__chain__delete      "${TABLE_DNS}" "${CHAIN_DNS}"
 
@@ -1115,6 +1116,7 @@ ip4__flush() {
 		ip4__chain__delete_jump "${TABLE_MARK}" "${CHAIN_MARK}"
 		ip4__chain__delete      "${TABLE_MARK}" "${CHAIN_MARK}"
 
+		# если привязана к какой-то исторической цепочке, может упасть
 		ip4__ipset__destroy_destination_excluded
 	elif echo "${parts}" | grep -Fq ' jump ' ; then
 		ip4__chain__delete_jump "${TABLE_DNS}"          "${CHAIN_DNS}"
