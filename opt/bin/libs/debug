@@ -508,6 +508,11 @@ cmd_ipset_refill() {
 }
 
 cmd_ipset() {
+	if ! ip4__ipset__is_exist "${IPSET_TABLE_NAME}" ; then
+		error "Не найден IPSet ${IPSET_TABLE_NAME}"
+		return
+	fi
+
 	if [ -n "${1}" ]; then
 		if ! echo "${1}" | grep -qE "^${IP_FILTER}$"; then
 			error "Параметр ${1} не известен."
