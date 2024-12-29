@@ -745,6 +745,13 @@ adblock_dnsmasq_debug() {
 
 syslog__get_command() {
 	local command='ndmc -c show log'
+	# исключаем мусор от работы API
+	command="${command} | grep -vF 'started Session /var/run/ndm'"
+	command="${command} | grep -vF 'Session: client disconnected'"
+	# исключаем мусор от cron
+	command="${command} | grep -vF '/opt/bin/run-parts /opt/etc/cron'"
+	command="${command} | grep -vF 'last message repeated'"
+
 	if [ -n "${1}" ] && [ "${1}" != 'all' ] ; then
 		# emerg alert crit err warning notice info debug
 		local facility="${1}"
@@ -762,6 +769,7 @@ syslog__get_command() {
 		# мешает пустая строка с неизвестным символом
 		command="${command} | grep -F ' '"
 	fi
+
 	if [ -n "${2}" ] ; then
 		command="${command} | grep -"
 
