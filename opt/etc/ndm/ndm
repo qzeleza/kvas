@@ -163,7 +163,7 @@ iptables__delete_rule() {
 		return
 	fi
 
-	iptables -t "${table}" -D $(echo "${rule:3}")
+	/opt/sbin/iptables -t "${table}" -D $(echo "${rule:3}")
 }
 
 # удаляет правила, получаемые по критерию
@@ -207,7 +207,7 @@ ip4__ipset__is_exist() {
 	fi
 	local ipset_name="${1}"
 
-	! ipset list "${ipset_name}" 2>&1 | grep -q 'name does not exist'
+	! /opt/sbin/ipset list "${ipset_name}" 2>&1 | grep -q 'name does not exist'
 }
 
 ip4__ipset__create() {
@@ -294,7 +294,7 @@ ip4__ipset__destroy() {
 
 	log_warning "Уничтожение набора IP ${ipset_name}"
 
-	#ipset flush "${ipset_name}"
+	#/opt/sbin/ipset flush "${ipset_name}"
 	/opt/sbin/ipset destroy "${ipset_name}" \
 	 || {
 		error "[${FUNCNAME}] Ошибка при уничтожении набора IP ${ipset_name}"
@@ -331,7 +331,7 @@ ip4__chain__is_exist() {
 	fi
 	local chain_name="${2}"
 
-	iptables-save -t "${table}" | grep -Fq "${chain_name}"
+	/opt/sbin/iptables-save -t "${table}" | grep -Fq "${chain_name}"
 }
 
 ip4__chain__exclude_source_by_config() {
@@ -361,7 +361,7 @@ ip4__chain__exclude_source_by_config() {
 
 		log_warning "Исключение ${ip_or_range} из ${chain_name}"
 
-		iptables -A "${chain_name}" -w -t "${table}" -s "${ip_or_range}" -j RETURN
+		/opt/sbin/iptables -A "${chain_name}" -w -t "${table}" -s "${ip_or_range}" -j RETURN
 	done
 }
 
@@ -385,17 +385,17 @@ ip4__chain__create_for_data() {
 
 	log_warning "Создание цепочки ${chain_name} в ${table} для перенаправления данных"
 
-	iptables -N "${chain_name}" -w -t "${table}"
+	/opt/sbin/iptables -N "${chain_name}" -w -t "${table}"
 
 	ip4__chain__exclude_source_by_config "${table}" "${chain_name}"
 
 	ip4__ipset__fill_destination_excluded
-	iptables -A "${chain_name}" -w -t "${table}" -m set --match-set "${IPSET_DESTINATION_EXCLUDED}" dst -j RETURN
+	/opt/sbin/iptables -A "${chain_name}" -w -t "${table}" -m set --match-set "${IPSET_DESTINATION_EXCLUDED}" dst -j RETURN
 
 	# если цепочка данных будет подключена выше DNS, то она может 
 	# перехватить направленный вовне трафик
 	for protocol in udp tcp ; do
-		iptables -A "${chain_name}" -w -t "${table}" -p "${protocol}" --dport 53 -j RETURN
+		/opt/sbin/iptables -A "${chain_name}" -w -t "${table}" -p "${protocol}" --dport 53 -j RETURN
 	done
 }
 
@@ -418,8 +418,8 @@ ip4__chain__delete() {
 
 	log_warning "Удаление цепочки ${chain_name} в ${table}"
 
-	iptables -F "${chain_name}" -t "${table}"
-	iptables -X "${chain_name}" -t "${table}"
+	/opt/sbin/iptables -F "${chain_name}" -t "${table}"
+	/opt/sbin/iptables -X "${chain_name}" -t "${table}"
 }
 
 # удаляем входы в цепочку
@@ -474,7 +474,7 @@ ip4__proxy__create_chain() {
 
 		for protocol in udp tcp ; do
 			# не будет ли задвоения без -w?
-			iptables -A "${chain_name}" -t "${table}" -p "${protocol}" -j REDIRECT --to-port "${port}"
+			/opt/sbin/iptables -A "${chain_name}" -t "${table}" -p "${protocol}" -j REDIRECT --to-port "${port}"
 		done
 	} &>/dev/null || error "[${FUNCNAME}] Возникли ошибки при установке правил трафика для прокси"
 }
@@ -505,11 +505,11 @@ ip4__vpn_fast__create_chain() {
 		ip4__route__add_table
 		ip4__rule__add_mark_to_table
 
-		iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -j CONNMARK --restore-mark
-		iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -m mark --mark ${MARK_NUM} -j RETURN
-		iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" --syn -j MARK --set-mark ${MARK_NUM}
-		iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM}
-		iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -j CONNMARK --save-mark
+		/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -j CONNMARK --restore-mark
+		/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -m mark --mark ${MARK_NUM} -j RETURN
+		/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" --syn -j MARK --set-mark ${MARK_NUM}
+		/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM}
+		/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -j CONNMARK --save-mark
 	} &>/dev/null || error "[${FUNCNAME}] Возникли ошибки во время маркировки трафика для VPN при включенном ускорении"
 }
 
@@ -567,7 +567,7 @@ ip4__add_routing_for_home() {
 
 	log_warning "Подключение перенаправления трафика для домашней сети в тоннель ${3}"
 
-	iptables -A PREROUTING -w -t "${table}" -i "${net_interface}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${chain_name}"
+	/opt/sbin/iptables -A PREROUTING -w -t "${table}" -i "${net_interface}" -m set --match-set "${IPSET_TABLE_NAME}" dst -j "${chain_name}"
 }
 
 ip4__shadowsocks__add_routing_for_home() {
@@ -592,19 +592,19 @@ ip4__vpn_fast__add_routing_for_home() {
 
 # Создаёт (если нет) цепочку для DNS редиректа
 ip4__dns__create_chain() {
-	if iptables-save | grep -Fq "${CHAIN_DNS}"; then
+	if /opt/sbin/iptables-save | grep -Fq "${CHAIN_DNS}"; then
 		return
 	fi
 
 	log_warning 'Создание цепочки для DNS перенаправления'
 
-	iptables -N "${CHAIN_DNS}" -w -t "${TABLE_DNS}"
+	/opt/sbin/iptables -N "${CHAIN_DNS}" -w -t "${TABLE_DNS}"
 
 	ip4__chain__exclude_source_by_config "${TABLE_DNS}" "${CHAIN_DNS}"
 
 	for protocol in udp tcp ; do
 		# не будет ли задвоения без -w?
-		iptables -A "${CHAIN_DNS}" -t "${TABLE_DNS}" -p "${protocol}" --dport 53 -j DNAT --to-destination 127.0.0.1:"${DNS_PORT}"
+		/opt/sbin/iptables -A "${CHAIN_DNS}" -t "${TABLE_DNS}" -p "${protocol}" --dport 53 -j DNAT --to-destination 127.0.0.1:"${DNS_PORT}"
 	done
 }
 
@@ -621,7 +621,7 @@ ip4__get_rulenum() {
 	local table='nat'
 	local chain='PREROUTING'
 
-	echo $(iptables-save -t "${table}" | grep -F "${chain}" | grep -vF :"${chain}" \
+	echo $(/opt/sbin/iptables-save -t "${table}" | grep -F "${chain}" | grep -vF :"${chain}" \
 	 | grep -nF -- "${find}" | head -n 1 | grep -oE '^[0-9]+')
 }
 
@@ -661,7 +661,7 @@ ip4__dns__add_routing() {
 		submessage=''
 	fi
 
-	if iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${CHAIN_DNS}" ; then
+	if /opt/sbin/iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${CHAIN_DNS}" ; then
 		return
 	fi
 	local rulenum
@@ -671,7 +671,7 @@ ip4__dns__add_routing() {
 
 	ip4__dns__create_chain
 	# без echo дублирование пробелов (что даёт warning и проблему наличия)
-	iptables -I PREROUTING "${rulenum}" -w -t "${TABLE_DNS}"$(echo "${iptables_filter}") -j "${CHAIN_DNS}"
+	/opt/sbin/iptables -I PREROUTING "${rulenum}" -w -t "${TABLE_DNS}"$(echo "${iptables_filter}") -j "${CHAIN_DNS}"
 }
 
 # Отключение перехвата dns-запросов в dnsmasq
@@ -696,7 +696,7 @@ ip4__dns__delete_routing() {
 	log_warning "Отключение DNS перенаправления${submessage}"
 
 	# без echo дублирование пробелов (что даёт warning и проблему наличия)
-	iptables -D PREROUTING -t "${TABLE_DNS}"$(echo "${iptables_filter}") -j "${CHAIN_DNS}"
+	/opt/sbin/iptables -D PREROUTING -t "${TABLE_DNS}"$(echo "${iptables_filter}") -j "${CHAIN_DNS}"
 }
 
 
@@ -753,13 +753,13 @@ ip4__add_routing() {
 		submessage=" ipset ${ipset_list} и${submessage}"
 	fi
 
-	if iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${chain_name}" ; then
+	if /opt/sbin/iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${chain_name}" ; then
 		return
 	fi
 
 	log_warning "Подключение перехвата трафика по${submessage}"
 
-	iptables -A PREROUTING -w -t "${table}" $(echo "${iptables_filter}") -j "${chain_name}"
+	/opt/sbin/iptables -A PREROUTING -w -t "${table}" $(echo "${iptables_filter}") -j "${chain_name}"
 }
 
 ip4__add_routing_by_list_for_net() {
@@ -789,12 +789,12 @@ ip4__add_routing_by_list_for_net() {
 
 		# случай основного VPN и отключенного ускорения требует дополнительной проверки
 		# но именно таким код был изначально, т.е. он точно не "ухудшится"
-		if iptables-save | grep -F 'POSTROUTING' | grep -F "${net_pool}" | grep -F "${net_interface}" | grep -Fq 'MASQUERADE' ; then
+		if /opt/sbin/iptables-save | grep -F 'POSTROUTING' | grep -F "${net_pool}" | grep -F "${net_interface}" | grep -Fq 'MASQUERADE' ; then
 			return
 		fi
 		log_warning "Подключение правил гостевого трафика для VPN без ускорения по критерию ${iptables_filter}"
 
-		iptables -A POSTROUTING -w -t nat -s "${net_pool}" -o "${net_interface}" -j MASQUERADE
+		/opt/sbin/iptables -A POSTROUTING -w -t nat -s "${net_pool}" -o "${net_interface}" -j MASQUERADE
 	fi
 }
 
@@ -835,7 +835,7 @@ ip4__delete_routing() {
 
 	log_warning "Отключение перехвата трафика по${submessage}"
 
-	iptables -D PREROUTING -t "${table}" $(echo "${iptables_filter}") -j "${chain_name}"
+	/opt/sbin/iptables -D PREROUTING -t "${table}" $(echo "${iptables_filter}") -j "${chain_name}"
 }
 
 ip4__delete_routing_by_list_for_net() {
@@ -867,12 +867,12 @@ ip4__delete_routing_by_list_for_net() {
 
 		# случай основного VPN и отключенного ускорения требует дополнительной проверки
 		# но именно таким код был изначально, т.е. он точно не "ухудшится"
-		if ! iptables-save | grep -F 'POSTROUTING' | grep -F "${net_pool}" | grep -F "${net_interface}" | grep -Fq 'MASQUERADE' ; then
+		if ! /opt/sbin/iptables-save | grep -F 'POSTROUTING' | grep -F "${net_pool}" | grep -F "${net_interface}" | grep -Fq 'MASQUERADE' ; then
 			return
 		fi
 		log_warning "Отключение правил гостевого трафика для VPN без ускорения по критерию ${iptables_filter}"
 
-		iptables -D POSTROUTING -t nat -s "${net_pool}" -o "${net_interface}" -j MASQUERADE
+		/opt/sbin/iptables -D POSTROUTING -t nat -s "${net_pool}" -o "${net_interface}" -j MASQUERADE
 	fi
 }
 
@@ -1267,7 +1267,7 @@ ip4__rule__get_submessage() {
 
 ip4__rule__add_mark_to_table() {
 	local subrule="$(ip4__rule__get_sub)"
-	if ip rule show | grep -Fq "${subrule}" ; then
+	if /opt/sbin/ip rule show | grep -Fq "${subrule}" ; then
 		return
 	fi
 
@@ -1282,7 +1282,7 @@ ip4__rule__add_mark_to_table() {
 
 ip4__rule__delete_mark_to_table() {
 	local subrule="$(ip4__rule__get_sub)"
-	if ! ip rule show | grep -Fq "${subrule}" ; then
+	if ! /opt/sbin/ip rule show | grep -Fq "${subrule}" ; then
 		return
 	fi
 
