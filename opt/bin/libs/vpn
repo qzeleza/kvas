@@ -1994,14 +1994,17 @@ get_current_vpn_interface() {
 #
 # ------------------------------------------------------------------------------------------
 is_vpn_interface_connected() {
-	cli_inface="${1}"
-	if [ "${cli_inface}" = shadowsocks ] ; then
-		/opt/etc/init.d/S22shadowsocks status | grep -q 'alive' &> /dev/null
-		if [ $? = 0 ]; then connected="on"; else connected="off"; fi
-	else
-		if is_interface_online "${cli_inface}"; then connected="on"; else connected="off"; fi
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не передан обязательный параметр — Keenetic-имя"
+		return
 	fi
-	echo "${connected}"
+	local keenetic_name="${1}"
+
+	if is_interface_online "${keenetic_name}"; then 
+		echo 'on'
+	else
+		echo 'off'
+	fi
 }
 # ------------------------------------------------------------------------------------------
 #
