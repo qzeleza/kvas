@@ -25,7 +25,13 @@ nets__filter_for_incoming() {
 	fi
 	local nets="${1}"
 
-	echo "${nets}"
+	local net_internet net_tunnel
+	# шлюз в интернет нельзя квасить
+	net_internet=$(get_external_interface)
+	# защищённый тоннель нельзя квасить
+	net_tunnel=$(get_config_value 'INFACE_ENT')
+
+	echo "${nets}" | grep -v "^${net_internet}" | grep -v "^${net_tunnel}"
 }
 
 # ------------------------------------------------------------------------------------------
