@@ -9,12 +9,18 @@ nets__set_known_ips() {
 		return
 	fi
 
-		IPS_KNOWN=$(curl -s 127.0.0.1:79/rci/show/ip/dhcp/bindings | jq -r '.lease[] | "\(.ip) \(.name)"' | sort)
+	IPS_KNOWN=$(curl -s 127.0.0.1:79/rci/show/ip/dhcp/bindings | jq -r '.lease[] | "\(.ip) \(.name)"' | sort)
 
 	# чтобы не сканировало повторно, если ничего не найдено
 	if [ -z "${IPS_KNOWN}" ]; then
 		IPS_KNOWN=$'\n'
 	fi
+}
+
+nets__get_for_incoming() {
+	nets__set_incoming
+	nets__set_common
+	echo "${NETS_INCOMING}${NETS_COMMON}"
 }
 
 # ------------------------------------------------------------------------------------------
@@ -265,6 +271,12 @@ cmd_route() {
 
 	# если вызывается как один из дебагов, то можно передать silent/short
 	if [ -z "${1}" ] ; then
+		output=$(nets__get_for_incoming)
+		if [ -z "${output}" ] ; then
+			output='Произошла ошибка при поиске, сообщите об этом https://t.me/kvas_pro'
+		fi
+		echo_debug 'Найденные сети' "${output}"
+
 		nets__set_known_ips
 		if [ -z "${IPS_KNOWN}" ] ; then
 			output=$(printf '%s\n' \

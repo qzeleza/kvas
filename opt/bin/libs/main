@@ -477,6 +477,79 @@ is_inside_tunnel(){
 	eval "! ${grep_cmd}"
 }
 
+NETS_COMMON=''
+nets__set_common() {
+	if [ -n "${NETS_COMMON}" ]; then
+		return
+	fi
+
+	local api_info net_info
+	api_info=$(curl -s '127.0.0.1:79/rci/show/interface' \
+	  | jq -r 'values[] | select(.address!=null) | "\(.address)|\(.description)|\(.id)" // empty')
+	net_info=$(/opt/sbin/ip -f inet addr | grep -F 'inet' | grep -vF '127.0.0.1' | grep -vF '78.47.125.180' \
+	  | sed -n 's/.*inet \([0-9\.]\+\).* scope global \([^\s]\+\)/\2|\1/p')
+
+	local line finded
+	IFS=$'\n'
+	for line in $net_info; do
+		#ToDo: если начало tun, то добавлять кастом, который поддерживается ndm, не клеить к нему API-ответ
+
+		finded=$(echo "${line}" | cut -d'|' -f2)
+		finded=$(echo "${api_info}" | grep "^${finded}" | head -n 1 | cut -d'|' -f2-3)
+		if [ -z "${finded}" ]; then
+			log_warning "Сеть ${line} не найдена в API. Для поддержки можете сообщить об этом https://t.me/kvas_pro"
+			continue
+		fi
+
+		NETS_COMMON="${NETS_COMMON}${line}|${finded}"$'\n'
+	done
+
+	# чтобы не сканировало повторно, если ничего не найдено
+	if [ -z "${NETS_COMMON}" ]; then
+		NETS_COMMON=$'\n'
+	fi
+}
+
+NETS_TUNNEL='ezcfg|127.0.0.1|ShadowSocks|shadowsocks'
+
+# замена Singleton, чтобы скан был лишь при первом вызове
+NETS_INCOMING=''
+nets__set_incoming() {
+	if [ -n "${NETS_INCOMING}" ]; then
+		return
+	fi
+	local api_info
+
+	# IPsec в crypto
+	api_info=$(curl -s '127.0.0.1:79/rci/crypto/virtual-ip-server-ikev2')
+	if [ -n "${api_info}" ] ; then
+		NETS_INCOMING="${NETS_INCOMING}"'xfrms+|'$(echo "${api_info}" \
+		  | jq -r '."pool-start" // empty')'|VPN-сервер IKEv2/IPsec|crypto/virtual-ip-server-ikev2'$'\n'
+	fi
+	api_info=$(curl -s '127.0.0.1:79/rci/crypto/l2tp-server')
+	if [ -n "${api_info}" ] ; then
+		NETS_INCOMING="${NETS_INCOMING}"'l2tp+|'$(echo "${api_info}" \
+		  | jq -r '."pool-start" // empty')'|VPN-сервер L2TP/IPsec|crypto/l2tp-server'$'\n'
+	fi
+
+	# остальные в глобальном
+	api_info=$(curl -s '127.0.0.1:79/rci/oc-server')
+	if [ -n "${api_info}" ] ; then
+		NETS_INCOMING="${NETS_INCOMING}"'oc+|'$(echo "${api_info}" \
+		  | jq -r '.config."pool-start" // empty')'|VPN-сервер OpenConnect|oc-server'$'\n'
+	fi
+	api_info=$(curl -s '127.0.0.1:79/rci/sstp-server')
+	if [ -n "${api_info}" ] ; then
+		NETS_INCOMING="${NETS_INCOMING}"'sstp+|'$(echo "${api_info}" \
+		  | jq -r '.config."pool-start" // empty')'|VPN-сервер SSTP|sstp-server'$'\n'
+	fi
+
+	# чтобы не сканировало повторно, если ничего не найдено
+	if [ -z "${NETS_INCOMING}" ]; then
+		NETS_INCOMING=$'\n'
+	fi
+}
+
 # любой из видов proxy: хоть ShadowSocks, хоть VLESS
 is_proxy_enabled() {
 	[ -f '/opt/etc/ndm/netfilter.d/100-proxy-redirect' ]
