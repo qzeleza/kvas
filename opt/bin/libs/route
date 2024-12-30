@@ -116,11 +116,12 @@ cmd_tunnel() {
 	fi
 	ready 'Keenetic-имя' && when_ok "${output}"
 
-	output=$(get_external_interface)
-	if [ -z "${output}" ]; then
-		output='Не найден!'
+	local internet_net_name
+	internet_net_name=$(get_external_interface)
+	if [ -z "${internet_net_name}" ]; then
+		internet_net_name='Не найден!'
 	fi
-	ready 'Сетевой интерфейс' && when_ok "${output}"
+	ready 'Сетевой интерфейс' && when_ok "${internet_net_name}"
 
 	output=$(echo "${cache}" | jq -r '.internet // empty')
 	if [ "${output}" == 'true' ]; then
@@ -195,10 +196,13 @@ cmd_tunnel() {
 
 	echo
 	print_line
-	echo 'Доступные для туннеля сети:'
+	echo 'Доступные для тоннеля сети:'
 	print_line
 	nets__set_common
+	# исключая шлюз в интернет и бриджи
 	echo "${NETS_TUNNEL}${NETS_COMMON}" \
+	  | grep -v "^br" \
+	  | grep -v "^${internet_net_name}" \
 	  | tr '|' ' ' | xargs -n4 printf '%-10s | %-15s | %-30s | %s\n'
 
 	echo
