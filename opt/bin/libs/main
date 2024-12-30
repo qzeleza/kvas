@@ -487,7 +487,7 @@ nets__set_common() {
 	api_info=$(curl -s '127.0.0.1:79/rci/show/interface' \
 	  | jq -r 'values[] | select(.address!=null) | "\(.address)|\(.id)|\"\(.description)\"" // empty')
 	net_info=$(/opt/sbin/ip -f inet addr | grep -F 'inet' | grep -vF '127.0.0.1' | grep -vF '78.47.125.180' \
-	  | sed -n 's/.*inet \([0-9\.]\+\).* scope global \([^\s]\+\)/\2|\1/p')
+	  | sed -n 's/.*inet \([0-9\.]\+\).* scope global \([^ ]\+\)/\2|\1/p')
 
 	local line finded
 	IFS=$'\n'
@@ -511,7 +511,7 @@ nets__set_common() {
 	fi
 }
 
-NETS_TUNNEL='ezcfg0|127.0.0.1|shadowsocks|"ShadowSocks"'$'\n'
+NETS_TUNNEL='lo|127.0.0.1|shadowsocks|"ShadowSocks"'$'\n'
 
 # замена Singleton, чтобы скан был лишь при первом вызове
 NETS_INCOMING=''
