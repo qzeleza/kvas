@@ -11,6 +11,7 @@ nets__set_known_ips() {
 
 	IPS_KNOWN=$(curl -s 127.0.0.1:79/rci/show/ip/dhcp/bindings | jq -r '.lease[] | "\(.ip) \(.name)"' | sort)
 
+	log_warning 'Сбор зарегистрированных IP завершён'
 	# чтобы не сканировало повторно, если ничего не найдено
 	if [ -z "${IPS_KNOWN}" ]; then
 		IPS_KNOWN=$'\n'
@@ -230,12 +231,17 @@ route__text_from_nets() {
 		error "[${FUNCNAME}] Не передан обязательный параметр — список сетевых интерфейсов"
 		return
 	fi
-	local net_interfaces="${1// /'\n'}"
+	local net_interfaces="${1// /$'\n'}"
 
-	local net_interface
+	local net_interface find
 	IFS=$'\n'
 	for net_interface in ${net_interfaces}; do
-		echo "${net_interface}"
+		find=$( nets__get "${net_interface}" )
+		if [ -n "${find}" ] ; then
+			echo "${find}"
+		else
+			echo "${net_interface}"
+		fi
 	done
 }
 
@@ -266,7 +272,11 @@ cmd_route() {
 	echo_debug 'IP с перехватом DNS, трафик которых идёт в тоннель согласно списку:' "${output}"
 
 	output="br0 $(get_guest_inface_list_from_config)"
-	echo_debug 'Сети с перехватом DNS, трафик которых идёт в тоннель согласно списку:' $(route__text_from_nets "${output}")
+	print_line
+	echo 'Сети с перехватом DNS, трафик которых идёт в тоннель согласно списку:'
+	print_line
+	route__text_from_nets "${output}"
+	echo
 
 	output=$(get_config_value 'route_excluded_ip')
 	if [ -n "${output}" ] ; then
