@@ -189,9 +189,18 @@ cmd_tunnel() {
 
 	echo
 	print_line
-	echo 'Известные сети:'
+	echo 'Полученные сканированием сети:'
 	print_line
 	cat < "${INFACE_NAMES_FILE}"
+
+	echo
+	print_line
+	echo 'Доступные для туннеля сети:'
+	print_line
+	nets__set_common
+	echo "${NETS_TUNNEL}${NETS_COMMON}" \
+	  | tr '|' ' ' | xargs -n4 printf '%-10s | %-15s | %-30s | %s\n'
+
 	echo
 }
 
