@@ -569,12 +569,11 @@ nets__get() {
 	local find_interface
 
 	find_interface=$(echo "${nets_dictionary}" | grep -F "${find_string}" | head -n 1)
-	if [ -n "${find_interface}" ]; then
-		echo "${find_interface}"
+	if [ -z "${find_interface}" ]; then
 		return
 	fi
 
-	echo ''
+	echo "${find_interface}"
 }
 
 # любой из видов proxy: хоть ShadowSocks, хоть VLESS
