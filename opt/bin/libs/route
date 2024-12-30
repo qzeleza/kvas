@@ -2,13 +2,19 @@
 
 . /opt/apps/kvas/bin/libs/main
 
+# замена Singleton, чтобы скан был лишь при первом вызове
 IPS_KNOWN=''
-get_ips_known() {
-	# функциональная замена Singleton
-	if [ -z "${IPS_KNOWN}" ] ; then
-		IPS_KNOWN=$(curl -s 127.0.0.1:79/rci/show/ip/dhcp/bindings | jq -r '.lease[] | "\(.ip) \(.name)"' | sort)
+nets__set_known_ips() {
+	if [ -n "${IPS_KNOWN}" ]; then
+		return
 	fi
-	echo "${IPS_KNOWN}"
+
+		IPS_KNOWN=$(curl -s 127.0.0.1:79/rci/show/ip/dhcp/bindings | jq -r '.lease[] | "\(.ip) \(.name)"' | sort)
+
+	# чтобы не сканировало повторно, если ничего не найдено
+	if [ -z "${IPS_KNOWN}" ]; then
+		IPS_KNOWN=$'\n'
+	fi
 }
 
 # ------------------------------------------------------------------------------------------
@@ -201,8 +207,9 @@ route__text_from_ips() {
 	fi
 
 	local find
+	nets__set_known_ips
 	for ip_or_range in ${1//+/ } ; do
-		find=$( echo "$(get_ips_known)" | grep -F -- "${ip_or_range} " )
+		find=$( echo "$(IPS_KNOWN)" | grep -F -- "${ip_or_range} " )
 		if [ -n "${find}" ] ; then
 			echo "${find}"
 		else
@@ -258,14 +265,14 @@ cmd_route() {
 
 	# если вызывается как один из дебагов, то можно передать silent/short
 	if [ -z "${1}" ] ; then
-		output=$(get_ips_known)
-		if [ -z "${output}" ] ; then
+		nets__set_known_ips
+		if [ -z "${IPS_KNOWN}" ] ; then
 			output=$(printf '%s\n' \
 				'Отсутствуют. В админке роутера закрепите постоянный IP-адрес за любым устройством,' \
 				'чтобы использовать его здесь.' \
 			)
 		else
-			output=$(echo "${output}" | xargs -n2 printf '%-15s | %s\n')
+			output=$(echo "${IPS_KNOWN}" | xargs -n2 printf '%-15s | %s\n')
 		fi
 		echo_debug 'Зарегистрированные клиенты c постоянным IP-адресом' "${output}"
 	fi
