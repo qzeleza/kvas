@@ -271,10 +271,10 @@ route__text_from_nets() {
 		error "[${FUNCNAME}] Не передан обязательный параметр — список сетевых интерфейсов"
 		return
 	fi
-	local net_interfaces="${1// /$'\n'}"
+	local net_interfaces="${1}"
 
 	local net_interface find
-	IFS=$'\n'
+	IFS=' '
 	for net_interface in ${net_interfaces}; do
 		#find=$( nets__get "${net_interface}" )
 		#if [ -n "${find}" ] ; then
