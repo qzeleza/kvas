@@ -9,7 +9,7 @@ nets__set_known_ips() {
 		return
 	fi
 
-	IPS_KNOWN=$(curl -s 127.0.0.1:79/rci/show/ip/dhcp/bindings | jq -r '.lease[] | "\(.ip) \(.name)"' | sort)
+	IPS_KNOWN=$(curl -s 127.0.0.1:79/rci/show/ip/dhcp/bindings | jq -r '.lease[] | "\(.ip) \"\(.name)\""' | sort)
 
 	log_warning 'Сбор зарегистрированных IP завершён'
 	# чтобы не сканировало повторно, если ничего не найдено
