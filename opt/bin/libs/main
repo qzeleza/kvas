@@ -552,6 +552,33 @@ nets__set_incoming() {
 	fi
 }
 
+nets__get_param_by_fields() {
+	if [ -z "${1}" ] ; then
+		echo '\1|\2|\3|\4'
+		return
+	fi
+	local fields_name="${1}"
+
+	local field_name field_num
+	local params=''
+	IFS=' '
+	for field_name in $fields_name; do
+		case "${field_name}" in
+			net | linux)         field_num=1 ;;
+			ip)                  field_num=2 ;;
+			api | keenetic)      field_num=3 ;;
+			title | description) field_num=4 ;;
+			*)
+				error "[${FUNCNAME}] Передано неизвестное имя поля ${field_name}"
+				return
+			;;
+		esac
+
+		params="${params}\\${field_num}|"
+	done
+	echo "${params:0:-1}"
+}
+
 nets__get() {
 	# для работы в отдельном контексте передаём его, а не берём из глобальной
 	if [ -z "${1}" ] ; then
@@ -573,7 +600,19 @@ nets__get() {
 		return
 	fi
 
-	echo "${find_interface}"
+	if [ -z "${3}" ] ; then
+		echo "${find_interface}"
+		return
+	fi
+
+	local param_replace="${3}"
+	param_replace=$(nets__get_param_by_fields "${param_replace}")
+	if [ -z "${param_replace}" ] ; then
+		return
+	fi
+
+	local param_field='\([^|]*\)'
+	echo "${find_interface}" | sed -n "s/${param_field}|${param_field}|${param_field}|${param_field}/${param_replace}/p"
 }
 
 # любой из видов proxy: хоть ShadowSocks, хоть VLESS

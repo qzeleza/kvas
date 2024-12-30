@@ -284,9 +284,11 @@ route__show_block_net() {
 	local content=''
 	IFS=' '
 	for net_interface in ${net_interfaces} ; do
-		find=$( nets__get "${nets_dictionary}" "${net_interface}" )
+		find=$( nets__get "${nets_dictionary}" "${net_interface}" 'ip title' )
 		if [ -z "${find}" ] ; then
 			find="${net_interface}"
+		else
+			find=$( echo "${find}" | tr '|' ' ' | xargs -n2 printf '%-15s | %s\n' )
 		fi
 
 		content="${content}"$'\n'"${find}"
