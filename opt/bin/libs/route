@@ -214,6 +214,7 @@ route__text_from_ips() {
 
 	local find
 	nets__set_known_ips
+	IFS=' '
 	for ip_or_range in ${1//+/ } ; do
 		find=$( echo "$(IPS_KNOWN)" | grep -F -- "${ip_or_range} " )
 		if [ -n "${find}" ] ; then
@@ -226,10 +227,16 @@ route__text_from_ips() {
 
 route__text_from_nets() {
 	if [ -z "${1}" ] ; then
-		error "[${FUNCNAME}] Не передан обязательный параметр — строка"
+		error "[${FUNCNAME}] Не передан обязательный параметр — список сетевых интерфейсов"
 		return
 	fi
-	echo "${1// /'\n'}"
+	local net_interfaces="${1// /'\n'}"
+
+	local net_interface
+	IFS=$'\n'
+	for net_interface in ${net_interfaces}; do
+		echo "${net_interface}"
+	done
 }
 
 cmd_route() {
