@@ -200,34 +200,56 @@ cmd_route_refresh() {
 	echo 'сделано.'
 }
 
-route__text_empty() {
+route__show_block_ip() {
 	if [ -z "${1}" ] ; then
-		error "[${FUNCNAME}] Не передан обязательный параметр — строка настроек"
+		error "[${FUNCNAME}] Не передан обязательный параметр — ключ кофигурации"
 		return
 	fi
+	local ips_or_ranges
+	ips_or_ranges=$(get_config_value "${1}")
+	ips_or_ranges=${ips_or_ranges//+/ }
 
-	echo "Отсутствуют. Можете указать строчку в ${KVAS_CONF_FILE}"
-	echo "${1}"
-	echo 'и вызвать после этого kvas route refresh'
-}
-
-route__text_from_ips() {
-	if [ -z "${1}" ] ; then
-		error "[${FUNCNAME}] Не передан обязательный параметр — строка"
-		return
+	if [ -n "${2}" ] ; then
+		local title="${2}"
+	else
+		local title='IP:'
 	fi
 
-	local find
+	local empty_example="${3}"
+
 	nets__set_known_ips
+	local ip_or_range find
+	local output=''
 	IFS=' '
-	for ip_or_range in ${1//+/ } ; do
-		find=$( echo "$(IPS_KNOWN)" | grep -F -- "${ip_or_range} " )
-		if [ -n "${find}" ] ; then
-			echo "${find}"
-		else
-			echo "${ip_or_range}"
+	for ip_or_range in ${ips_or_ranges} ; do
+		find=$( echo "${IPS_KNOWN}" | grep -F -- "${ip_or_range} " )
+		if [ -z "${find}" ] ; then
+			find="${ip_or_range}"
 		fi
+
+		output="${output}"$'\n'"${find}"
 	done
+
+	if [ -n "${output}" ] ; then
+		output="${output:1}"
+	else
+		if [ -z "${empty_example}" ] ; then
+			# значит мы в кратком режиме, блок не выводим
+			return
+		fi
+
+		output=$(printf '%s\n' \
+			"Отсутствуют. Можете указать строчку в ${KVAS_CONF_FILE}" \
+			"${empty_example}" \
+			'и вызвать после этого kvas route refresh' \
+		)
+	fi
+
+	print_line
+	echo "${title}"
+	print_line
+	echo "${output}"
+	echo
 }
 
 route__text_from_nets() {
@@ -240,12 +262,12 @@ route__text_from_nets() {
 	local net_interface find
 	IFS=$'\n'
 	for net_interface in ${net_interfaces}; do
-		find=$( nets__get "${net_interface}" )
-		if [ -n "${find}" ] ; then
-			echo "${find}"
-		else
+		#find=$( nets__get "${net_interface}" )
+		#if [ -n "${find}" ] ; then
+		#	echo "${find}"
+		#else
 			echo "${net_interface}"
-		fi
+		#fi
 	done
 }
 
@@ -257,24 +279,23 @@ cmd_route() {
 		echo
 	fi
 
+	local empty_example=''
+
+	if [ -z "${1}" ] ; then
+		empty_example='route_full_ip=192.168.1.51+192.168.2.51'
+	fi
+	route__show_block_ip 'route_full_ip' \
+	  'IP, весь трафик которых идёт в тоннель:' \
+	  "${empty_example}"
+
+	if [ -z "${1}" ] ; then
+		empty_example='route_by_list_ip=192.168.2.52+192.168.2.53'
+	fi
+	route__show_block_ip 'route_by_list_ip' \
+	  'IP с перехватом DNS, трафик которых идёт в тоннель согласно списку:' \
+	  "${empty_example}"
+
 	local output
-
-	output=$(get_config_value 'route_full_ip')
-	if [ -n "${output}" ] ; then
-		output=$(route__text_from_ips "${output}")
-	elif [ -z "${1}" ] ; then
-		output=$(route__text_empty 'route_full_ip=192.168.1.51+192.168.2.51')
-	fi
-	echo_debug 'IP, весь трафик которых идёт в тоннель:' "${output}"
-
-	output=$(get_config_value 'route_by_list_ip')
-	if [ -n "${output}" ] ; then
-		output=$(route__text_from_ips "${output}")
-	elif [ -z "${1}" ] ; then
-		output=$(route__text_empty 'route_by_list_ip=192.168.2.52+192.168.2.53')
-	fi
-	echo_debug 'IP с перехватом DNS, трафик которых идёт в тоннель согласно списку:' "${output}"
-
 	output="br0 $(get_guest_inface_list_from_config)"
 	print_line
 	echo 'Сети с перехватом DNS, трафик которых идёт в тоннель согласно списку:'
@@ -282,13 +303,12 @@ cmd_route() {
 	route__text_from_nets "${output}"
 	echo
 
-	output=$(get_config_value 'route_excluded_ip')
-	if [ -n "${output}" ] ; then
-		output=$(route__text_from_ips "${output}")
-	elif [ -z "${1}" ] ; then
-		output=$(route__text_empty 'route_excluded_ip=192.168.1.52+192.168.1.53')
+	if [ -z "${1}" ] ; then
+		empty_example='route_excluded_ip=192.168.1.52+192.168.1.53'
 	fi
-	echo_debug 'IP, исключённые из перехвата DNS и трафика:' "${output}"
+	route__show_block_ip 'route_excluded_ip' \
+	  'IP, исключённые из перехвата DNS и трафика:' \
+	  "${empty_example}"
 
 	# если вызывается как один из дебагов, то можно передать silent/short
 	if [ -z "${1}" ] ; then
