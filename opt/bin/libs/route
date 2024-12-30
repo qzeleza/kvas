@@ -200,6 +200,39 @@ cmd_route_refresh() {
 	echo 'сделано.'
 }
 
+route__show_block() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не передан обязательный параметр — заголовок"
+		return
+	fi
+	local title="${1}"
+
+	local content="${2}"
+	local empty_example="${3}"
+
+	if [ -n "${content}" ] ; then
+		content="${content:1}"
+	else
+		if [ -z "${empty_example}" ] ; then
+			# значит мы в кратком режиме, блок не выводим
+			return
+		fi
+
+		#ToDo: сделать команды
+		content=$(printf '%s\n' \
+			"Отсутствуют. Можете указать строчку в ${KVAS_CONF_FILE}" \
+			"${empty_example}" \
+			'и вызвать после этого kvas route refresh' \
+		)
+	fi
+
+	print_line
+	echo "${title}"
+	print_line
+	echo "${content}"
+	echo
+}
+
 route__show_block_ip() {
 	if [ -z "${1}" ] ; then
 		error "[${FUNCNAME}] Не передан обязательный параметр — ключ кофигурации"
@@ -219,7 +252,7 @@ route__show_block_ip() {
 
 	nets__set_known_ips
 	local ip_or_range find
-	local output=''
+	local content=''
 	IFS=' '
 	for ip_or_range in ${ips_or_ranges} ; do
 		find=$( echo "${IPS_KNOWN}" | grep -F -- "${ip_or_range} " )
@@ -227,29 +260,10 @@ route__show_block_ip() {
 			find="${ip_or_range}"
 		fi
 
-		output="${output}"$'\n'"${find}"
+		content="${content}"$'\n'"${find}"
 	done
 
-	if [ -n "${output}" ] ; then
-		output="${output:1}"
-	else
-		if [ -z "${empty_example}" ] ; then
-			# значит мы в кратком режиме, блок не выводим
-			return
-		fi
-
-		output=$(printf '%s\n' \
-			"Отсутствуют. Можете указать строчку в ${KVAS_CONF_FILE}" \
-			"${empty_example}" \
-			'и вызвать после этого kvas route refresh' \
-		)
-	fi
-
-	print_line
-	echo "${title}"
-	print_line
-	echo "${output}"
-	echo
+	route__show_block "${title}" "${content}" "${empty_example}"
 }
 
 route__text_from_nets() {
