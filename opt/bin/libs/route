@@ -18,10 +18,14 @@ nets__set_known_ips() {
 	fi
 }
 
-nets__get_for_incoming() {
-	nets__set_incoming
-	nets__set_common
-	echo "${NETS_INCOMING}${NETS_COMMON}"
+nets__filter_for_incoming() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — список"
+		return
+	fi
+	local nets="${1}"
+
+	echo "${nets}"
 }
 
 # ------------------------------------------------------------------------------------------
@@ -288,7 +292,9 @@ cmd_route() {
 
 	# если вызывается как один из дебагов, то можно передать silent/short
 	if [ -z "${1}" ] ; then
-		output=$(nets__get_for_incoming)
+		nets__set_incoming
+		nets__set_common
+		output=$(nets__filter_for_incoming "${NETS_INCOMING}${NETS_COMMON}")
 		if [ -z "${output}" ] ; then
 			output='Произошла ошибка при поиске, сообщите об этом https://t.me/kvas_pro'
 		else
