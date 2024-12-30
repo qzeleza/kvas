@@ -274,6 +274,8 @@ cmd_route() {
 		output=$(nets__get_for_incoming)
 		if [ -z "${output}" ] ; then
 			output='Произошла ошибка при поиске, сообщите об этом https://t.me/kvas_pro'
+		else
+			output=$(echo "${output}" | tr '|' ' ' | xargs -n4 printf '%-10s | %-15s | %-30s | %s\n')
 		fi
 		echo_debug 'Найденные сети' "${output}"
 

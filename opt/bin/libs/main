@@ -485,7 +485,7 @@ nets__set_common() {
 
 	local api_info net_info
 	api_info=$(curl -s '127.0.0.1:79/rci/show/interface' \
-	  | jq -r 'values[] | select(.address!=null) | "\(.address)|\(.description)|\(.id)" // empty')
+	  | jq -r 'values[] | select(.address!=null) | "\(.address)|\"\(.description)\"|\(.id)" // empty')
 	net_info=$(/opt/sbin/ip -f inet addr | grep -F 'inet' | grep -vF '127.0.0.1' | grep -vF '78.47.125.180' \
 	  | sed -n 's/.*inet \([0-9\.]\+\).* scope global \([^\s]\+\)/\2|\1/p')
 
@@ -524,24 +524,24 @@ nets__set_incoming() {
 	api_info=$(curl -s '127.0.0.1:79/rci/crypto/virtual-ip-server-ikev2')
 	if [ -n "${api_info}" ] ; then
 		NETS_INCOMING="${NETS_INCOMING}"'xfrms+|'$(echo "${api_info}" \
-		  | jq -r '."pool-start" // empty')'|VPN-сервер IKEv2/IPsec|crypto/virtual-ip-server-ikev2'$'\n'
+		  | jq -r '."pool-start" // empty')'|"VPN-сервер IKEv2/IPsec"|crypto/virtual-ip-server-ikev2'$'\n'
 	fi
 	api_info=$(curl -s '127.0.0.1:79/rci/crypto/l2tp-server')
 	if [ -n "${api_info}" ] ; then
 		NETS_INCOMING="${NETS_INCOMING}"'l2tp+|'$(echo "${api_info}" \
-		  | jq -r '."pool-start" // empty')'|VPN-сервер L2TP/IPsec|crypto/l2tp-server'$'\n'
+		  | jq -r '."pool-start" // empty')'|"VPN-сервер L2TP/IPsec"|crypto/l2tp-server'$'\n'
 	fi
 
 	# остальные в глобальном
 	api_info=$(curl -s '127.0.0.1:79/rci/oc-server')
 	if [ -n "${api_info}" ] ; then
 		NETS_INCOMING="${NETS_INCOMING}"'oc+|'$(echo "${api_info}" \
-		  | jq -r '.config."pool-start" // empty')'|VPN-сервер OpenConnect|oc-server'$'\n'
+		  | jq -r '.config."pool-start" // empty')'|"VPN-сервер OpenConnect"|oc-server'$'\n'
 	fi
 	api_info=$(curl -s '127.0.0.1:79/rci/sstp-server')
 	if [ -n "${api_info}" ] ; then
 		NETS_INCOMING="${NETS_INCOMING}"'sstp+|'$(echo "${api_info}" \
-		  | jq -r '.config."pool-start" // empty')'|VPN-сервер SSTP|sstp-server'$'\n'
+		  | jq -r '.config."pool-start" // empty')'|"VPN-сервер SSTP"|sstp-server'$'\n'
 	fi
 
 	# чтобы не сканировало повторно, если ничего не найдено
