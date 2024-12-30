@@ -553,29 +553,22 @@ nets__set_incoming() {
 }
 
 nets__get() {
+	# для работы в отдельном контексте передаём его, а не берём из глобальной
 	if [ -z "${1}" ] ; then
-		error "[${FUNCNAME}] Не задан обязательный аргумент, по которому ищется сетевой интерфейс"
+		error "[${FUNCNAME}] Не передан обязательный параметр — список сетей"
 		return
 	fi
-	local find_string="${1}"
+	local nets_dictionary="${1}"
+
+	if [ -z "${2}" ] ; then
+		error "[${FUNCNAME}] Не передан обязательный аргумент, по которому ищется сетевой интерфейс"
+		return
+	fi
+	local find_string="${2}"
 
 	local find_interface
 
-	find_interface=$(echo "${NETS_TUNNEL}" | grep -F "${find_string}" | head -n 1)
-	if [ -n "${find_interface}" ]; then
-		echo "${find_interface}"
-		return
-	fi
-
-	nets__set_common
-	find_interface=$(echo "${NETS_COMMON}" | grep -F "${find_string}" | head -n 1)
-	if [ -n "${find_interface}" ]; then
-		echo "${find_interface}"
-		return
-	fi
-
-	nets__set_incoming
-	find_interface=$(echo "${NETS_INCOMING}" | grep -F "${find_string}" | head -n 1)
+	find_interface=$(echo "${nets_dictionary}" | grep -F "${find_string}" | head -n 1)
 	if [ -n "${find_interface}" ]; then
 		echo "${find_interface}"
 		return

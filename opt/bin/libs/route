@@ -276,16 +276,18 @@ route__show_block_net() {
 	fi
 	local empty_example="${3}"
 
-	#nets__set_incoming
-	#nets__set_common
+	nets__set_incoming
+	nets__set_common
+	local nets_dictionary="${NETS_INCOMING}${NETS_COMMON}"
+
 	local net_interface find
 	local content=''
 	IFS=' '
 	for net_interface in ${net_interfaces} ; do
-		#find=$( nets__get "${net_interface}" )
-		#if [ -z "${find}" ] ; then
+		find=$( nets__get "${nets_dictionary}" "${net_interface}" )
+		if [ -z "${find}" ] ; then
 			find="${net_interface}"
-		#fi
+		fi
 
 		content="${content}"$'\n'"${find}"
 	done
