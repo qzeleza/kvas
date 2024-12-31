@@ -450,6 +450,8 @@ clear_previous_version_net_rules() {
 	#ToDo: через iptables__delete_rules "${table}" "уникальный кусок правила"
 	# вычистить всё из доцепочечных времён
 
+	#ToDo: найти почему вываливаются с ошибкой
+
 	#24-12-15 b3dec7293bb8e3de59cce200b4e8dc8d4b9f3dac
 	ip4__ipset__destroy 'KVAS_DESTINATION_EXCLUDED'
 	#24-11-26 5efb5035c33fffb18c5d17cd7c56e453b0b64ac8
@@ -475,11 +477,11 @@ cmd_install(){
 	# Пишем сообщение в лог роутера о начале установки пакета
 	log_alert "УСТАНОВКА ПАКЕТА КВАС" "${LOG_HEADER}"
 
-	ready "Удаляем файлы предыдущей версии пакета Квас" 
-	rm_previous_version_files  && when_ok || when_bad
+	ready 'Удаляем файлы предыдущей версии пакета Квас'
+	rm_previous_version_files && when_ok || when_bad
 
 	echo 'Очищаем сетевые правила предыдущей версии Квас'
-	clear_previous_version_net_rules &>/dev/null
+	clear_previous_version_net_rules
 
 	# стартуем ipset'ы, используемые DNS-серверами
 	# до старта самих DNS-серверов
