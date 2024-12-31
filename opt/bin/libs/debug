@@ -439,6 +439,38 @@ cmd_debug_dnsmasq() {
 	echo_debug 'DNSCrypt слушает:' "$(get_netstat 'dnscrypt')"
 }
 
+get_dhcpv6_status() {
+	local api_ipv6
+	api_ipv6=$(curl -s '127.0.0.1:79/rci/ipv6' | jq -c '.')
+
+	if [ "${api_ipv6}" == '{}' ]; then
+		# Сегменты IPv6 удалены, но не факт, что IPv6 DNS отключен
+		# no ipv6 subnet Default
+		echo 'no_subnet'
+		return
+	fi
+	
+	if ! echo "${api_ipv6}" | grep -qF '"Default":'; then
+		# Сегмент IPv6 Default удалён, но не факт, что IPv6 DNS отключен
+		echo 'no_default'
+		return
+	fi
+
+	if echo "${api_ipv6}" | grep -qF '"dhcp":true'; then
+		# DHCPv6 включен
+		echo 'dhcp'
+		return
+	fi
+
+	if echo "${api_ipv6}" | grep -qF '"bind":'; then
+		# Сегмент IPv6 привязан
+		echo 'bind'
+		return
+	fi
+
+	echo 'disabled'
+}
+
 cmd_debug_dns() {
 	if has_adguard_enable ; then
 		cmd_debug_adguard
@@ -446,7 +478,11 @@ cmd_debug_dns() {
 		cmd_debug_dnsmasq
 	fi
 
-	ready 'NDNProxy версия' && when_ok "$(ndnproxy 2>&1 | grep -Eo 'ndnproxy [0-9\.]+' | head -n 1 | cut -d ' ' -f2)"
+	local dhcpv6_status
+	dhcpv6_status=$(get_dhcpv6_status)
+
+	ready 'DHCPv6' && when_ok "${dhcpv6_status}"
+	ready 'NDNProxy версия' && when_ok "$(ndnproxy 2>&1 | grep -Eo 'ndnproxy [0-9\.]+' | head -n 1 | cut -d' ' -f2)"
 
 	# если вызывается как один из дебагов, то можно передать silent/short
 	if [ -n "${1}" ] ; then
@@ -460,6 +496,18 @@ cmd_debug_dns() {
 		)
 	fi
 	echo_debug 'Комплектный DNS роутера (базово) слушает:' "$(get_netstat 'ndnproxy' "${output}")"
+
+	if [ "${dhcpv6_status}" == 'dhcp' ] || [ "${dhcpv6_status}" == 'bind' ] ; then
+		printf '%s\n' \
+			'Вероятно, часть DNS-трафика проходит через IPv6 адрес.' \
+			'Для отключения DHCPv6:' \
+			' ipv6 subnet Default' \
+			' no mode' \
+			' no bind' \
+			' system configuration save' \
+			' reboot'
+		echo
+	fi
 }
 
 cmd_ipset_flush() {
@@ -802,7 +850,6 @@ syslog__get_command() {
 		# мешает пустая строка с неизвестным символом
 		command="${command} | grep -F ' '"
 	fi
-
 	if [ -n "${2}" ] ; then
 		command="${command} | grep -"
 
