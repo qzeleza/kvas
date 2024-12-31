@@ -102,13 +102,19 @@ ip4_up_net_default(){
 #}
 
 cmd_tunnel() {
-	local output cache
+	local output cache internet_net_name
+	nets__set_common
+	local nets_dictionary="${NETS_TUNNEL}${NETS_COMMON}"
 
 
 	echo 'Интернет шлюз:'
 	print_line
 
 	cache=$(curl -s '127.0.0.1:79/rci/show/internet/status')
+	internet_net_name=$(get_external_interface)
+
+	output=$( nets__get "${nets_dictionary}" "${internet_net_name}" 'title' | xargs )
+	ready 'Название' && when_ok "${output}"
 
 	output=$(echo "${cache}" | jq -r '.gateway.interface // empty')
 	if [ -z "${output}" ]; then
@@ -116,12 +122,11 @@ cmd_tunnel() {
 	fi
 	ready 'Keenetic-имя' && when_ok "${output}"
 
-	local internet_net_name
-	internet_net_name=$(get_external_interface)
-	if [ -z "${internet_net_name}" ]; then
-		internet_net_name='Не найден!'
+	output="${internet_net_name}"
+	if [ -z "${output}" ]; then
+		output='Не найден!'
 	fi
-	ready 'Сетевой интерфейс' && when_ok "${internet_net_name}"
+	ready 'Сетевой интерфейс' && when_ok "${output}"
 
 	output=$(echo "${cache}" | jq -r '.internet // empty')
 	if [ "${output}" == 'true' ]; then
@@ -155,6 +160,9 @@ cmd_tunnel() {
 		echo 'Не найдено Keenetic-имя.'
 		echo 'Настройте тоннель заново kvas tunnel set'
 	else
+		output=$( nets__get "${nets_dictionary}" "${tunnel_net_name}" 'title' | xargs )
+		ready 'Название'          && when_ok "${output}"
+
 		ready 'Keenetic-имя'      && when_ok "${tunnel_keenetic_name}"
 		ready 'Сетевой интерфейс' && when_ok "${tunnel_net_name}"
 
