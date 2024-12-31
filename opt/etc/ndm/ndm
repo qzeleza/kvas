@@ -449,7 +449,7 @@ ip4__chain__delete_jump() {
 #
 # ------------------------------------------------------------------------------------------
 
-ip4__proxy__create_chain() {
+ip4__dnat_to_port__create_chain() {
 	if [ -z "${1}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — таблица"
 		return
@@ -484,19 +484,13 @@ ip4__proxy__create_chain() {
 }
 
 ip4__shadowsocks__create_chain() {
+	#local local_port=$(get_from_json "${VLESS_CONFIG_FILE}" 'port' 'inbounds')
 	local local_port=$(get_config_value SSR_DNS_PORT)
 
-	ip4__proxy__create_chain "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${local_port}"
+	ip4__dnat_to_port__create_chain "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${local_port}"
 }
 
-ip4__vless__create_chain() {
-	local local_port=$(get_from_json "${VLESS_CONFIG_FILE}" 'port' 'inbounds')
-
-	ip4__proxy__create_chain "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${local_port}"
-}
-
-# когда ускорение подключено
-ip4__vpn_fast__create_chain() {
+ip4__mark__create_chain() {
 	{
 		if ip4__chain__is_exist "${TABLE_MARK}" "${CHAIN_MARK}" ; then
 			return
@@ -509,23 +503,18 @@ ip4__vpn_fast__create_chain() {
 		ip4__route__add_table
 		ip4__rule__add_mark_to_table
 
+		#ToDo: fastnet_enabled -j MARK --set-mark ${MARK_NUM}
+		if fastnet_enabled ; then
 		/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -j CONNMARK --restore-mark
 		/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -m mark --mark ${MARK_NUM} -j RETURN
 		/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" --syn -j MARK --set-mark ${MARK_NUM}
 		/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM}
 		/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -j CONNMARK --save-mark
+		else
+			/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -m mark --mark ${MARK_NUM} -j RETURN
+			/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -j MARK --set-mark ${MARK_NUM}
+		fi
 	} &>/dev/null || error "[${FUNCNAME}] Возникли ошибки во время маркировки трафика для VPN при включенном ускорении"
-}
-
-# когда программное и аппаратное ускорение отключено
-ip4__vpn_nofast__set_rules() {
-	{
-		#ToDo: должны работать таблицы или переписать на цепочки
-		log_warning 'Маркировка трафика для VPN при отключенном ускорении'
-
-		# правило не переписывалось, таким и было
-		ip4tables PREROUTING -t "${TABLE_MARK}" -i "$(inface_ent)" -m set --match-set ${IPSET_TABLE_NAME} dst -j MARK --set-mark ${MARK_NUM}
-	} &>/dev/null || error "[${FUNCNAME}] Возникли ошибки во время маркировки трафика для VPN при отключенном ускорении"
 }
 
 
@@ -578,12 +567,8 @@ ip4__shadowsocks__add_routing_for_home() {
 	ip4__add_routing_for_home "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" 'ShadowSocks'
 }
 
-ip4__vless__add_routing_for_home() {
-	ip4__add_routing_for_home "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" 'VLESS'
-}
-
 # когда ускорение подключено
-ip4__vpn_fast__add_routing_for_home() {
+ip4__mark__add_routing_for_home() {
 	ip4__add_routing_for_home "${TABLE_MARK}" "${CHAIN_MARK}" 'VPN со включенным ускорением'
 }
 
@@ -777,29 +762,10 @@ ip4__add_routing_by_list_for_net() {
 	local iptables_filter
 	iptables_filter=$(iptables__get_subrule_for_net "${net_interface}")
 
-	if is_proxy_enabled ; then
+	if is_shadowsocks_enabled ; then
 		ip4__add_routing "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${iptables_filter}" "${IPSET_TABLE_NAME}"
-	elif fastnet_enabled ; then
-		ip4__add_routing "${TABLE_MARK}" "${CHAIN_MARK}" "${iptables_filter}" "${IPSET_TABLE_NAME}"
 	else
-		ip4__dns__add_routing "${iptables_filter}"
-
-		# на выходе не доступен i
-		if [ "${net_interface}" = 'ikev2' ] ; then
-			local net_pool=$(get_ikev2_net_pool)
-		else
-			local net_pool=$(get_guest_net "${net_interface}")
-		fi
-		net_interface=$(get_external_interface)
-
-		# случай основного VPN и отключенного ускорения требует дополнительной проверки
-		# но именно таким код был изначально, т.е. он точно не "ухудшится"
-		if /opt/sbin/iptables-save | grep -F 'POSTROUTING' | grep -F "${net_pool}" | grep -F "${net_interface}" | grep -Fq 'MASQUERADE' ; then
-			return
-		fi
-		log_warning "Подключение правил гостевого трафика для VPN без ускорения по критерию ${iptables_filter}"
-
-		/opt/sbin/iptables -A POSTROUTING -w -t nat -s "${net_pool}" -o "${net_interface}" -j MASQUERADE
+		ip4__add_routing "${TABLE_MARK}" "${CHAIN_MARK}" "${iptables_filter}" "${IPSET_TABLE_NAME}"
 	fi
 }
 
@@ -855,29 +821,10 @@ ip4__delete_routing_by_list_for_net() {
 
 	ip4__dns__delete_routing "${iptables_filter}"
 
-	if is_proxy_enabled ; then
+	if is_shadowsocks_enabled ; then
 		ip4__delete_routing "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${iptables_filter}" "${IPSET_TABLE_NAME}"
-	elif fastnet_enabled ; then
-		ip4__delete_routing "${TABLE_MARK}" "${CHAIN_MARK}" "${iptables_filter}" "${IPSET_TABLE_NAME}"
 	else
-		ip4__dns__delete_routing "${iptables_filter}"
-
-		# на выходе не доступен i
-		if [ "${net_interface}" = 'ikev2' ] ; then
-			local net_pool=$(get_ikev2_net_pool)
-		else
-			local net_pool=$(get_guest_net "${net_interface}")
-		fi
-		net_interface=$(get_external_interface)
-
-		# случай основного VPN и отключенного ускорения требует дополнительной проверки
-		# но именно таким код был изначально, т.е. он точно не "ухудшится"
-		if ! /opt/sbin/iptables-save | grep -F 'POSTROUTING' | grep -F "${net_pool}" | grep -F "${net_interface}" | grep -Fq 'MASQUERADE' ; then
-			return
-		fi
-		log_warning "Отключение правил гостевого трафика для VPN без ускорения по критерию ${iptables_filter}"
-
-		/opt/sbin/iptables -D POSTROUTING -t nat -s "${net_pool}" -o "${net_interface}" -j MASQUERADE
+		ip4__delete_routing "${TABLE_MARK}" "${CHAIN_MARK}" "${iptables_filter}" "${IPSET_TABLE_NAME}"
 	fi
 }
 
@@ -912,9 +859,9 @@ ip4__add_routing_for_ip_from_config() {
 			fi
 
 			ip_or_range=$(ip4__get_subrule_for_ip "${ip_or_range}")
-			if is_proxy_enabled ; then
+			if is_shadowsocks_enabled ; then
 				ip4__add_routing "${TABLE_DNAT_TO_PORT}"  "${CHAIN_DNAT_TO_PORT}"  "${ip_or_range}"
-			elif fastnet_enabled ; then
+			else
 				ip4__add_routing "${TABLE_MARK}" "${CHAIN_MARK}" "${ip_or_range}"
 			fi
 		done
@@ -930,9 +877,9 @@ ip4__add_routing_for_ip_from_config() {
 			fi
 
 			ip_or_range=$(ip4__get_subrule_for_ip "${ip_or_range}")
-			if is_proxy_enabled ; then
+			if is_shadowsocks_enabled ; then
 				ip4__add_routing "${TABLE_DNAT_TO_PORT}"  "${CHAIN_DNAT_TO_PORT}"  "${ip_or_range}" "${IPSET_TABLE_NAME}"
-			elif fastnet_enabled ; then
+			else
 				ip4__add_routing "${TABLE_MARK}" "${CHAIN_MARK}" "${ip_or_range}" "${IPSET_TABLE_NAME}"
 			fi
 		done
@@ -941,21 +888,14 @@ ip4__add_routing_for_ip_from_config() {
 
 ip4_mark_vpn_network() {
 	{
-		if fastnet_enabled ; then
-			ip4__vpn_fast__create_chain
-		else
-			ip4__vpn_nofast__set_rules
-		fi
+		ip4__mark__create_chain
 
 		# Сначала правила по IP, затем по сетям.
-		# Для отключенного ускорения первое не сделает ничего, пока 
-		# оно не будет переписано на цепочки
 		ip4__add_routing_for_ip_from_config
 		ip4__add_routing_by_list_for_net_from_config
-		if fastnet_enabled ; then
+
 			#ToDo: сделать home отключаемой
-			ip4__vpn_fast__add_routing_for_home
-		fi
+			ip4__mark__add_routing_for_home
 	} &>/dev/null
 }
 
@@ -965,17 +905,10 @@ ip4_firewall_set_all_rules() {
 
 		# Сначала правила по IP, затем по сетям
 		ip4__add_routing_for_ip_from_config &> /dev/null
+		ip4__add_routing_by_list_for_net_from_config &> /dev/null
+
 		#ToDo: сделать home отключаемой
 		ip4__shadowsocks__add_routing_for_home &> /dev/null
-		ip4__add_routing_by_list_for_net_from_config &> /dev/null
-	elif is_vless_enabled ; then
-		ip4__vless__create_chain &>/dev/null
-
-		# Сначала правила по IP, затем по сетям
-		ip4__add_routing_for_ip_from_config &> /dev/null
-		#ToDo: сделать home отключаемой
-		ip4__vless__add_routing_for_home &> /dev/null
-		ip4__add_routing_by_list_for_net_from_config &> /dev/null
 	else
 		ip4_mark_vpn_network
 	fi
@@ -1012,9 +945,9 @@ ip4__delete_routing_for_ip_from_config() {
 			fi
 
 			ip_or_range=$(ip4__get_subrule_for_ip "${ip_or_range}")
-			if is_proxy_enabled ; then
+			if is_shadowsocks_enabled ; then
 				ip4__delete_routing "${TABLE_DNAT_TO_PORT}"  "${CHAIN_DNAT_TO_PORT}"  "${ip_or_range}"
-			elif fastnet_enabled ; then
+			else
 				ip4__delete_routing "${TABLE_MARK}" "${CHAIN_MARK}" "${ip_or_range}"
 			fi
 		done
@@ -1030,9 +963,9 @@ ip4__delete_routing_for_ip_from_config() {
 			fi
 
 			ip_or_range=$(ip4__get_subrule_for_ip "${ip_or_range}")
-			if is_proxy_enabled ; then
+			if is_shadowsocks_enabled ; then
 				ip4__delete_routing "${TABLE_DNAT_TO_PORT}"  "${CHAIN_DNAT_TO_PORT}"  "${ip_or_range}" "${IPSET_TABLE_NAME}"
-			elif fastnet_enabled ; then
+			else
 				ip4__delete_routing "${TABLE_MARK}" "${CHAIN_MARK}" "${ip_or_range}" "${IPSET_TABLE_NAME}"
 			fi
 		done
@@ -1047,7 +980,6 @@ ip4_firewall_flush_vpn_rules() {
 		# оно не будет переписано на цепочки
 		ip4__delete_routing_for_ip_from_config
 
-		if fastnet_enabled ; then
 			# достаточно удалять правила для br0, но на всякий случай
 			ip4__chain__delete_jump "${TABLE_MARK}" "${CHAIN_MARK}"
 			# в бета 9 перехваты DNS не очищались, да и они универсальны меж подключениями
@@ -1058,15 +990,11 @@ ip4_firewall_flush_vpn_rules() {
 			# По идее, нижеидущее нужно вызывать лишь при установке или удалении
 			#ip4__chain__delete "${TABLE_MARK}" "${CHAIN_MARK}"
 			#ip4__chain__delete "${TABLE_DNS}" "${CHAIN_DNS}"
-		else
-			# антиправила для ip4__vpn_nofast__set_rules
-			iptables__delete_rules "${TABLE_MARK}" "-j MARK --set-mark ${MARK_NUM}"
-		fi
 	} &>/dev/null
 }
 
 # для прокси подключений: ShadowSocks, VLESS
-ip4_firewall_flush_proxy() {
+ip4_firewall_flush_dnat_to_port() {
 	{
 		ip4__delete_routing_by_list_for_net_from_config
 		ip4__delete_routing_for_ip_from_config
@@ -1086,8 +1014,8 @@ ip4_firewall_flush_proxy() {
 
 # Удаляем все маршрутизирующие правила iptables
 ip4_firewall_flush_all_rules() {
-	if is_proxy_enabled ; then
-		ip4_firewall_flush_proxy
+	if is_shadowsocks_enabled ; then
+		ip4_firewall_flush_dnat_to_port
 	else
 		ip4_firewall_flush_vpn_rules
 	fi
@@ -1120,7 +1048,7 @@ ip4__flush() {
 		ip4__chain__delete_jump "${TABLE_DNS}" "${CHAIN_DNS}"
 		ip4__chain__delete      "${TABLE_DNS}" "${CHAIN_DNS}"
 
-		# можно оптимизировать, удаляя лишь нужный с проверкой is_proxy_enabled
+		# можно оптимизировать, удаляя лишь нужный с проверкой is_shadowsocks_enabled
 		# но тогда нужно переписать код в смене интерфейса
 		ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
 		ip4__chain__delete      "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
@@ -1132,7 +1060,7 @@ ip4__flush() {
 	elif echo "${parts}" | grep -Fq ' jump ' ; then
 		ip4__chain__delete_jump "${TABLE_DNS}"          "${CHAIN_DNS}"
 
-		# можно оптимизировать, удаляя лишь нужный с проверкой is_proxy_enabled
+		# можно оптимизировать, удаляя лишь нужный с проверкой is_shadowsocks_enabled
 		# но тогда нужно переписать код в смене интерфейса
 		ip4__chain__delete_jump "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}"
 		ip4__chain__delete_jump "${TABLE_MARK}"         "${CHAIN_MARK}"
@@ -1326,7 +1254,7 @@ ip4_rule_del_priority() {
 
 # Чистим и заполняем таблицу правил iptables для vpn подключений
 cmd_vpn_iptable_reset() {
-	if is_proxy_enabled ; then
+	if is_shadowsocks_enabled ; then
 		warning 'VPN соединение не активно!'
 	else
 		ready "Переустановка iptables для vpn завершена"
