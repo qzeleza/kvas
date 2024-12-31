@@ -233,11 +233,25 @@ iptables__text_empty() {
 }
 
 cmd_debug_iptables() {
-	local output
-	output=$(/opt/sbin/ipset list "${IPSET_DESTINATION_EXCLUDED}" | grep -vF ':' | wc -l)
-	ready 'Исключённых целевых IPv4 и диапазонов' && when_ok "${output}"
-	echo
+	local cache output
 
+	cache=$(/opt/sbin/ipset list "${IPSET_DESTINATION_EXCLUDED}" | grep -vF ':')
+
+	output=$(echo "${cache}" | wc -l)
+	ready 'Исключённых целевых IPv4 и диапазонов' && when_ok "${output}"
+
+	output=$(get_external_ip)
+	if [ -n "${output}" ]; then
+		if echo "${cache}" | grep -q "${output}"; then
+			output='исключён'
+		else
+			output='возможны loopback'
+		fi
+
+		ready 'Интернет шлюз' && when_ok "${output}"
+	fi
+
+	echo
 	output=$(ip route)
 	echo_debug 'Маршруты (подключитесь к гостевой заранее)' "${output}"
 
