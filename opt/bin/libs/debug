@@ -257,6 +257,7 @@ cmd_debug_iptables() {
 	else
 		output='исключён'
 
+		IFS=$'\n'
 		for tunnel_ip in ${title} ; do
 			if ! echo "${cache}" | grep -q "${tunnel_ip}"; then
 				output='возможны loopback'
@@ -527,6 +528,7 @@ cmd_ipset_flush() {
 
 	echo -n 'Заполнение IPSet IP из списка..'
 	local count=0
+	IFS=$'\n'
 	for ip_or_range in $(grep -E -- "$(get_regexp_ip_or_range)" '/opt/etc/kvas.list'); do
 		/opt/sbin/ipset -exist add "${IPSET_TABLE_NAME}" "${ip_or_range}" timeout 0
 
@@ -651,6 +653,7 @@ cmd_ipset() {
 
 		# геморрой из-за неподдержки -k в sort
 		output=''
+		IFS=$'\n'
 		for ttl in $(echo "${cached}" | cut -d' ' -f3 | sort -n -r -u | head -n 7); do
 			output="${output}"$(echo "${cached}" | grep -F "${ttl}" | cut -d' ' -f1 | sort)$'\n'
 		done
