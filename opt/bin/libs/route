@@ -233,11 +233,7 @@ cmd_tunnel() {
 	# Удаляем интерфейсы без человеческого имени
 	sed -i '/|$/d;/|""$/d' "${INFACE_NAMES_FILE}"
 
-	print_line
-	echo 'Полученные сканированием сети:'
-	print_line
-	cat < "${INFACE_NAMES_FILE}"
-	echo
+	echo_debug 'Полученные сканированием сети:' "$(cat < ${INFACE_NAMES_FILE})"
 }
 
 cmd_route_refresh() {
@@ -277,11 +273,7 @@ route__show_block() {
 		)
 	fi
 
-	print_line
-	echo "${title}"
-	print_line
-	echo "${content}"
-	echo
+	echo_debug "${title}" "${content}"
 }
 
 route__show_block_ip() {
