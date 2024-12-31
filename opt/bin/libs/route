@@ -18,6 +18,32 @@ nets__set_known_ips() {
 	fi
 }
 
+# Требует передачи "${NETS_TUNNEL}${NETS_COMMON}"
+# с предварительным возможным заполнением через
+# nets__set_common
+# Сам не использует глобальные переменные, т.к. в отдельном контексте
+nets__filter_for_tunnel() {
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — список"
+		return
+	fi
+	local nets="${1}"
+
+	local net_internet
+	# шлюз в интернет бессмысленно использовать как защищённый тоннель
+	net_internet=$(get_external_interface)
+
+	# исключаем ещё сегменты, это "входящие" сети
+	echo "${nets}" \
+	  | grep -v "^${net_internet}" \
+	  | grep -v "^br"
+}
+
+# Требует передачи "${NETS_INCOMING}${NETS_COMMON}"
+# с предварительным их возможным заполнением через
+# nets__set_incoming
+# nets__set_common
+# Сам не использует глобальные переменные, т.к. в отдельном контексте
 nets__filter_for_incoming() {
 	if [ -z "${1}" ] ; then
 		error "[${FUNCNAME}] Не задан обязательный аргумент — список"
@@ -31,7 +57,9 @@ nets__filter_for_incoming() {
 	# защищённый тоннель нельзя квасить
 	net_tunnel=$(get_config_value 'INFACE_ENT')
 
-	echo "${nets}" | grep -v "^${net_internet}" | grep -v "^${net_tunnel}"
+	echo "${nets}" \
+	  | grep -v "^${net_internet}" \
+	  | grep -v "^${net_tunnel}"
 }
 
 # ------------------------------------------------------------------------------------------
@@ -190,29 +218,25 @@ cmd_tunnel() {
 			echo 'server и password проверьте самостоятельно!'
 		fi
 	fi
+	echo
 
 
-	#ToDo: сменить на новый механизм
+	output=$(nets__filter_for_tunnel "${nets_dictionary}")
+	if [ -z "${output}" ] ; then
+		output='Произошла ошибка сбора списка, сообщите об этом https://t.me/kvas_pro'
+	else
+		output=$(echo "${output}" | tr '|' ' ' | xargs -n4 printf '%-10s | %-15s | %-30s | %s\n')
+	fi
+	echo_debug 'Доступные для тоннеля сети:' "${output}"
+
+
 	# Удаляем интерфейсы без человеческого имени
 	sed -i '/|$/d;/|""$/d' "${INFACE_NAMES_FILE}"
 
-	echo
 	print_line
 	echo 'Полученные сканированием сети:'
 	print_line
 	cat < "${INFACE_NAMES_FILE}"
-
-	echo
-	print_line
-	echo 'Доступные для тоннеля сети:'
-	print_line
-	nets__set_common
-	# исключая шлюз в интернет и бриджи
-	echo "${NETS_TUNNEL}${NETS_COMMON}" \
-	  | grep -v "^br" \
-	  | grep -v "^${internet_net_name}" \
-	  | tr '|' ' ' | xargs -n4 printf '%-10s | %-15s | %-30s | %s\n'
-
 	echo
 }
 
@@ -370,7 +394,7 @@ cmd_route() {
 		nets__set_common
 		output=$(nets__filter_for_incoming "${NETS_INCOMING}${NETS_COMMON}")
 		if [ -z "${output}" ] ; then
-			output='Произошла ошибка при поиске, сообщите об этом https://t.me/kvas_pro'
+			output='Произошла ошибка сбора списка, сообщите об этом https://t.me/kvas_pro'
 		else
 			output=$(echo "${output}" | tr '|' ' ' | xargs -n4 printf '%-10s | %-15s | %-30s | %s\n')
 		fi
