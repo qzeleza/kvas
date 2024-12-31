@@ -378,20 +378,20 @@ cmd_route() {
 	  'IP, исключённые из перехвата DNS и трафика:' \
 	  "${empty_example}"
 
+	local output
+
+	nets__set_incoming
+	nets__set_common
+	output=$(nets__filter_for_incoming "${NETS_INCOMING}${NETS_COMMON}")
+	if [ -z "${output}" ] ; then
+		output='Произошла ошибка сбора списка, сообщите об этом https://t.me/kvas_pro'
+	else
+		output=$(echo "${output}" | tr '|' ' ' | xargs -n4 printf '%-10s | %-15s | %-30s | %s\n')
+	fi
+	echo_debug 'Доступные для маршрутизации сети:' "${output}"
+
 	# если вызывается как один из дебагов, то можно передать silent/short
 	if [ -z "${1}" ] ; then
-		local output
-
-		nets__set_incoming
-		nets__set_common
-		output=$(nets__filter_for_incoming "${NETS_INCOMING}${NETS_COMMON}")
-		if [ -z "${output}" ] ; then
-			output='Произошла ошибка сбора списка, сообщите об этом https://t.me/kvas_pro'
-		else
-			output=$(echo "${output}" | tr '|' ' ' | xargs -n4 printf '%-10s | %-15s | %-30s | %s\n')
-		fi
-		echo_debug 'Доступные для маршрутизации сети:' "${output}"
-
 		nets__set_known_ips
 		if [ -z "${IPS_KNOWN}" ] ; then
 			output=$(printf '%s\n' \
