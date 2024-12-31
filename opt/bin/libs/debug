@@ -251,6 +251,20 @@ cmd_debug_iptables() {
 		ready 'Интернет шлюз' && when_ok "${output}"
 	fi
 
+	output=$(get_tunnel_ip)
+	if [ -z "${output}" ]; then
+		output='возможны loopback'
+	else
+		output='исключён'
+
+		for tunnel_ip in $(get_tunnel_ip) ; do
+			if ! echo "${cache}" | grep -q "${tunnel_ip}"; then
+				output='возможны loopback'
+			fi
+		done
+	fi
+	ready 'Тоннель' && when_ok "${output}"
+
 	echo
 	output=$(ip route)
 	echo_debug 'Маршруты (подключитесь к гостевой заранее)' "${output}"
