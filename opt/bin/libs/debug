@@ -452,7 +452,12 @@ cmd_debug_dns() {
 	if [ -n "${1}" ] ; then
 		local output=''
 	else
-		local output='Отключите освобождение 53 порта:\n no opkg dns-override\n system configuration save\n reboot'
+		local output=$(printf '%s\n' \
+			'Отключите освобождение 53 порта:' \
+			' no opkg dns-override' \
+			' system configuration save' \
+			' reboot' \
+		)
 	fi
 	echo_debug 'Комплектный DNS роутера (базово) слушает:' "$(get_netstat 'ndnproxy' "${output}")"
 }
