@@ -1240,10 +1240,13 @@ dnsmasq_install(){
 		/opt/etc/init.d/S56dnsmasq stop 1> /dev/null 2> "${ERROR_LOG_FILE}"
 		ready_status "${?}" "Невозможно остановить сервис dnsmasq"
 	fi
-	ready "Заменяем файл конфигурации dnsmasq...   "
-	[ -f /opt/etc/dnsmasq.conf ] && mv -f /opt/etc/dnsmasq.conf "${KVAS_BACKUP_PATH}/dnsmasq.conf" 1> /dev/null 2> "${ERROR_LOG_FILE}"
-	cp /opt/apps/kvas/etc/conf/dnsmasq.conf /opt/etc/dnsmasq.conf 1> /dev/null 2> "${ERROR_LOG_FILE}"
-	ready_status "${?}" "Проблемы при замене в файле конфигурации dnsmasq"
+
+	ready 'Заменяем файл конфигурации dnsmasq...   '
+	if [ -f "${DNSMASQ_CONFIG}" ]; then
+		mv -f "${DNSMASQ_CONFIG}" "${DNSMASQ_CONFIG_BACKUP}" 1>/dev/null 2>"${ERROR_LOG_FILE}"
+	fi
+	cp '/opt/apps/kvas/etc/conf/dnsmasq.conf' "${DNSMASQ_CONFIG}" 1>/dev/null 2>"${ERROR_LOG_FILE}"
+	ready_status "${?}" 'Проблемы при замене в файле конфигурации dnsmasq'
 
 	# dnsmasq_install_wildcard_support
 
