@@ -392,8 +392,39 @@ setup_print_finish(){
 	echo -e "Для общей справки наберите ${BLUE}kvas help${NOCL}"
 }
 
+list__backup() {
+	if [ -z "${1}" ] ; then
+		if [ -f "${KVAS_LIST_FILE}" ] ; then
+			list__backup "${KVAS_LIST_FILE}"
+		elif [ -f "${KVAS_LIST_FILE_BACKUP}" ] ; then
+			list__backup "${KVAS_LIST_FILE_BACKUP}"
+		fi
 
+		return
+	fi
+	local source_file="${1}"
 
+	local backup_path="${HOME}/kvas"
+	local backup_filename
+	backup_filename=$( date '+%y-%m-%d' )
+	backup_filename="list_${backup_filename}.txt"
+	local backup2_file="${backup_path}2_${backup_filename}"
+
+	# проверка, что файл старого формата
+	# -n не перезаписываем, если сегодняшний бекап уже есть
+	if grep -qF '*' "${source_file}" ; then
+		local backup1_file="${backup_path}1_${backup_filename}"
+
+		cp -n "${source_file}" "${backup1_file}"
+
+		if ! [ -f "${backup2_file}" ] ; then
+			#отрежем звёзды сами в файл нового формата
+			sed 's/\*\.//g;s/\*//g' "${source_file}" >"${backup2_file}"
+		fi
+	else
+		cp -n "${source_file}" "${backup2_file}"
+	fi
+}
 
 rm_previous_version_files(){
 	rm_file /opt/etc/ndm/netfilter.d/100-vpn-mark
@@ -476,6 +507,8 @@ cmd_install(){
 	LOG_HEADER="PACKAGE INSTALLATION"
 	# Пишем сообщение в лог роутера о начале установки пакета
 	log_alert "УСТАНОВКА ПАКЕТА КВАС" "${LOG_HEADER}"
+
+	list__backup
 
 	ready 'Удаляем файлы предыдущих версий'
 	rm_previous_version_files && when_ok || when_bad
