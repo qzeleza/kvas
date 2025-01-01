@@ -187,7 +187,33 @@ all_services_restart(){
 
 }
 
+config__get_opkg_file() {
+	if [ -z "${1}" ]; then
+		error "[${FUNCNAME}] Не передан обязательный параметр — файл"
+		return
+	fi
 
+	echo "${1}-opkg"
+}
+
+config__backup_as_opkg_if_not_exist() {
+	if [ -z "${1}" ]; then
+		error "[${FUNCNAME}] Не передан обязательный параметр — файл"
+		return
+	fi
+	local source_file="${1}"
+
+	local backup_file
+	backup_file=$(config__get_opkg_file "${source_file}")
+
+	if [ -f "${backup_file}" ]; then
+		# копия уже есть, только первая соответствует opkg
+		return
+	fi
+
+	log_warning "Сохранение копии как файла из OPKG в ${backup_file}"
+	cp "${source_file}" "${backup_file}"
+}
 
 SUFF=">> "
 # ------------------------------------------------------------------------------------------
@@ -1243,6 +1269,8 @@ dnsmasq_install(){
 
 	ready 'Заменяем файл конфигурации dnsmasq...   '
 	if [ -f "${DNSMASQ_CONFIG}" ]; then
+		config__backup_as_opkg_if_not_exist "${DNSMASQ_CONFIG}"
+
 		mv -f "${DNSMASQ_CONFIG}" "${DNSMASQ_CONFIG_BACKUP}" 1>/dev/null 2>"${ERROR_LOG_FILE}"
 	fi
 	cp '/opt/apps/kvas/etc/conf/dnsmasq.conf' "${DNSMASQ_CONFIG}" 1>/dev/null 2>"${ERROR_LOG_FILE}"
@@ -2443,6 +2471,8 @@ dns_crypt_install() {
 	fi
 
 	if [ -f "${DNSCRYPT_CONFIG}" ]; then
+		config__backup_as_opkg_if_not_exist "${DNSCRYPT_CONFIG}"
+
 		cp -f "${DNSCRYPT_CONFIG}" "${DNSCRYPT_CONFIG_BACKUP}"
 	elif [ -f "${DNSCRYPT_CONFIG_BACKUP}" ]; then
 		cp "${DNSCRYPT_CONFIG_BACKUP}" "${DNSCRYPT_CONFIG}"
