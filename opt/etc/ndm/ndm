@@ -207,7 +207,7 @@ ip4__ipset__is_exist() {
 	fi
 	local ipset_name="${1}"
 
-	! /opt/sbin/ipset list "${ipset_name}" 2>&1 | grep -q 'name does not exist'
+	/opt/sbin/ipset -n list | grep -q "^${ipset_name}$"
 }
 
 ip4__ipset__create() {
