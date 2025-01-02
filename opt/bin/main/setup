@@ -781,22 +781,20 @@ cmd_uninstall() {
 		fi
 		[ -z "${sure}" ] && print_line
 		echo "${mess}"
-		# Останавливаем сервер AdGuardHome
-		if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
-			ready "Останавливаем службу AdGuardHome "
-		 	${ADGUARDHOME_DEMON} stop &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-		else 
-			
-			if has_ssr_enable ; then
-				ready "Останавливаем службу Shadowsocks "
-				# Останавливаем сервер SSR
-				/opt/etc/init.d/S22shadowsocks stop &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-			else
-				ready "Останавливаем службу dnsmasq "
-				/opt/etc/init.d/S56dnsmasq stop &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
-				ready "Останавливаем службу dnscrypt-proxy2 "
-				/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+		if cmd_adguardhome_status | grep -q 'ВКЛЮЧЕН' ; then
+			ready 'Останавливаем службу AdGuardHome '
+			${ADGUARDHOME_DEMON} stop &>/dev/null && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
+		else
+			if has_ssr_enable ; then
+				ready 'Останавливаем службу Shadowsocks '
+				/opt/etc/init.d/S22shadowsocks stop &>/dev/null && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
+			else
+				ready 'Останавливаем службу dnsmasq '
+				/opt/etc/init.d/S56dnsmasq stop &>/dev/null && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
+
+				ready 'Останавливаем службу dnscrypt-proxy2 '
+				/opt/etc/init.d/S09dnscrypt-proxy2 stop &>/dev/null && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
 			fi
 		fi
 
