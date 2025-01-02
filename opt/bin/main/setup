@@ -589,13 +589,14 @@ cmd_install(){
 	# Создаем ссылку на наш скрипт для запуска xray в /opt/etc/init.d 
 	[ -f "${XRAY_INIT}" ] || ln -s /opt/apps/kvas/etc/init.d/S97xray ${XRAY_INIT}
 
-	#------------------------------------------------------
-	# Отключаем IPv6
-	#------------------------------------------------------
-	if [ "$(ipv6_status)" = 0 ]; then
-		ipv6_inface_off "$(get_defaultgw_interface)"
-	fi
-
+	# Код отключения IPv6 не помогает
+	#if [ "$(ipv6_status)" = 0 ]; then
+	#	ipv6_inface_off "$(get_defaultgw_interface)"
+	#fi
+	# В kvas debug dns сейчас есть подсказка по отключению DHCPv6 централизованно.
+	# Но применять её или IPv6 отключать руками — решать пользователю,
+	# т.к. с отключением IPv6 можно потерять некоторых провайдеров.
+	# Возможно, подсказку имеет смысл выводить и в конце установки.
 
 	local_ip=$(get_router_ip)
 	set_config_value DNSMASQ_LISTEN_IP "${local_ip}"
