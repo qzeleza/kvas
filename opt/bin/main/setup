@@ -783,16 +783,20 @@ cmd_uninstall() {
 		if has_ssr_enable ; then
 			ready 'Останавливаем службу Shadowsocks '
 			/opt/etc/init.d/S22shadowsocks stop &>/dev/null && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
+			config__restore_from_opkg "${SHADOWSOCKS_CONF}"
 		fi
 		if cmd_adguardhome_status | grep -q 'ВКЛЮЧЕН' ; then
 			ready 'Останавливаем службу AdGuardHome '
 			${ADGUARDHOME_DEMON} stop &>/dev/null && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
+			config__restore_from_opkg "${ADGUARDHOME_CONFIG}"
 		else
 			ready 'Останавливаем службу DNSMasq '
 			${DNSMASQ_DEMON} stop &>/dev/null && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
+			config__restore_from_opkg "${DNSMASQ_CONFIG}"
 
 			ready 'Останавливаем службу DNSCrypt '
 			${DNSCRYPT_DEMON} stop &>/dev/null && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
+			config__restore_from_opkg "${DNSCRYPT_CONFIG}"
 		fi
 
 		# Подключаем библиотеку keen_api
