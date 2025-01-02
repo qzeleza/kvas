@@ -480,16 +480,22 @@ clear_previous_version_net_rules() {
 	ip4__chain__delete_jump 'nat'    'SHADOWSOCKS_UDP_MARK'
 	ip4__chain__delete      'nat'    'SHADOWSOCKS_UDP_MARK'
 
-	#ToDo: через iptables__delete_rules "${table}" "уникальный кусок правила"
-	# вычистить всё из доцепочечных времён
+	# ss доцепочечных времён
+	iptables__delete_rules 'nat' 'KVAS_LIST'
+	iptables__delete_rules 'nat' 'kvas_ipset'
+	iptables__delete_rules 'nat' 'kvas'
+	iptables__delete_rules 'nat' 'unblock'
 
-	#ToDo: найти почему вываливаются с ошибкой
+	# dns доцепочечных времён
+	iptables__delete_rules 'nat' '--dport 9753 -j DNAT'
+	iptables__delete_rules 'nat' '--dport 53 -j DNAT'
 
 	#24-12-15 b3dec7293bb8e3de59cce200b4e8dc8d4b9f3dac
 	ip4__ipset__destroy 'KVAS_DESTINATION_EXCLUDED'
 	#24-11-26 5efb5035c33fffb18c5d17cd7c56e453b0b64ac8
 	ip4__ipset__destroy 'KVAS_RESERVED'
 
+	#ToDo: найти почему вываливаются с ошибкой
 	#24-11-29 0dabaa19b8dc788d56650b20092dec4a9dce1acc
 	ip4__ipset__destroy 'KVAS_LIST'
 	#24-11-09 fb1f8cb5755dd4c7b683b314096ccf903ee05525
