@@ -544,9 +544,6 @@ cmd_install(){
 
 	check_crypto_ssr_libs
 
-	[ -f '/opt/etc/dnscrypt-proxy.toml' ] && sed -i "s/^\(server_names =.*\)/# \1/g" '/opt/etc/dnscrypt-proxy.toml'
-	# setup_test_provider_dns
-
 	[ -f "${KVAS_START_FILE}" ] || cp -f /opt/apps/kvas/etc/init.d/S96kvas "${KVAS_START_FILE}"
 	chmod +x "${KVAS_START_FILE}"
 
