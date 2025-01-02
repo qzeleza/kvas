@@ -788,11 +788,11 @@ cmd_uninstall() {
 			ready 'Останавливаем службу AdGuardHome '
 			${ADGUARDHOME_DEMON} stop &>/dev/null && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
 		else
-			ready 'Останавливаем службу dnsmasq '
-			/opt/etc/init.d/S56dnsmasq stop &>/dev/null && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
+			ready 'Останавливаем службу DNSMasq '
+			${DNSMASQ_DEMON} stop &>/dev/null && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
 
-			ready 'Останавливаем службу dnscrypt-proxy2 '
-			/opt/etc/init.d/S09dnscrypt-proxy2 stop &>/dev/null && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
+			ready 'Останавливаем службу DNSCrypt '
+			${DNSCRYPT_DEMON} stop &>/dev/null && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
 		fi
 
 		# Подключаем библиотеку keen_api
