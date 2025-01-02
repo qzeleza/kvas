@@ -765,8 +765,6 @@ cmd_uninstall() {
 	fi
 
 	if echo "${answer}" | grep -qi y ; then
-		ip4__flush &> /dev/null
-
 		if [ "${rm_type}" = full ]; then
 			mess="Удаляем все архивные данные и все зависимые пакеты..."
 			rm -f /opt/etc/init/K56dnsmasq  /opt/etc/init/K09dnscrypt-proxy2
@@ -790,11 +788,11 @@ cmd_uninstall() {
 			ready 'Останавливаем службу AdGuardHome '
 			${ADGUARDHOME_DEMON} stop &>/dev/null && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
 		else
-				ready 'Останавливаем службу dnsmasq '
-				/opt/etc/init.d/S56dnsmasq stop &>/dev/null && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
+			ready 'Останавливаем службу dnsmasq '
+			/opt/etc/init.d/S56dnsmasq stop &>/dev/null && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
 
-				ready 'Останавливаем службу dnscrypt-proxy2 '
-				/opt/etc/init.d/S09dnscrypt-proxy2 stop &>/dev/null && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
+			ready 'Останавливаем службу dnscrypt-proxy2 '
+			/opt/etc/init.d/S09dnscrypt-proxy2 stop &>/dev/null && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
 		fi
 
 		# Подключаем библиотеку keen_api
