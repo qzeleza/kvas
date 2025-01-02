@@ -296,13 +296,14 @@ rm_package_files(){
 		rm_file /opt/etc/ndm/netfilter.d/100-proxy-redirect
 
 		rm_file /opt/etc/cron.5mins/check_vpn
-		rm_file /opt/etc/ndm/fs.d/100-vpn
-		rm_file /opt/etc/ndm/fs.d/15-kvas-start.sh
 		rm_file /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
 		rm_file /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn
 		rm_file /opt/etc/ndm/iflayerchanged.d/kvas-ips-reset
 		rm_file /opt/etc/ndm/ifcreated.d/kvas-iface-add
 		rm_file /opt/etc/ndm/ifdestroyed.d/kvas-iface-del
+
+		rm_file /opt/etc/ndm/fs.d/15-kvas-start.sh
+
 		rm_file /opt/bin/kvas
 		rm_file /opt/etc/adblock
 
@@ -435,14 +436,18 @@ rm_previous_version_files(){
 	rm_file /opt/etc/ndm/netfilter.d/100-vpn-mark
 	rm_file /opt/etc/ndm/netfilter.d/100-proxy-redirect
 
-	rm_file /opt/etc/ndm/fs.d/100-vpn
-	rm_file /opt/etc/ndm/fs.d/100-ipset
-	rm_file /opt/etc/ndm/fs.d/15-kvas-start.sh
 	rm_file /opt/etc/ndm/ifcreated.d/kvas-iface-add
 	rm_file /opt/etc/ndm/ifdestroyed.d/kvas-iface-del
 	rm_file /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn
 	rm_file /opt/etc/ndm/iflayerchanged.d/kvas-ips-reset
 	rm_file /opt/etc/ndm/wan.d/internet-up
+
+	# исторические
+	rm_file /opt/etc/ndm/fs.d/100-vpn
+	rm_file /opt/etc/ndm/fs.d/100-ipset
+	# текущий
+	rm_file /opt/etc/ndm/fs.d/15-kvas-start.sh
+
 	rm_file /opt/etc/cron.5mins/check_vpn
 	rm_file /opt/etc/cron.5mins/ipset.kvas
 	rm_file /opt/etc/cron.hourly/ipset.kvas
