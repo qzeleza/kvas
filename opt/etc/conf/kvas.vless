@@ -12,8 +12,11 @@
     "inbounds": [
         {
             "listen": "127.0.0.1",
-            "port": @VLESS_SSR_PORT,
-            "protocol": "socks"
+            "port":  @VLESS_SSR_PORT,
+            "protocol": "socks",
+            "settings": {
+                "udp": true
+            }
         }
     ],
     "outbounds": [
