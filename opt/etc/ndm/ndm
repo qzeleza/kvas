@@ -529,13 +529,16 @@ ip4__mark__create_chain() {
 		ip4__rule__add_mark_to_table
 
 		if fastnet_enabled ; then
+			# маркер из соединения в пакет
 			/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -j CONNMARK --restore-mark
-
+			# выходим, если уже помечен
 			/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -m mark --mark ${MARK_NUM} -j RETURN
-			# Правила по SYN (начало нового соединения) в save не наблюдается. Нужно ли?
-			/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" --syn -j MARK --set-mark ${MARK_NUM}
-			/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM}
 
+			# TCP SYN (новое TCP соединение)
+			/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" --syn -j MARK --set-mark ${MARK_NUM}
+			# новое соединение
+			/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM}
+			# маркер пакета в соединение
 			/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -j CONNMARK --save-mark
 		else
 			/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -m mark --mark ${MARK_NUM} -j RETURN
