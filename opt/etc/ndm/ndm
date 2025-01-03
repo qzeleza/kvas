@@ -95,11 +95,10 @@ guest_net()(echo "$(inface_guest_gw4 "${1}" | cut -d'.' -f1-3).0/24")
 # ------------------------------------------------------------------------------------------
 # проверка на доступность программного и аппаратного ускорения
 # ------------------------------------------------------------------------------------------
-fastnet_support()(curl -s localhost:79/rci/show/version | grep -q ppe)
 fast_hw_enabled()(is_os_4 && ask=enable || ask=false; ! curl -s localhost:79/rci/show/rc/ppe | grep hardware -C1 | grep -q ${ask})
 fast_sw_enabled()(is_os_4 && ask=enable || ask=false; ! curl -s localhost:79/rci/show/rc/ppe | grep software -C1 | grep -q ${ask})
 fastnet_enabled()(fast_hw_enabled || fast_sw_enabled)
-
+fastnet_support()(curl -s localhost:79/rci/show/version | grep -q ppe)
 
 # ------------------------------------------------------------------------------------------
 #
@@ -503,18 +502,20 @@ ip4__mark__create_chain() {
 		ip4__route__add_table
 		ip4__rule__add_mark_to_table
 
-		#ToDo: fastnet_enabled -j MARK --set-mark ${MARK_NUM}
 		if fastnet_enabled ; then
 			/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -j CONNMARK --restore-mark
-			# возможно лишняя проверка
+
 			/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -m mark --mark ${MARK_NUM} -j RETURN
+			# Правила по SYN (начало нового соединения) в save не наблюдается. Нужно ли?
 			/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" --syn -j MARK --set-mark ${MARK_NUM}
 			/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM}
+
 			/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -j CONNMARK --save-mark
 		else
-			# возможно лишняя проверка
 			/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -m mark --mark ${MARK_NUM} -j RETURN
+
 			/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -j MARK --set-mark ${MARK_NUM}
+			#/opt/sbin/iptables -A "${CHAIN_MARK}" -w -t "${TABLE_MARK}" -j CONNMARK --set-mark ${MARK_NUM}
 		fi
 	} &>/dev/null || error "[${FUNCNAME}] Возникли ошибки во время маркировки трафика для VPN при включенном ускорении"
 }
