@@ -529,13 +529,15 @@ ip4__mark__create_chain() {
 		ip4__rule__add_mark_to_table
 
 		if fastnet_enabled ; then
+			# выходим, если не новое соединение
+			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -m conntrack ! --ctstate NEW -j RETURN
+
 			# маркер из соединения в пакет
 			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -j CONNMARK --restore-mark
 			# выходим, если уже помечен
 			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -m mark --mark ${MARK_NUM} -j RETURN
-
 			# новое соединение
-			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM}
+			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -j MARK --set-mark ${MARK_NUM}
 			# маркер пакета в соединение
 			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -j CONNMARK --save-mark
 		else
