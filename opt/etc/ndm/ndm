@@ -92,10 +92,14 @@ inface_gw4()(get_gw4 "$(inface_ent)")
 inface_guest_gw4()(get_gw4 "${1}")
 guest_net()(echo "$(inface_guest_gw4 "${1}" | cut -d'.' -f1-3).0/24")
 
+
 # ------------------------------------------------------------------------------------------
-# проверка на доступность программного и аппаратного ускорения
+#
+# Функции доступности программного и аппаратного ускорения
+#
 # ------------------------------------------------------------------------------------------
-fast_hw_enabled() {
+
+is_hwnat_enabled() {
 	if ! is_os_below_4_2 ; then
 		# no: yes
 		# "no": true,
@@ -109,7 +113,8 @@ fast_hw_enabled() {
 
 	! curl -s '127.0.0.1:79/rci/show/rc/ppe' | grep -F 'hardware' -C1 | grep -qF "${ask}"
 }
-fast_sw_enabled() {
+
+is_swnat_enabled() {
 	if ! is_os_below_4_2 ; then
 		# no: yes
 		# "no": true,
@@ -123,8 +128,11 @@ fast_sw_enabled() {
 
 	! curl -s '127.0.0.1:79/rci/show/rc/ppe' | grep -F 'software' -C1 | grep -qF "${ask}"
 }
-fastnet_enabled()(fast_hw_enabled || fast_sw_enabled)
-fastnet_support()(curl -s '127.0.0.1:79/rci/show/version' | grep -qF 'ppe')
+
+is_ppe_enabled()(is_hwnat_enabled || is_swnat_enabled)
+
+is_fastnet_supported()(curl -s '127.0.0.1:79/rci/show/version' | grep -qF 'ppe')
+
 
 # ------------------------------------------------------------------------------------------
 #
