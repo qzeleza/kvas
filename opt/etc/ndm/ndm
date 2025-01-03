@@ -99,39 +99,34 @@ guest_net()(echo "$(inface_guest_gw4 "${1}" | cut -d'.' -f1-3).0/24")
 #
 # ------------------------------------------------------------------------------------------
 
-is_hwnat_enabled() {
+is_ppe_supported()(curl -s '127.0.0.1:79/rci/show/version' | grep -qF 'ppe')
+
+is_ppe_enabled() {
+	#ToDo: научить и WHNAT
+	if [ -z "${1}" ] ; then
+		is_ppe_enabled 'hardware' || is_ppe_enabled 'software'
+		return
+	fi
+	local engine="${1}"
+	if [ "${engine}" != 'hardware' ] && [ "${engine}" != 'software' ] ; then
+		error "[${FUNCNAME}] Передан неизвестный тип ускорителя ${engine}"
+		return
+	fi
+
+	local param
 	if ! is_os_below_4_2 ; then
 		# no: yes
 		# "no": true,
-		local ask='no'
+		param='no'
 	elif is_os_4; then
 		# "enabled": false,
-		local ask='enable'
+		param='enable'
 	else
-		local ask='false'
+		param='false'
 	fi
 
-	! curl -s '127.0.0.1:79/rci/show/rc/ppe' | grep -F 'hardware' -C1 | grep -qF "${ask}"
+	! curl -s '127.0.0.1:79/rci/show/rc/ppe' | grep -F "${engine}" -C1 | grep -qF "${param}"
 }
-
-is_swnat_enabled() {
-	if ! is_os_below_4_2 ; then
-		# no: yes
-		# "no": true,
-		local ask='no'
-	elif is_os_4; then
-		# "enabled": false,
-		local ask='enable'
-	else
-		local ask='false'
-	fi
-
-	! curl -s '127.0.0.1:79/rci/show/rc/ppe' | grep -F 'software' -C1 | grep -qF "${ask}"
-}
-
-is_ppe_enabled()(is_hwnat_enabled || is_swnat_enabled)
-
-is_fastnet_supported()(curl -s '127.0.0.1:79/rci/show/version' | grep -qF 'ppe')
 
 
 # ------------------------------------------------------------------------------------------
