@@ -96,7 +96,12 @@ guest_net()(echo "$(inface_guest_gw4 "${1}" | cut -d'.' -f1-3).0/24")
 # проверка на доступность программного и аппаратного ускорения
 # ------------------------------------------------------------------------------------------
 fast_hw_enabled() {
-	if is_os_4; then
+	if ! is_os_below_4_2 ; then
+		# no: yes
+		# "no": true,
+		local ask='no'
+	elif is_os_4; then
+		# "enabled": false,
 		local ask='enable'
 	else
 		local ask='false'
@@ -105,7 +110,12 @@ fast_hw_enabled() {
 	! curl -s '127.0.0.1:79/rci/show/rc/ppe' | grep -F 'hardware' -C1 | grep -qF "${ask}"
 }
 fast_sw_enabled() {
-	if is_os_4; then
+	if ! is_os_below_4_2 ; then
+		# no: yes
+		# "no": true,
+		local ask='no'
+	elif is_os_4; then
+		# "enabled": false,
 		local ask='enable'
 	else
 		local ask='false'
