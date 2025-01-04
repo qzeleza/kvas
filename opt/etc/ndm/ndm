@@ -542,7 +542,7 @@ ip4__mark__create_chain() {
 		/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -m mark --mark ${MARK_NUM} -j RETURN
 		/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -j MARK --set-mark ${MARK_NUM}
 		/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -j CONNMARK --save-mark
-	} &>/dev/null || error "[${FUNCNAME}] Возникли ошибки во время маркировки трафика для VPN при включенном ускорении"
+	} &>/dev/null || error "[${FUNCNAME}] Возникли ошибки во время маркировки трафика для VPN"
 }
 
 
@@ -597,7 +597,7 @@ ip4__shadowsocks__add_routing_for_home() {
 
 # когда ускорение подключено
 ip4__mark__add_routing_for_home() {
-	ip4__add_routing_for_home "${TABLE_MARK}" "${CHAIN_MARK}" 'VPN со включенным ускорением'
+	ip4__add_routing_for_home "${TABLE_MARK}" "${CHAIN_MARK}" 'VPN'
 }
 
 
