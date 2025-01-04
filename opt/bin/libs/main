@@ -511,7 +511,7 @@ nets__set_common() {
 	fi
 }
 
-NETS_TUNNEL='lo|127.0.0.1|shadowsocks|"ShadowSocks"'$'\n'
+NETS_TUNNEL='ezcfg0|78.47.125.180|shadowsocks|"ShadowSocks"'$'\n'
 
 # замена Singleton, чтобы скан был лишь при первом вызове
 NETS_INCOMING=''

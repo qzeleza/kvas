@@ -189,10 +189,12 @@ cmd_tunnel() {
 		echo 'Настройте тоннель заново kvas tunnel set'
 	else
 		output=$( nets__get "${nets_dictionary}" "${tunnel_net_name}" 'title' | xargs )
-		ready 'Название'          && when_ok "${output}"
+		ready 'Название' && when_ok "${output}"
 
-		ready 'Keenetic-имя'      && when_ok "${tunnel_keenetic_name}"
-		ready 'Сетевой интерфейс' && when_ok "${tunnel_net_name}"
+		if [ "${tunnel_keenetic_name}" != 'shadowsocks' ] ; then
+			ready 'Keenetic-имя'      && when_ok "${tunnel_keenetic_name}"
+			ready 'Сетевой интерфейс' && when_ok "${tunnel_net_name}"
+		fi
 
 		if is_interface_online "${tunnel_keenetic_name}"; then
 			output='есть'
@@ -214,8 +216,8 @@ cmd_tunnel() {
 			print_line
 			echo "Конфигурация ${SHADOWSOCKS_CONF}:"
 			print_line
-			grep -E '(port|method)' "${SHADOWSOCKS_CONF}"
-			echo 'server и password проверьте самостоятельно!'
+			grep -E '(port|method|server)' "${SHADOWSOCKS_CONF}"
+			echo 'password проверьте самостоятельно!'
 		fi
 	fi
 	echo
