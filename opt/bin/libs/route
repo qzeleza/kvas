@@ -204,11 +204,19 @@ cmd_tunnel() {
 		ready 'Подключение' && when_ok "${output}"
 
 		if [ "${output}" == 'есть' ]; then
-			output="$(get_tunnel_ip | xargs)"
+			cache="$(get_tunnel_ip | xargs)"
+			if [ -z "${cache}" ]; then
+				cache='Не найден!'
+			fi
+			ready 'IP' && when_ok "${cache}"
+
+			output="$(get_tunnel_addresses | xargs)"
 			if [ -z "${output}" ]; then
 				output='Не найден!'
 			fi
-			ready 'IP' && when_ok "${output}"
+			if [ "${output}" != "${cache}" ] ; then
+				ready 'Домен' && when_ok "${output}"
+			fi
 		fi
 
 		if is_shadowsocks_enabled; then
