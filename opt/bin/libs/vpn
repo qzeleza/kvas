@@ -1687,8 +1687,9 @@ cmd_shadowsocks_read_new_data() {
 #
 # ------------------------------------------------------------------------------------------
 shadowsocks_read_data() {
-
-	#	устанавливаем новую конфигурацию shadowsocks
+	if [ -f "${SHADOWSOCKS_CONF}" ]; then
+		config__backup_as_opkg_if_not_exist "${SHADOWSOCKS_CONF}"
+	fi
 	cp -f "/opt/apps/${APP_NAME}/etc/conf/shadowsocks.json" "${SHADOWSOCKS_CONF}"
 
 	answer=''; read_ynq "У Вас имеется кодированная ss:// ссылка для ввода данных" answer

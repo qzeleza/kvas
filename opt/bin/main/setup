@@ -289,7 +289,6 @@ rm_package_files(){
 			rm_dir /opt/etc/.kvas
 
 			# корректно ли так поступать вместо opkg remove?
-			rm_file /opt/etc/shadowsocks.json
 			rm_file /opt/etc/init.d/S22shadowsocks
 		} && when_ok || when_bad
 	fi
