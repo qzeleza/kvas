@@ -326,7 +326,7 @@ is_interface_online() {
 
 	if [ "${keenetic_name}" == 'shadowsocks' ]; then
 		# иногда ss запущен, но упал и ничего не слушает
-		netstat -tulpn | grep -F ":$(get_config_value SSR_DNS_PORT) " | grep -qF -- 'ss-redir'
+		netstat -tulpn 2>/dev/null | grep -F ":$(get_config_value SSR_DNS_PORT) " | grep -qF -- 'ss-redir'
 	else
 		keenetic_name=$(curl -s "${INFACE_REQUEST}/${keenetic_name}" \
 		  | jq -r 'select(.state=="up" and .link=="up" and .connected=="yes") | .id // empty')
