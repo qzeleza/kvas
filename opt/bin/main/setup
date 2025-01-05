@@ -434,7 +434,7 @@ list__backup() {
 	fi
 }
 
-rm_previous_version_files(){
+rm_previous_version_files() {
 	rm_file /opt/etc/ndm/netfilter.d/100-dns-local
 	rm_file /opt/etc/ndm/netfilter.d/100-vpn-mark
 	rm_file /opt/etc/ndm/netfilter.d/100-proxy-redirect
@@ -473,7 +473,6 @@ rm_previous_version_files(){
 
 	# текущие
 	rm_dir /opt/etc/.kvas
-	rm_dir /opt/apps/kvas
 }
 
 clear_previous_version_net_rules() {
