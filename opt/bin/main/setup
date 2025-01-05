@@ -282,9 +282,9 @@ rm_package_files(){
 		ready 'Удаляем архивные копии пакета Квас' && {
 			find /opt ! -path "/opt/packages/*" ! -path "/opt/lib/opkg/*" -name '*kvas*' ! -regex '.*/kvas[a-zA-Z].*' -exec rm -rf {} +
 
-			rm_file /opt/tmp/adblock
-			rm_file /opt/etc/ads_exception.list
 			rm_file /opt/etc/inface_equals
+			rm_file /opt/etc/kvas.conf
+			rm_file /opt/etc/kvas.list
 
 			rm_dir /opt/etc/.kvas
 
@@ -306,10 +306,11 @@ rm_package_files(){
 		rm_file /opt/etc/ndm/fs.d/15-kvas-start.sh
 		rm_file /opt/etc/cron.5mins/check_vpn
 
-		rm_file /opt/etc/adblock
-		# корректно ли так поступать вместо opkg remove?
-		rm_file /opt/bin/kvas
+		rm_file /opt/etc/dnsmasq.d/kvas.dnsmasq
+		rm_dir /opt/etc/adblock
+		rm_dir /opt/tmp/adblock
 
+		rm_file /opt/bin/kvas
 		rm_dir /opt/apps/kvas
 	} && when_ok || when_bad
 }
@@ -434,12 +435,13 @@ list__backup() {
 	fi
 }
 
-rm_previous_version_files(){
-	rm_file /opt/etc/ndm/netfilter.d/100-dns-local
+rm_previous_version_files() {
+	#rm_file /opt/etc/ndm/netfilter.d/100-dns-local
+	# текущие, создадутся при включении соединения
 	rm_file /opt/etc/ndm/netfilter.d/100-vpn-mark
 	rm_file /opt/etc/ndm/netfilter.d/100-proxy-redirect
 
-	# текущие
+	# текущие, создадутся в cmd_install позже
 	rm_file /opt/etc/ndm/ifcreated.d/kvas-iface-add
 	rm_file /opt/etc/ndm/ifdestroyed.d/kvas-iface-del
 	rm_file /opt/etc/ndm/iflayerchanged.d/kvas-ips-reset
@@ -448,13 +450,11 @@ rm_previous_version_files(){
 	# исторический
 	rm_file /opt/etc/ndm/wan.d/internet-up
 
-	# текущий
-	rm_file /opt/etc/ndm/fs.d/15-kvas-start.sh
 	# исторические
 	rm_file /opt/etc/ndm/fs.d/100-vpn
 	rm_file /opt/etc/ndm/fs.d/100-ipset
 
-	# текущий
+	# текущий, создастся при включении соединения
 	rm_file /opt/etc/cron.5mins/check_vpn
 	# исторический
 	rm_file /opt/etc/cron.5mins/ipset.kvas
@@ -462,18 +462,17 @@ rm_previous_version_files(){
 	rm_file /opt/etc/cron.hourly/ipset.kvas
 	rm_file /opt/etc/cron.daily/ipset.kvas
 
-	rm_file /opt/etc/adblock
-	# full
-	rm_file /opt/etc/ads_exception.list
-	rm_file /opt/etc/inface_equals
-	rm_file /opt/tmp/adblock
+	# текущие, создадутся позже
+	rm_file /opt/etc/dnsmasq.d/kvas.dnsmasq
+	rm_dir /opt/etc/adblock
+	rm_dir /opt/tmp/adblock
 	# исторические
+	rm_file /opt/etc/ads_exception.list
 	rm_file /opt/etc/hosts.list
 	rm_dir /opt/etc/.backup
 
-	# текущие
+	# бекапы
 	rm_dir /opt/etc/.kvas
-	rm_dir /opt/apps/kvas
 }
 
 clear_previous_version_net_rules() {
