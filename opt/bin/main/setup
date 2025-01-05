@@ -285,24 +285,30 @@ rm_package_files(){
 			rm_file /opt/tmp/adblock
 			rm_file /opt/etc/ads_exception.list
 			rm_file /opt/etc/inface_equals
-			rm_file /opt/etc/shadowsocks.json
+
+			rm_dir /opt/etc/.kvas
+
+			# корректно ли так поступать вместо opkg remove?
 			rm_file /opt/etc/init.d/S22shadowsocks
 		} && when_ok || when_bad
 	fi
 	ready 'Удаляем файлы пакета Квас' && {
-		rm_file /opt/etc/cron.5mins/check_vpn
-		rm_file /opt/etc/ndm/fs.d/100-vpn
-		rm_file /opt/etc/ndm/fs.d/15_kvas_start.sh
-		rm_file /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
+		rm_file /opt/etc/ndm/netfilter.d/100-dns-local
 		rm_file /opt/etc/ndm/netfilter.d/100-vpn-mark
 		rm_file /opt/etc/ndm/netfilter.d/100-proxy-redirect
-		rm_file /opt/etc/ndm/netfilter.d/100-dns-local
-		rm_file /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn
-		rm_file /opt/etc/ndm/iflayerchanged.d/kvas-ips-reset
+
 		rm_file /opt/etc/ndm/ifcreated.d/kvas-iface-add
 		rm_file /opt/etc/ndm/ifdestroyed.d/kvas-iface-del
-		rm_file /opt/bin/kvas
+		rm_file /opt/etc/ndm/iflayerchanged.d/kvas-ips-reset
+		rm_file /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn
+		rm_file /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
+
+		rm_file /opt/etc/ndm/fs.d/15-kvas-start.sh
+		rm_file /opt/etc/cron.5mins/check_vpn
+
 		rm_file /opt/etc/adblock
+		# корректно ли так поступать вместо opkg remove?
+		rm_file /opt/bin/kvas
 
 		rm_dir /opt/apps/kvas
 	} && when_ok || when_bad
@@ -392,25 +398,82 @@ setup_print_finish(){
 	echo -e "Для общей справки наберите ${BLUE}kvas help${NOCL}"
 }
 
+list__backup() {
+	if [ -z "${1}" ] ; then
+		if [ -f "${KVAS_LIST_FILE}" ] ; then
+			list__backup "${KVAS_LIST_FILE}"
+		elif [ -f "${KVAS_LIST_FILE_BACKUP}" ] ; then
+			list__backup "${KVAS_LIST_FILE_BACKUP}"
+		fi
 
+		return
+	fi
+	local source_file="${1}"
 
+	local backup_path="${HOME}/kvas"
+	local backup_filename
+	backup_filename=$( date '+%y-%m-%d' )
+	backup_filename="list_${backup_filename}.txt"
+	local backup2_file="${backup_path}2_${backup_filename}"
+
+	# проверка, что файл старого формата
+	# -n не перезаписываем, если сегодняшний бекап уже есть
+	if grep -qF '*' "${source_file}" ; then
+		local backup1_file="${backup_path}1_${backup_filename}"
+
+		echo "Резервная копия списка старого формата в ${backup1_file}"
+		cp -n "${source_file}" "${backup1_file}"
+
+		if ! [ -f "${backup2_file}" ] ; then
+			echo "Преобразуем в новый формат в ${backup2_file}"
+			sed 's/\*\.//g;s/\*//g' "${source_file}" >"${backup2_file}"
+		fi
+	else
+		echo "Резервная копия списка в ${backup2_file}"
+		cp -n "${source_file}" "${backup2_file}"
+	fi
+}
 
 rm_previous_version_files(){
+	rm_file /opt/etc/ndm/netfilter.d/100-dns-local
 	rm_file /opt/etc/ndm/netfilter.d/100-vpn-mark
-	rm_file /opt/etc/ndm/fs.d/100-vpn
-	rm_file /opt/etc/ndm/fs.d/100-ipset
-	rm_file /opt/etc/ndm/fs.d/15_kvas_start.sh
+	rm_file /opt/etc/ndm/netfilter.d/100-proxy-redirect
+
+	# текущие
 	rm_file /opt/etc/ndm/ifcreated.d/kvas-iface-add
 	rm_file /opt/etc/ndm/ifdestroyed.d/kvas-iface-del
-	rm_file /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn
 	rm_file /opt/etc/ndm/iflayerchanged.d/kvas-ips-reset
+	rm_file /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn
+	rm_file /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
+	# исторический
 	rm_file /opt/etc/ndm/wan.d/internet-up
+
+	# текущий
+	rm_file /opt/etc/ndm/fs.d/15-kvas-start.sh
+	# исторические
+	rm_file /opt/etc/ndm/fs.d/100-vpn
+	rm_file /opt/etc/ndm/fs.d/100-ipset
+
+	# текущий
 	rm_file /opt/etc/cron.5mins/check_vpn
+	# исторический
 	rm_file /opt/etc/cron.5mins/ipset.kvas
+	# оптимизированные
 	rm_file /opt/etc/cron.hourly/ipset.kvas
 	rm_file /opt/etc/cron.daily/ipset.kvas
 
+	rm_file /opt/etc/adblock
+	# full
+	rm_file /opt/etc/ads_exception.list
+	rm_file /opt/etc/inface_equals
+	rm_file /opt/tmp/adblock
+	# исторические
+	rm_file /opt/etc/hosts.list
+	rm_dir /opt/etc/.backup
+
+	# текущие
 	rm_dir /opt/etc/.kvas
+	rm_dir /opt/apps/kvas
 }
 
 clear_previous_version_net_rules() {
@@ -447,14 +510,22 @@ clear_previous_version_net_rules() {
 	ip4__chain__delete_jump 'nat'    'SHADOWSOCKS_UDP_MARK'
 	ip4__chain__delete      'nat'    'SHADOWSOCKS_UDP_MARK'
 
-	#ToDo: через iptables__delete_rules "${table}" "уникальный кусок правила"
-	# вычистить всё из доцепочечных времён
+	# ss доцепочечных времён
+	iptables__delete_rules 'nat' 'KVAS_LIST'
+	iptables__delete_rules 'nat' 'kvas_ipset'
+	iptables__delete_rules 'nat' 'kvas'
+	iptables__delete_rules 'nat' 'unblock'
+
+	# dns доцепочечных времён
+	iptables__delete_rules 'nat' '--dport 9753 -j DNAT'
+	iptables__delete_rules 'nat' '--dport 53 -j DNAT'
 
 	#24-12-15 b3dec7293bb8e3de59cce200b4e8dc8d4b9f3dac
 	ip4__ipset__destroy 'KVAS_DESTINATION_EXCLUDED'
 	#24-11-26 5efb5035c33fffb18c5d17cd7c56e453b0b64ac8
 	ip4__ipset__destroy 'KVAS_RESERVED'
 
+	#ToDo: найти почему вываливаются с ошибкой
 	#24-11-29 0dabaa19b8dc788d56650b20092dec4a9dce1acc
 	ip4__ipset__destroy 'KVAS_LIST'
 	#24-11-09 fb1f8cb5755dd4c7b683b314096ccf903ee05525
@@ -475,11 +546,13 @@ cmd_install(){
 	# Пишем сообщение в лог роутера о начале установки пакета
 	log_alert "УСТАНОВКА ПАКЕТА КВАС" "${LOG_HEADER}"
 
-	ready "Удаляем файлы предыдущей версии пакета Квас" 
-	rm_previous_version_files  && when_ok || when_bad
+	list__backup
 
-	echo 'Очищаем сетевые правила предыдущей версии Квас'
-	clear_previous_version_net_rules &>/dev/null
+	ready 'Удаляем файлы предыдущих версий'
+	rm_previous_version_files && when_ok || when_bad
+
+	echo 'Очищаем сетевые правила предыдущих версий'
+	clear_previous_version_net_rules
 
 	# стартуем ipset'ы, используемые DNS-серверами
 	# до старта самих DNS-серверов
@@ -505,15 +578,9 @@ cmd_install(){
 	ln -sf "${home_dir}/etc/ndm/ifcreated.d/kvas-iface-add" "/opt/etc/ndm/ifcreated.d/kvas-iface-add"
 	ln -sf "${home_dir}/etc/ndm/ifdestroyed.d/kvas-iface-del" "/opt/etc/ndm/ifdestroyed.d/kvas-iface-del"
 
-	# в случае отсуствия библиотеки
 	check_crypto_ssr_libs
-	[ -f '/opt/etc/dnscrypt-proxy.toml' ] && sed -i "s/^\(server_names =.*\)/# \1/g" '/opt/etc/dnscrypt-proxy.toml'
-				
-	# setup_test_provider_dns
 
 	[ -f "${KVAS_START_FILE}" ] || cp -f /opt/apps/kvas/etc/init.d/S96kvas "${KVAS_START_FILE}"
-
-
 	chmod +x "${KVAS_START_FILE}"
 
 	# Если не установлен xray - устанавливаем его
@@ -521,13 +588,14 @@ cmd_install(){
 	# Создаем ссылку на наш скрипт для запуска xray в /opt/etc/init.d 
 	[ -f "${XRAY_INIT}" ] || ln -s /opt/apps/kvas/etc/init.d/S97xray ${XRAY_INIT}
 
-	#------------------------------------------------------
-	# Отключаем IPv6
-	#------------------------------------------------------
-	if [ "$(ipv6_status)" = 0 ]; then
-		ipv6_inface_off "$(get_defaultgw_interface)"
-	fi
-
+	# Код отключения IPv6 не помогает
+	#if [ "$(ipv6_status)" = 0 ]; then
+	#	ipv6_inface_off "$(get_defaultgw_interface)"
+	#fi
+	# В kvas debug dns сейчас есть подсказка по отключению DHCPv6 централизованно.
+	# Но применять её или IPv6 отключать руками — решать пользователю,
+	# т.к. с отключением IPv6 можно потерять некоторых провайдеров.
+	# Возможно, подсказку имеет смысл выводить и в конце установки.
 
 	local_ip=$(get_router_ip)
 	set_config_value DNSMASQ_LISTEN_IP "${local_ip}"
@@ -734,8 +802,6 @@ cmd_uninstall() {
 	fi
 
 	if echo "${answer}" | grep -qi y ; then
-		ip4__flush &> /dev/null
-
 		if [ "${rm_type}" = full ]; then
 			mess="Удаляем все архивные данные и все зависимые пакеты..."
 			rm -f /opt/etc/init/K56dnsmasq  /opt/etc/init/K09dnscrypt-proxy2
@@ -750,23 +816,24 @@ cmd_uninstall() {
 		fi
 		[ -z "${sure}" ] && print_line
 		echo "${mess}"
-		# Останавливаем сервер AdGuardHome
-		if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
-			ready "Останавливаем службу AdGuardHome "
-		 	${ADGUARDHOME_DEMON} stop &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-		else 
-			
-			if has_ssr_enable ; then
-				ready "Останавливаем службу Shadowsocks "
-				# Останавливаем сервер SSR
-				/opt/etc/init.d/S22shadowsocks stop &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-			else
-				ready "Останавливаем службу dnsmasq "
-				/opt/etc/init.d/S56dnsmasq stop &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
-				ready "Останавливаем службу dnscrypt-proxy2 "
-				/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-			fi
+		if has_ssr_enable ; then
+			ready 'Останавливаем службу Shadowsocks '
+			/opt/etc/init.d/S22shadowsocks stop &>/dev/null && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
+			config__restore_from_opkg "${SHADOWSOCKS_CONF}"
+		fi
+		if cmd_adguardhome_status | grep -q 'ВКЛЮЧЕН' ; then
+			ready 'Останавливаем службу AdGuardHome '
+			${ADGUARDHOME_DEMON} stop &>/dev/null && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
+			config__restore_from_opkg "${ADGUARDHOME_CONFIG}"
+		else
+			ready 'Останавливаем службу DNSMasq '
+			${DNSMASQ_DEMON} stop &>/dev/null && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
+			config__restore_from_opkg "${DNSMASQ_CONFIG}"
+
+			ready 'Останавливаем службу DNSCrypt '
+			${DNSCRYPT_DEMON} stop &>/dev/null && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
+			config__restore_from_opkg "${DNSCRYPT_CONFIG}"
 		fi
 
 		# Подключаем библиотеку keen_api

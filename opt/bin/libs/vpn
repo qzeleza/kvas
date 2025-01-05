@@ -187,7 +187,52 @@ all_services_restart(){
 
 }
 
+config__get_opkg_file() {
+	if [ -z "${1}" ]; then
+		error "[${FUNCNAME}] Не передан обязательный параметр — файл"
+		return
+	fi
 
+	echo "${1}-opkg"
+}
+
+config__backup_as_opkg_if_not_exist() {
+	if [ -z "${1}" ]; then
+		error "[${FUNCNAME}] Не передан обязательный параметр — файл"
+		return
+	fi
+	local source_file="${1}"
+
+	local backup_file
+	backup_file=$(config__get_opkg_file "${source_file}")
+
+	if [ -f "${backup_file}" ]; then
+		# копия уже есть, только первая соответствует opkg
+		return
+	fi
+
+	log_warning "Сохранение копии как файла из OPKG в ${backup_file}"
+	cp "${source_file}" "${backup_file}"
+}
+
+config__restore_from_opkg() {
+	if [ -z "${1}" ]; then
+		error "[${FUNCNAME}] Не передан обязательный параметр — файл"
+		return
+	fi
+	local source_file="${1}"
+
+	local backup_file
+	backup_file=$(config__get_opkg_file "${source_file}")
+
+	if ! [ -f "${backup_file}" ]; then
+		# исходный opkg-файл не найден
+		return
+	fi
+
+	log_warning "Восстановление исходного файла ${source_file}"
+	mv -f "${backup_file}" "${source_file}"
+}
 
 SUFF=">> "
 # ------------------------------------------------------------------------------------------
@@ -434,9 +479,12 @@ adguardhome_setup() {
 		/opt/etc/init.d/S09dnscrypt-proxy2 status | grep -q alive && /opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
 		mv -f /opt/etc/init.d/S09dnscrypt-proxy2 "${KVAS_BACKUP_PATH}"
 	}
+
 	[ -f "${ADGUARDHOME_DEMON}" ] && ${ADGUARDHOME_DEMON} stop &> /dev/null
-#   останавливаем adg сервис, если он запущен
-	
+	if [ -f "${ADGUARDHOME_CONFIG}" ]; then
+		config__backup_as_opkg_if_not_exist "${ADGUARDHOME_CONFIG}"
+	fi
+
 #	устанавливаем DNS по умолчанию на ADGUARD
 	set_config_value DNS_DEFAULT "${localhost}#${port}"
 #	меняем номер порта в файле конфигурации adguard
@@ -1240,10 +1288,15 @@ dnsmasq_install(){
 		/opt/etc/init.d/S56dnsmasq stop 1> /dev/null 2> "${ERROR_LOG_FILE}"
 		ready_status "${?}" "Невозможно остановить сервис dnsmasq"
 	fi
-	ready "Заменяем файл конфигурации dnsmasq...   "
-	[ -f /opt/etc/dnsmasq.conf ] && mv -f /opt/etc/dnsmasq.conf "${KVAS_BACKUP_PATH}/dnsmasq.conf" 1> /dev/null 2> "${ERROR_LOG_FILE}"
-	cp /opt/apps/kvas/etc/conf/dnsmasq.conf /opt/etc/dnsmasq.conf 1> /dev/null 2> "${ERROR_LOG_FILE}"
-	ready_status "${?}" "Проблемы при замене в файле конфигурации dnsmasq"
+
+	ready 'Заменяем файл конфигурации dnsmasq...   '
+	if [ -f "${DNSMASQ_CONFIG}" ]; then
+		config__backup_as_opkg_if_not_exist "${DNSMASQ_CONFIG}"
+
+		mv -f "${DNSMASQ_CONFIG}" "${DNSMASQ_CONFIG_BACKUP}" 1>/dev/null 2>"${ERROR_LOG_FILE}"
+	fi
+	cp '/opt/apps/kvas/etc/conf/dnsmasq.conf' "${DNSMASQ_CONFIG}" 1>/dev/null 2>"${ERROR_LOG_FILE}"
+	ready_status "${?}" 'Проблемы при замене в файле конфигурации dnsmasq'
 
 	# dnsmasq_install_wildcard_support
 
@@ -1634,8 +1687,9 @@ cmd_shadowsocks_read_new_data() {
 #
 # ------------------------------------------------------------------------------------------
 shadowsocks_read_data() {
-
-	#	устанавливаем новую конфигурацию shadowsocks
+	if [ -f "${SHADOWSOCKS_CONF}" ]; then
+		config__backup_as_opkg_if_not_exist "${SHADOWSOCKS_CONF}"
+	fi
 	cp -f "/opt/apps/${APP_NAME}/etc/conf/shadowsocks.json" "${SHADOWSOCKS_CONF}"
 
 	answer=''; read_ynq "У Вас имеется кодированная ss:// ссылка для ввода данных" answer
@@ -2439,15 +2493,14 @@ dns_crypt_install() {
 		ready_status "${?}" "Проблема при остановке службы dnscrypt-proxy2"
 	fi
 
-#	архивируем предыдущие настройки
-	if [ -f '/opt/etc/dnscrypt-proxy.toml' ]; then
-		#warning "Файл конфигурации dnscrypt-proxy2 сохраняем"
-		cp /opt/etc/dnscrypt-proxy.toml ${KVAS_BACKUP_PATH}/dnscrypt-proxy.toml
-		#warning "под именем ${KVAS_BACKUP_PATH}/dnscrypt-proxy.toml"
-	elif [ -f "${KVAS_BACKUP_PATH}/dnscrypt-proxy.toml" ]; then
-		#warning "Обнаружен файл конфигурации dnscrypt-proxy2 "
-		cp "${KVAS_BACKUP_PATH}/dnscrypt-proxy.toml" /opt/etc/dnscrypt-proxy.toml
-		#warning "Восстанавливаем предыдущие настройки."
+	if [ -f "${DNSCRYPT_CONFIG}" ]; then
+		config__backup_as_opkg_if_not_exist "${DNSCRYPT_CONFIG}"
+
+		cp -f "${DNSCRYPT_CONFIG}" "${DNSCRYPT_CONFIG_BACKUP}"
+	elif [ -f "${DNSCRYPT_CONFIG_BACKUP}" ]; then
+		cp "${DNSCRYPT_CONFIG_BACKUP}" "${DNSCRYPT_CONFIG}"
+	else
+		config__restore_from_opkg "${DNSCRYPT_CONFIG}"
 	fi
 
 #	Настраиваем сервис
@@ -2473,8 +2526,10 @@ cmd_dns_crypt_on() {
 			{
 				# кэш
 				sed -i "s/\(^cache.=.\).*$/\1true/g"           '/opt/etc/dnscrypt-proxy.toml'
-				sed -i "s/\(^cache_min_ttl.=.\).*$/\115/g"     '/opt/etc/dnscrypt-proxy.toml'
+				sed -i "s/\(^cache_min_ttl.=.\).*$/\15/g"      '/opt/etc/dnscrypt-proxy.toml'
 				sed -i "s/\(^cache_max_ttl.=.\).*$/\1129600/g" '/opt/etc/dnscrypt-proxy.toml'
+				sed -i "s/\(^cache_neg_min_ttl.=.\).*$/\11/g"  '/opt/etc/dnscrypt-proxy.toml'
+				sed -i "s/\(^cache_neg_max_ttl.=.\).*$/\11/g"  '/opt/etc/dnscrypt-proxy.toml'
 				# требование безопасности к серверам
 				sed -i "s/\(^require_dnssec.=.\).*$/\1true/g" '/opt/etc/dnscrypt-proxy.toml'
 				# пока нет поддержки IPv6
