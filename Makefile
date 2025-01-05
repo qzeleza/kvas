@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=kvas
 PKG_VERSION:=1.1.9_beta-10
-PKG_RELEASE:= 14
+PKG_RELEASE:= 15
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)-$(PKG_RELEASE)
 MOLOT_UNINSTALL:=kvas uninstall full
 
