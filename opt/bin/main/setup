@@ -282,7 +282,6 @@ rm_package_files(){
 		ready 'Удаляем архивные копии пакета Квас' && {
 			find /opt ! -path "/opt/packages/*" ! -path "/opt/lib/opkg/*" -name '*kvas*' ! -regex '.*/kvas[a-zA-Z].*' -exec rm -rf {} +
 
-			rm_dir /opt/tmp/adblock
 			rm_file /opt/etc/inface_equals
 			rm_file /opt/etc/kvas.conf
 			rm_file /opt/etc/kvas.list
@@ -309,9 +308,9 @@ rm_package_files(){
 
 		rm_file /opt/etc/dnsmasq.d/kvas.dnsmasq
 		rm_dir /opt/etc/adblock
+		rm_dir /opt/tmp/adblock
 
 		rm_file /opt/bin/kvas
-
 		rm_dir /opt/apps/kvas
 	} && when_ok || when_bad
 }
