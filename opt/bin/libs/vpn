@@ -1486,8 +1486,14 @@ cmd_vpn_status() {
 # ------------------------------------------------------------------------------------------
 ndm_interface_change() {
 	inface_entware="${1}"; inface_cli="${2}"
+
 	cp /opt/apps/${APP_NAME}/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
 	chmod +x /opt/apps/kvas/bin/libs/ndm
+
+	# Очистим сетевые правила (кроме IPSet),
+	# пока нам ещё доступно "старое" соединение
+	ip4__flush 'chain table' &>/dev/null
+
 	set_config_value "INFACE_ENT" "${inface_entware}"
 	set_config_value "INFACE_CLI" "${inface_cli}"
 }
@@ -2048,14 +2054,17 @@ get_current_vpn_interface() {
 #
 # ------------------------------------------------------------------------------------------
 is_vpn_interface_connected() {
-	cli_inface="${1}"
-	if [ "${cli_inface}" = shadowsocks ] ; then
-		/opt/etc/init.d/S22shadowsocks status | grep -q 'alive' &> /dev/null
-		if [ $? = 0 ]; then connected="on"; else connected="off"; fi
-	else
-		if is_interface_online "${cli_inface}"; then connected="on"; else connected="off"; fi
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не передан обязательный параметр — Keenetic-имя"
+		return
 	fi
-	echo "${connected}"
+	local keenetic_name="${1}"
+
+	if is_interface_online "${keenetic_name}"; then 
+		echo 'on'
+	else
+		echo 'off'
+	fi
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -2521,7 +2530,6 @@ cmd_dns_crypt_on() {
 			ready "Шифрование DNS уже";	when_ok "ПОДКЛЮЧЕНО"
 		else
 			dns_crypt_port=$(get_config_value DNS_CRYPT_PORT)
-			dns_cache_enabled=$(get_config_value DNS_CACHE_ENABLED)
 			ready "Шифрование DNS"
 			{
 				# кэш

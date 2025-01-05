@@ -198,8 +198,11 @@ case "${1}" in
 		esac
 		;;
 
-	# Роутинг
+	# Маршрутизация
 
+	tunnel)
+		cmd_tunnel
+	;;
 	route)
 		case "${2}" in
 			refresh | recreate) cmd_route_refresh ;;
@@ -208,6 +211,21 @@ case "${1}" in
 		;;
 
 	# Поиск и устранение неисправностей
+
+	log)
+		case "${2}" in
+			error | err) syslog__show "${2}" 'КВАС' 'Ошибки Кваса:'                   "${3}" ;;
+			info)        syslog__show "${2}" 'КВАС' 'Информационные сообщения Кваса:' "${3}" ;;
+			*)           syslog__show ''     'КВАС' 'События Кваса:'                  "${2}" ;;
+		esac
+	;;
+	syslog)
+		case "${2}" in
+			error | err) syslog__show "${2}" '!КВАС' 'Ошибки системы:'                   "${3}" ;;
+			info)        syslog__show "${2}" '!КВАС' 'Информационные сообщения системы:' "${3}" ;;
+			*)           syslog__show ''     '!КВАС' 'События системы:'                  "${2}" ;;
+		esac
+	;;
 
 	ipset)
 		case "${2}" in

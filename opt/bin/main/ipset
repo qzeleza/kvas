@@ -38,6 +38,6 @@ while read -r line || [ -n "${line}" ]; do
 
 	# если строка IP, диапазон или маска; то добавляем напрямую и без ttl
 	if echo "${host}" | grep -qE -- "${REGEXP_IP_OR_RANGE}"; then
-		ipset -exist add "${IPSET_TABLE_NAME}" "${host}" timeout 0 &>/dev/null || true
+		/opt/sbin/ipset -exist add "${IPSET_TABLE_NAME}" "${host}" timeout 0 &>/dev/null || true
 	fi
 done < "${HOST_LIST}"
