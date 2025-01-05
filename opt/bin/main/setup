@@ -283,7 +283,6 @@ rm_package_files(){
 			find /opt ! -path "/opt/packages/*" ! -path "/opt/lib/opkg/*" -name '*kvas*' ! -regex '.*/kvas[a-zA-Z].*' -exec rm -rf {} +
 
 			rm_file /opt/tmp/adblock
-			rm_file /opt/etc/ads_exception.list
 			rm_file /opt/etc/inface_equals
 
 			rm_dir /opt/etc/.kvas
@@ -464,10 +463,10 @@ rm_previous_version_files() {
 
 	rm_file /opt/etc/adblock
 	# full
-	rm_file /opt/etc/ads_exception.list
 	rm_file /opt/etc/inface_equals
 	rm_file /opt/tmp/adblock
 	# исторические
+	rm_file /opt/etc/ads_exception.list
 	rm_file /opt/etc/hosts.list
 	rm_dir /opt/etc/.backup
 
