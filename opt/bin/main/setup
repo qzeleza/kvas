@@ -306,7 +306,7 @@ rm_package_files(){
 		rm_file /opt/etc/cron.5mins/check_vpn
 
 		rm_file /opt/etc/adblock
-		# корректно ли так поступать вместо opkg remove?
+
 		rm_file /opt/bin/kvas
 
 		rm_dir /opt/apps/kvas
@@ -463,7 +463,6 @@ rm_previous_version_files() {
 
 	rm_file /opt/etc/adblock
 	# full
-	rm_file /opt/etc/inface_equals
 	rm_file /opt/tmp/adblock
 	# исторические
 	rm_file /opt/etc/ads_exception.list
