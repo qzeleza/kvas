@@ -284,6 +284,8 @@ rm_package_files(){
 
 			rm_file /opt/tmp/adblock
 			rm_file /opt/etc/inface_equals
+			rm_file /opt/etc/kvas.conf
+			rm_file /opt/etc/kvas.list
 
 			rm_dir /opt/etc/.kvas
 
