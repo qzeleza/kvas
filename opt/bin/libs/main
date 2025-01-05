@@ -313,17 +313,24 @@ has_no_internet_here(){
 		| grep -q false
 }
 
+#---------------------------------------------------------------------------------
+# Проверяем работу заданного VPN CLI интерфейса
+# $1 - VPN интерфейс в терминах CLI (например OpenVPN0)
+#---------------------------------------------------------------------------------
 is_interface_online() {
-#---------------------------------------------------------------------------------
-#   Проверяем работу заданного VPN CLI интерфейса
-#   $1 - VPN интерфейс в терминах CLI (например OpenVPN0)
-#---------------------------------------------------------------------------------
-	local cli_inface=${1}
-	if [ "${cli_inface}" = shadowsocks ] && [ -f /opt/etc/init.d/S22shadowsocks ] ; then
-		/opt/etc/init.d/S22shadowsocks status | grep -q 'alive' &> /dev/null
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не передан обязательный параметр — Keenetic-имя"
+		return
+	fi
+	local keenetic_name="${1}"
+
+	if [ "${keenetic_name}" == 'shadowsocks' ]; then
+		# иногда ss запущен, но упал и ничего не слушает
+		netstat -tulpn 2>/dev/null | grep -F ":$(get_config_value SSR_DNS_PORT) " | grep -qF -- 'ss-redir'
 	else
-		inface_desc=$(curl -s "${INFACE_REQUEST}/${cli_inface}" | jq -r 'select(.state=="up" and .link=="up" and .connected=="yes")')
-		[ -n "${inface_desc}" ]
+		keenetic_name=$(curl -s "${INFACE_REQUEST}/${keenetic_name}" \
+		  | jq -r 'select(.state=="up" and .link=="up" and .connected=="yes") | .id // empty')
+		[ -n "${keenetic_name}" ]
 	fi
 }
 
@@ -468,6 +475,144 @@ is_inside_tunnel(){
 	grep_cmd=$(echo "echo ${tunn_ip_list} ${grep_cmd}" | sed 's/\(.*grep \)\([0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\)$/\1 -q \2/' | tr -s ' ')
 
 	eval "! ${grep_cmd}"
+}
+
+NETS_COMMON=''
+nets__set_common() {
+	if [ -n "${NETS_COMMON}" ]; then
+		return
+	fi
+
+	local api_info net_info
+	api_info=$(curl -s '127.0.0.1:79/rci/show/interface' \
+	  | jq -r 'values[] | select(.address!=null) | "\(.address)|\(.id)|\"\(.description)\"" // empty')
+	net_info=$(/opt/sbin/ip -f inet addr | grep -F 'inet' | grep -vF '127.0.0.1' | grep -vF '78.47.125.180' \
+	  | sed -n 's/.*inet \([0-9\.]\+\).* scope global \([^ ]\+\)/\2|\1/p')
+
+	local line finded
+	IFS=$'\n'
+	for line in $net_info; do
+		#ToDo: если начало tun, то добавлять кастом, который поддерживается ndm, не клеить к нему API-ответ
+
+		finded=$(echo "${line}" | cut -d'|' -f2)
+		finded=$(echo "${api_info}" | grep "^${finded}" | head -n 1 | cut -d'|' -f2-3)
+		if [ -z "${finded}" ]; then
+			log_warning "Сеть ${line} не найдена в API. Для поддержки можете сообщить об этом https://t.me/kvas_pro"
+			continue
+		fi
+
+		NETS_COMMON="${NETS_COMMON}${line}|${finded}"$'\n'
+	done
+
+	log_warning 'Сбор общих сетей завершён'
+	# чтобы не сканировало повторно, если ничего не найдено
+	if [ -z "${NETS_COMMON}" ]; then
+		NETS_COMMON=$'\n'
+	fi
+}
+
+NETS_TUNNEL='ezcfg0|78.47.125.180|shadowsocks|"ShadowSocks"'$'\n'
+
+# замена Singleton, чтобы скан был лишь при первом вызове
+NETS_INCOMING=''
+nets__set_incoming() {
+	if [ -n "${NETS_INCOMING}" ]; then
+		return
+	fi
+	local api_info
+
+	# IPsec в crypto
+	api_info=$(curl -s '127.0.0.1:79/rci/crypto/virtual-ip-server-ikev2')
+	if [ -n "${api_info}" ] ; then
+		NETS_INCOMING="${NETS_INCOMING}"'xfrms+|'$(echo "${api_info}" \
+		  | jq -r '."pool-start" // empty')'|crypto/virtual-ip-server-ikev2|"VPN-сервер IKEv2/IPsec"'$'\n'
+	fi
+	api_info=$(curl -s '127.0.0.1:79/rci/crypto/l2tp-server')
+	if [ -n "${api_info}" ] ; then
+		NETS_INCOMING="${NETS_INCOMING}"'l2tp+|'$(echo "${api_info}" \
+		  | jq -r '."pool-start" // empty')'|crypto/l2tp-server|"VPN-сервер L2TP/IPsec"'$'\n'
+	fi
+
+	# остальные в глобальном
+	api_info=$(curl -s '127.0.0.1:79/rci/oc-server')
+	if [ -n "${api_info}" ] ; then
+		NETS_INCOMING="${NETS_INCOMING}"'oc+|'$(echo "${api_info}" \
+		  | jq -r '.config."pool-start" // empty')'|oc-server|"VPN-сервер OpenConnect"'$'\n'
+	fi
+	api_info=$(curl -s '127.0.0.1:79/rci/sstp-server')
+	if [ -n "${api_info}" ] ; then
+		NETS_INCOMING="${NETS_INCOMING}"'sstp+|'$(echo "${api_info}" \
+		  | jq -r '.config."pool-start" // empty')'|sstp-server|"VPN-сервер SSTP"'$'\n'
+	fi
+
+	log_warning 'Сбор входящих сетей завершён'
+	# чтобы не сканировало повторно, если ничего не найдено
+	if [ -z "${NETS_INCOMING}" ]; then
+		NETS_INCOMING=$'\n'
+	fi
+}
+
+nets__get_param_by_fields() {
+	if [ -z "${1}" ] ; then
+		echo '\1|\2|\3|\4'
+		return
+	fi
+	local fields_name="${1}"
+
+	local field_name field_num
+	local params=''
+	IFS=' '
+	for field_name in $fields_name; do
+		case "${field_name}" in
+			net | linux)         field_num=1 ;;
+			ip)                  field_num=2 ;;
+			api | keenetic)      field_num=3 ;;
+			title | description) field_num=4 ;;
+			*)
+				error "[${FUNCNAME}] Передано неизвестное имя поля ${field_name}"
+				return
+			;;
+		esac
+
+		params="${params}\\${field_num}|"
+	done
+	echo "${params:0:-1}"
+}
+
+nets__get() {
+	# для работы в отдельном контексте передаём его, а не берём из глобальной
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не передан обязательный параметр — список сетей"
+		return
+	fi
+	local nets_dictionary="${1}"
+
+	if [ -z "${2}" ] ; then
+		error "[${FUNCNAME}] Не передан обязательный аргумент, по которому ищется сетевой интерфейс"
+		return
+	fi
+	local find_string="${2}"
+
+	local find_interface
+
+	find_interface=$(echo "${nets_dictionary}" | grep -F "${find_string}" | head -n 1)
+	if [ -z "${find_interface}" ]; then
+		return
+	fi
+
+	if [ -z "${3}" ] ; then
+		echo "${find_interface}"
+		return
+	fi
+
+	local param_replace="${3}"
+	param_replace=$(nets__get_param_by_fields "${param_replace}")
+	if [ -z "${param_replace}" ] ; then
+		return
+	fi
+
+	local param_field='\([^|]*\)'
+	echo "${find_interface}" | sed -n "s/${param_field}|${param_field}|${param_field}|${param_field}/${param_replace}/p"
 }
 
 # любой из видов proxy: хоть ShadowSocks, хоть VLESS

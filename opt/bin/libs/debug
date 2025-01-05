@@ -137,7 +137,7 @@ shadowsocks_debug() {
 #	 Формируем лог отладочной информации
 #
 # ------------------------------------------------------------------------------------------
-debug__list() {
+kvas__show_list() {
 	if ! [ -f "${KVAS_LIST_FILE}" ] ; then
 		error "Не найден файл списка ${KVAS_LIST_FILE}"
 		return
@@ -233,20 +233,43 @@ iptables__text_empty() {
 }
 
 cmd_debug_iptables() {
-	local output="$(get_tunnel_ip | xargs)"
-	if [ -z "${output}" ] ; then
-		output='Не найден!'
+	local cache output title
+
+	cache=$(/opt/sbin/ipset list "${IPSET_DESTINATION_EXCLUDED}" | grep -vF ':')
+
+	output=$(echo "${cache}" | wc -l)
+	ready 'Исключённых целевых IPv4 и диапазонов' && when_ok "${output}"
+
+	output=$(get_external_ip)
+	if [ -n "${output}" ]; then
+		if echo "${cache}" | grep -q "${output}"; then
+			output='исключён'
+		else
+			output='возможны loopback'
+		fi
+
+		ready 'Интернет шлюз' && when_ok "${output}"
 	fi
-	ready 'Внешний IP'                            && when_ok "$(get_external_ip)"
-	ready 'IP тоннеля'                            && when_ok "${output}"
-	ready 'Исключённых целевых IPv4 и диапазонов' && when_ok "$(ipset list ${IPSET_DESTINATION_EXCLUDED} | grep -vF ':' | wc -l)"
-	ready 'Интерфейс для выхода в интернет'       && when_ok "$(get_external_interface)"
-	ready 'IKEv2 интерфейс'                       && when_ok "$(get_entware_ikev2_inface)"
+
+	title=$(get_tunnel_ip)
+	if [ -z "${title}" ]; then
+		output='возможны loopback'
+	else
+		output='исключён'
+
+		IFS=$'\n'
+		for tunnel_ip in ${title} ; do
+			if ! echo "${cache}" | grep -q "${tunnel_ip}"; then
+				output='возможны loopback'
+			fi
+		done
+	fi
+	ready 'Тоннель' && when_ok "${output}"
+
 	echo
+	output=$(ip route)
+	echo_debug 'Маршруты (подключитесь к гостевой заранее)' "${output}"
 
-	echo_debug 'Маршруты (подключитесь к гостевой заранее)' "$(ip route)"
-
-	local title
 	if is_proxy_enabled ; then
 		title='Перенаправление в порт'
 		output="${CHAIN_DNAT_TO_PORT}"
@@ -332,7 +355,7 @@ get_netstat() {
 	fi
 	local filter="${1}"
 
-	local output=$(netstat -tulpn | grep -F -- "${filter}" | grep -v -- ':[0-9][0-9][0-9][0-9][0-9]')
+	local output=$(netstat -tulpn 2>/dev/null | grep -F -- "${filter}" | grep -v -- ':[0-9][0-9][0-9][0-9][0-9]')
 	if [ -z "${output}" ] ; then
 		output="Сетевые соединения для ${filter} не найдены."
 
@@ -416,6 +439,38 @@ cmd_debug_dnsmasq() {
 	echo_debug 'DNSCrypt слушает:' "$(get_netstat 'dnscrypt')"
 }
 
+get_dhcpv6_status() {
+	local api_ipv6
+	api_ipv6=$(curl -s '127.0.0.1:79/rci/ipv6' | jq -c '.')
+
+	if [ "${api_ipv6}" == '{}' ]; then
+		# Сегменты IPv6 удалены, но не факт, что IPv6 DNS отключен
+		# no ipv6 subnet Default
+		echo 'no_subnet'
+		return
+	fi
+	
+	if ! echo "${api_ipv6}" | grep -qF '"Default":'; then
+		# Сегмент IPv6 Default удалён, но не факт, что IPv6 DNS отключен
+		echo 'no_default'
+		return
+	fi
+
+	if echo "${api_ipv6}" | grep -qF '"dhcp":true'; then
+		# DHCPv6 включен
+		echo 'dhcp'
+		return
+	fi
+
+	if echo "${api_ipv6}" | grep -qF '"bind":'; then
+		# Сегмент IPv6 привязан
+		echo 'bind'
+		return
+	fi
+
+	echo 'disabled'
+}
+
 cmd_debug_dns() {
 	if has_adguard_enable ; then
 		cmd_debug_adguard
@@ -423,20 +478,41 @@ cmd_debug_dns() {
 		cmd_debug_dnsmasq
 	fi
 
-	ready 'NDNProxy версия' && when_ok "$(ndnproxy 2>&1 | grep -Eo 'ndnproxy [0-9\.]+' | head -n 1 | cut -d ' ' -f2)"
+	local dhcpv6_status
+	dhcpv6_status=$(get_dhcpv6_status)
+
+	ready 'DHCPv6' && when_ok "${dhcpv6_status}"
+	ready 'NDNProxy версия' && when_ok "$(ndnproxy 2>&1 | grep -Eo 'ndnproxy [0-9\.]+' | head -n 1 | cut -d' ' -f2)"
 
 	# если вызывается как один из дебагов, то можно передать silent/short
 	if [ -n "${1}" ] ; then
 		local output=''
 	else
-		local output='Отключите освобождение 53 порта:\n no opkg dns-override\n system configuration save\n reboot'
+		local output=$(printf '%s\n' \
+			'Отключите освобождение 53 порта:' \
+			' no opkg dns-override' \
+			' system configuration save' \
+			' reboot' \
+		)
 	fi
 	echo_debug 'Комплектный DNS роутера (базово) слушает:' "$(get_netstat 'ndnproxy' "${output}")"
+
+	if [ "${dhcpv6_status}" == 'dhcp' ] || [ "${dhcpv6_status}" == 'bind' ] ; then
+		printf '%s\n' \
+			'Вероятно, часть DNS-трафика проходит через IPv6 адрес.' \
+			'Для отключения DHCPv6:' \
+			' ipv6 subnet Default' \
+			' no mode' \
+			' no bind' \
+			' system configuration save' \
+			' reboot'
+		echo
+	fi
 }
 
 cmd_ipset_flush() {
 	echo -n 'Очистка IPSet...'
-	ipset flush "${IPSET_TABLE_NAME}"
+	/opt/sbin/ipset flush "${IPSET_TABLE_NAME}"
 	echo 'сделана.'
 
 	# Как минимум DNSMasq при попадании в кэш не заполняет IPSet
@@ -452,8 +528,9 @@ cmd_ipset_flush() {
 
 	echo -n 'Заполнение IPSet IP из списка..'
 	local count=0
+	IFS=$'\n'
 	for ip_or_range in $(grep -E -- "$(get_regexp_ip_or_range)" '/opt/etc/kvas.list'); do
-		ipset -exist add "${IPSET_TABLE_NAME}" "${ip_or_range}" timeout 0
+		/opt/sbin/ipset -exist add "${IPSET_TABLE_NAME}" "${ip_or_range}" timeout 0
 
 		count=$((count + 1))
 		if [ "$(( ${count} % 50 ))" -eq 0 ]; then
@@ -498,7 +575,7 @@ cmd_ipset_add() {
 	fi
 
 	echo -n "Добавление ${ip} в IPSet..."
-	ipset -exist add "${IPSET_TABLE_NAME}" "${ip}"
+	/opt/sbin/ipset -exist add "${IPSET_TABLE_NAME}" "${ip}"
 	echo 'сделано.'
 
 	echo
@@ -513,6 +590,11 @@ cmd_ipset_refill() {
 }
 
 cmd_ipset() {
+	if ! ip4__ipset__is_exist "${IPSET_TABLE_NAME}" ; then
+		error "Не найден IPSet ${IPSET_TABLE_NAME}"
+		return
+	fi
+
 	if [ -n "${1}" ]; then
 		if ! echo "${1}" | grep -qE "^${IP_FILTER}$"; then
 			error "Параметр ${1} не известен."
@@ -523,17 +605,17 @@ cmd_ipset() {
 		fi
 	fi
 
-	local output=$(ipset list "${IPSET_TABLE_NAME}" | grep -vF ':' | wc -l)
+	local output=$(/opt/sbin/ipset list "${IPSET_TABLE_NAME}" | grep -vF ':' | wc -l)
 	ready 'Количество записей' && when_ok "${output}"
 
-	if ipset list "${IPSET_TABLE_NAME}" | grep -qF "${IP_MYIP2}"; then
+	if /opt/sbin/ipset list "${IPSET_TABLE_NAME}" | grep -qF "${IP_MYIP2}"; then
 		output='есть'
 	else
 		output='нет'
 	fi
 	ready 'myip2.ru' && when_ok "${output}"
 
-	if ipset list "${IPSET_TABLE_NAME}" | grep -qF "${IP_IFCONFIG}"; then
+	if /opt/sbin/ipset list "${IPSET_TABLE_NAME}" | grep -qF "${IP_IFCONFIG}"; then
 		output='есть'
 	else
 		output='нет'
@@ -541,7 +623,7 @@ cmd_ipset() {
 	ready 'ifconfig.me' && when_ok "${output}"
 
 	if [ -n "${1}" ]; then
-		if ipset list "${IPSET_TABLE_NAME}" | grep -q "^${1} "; then
+		if /opt/sbin/ipset list "${IPSET_TABLE_NAME}" | grep -q "^${1} "; then
 			output='есть'
 		else
 			output='нет'
@@ -551,7 +633,7 @@ cmd_ipset() {
 
 	echo
 
-	local cached=$(ipset list "${IPSET_TABLE_NAME}" | grep -vF 'timeout 0' | grep -vF ':')
+	local cached=$(/opt/sbin/ipset list "${IPSET_TABLE_NAME}" | grep -vF 'timeout 0' | grep -vF ':')
 	if [ -z "${cached}" ]; then
 		local count='0'
 
@@ -571,6 +653,7 @@ cmd_ipset() {
 
 		# геморрой из-за неподдержки -k в sort
 		output=''
+		IFS=$'\n'
 		for ttl in $(echo "${cached}" | cut -d' ' -f3 | sort -n -r -u | head -n 7); do
 			output="${output}"$(echo "${cached}" | grep -F "${ttl}" | cut -d' ' -f1 | sort)$'\n'
 		done
@@ -580,7 +663,7 @@ cmd_ipset() {
 	fi
 	echo_debug "Для доменов ${count}${cached}" "${output}"
 
-	count=$(ipset list "${IPSET_TABLE_NAME}" | grep -F 'timeout 0' | wc -l)
+	count=$(/opt/sbin/ipset list "${IPSET_TABLE_NAME}" | grep -F 'timeout 0' | wc -l)
 	if [ "$count" -eq 0 ]; then
 		if grep -Eq -- "${IP_FILTER}" "${KVAS_LIST_FILE}"; then
 			output='Или нет корректных IP, диапазонов в kvas list;\nили проблема с их переносом'
@@ -595,7 +678,7 @@ cmd_ipset() {
 
 		cached=''
 	else
-		output=$(ipset list "${IPSET_TABLE_NAME}" | grep -F 'timeout 0' | head -n 15 | cut -d' ' -f1)
+		output=$(/opt/sbin/ipset list "${IPSET_TABLE_NAME}" | grep -F 'timeout 0' | head -n 15 | cut -d' ' -f1)
 
 		cached=', произвольные 15:'
 	fi
@@ -742,19 +825,83 @@ adblock_dnsmasq_debug() {
 #	 Формируем лог отладочной информации
 #
 # ------------------------------------------------------------------------------------------
-syslog_debug() {
 
-	result=$(curl -s -d '{"once": false, "max-lines": 66}' "${LOCALHOST_IP}"':79/rci/show/log' \
-			| grep -A3 -B1 \"E\" | grep -E "message|timestamp" \
-			| cut -d":" -f2- | tr -d '"' | sed 's/\,$/\n/g' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' \
-			)
-	[ -n "${result}" ] && {
-		echo "Список ошибок из системного журнала"
-		print_line
-		echo "${result}"
-		echo ''
-	}
-	
+syslog__get_command() {
+	local command='ndmc -c show log'
+	# исключаем мусор от работы API
+	command="${command} | grep -vF 'started Session /var/run/ndm'"
+	command="${command} | grep -vF 'Session: client disconnected'"
+	# исключаем мусор от cron
+	command="${command} | grep -vF '/opt/bin/run-parts /opt/etc/cron'"
+	command="${command} | grep -vF 'last message repeated'"
+
+	if [ -n "${1}" ] && [ "${1}" != 'all' ] ; then
+		# emerg alert crit err warning notice info debug
+		local facility="${1}"
+		if [ "${facility}" == 'info' ]; then
+			facility='I'
+		elif [ "${facility}" == 'err' ] || [ "${facility}" == 'error' ] ; then
+			facility='E'
+		else
+			error "[${FUNCNAME}] Неизвестный уровень/тип ошибки"
+			return
+		fi
+
+		command="${command} | grep '^${facility}'"
+	else
+		# мешает пустая строка с неизвестным символом
+		command="${command} | grep -F ' '"
+	fi
+	if [ -n "${2}" ] ; then
+		command="${command} | grep -"
+
+		local filter="${2}"
+		if [ "${filter:0:1}" == '!' ]; then
+			filter="${filter:1}"
+
+			command="${command}v"
+		fi
+
+		command="${command}F -- '${filter}'"
+	fi
+
+	echo "${command}"
+}
+
+syslog__show() {
+	if [ -n "${1}" ] ; then
+		local facility="${1}"
+	else
+		local facility='all'
+	fi
+	if [ -n "${2}" ] ; then
+		local filter="${2}"
+	else
+		local filter=''
+	fi
+
+	local command
+	command=$(syslog__get_command "${facility}" "${filter}")
+	# быстрая проверка, чтобы не хранить огромный текст в переменной
+	if [ $(eval "${command}" | head -c1 | wc -c) -eq 0 ] ; then
+		return
+	fi
+
+	if [ -n "${3}" ] ; then
+		local title="${3}"
+	else
+		local title='Лог:'
+	fi
+	if [ -n "${4}" ] ; then
+		# передан лимит
+		command="${command} | tail -n${4}"
+	fi
+
+	print_line
+	echo "${title}"
+	print_line
+	eval "${command}"
+	echo
 }
 
 # ------------------------------------------------------------------------------------------
@@ -795,14 +942,20 @@ router_info() {
 	ready 'Версия KeenOS' && when_ok $(echo "${info_cache}" | jq -r '.title // empty')
 }
 
-show_install_log(){
-	if [ -f "${INSTALL_LOG}" ] ; then
-		print_line
-		echo "Журнал установки пакета:"
-		print_line
-		cat < "${INSTALL_LOG}" | sed 's/\(^Текущее.*\) .*$/\1/'
-		echo
+kvas__show_config() {
+	cat < "${KVAS_CONF_FILE}" | grep -v '=$' | grep -v '^$'
+}
+
+kvas__show_install_log() {
+	if ! [ -f "${INSTALL_LOG}" ] ; then
+		return
 	fi
+
+	print_line
+	echo "Журнал установки [${INSTALL_LOG}]:"
+	print_line
+	cat < "${INSTALL_LOG}" | sed 's/\(^Текущее.*\) .*$/\1/'
+	echo
 }
 
 # ------------------------------------------------------------------------------------------
@@ -810,14 +963,6 @@ show_install_log(){
 #	 Формируем лог доступных подключений и их названия в entware и CLI
 #
 # ------------------------------------------------------------------------------------------
-show_interfaces_debug() {
-	if [ -f "${INFACE_NAMES_FILE}" ] ; then
-		echo "Доступные VPN интерфейсы в системе "
-		print_line
-		cat < "${INFACE_NAMES_FILE}" | sed 's/^\(.*\)|\(.*\)|\(.*\)$/\3 = [\1 | \3]/' | grep -v '^ '
-		echo ''
-	fi
-}
 
 show_guest_nets(){
 	list=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;'| sed 's/[ ]//g; s/^\,//')
@@ -862,11 +1007,17 @@ print_debug() {
 	print_line
 	router_info
 	echo
-	syslog_debug
+	syslog__show 'info'  '!КВАС' 'Последние информационные сообщения [kvas syslog info]:' 20
+	syslog__show 'error' '!КВАС' 'Последние ошибки [kvas syslog error]:'                  20
 
-	#ToDo: Синий заголовок категории КВАС
-	#ToDo: после приборки публиковать конфигурацию Квас
-	show_install_log
+	print_line
+	echo -e " ${BLUE}КВАС${NOCL}"
+	print_line
+	kvas__show_config
+	echo
+	kvas__show_install_log
+	syslog__show 'info'  'КВАС' 'Последние информационные сообщения [kvas log info]:' 20
+	syslog__show 'error' 'КВАС' 'Последние ошибки [kvas log error]:'                  20
 
 	print_line
 	echo -e " ${BLUE}Сетевые правила [kvas debug iptables]${NOCL}"
@@ -881,23 +1032,20 @@ print_debug() {
 	print_line
 	echo -e " ${BLUE}Список пользователя [kvas list]${NOCL}"
 	print_line
-	debug__list
+	kvas__show_list
 
 	print_line
 	echo -e " ${BLUE}Список IP для попадания в тоннель [kvas ipset]${NOCL}"
 	print_line
 	cmd_ipset
 
-	#ToDo: завершить приборку
 	print_line
-	echo -e " ${BLUE}Сети${NOCL}"
+	echo -e " ${BLUE}Подключения [kvas tunnel]${NOCL}"
 	print_line
-	internet_check
-	show_interfaces_debug
+	cmd_tunnel
+
 	print_line
-	if has_ssr_enable; then
-		shadowsocks_debug
-	else
-		vpn_debug
-	fi
+	echo -e " ${BLUE}Маршрутизация [kvas route]${NOCL}"
+	print_line
+	cmd_route 'short'
 }
