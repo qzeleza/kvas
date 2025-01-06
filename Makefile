@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=kvas
 PKG_VERSION:=1.1.9_beta-10
-PKG_RELEASE:= 15
+PKG_RELEASE:= 17
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)-$(PKG_RELEASE)
 MOLOT_UNINSTALL:=kvas uninstall full
 
@@ -40,8 +40,7 @@ define Package/kvas/install
 	$(INSTALL_DIR) $(1)/opt/etc/ndm/netfilter.d
 	$(INSTALL_DIR) $(1)/opt/apps/kvas
 
-	# $(INSTALL_BIN) opt/etc/ndm/fs.d/100-ipset $(1)/opt/etc/ndm/fs.d
-	$(INSTALL_BIN) opt/etc/ndm/netfilter.d/100-proxy-redirect $(1)/opt/etc/ndm/netfilter.d
+	$(INSTALL_BIN) opt/etc/ndm/fs.d/15-kvas-start.sh $(1)/opt/etc/ndm/fs.d
 	$(INSTALL_BIN) opt/etc/ndm/netfilter.d/100-dns-local $(1)/opt/etc/ndm/netfilter.d
 
 	$(INSTALL_BIN) opt/etc/init.d/S96kvas $(1)/opt/etc/init.d
