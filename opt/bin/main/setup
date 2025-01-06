@@ -804,8 +804,6 @@ cmd_uninstall() {
 		if [ "${rm_type}" = full ]; then
 			mess="Удаляем все архивные данные и все зависимые пакеты..."
 			rm -f /opt/etc/init/K56dnsmasq  /opt/etc/init/K09dnscrypt-proxy2
-			[ -f "${SHADOWSOCKS_CONF}" ] || touch "${SHADOWSOCKS_CONF}"
-
 		elif [ "${rm_type}" == develop ] ; then
 			all_services_rm_develop_mode
 		else
