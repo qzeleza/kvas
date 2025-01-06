@@ -40,8 +40,7 @@ define Package/kvas/install
 	$(INSTALL_DIR) $(1)/opt/etc/ndm/netfilter.d
 	$(INSTALL_DIR) $(1)/opt/apps/kvas
 
-	# $(INSTALL_BIN) opt/etc/ndm/fs.d/100-ipset $(1)/opt/etc/ndm/fs.d
-	$(INSTALL_BIN) opt/etc/ndm/netfilter.d/100-proxy-redirect $(1)/opt/etc/ndm/netfilter.d
+	$(INSTALL_BIN) opt/etc/ndm/fs.d/15-kvas-start.sh $(1)/opt/etc/ndm/fs.d
 	$(INSTALL_BIN) opt/etc/ndm/netfilter.d/100-dns-local $(1)/opt/etc/ndm/netfilter.d
 
 	$(INSTALL_BIN) opt/etc/init.d/S96kvas $(1)/opt/etc/init.d
