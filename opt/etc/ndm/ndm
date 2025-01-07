@@ -595,9 +595,9 @@ ip4__shadowsocks__add_routing_for_home() {
 	ip4__add_routing_for_home "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" 'ShadowSocks'
 }
 
-# когда ускорение подключено
+# VPN, VLESS
 ip4__mark__add_routing_for_home() {
-	ip4__add_routing_for_home "${TABLE_MARK}" "${CHAIN_MARK}" 'VPN'
+	ip4__add_routing_for_home "${TABLE_MARK}" "${CHAIN_MARK}" 'сетевого интерфейса'
 }
 
 
@@ -1004,8 +1004,6 @@ ip4__delete_routing_for_ip_from_config() {
 ip4_firewall_flush_vpn_rules() {
 	{
 		ip4__delete_routing_by_list_for_net_from_config
-		# Для отключенного ускорения не сделает ничего, пока 
-		# оно не будет переписано на цепочки
 		ip4__delete_routing_for_ip_from_config
 
 		# достаточно удалять правила для br0, но на всякий случай
@@ -1062,8 +1060,6 @@ ip4__flush() {
 		ip4__delete_routing_by_list_for_net_from_config
 	fi
 	if echo "${parts}" | grep -Fq ' ip ' ; then
-		# Для отключенного ускорения не сделает ничего, пока 
-		# оно не будет переписано на цепочки
 		ip4__delete_routing_for_ip_from_config
 	fi
 
