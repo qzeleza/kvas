@@ -828,16 +828,16 @@ cmd_uninstall() {
 
 		list__backup
 
-		ready "Удаляем пакет Квас..."
+		ready 'Удаляем пакет Квас...'
 		opkg remove kvas --autoremove &> /dev/null 
-		when_ok "УСПЕШНО" 
+		when_ok 'УСПЕШНО'
 
-		ready "Удаляем файлы конфигурации..."
-		rm_package_files "${rm_type}" &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+		ready 'Удаляем файлы конфигурации...'
+		rm_package_files "${rm_type}" &> /dev/null && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
 
-		ready "Очищаем все правила и таблицы..."
+		ready 'Очищаем все правила и таблицы...'
 		ip4__flush &> /dev/null
-		if [ $? = 0 ]; then when_ok "УСПЕШНО"; else when_bad "ОШИБКА"; fi
+		if [ $? = 0 ]; then when_ok 'УСПЕШНО'; else when_bad 'ОШИБКА'; fi
 
 		if [ -f /opt/etc/init.d/S99adguardhome ]; then
 			restore_adguard
