@@ -832,10 +832,10 @@ cmd_uninstall() {
 		opkg remove kvas --autoremove &> /dev/null 
 		when_ok 'УСПЕШНО'
 
-		ready 'Удаляем файлы конфигурации...'
+		ready 'Удаляем интегрированные в систему файлы...'
 		rm_package_files "${rm_type}" &> /dev/null && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
 
-		ready 'Очищаем все правила и таблицы...'
+		ready 'Очищаем сетевые правила...'
 		ip4__flush &> /dev/null
 		if [ $? = 0 ]; then when_ok 'УСПЕШНО'; else when_bad 'ОШИБКА'; fi
 
