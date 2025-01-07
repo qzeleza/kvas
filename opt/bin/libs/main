@@ -621,11 +621,15 @@ has_ssr_enable() {
 }
 
 is_shadowsocks_enabled() {
-	[ "$(get_config_value INFACE_CLI)" = 'shadowsocks' ]
+	local tunnel_keenetic_name
+	tunnel_keenetic_name=$(get_config_value 'INFACE_CLI')
+	[ "${tunnel_keenetic_name}" = 'shadowsocks' ]
 }
 
 is_vless_over_proxy_enabled() {
-	[ "$(get_config_value INFACE_CLI)" = "${PROXY_VLESS_NAME}" ]
+	local tunnel_keenetic_name
+	tunnel_keenetic_name=$(get_config_value 'INFACE_CLI')
+	[ "${tunnel_keenetic_name}" = "${PROXY_VLESS_NAME}" ]
 }
 
 
