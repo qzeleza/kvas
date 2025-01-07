@@ -826,6 +826,8 @@ cmd_uninstall() {
 		# Сохраняем конфигурацию
 		#save_system_configuration_by_api
 
+		list__backup
+
 		ready "Удаляем пакет Квас..."
 		opkg remove kvas --autoremove &> /dev/null 
 		when_ok "УСПЕШНО" 
