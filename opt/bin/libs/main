@@ -615,21 +615,16 @@ nets__get() {
 	echo "${find_interface}" | sed -n "s/${param_field}|${param_field}|${param_field}|${param_field}/${param_replace}/p"
 }
 
-# любой из видов proxy: хоть ShadowSocks, хоть VLESS
-is_proxy_enabled() {
-	[ -f '/opt/etc/ndm/netfilter.d/100-proxy-redirect' ]
-}
-
 #ToDo: перейти везде на новые обёртки
 has_ssr_enable() {
-	is_proxy_enabled
+	is_shadowsocks_enabled
 }
 
 is_shadowsocks_enabled() {
 	[ "$(get_config_value INFACE_CLI)" = 'shadowsocks' ]
 }
 
-is_vless_enabled() {
+is_vless_over_proxy_enabled() {
 	[ "$(get_config_value INFACE_ENT)" = "${PROXY_VLESS_NAME}" ]
 }
 
@@ -884,7 +879,7 @@ vpn__get_tunnel_addresses() {
 get_tunnel_addresses() {
 	if is_shadowsocks_enabled ; then
 		echo $(get_from_json "${SHADOWSOCKS_CONF}" 'server')
-	elif is_vless_enabled ; then
+	elif is_vless_over_proxy_enabled ; then
 		echo $(get_from_json "${VLESS_CONFIG_FILE}" 'address' 'outbounds')
 	else
 		echo $(vpn__get_tunnel_addresses "$(get_config_value INFACE_CLI)")
