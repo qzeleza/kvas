@@ -625,7 +625,7 @@ is_shadowsocks_enabled() {
 }
 
 is_vless_over_proxy_enabled() {
-	[ "$(get_config_value INFACE_ENT)" = "${PROXY_VLESS_NAME}" ]
+	[ "$(get_config_value INFACE_CLI)" = "${PROXY_VLESS_NAME}" ]
 }
 
 
