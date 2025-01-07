@@ -828,6 +828,12 @@ cmd_uninstall() {
 
 		list__backup
 
+		#ready 'Очищаем используемые сетевые правила...'
+		# Нормально отработает, пока все файлы на месте.
+		# Ведь внутри может проверять тип текущего тоннеля и прочее.
+		#ip4__flush &> /dev/null
+		#if [ $? = 0 ]; then when_ok 'УСПЕШНО'; else when_bad 'ОШИБКА'; fi
+
 		ready 'Удаляем пакет Квас...'
 		opkg remove kvas --autoremove &> /dev/null 
 		when_ok 'УСПЕШНО'
@@ -835,8 +841,9 @@ cmd_uninstall() {
 		ready 'Удаляем интегрированные в систему файлы...'
 		rm_package_files "${rm_type}" &> /dev/null && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
 
-		ready 'Очищаем сетевые правила...'
-		ip4__flush &> /dev/null
+		ready 'Очищаем всевозможные сетевые правила...'
+		# т.к. файлы уже подчищены, то можем использовать лишь не "интеллектуальную" очистку
+		clear_previous_version_net_rules &> /dev/null
 		if [ $? = 0 ]; then when_ok 'УСПЕШНО'; else when_bad 'ОШИБКА'; fi
 
 		if [ -f /opt/etc/init.d/S99adguardhome ]; then
