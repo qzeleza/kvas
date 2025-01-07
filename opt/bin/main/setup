@@ -267,28 +267,6 @@ stop_crypt(){
 	warning "Файл сохранен, как /opt/etc/init.d/K09dnscrypt-proxy2"
 }
 
-set_previous_condition() {
-	full=${1:-no}
-
-	ready "Удаляем файлы конфигурации..."
-	rm_package_files "${full}" &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-
-	ready "Очищаем все правила и таблицы..."
-	ip4__flush &> /dev/null
-	if [ $? = 0 ]; then when_ok "УСПЕШНО"; else when_bad "ОШИБКА"; fi
-
-	if [ -f /opt/etc/init.d/S99adguardhome ]; then
-		restore_adguard
-	fi
-
-	if [ -f /opt/etc/init.d/S56dnsmasq ] ; then
-		stop_dnsmasq
-	fi
-	if [ -f /opt/etc/init.d/S09dnscrypt-proxy2 ]; then
-		stop_crypt
-	fi
-}
-
 # восставившем архивные копии файлов конфигурации
 restore_backups(){
 	restore_backup "${KVAS_LIST_FILE_BACKUP}" "${KVAS_LIST_FILE}" "защищенного списка"
@@ -852,10 +830,24 @@ cmd_uninstall() {
 		opkg remove kvas --autoremove &> /dev/null 
 		when_ok "УСПЕШНО" 
 
-#		print_line
-#	
-		# Удаляем предыдущие файлы Кваса
-		set_previous_condition "${rm_type}"
+		ready "Удаляем файлы конфигурации..."
+		rm_package_files "${rm_type}" &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+
+		ready "Очищаем все правила и таблицы..."
+		ip4__flush &> /dev/null
+		if [ $? = 0 ]; then when_ok "УСПЕШНО"; else when_bad "ОШИБКА"; fi
+
+		if [ -f /opt/etc/init.d/S99adguardhome ]; then
+			restore_adguard
+		fi
+
+		if [ -f /opt/etc/init.d/S56dnsmasq ] ; then
+			stop_dnsmasq
+		fi
+		if [ -f /opt/etc/init.d/S09dnscrypt-proxy2 ]; then
+			stop_crypt
+		fi
+
 		print_line
 		echo "Удаление КВАСа завершено."
 	fi
