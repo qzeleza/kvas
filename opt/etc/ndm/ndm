@@ -512,8 +512,9 @@ ip4__dnat_to_port__create_chain() {
 }
 
 ip4__shadowsocks__create_chain() {
-	#local local_port=$(get_from_json "${VLESS_CONFIG_FILE}" 'port' 'inbounds')
-	local local_port=$(get_config_value SSR_DNS_PORT)
+	local local_port
+	local_port=$(get_config_value SSR_DNS_PORT)
+	#local_port=$(get_from_json "${VLESS_CONFIG_FILE}" 'port' 'inbounds')
 
 	ip4__dnat_to_port__create_chain "${TABLE_DNAT_TO_PORT}" "${CHAIN_DNAT_TO_PORT}" "${local_port}"
 }
