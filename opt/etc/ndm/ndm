@@ -540,10 +540,13 @@ ip4__mark__create_chain() {
 			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM}
 			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -j CONNMARK --save-mark
 		else
-		# выходим, если не новое соединение
-		/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -m conntrack ! --ctstate NEW -j RETURN
-		# или маркируем соединение
-		#/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -j CONNMARK --set-mark ${MARK_NUM}
+			# Оптимизация: выходим сразу, если не новое соединение
+			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -m conntrack ! --ctstate NEW -j RETURN
+
+			# Возможно, правильно ещё проверять наличие через пакет (первые 2 правила выше)
+
+			# Остаётся ещё вопрос, какая пометка быстрее: через set или через save
+			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -j CONNMARK --set-mark ${MARK_NUM}
 		fi
 	} &>/dev/null || error "[${FUNCNAME}] Возникли ошибки во время маркировки трафика для VPN"
 }
