@@ -267,81 +267,6 @@ stop_crypt(){
 	warning "Файл сохранен, как /opt/etc/init.d/K09dnscrypt-proxy2"
 }
 
-#------------------------------------------------------
-# 	УДАЛЕНИЕ ФАЙЛОВ
-#------------------------------------------------------
-rm_dir()(  [ -d "${1}" ] && rm -rf "${1}" || true)
-rm_file()( [ -f "${1}" ] && rm -f "${1}"  || true )
-#------------------------------------------------------
-# 	УДАЛЕНИЕ ФАЙЛОВ КОНФИГУРАЦИИ
-#------------------------------------------------------
-rm_package_files(){
-	local full=${1:-no}
-
-	if [ "${full}" = full ] ; then
-		ready 'Удаляем архивные копии пакета Квас' && {
-			find /opt ! -path "/opt/packages/*" ! -path "/opt/lib/opkg/*" -name '*kvas*' ! -regex '.*/kvas[a-zA-Z].*' -exec rm -rf {} +
-
-			rm_file /opt/etc/inface_equals
-			rm_file /opt/etc/kvas.conf
-			rm_file /opt/etc/kvas.list
-
-			rm_dir /opt/etc/.kvas
-
-			# корректно ли так поступать вместо opkg remove?
-			rm_file /opt/etc/init.d/S22shadowsocks
-		} && when_ok || when_bad
-	fi
-	ready 'Удаляем файлы пакета Квас' && {
-		rm_file /opt/etc/ndm/netfilter.d/100-dns-local
-		rm_file /opt/etc/ndm/netfilter.d/100-vpn-mark
-		rm_file /opt/etc/ndm/netfilter.d/100-proxy-redirect
-
-		rm_file /opt/etc/ndm/ifcreated.d/kvas-iface-add
-		rm_file /opt/etc/ndm/ifdestroyed.d/kvas-iface-del
-		rm_file /opt/etc/ndm/iflayerchanged.d/kvas-ips-reset
-		rm_file /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn
-		rm_file /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
-
-		rm_file /opt/etc/ndm/fs.d/15-kvas-start.sh
-		rm_file /opt/etc/cron.5mins/check_vpn
-
-		rm_file /opt/etc/dnsmasq.d/kvas.dnsmasq
-		rm_dir /opt/etc/adblock
-		rm_dir /opt/tmp/adblock
-
-		rm_file /opt/bin/kvas
-		rm_dir /opt/apps/kvas
-	} && when_ok || when_bad
-}
-
-set_previous_condition(){
-
-	full=${1:-no}
-	ready "Удаляем файлы конфигурации..."
-	rm_package_files "${full}" &> /dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
-
-	#------------------------------------------------------
-	# 	ОЧИЩЕНИЕ ВСЕХ ПРАВИЛ И ТАБЛИЦ
-	#------------------------------------------------------
-	ready "Очищаем все правила и таблицы..."
-	ip4__flush &> /dev/null
-	if [ $? = 0 ]; then when_ok "УСПЕШНО"; else when_bad "ОШИБКА"; fi
-
-	if [ -f /opt/etc/init.d/S99adguardhome ]; then
-		restore_adguard
-	fi
-
-	if [ -f /opt/etc/init.d/S56dnsmasq ] ; then
-		stop_dnsmasq
-	fi
-	if [ -f /opt/etc/init.d/S09dnscrypt-proxy2 ]; then
-		stop_crypt
-	fi
-
-
-}
-
 # восставившем архивные копии файлов конфигурации
 restore_backups(){
 	restore_backup "${KVAS_LIST_FILE_BACKUP}" "${KVAS_LIST_FILE}" "защищенного списка"
@@ -433,6 +358,55 @@ list__backup() {
 		echo "Резервная копия списка в ${backup2_file}"
 		cp -n "${source_file}" "${backup2_file}"
 	fi
+}
+
+#------------------------------------------------------
+# УДАЛЕНИЕ ФАЙЛОВ
+#------------------------------------------------------
+rm_dir()(  [ -d "${1}" ] && rm -rf "${1}" || true)
+rm_file()( [ -e "${1}" ] || [ -L "${1}" ] && rm -f "${1}"  || true )
+
+#------------------------------------------------------
+# УДАЛЕНИЕ ФАЙЛОВ КОНФИГУРАЦИИ
+#------------------------------------------------------
+rm_package_files() {
+	local full=${1:-no}
+
+	if [ "${full}" = full ] ; then
+		ready 'Удаляем архивные копии пакета Квас' && {
+			find /opt ! -path "/opt/packages/*" ! -path "/opt/lib/opkg/*" -name '*kvas*' ! -regex '.*/kvas[a-zA-Z].*' -exec rm -rf {} +
+
+			rm_file /opt/etc/inface_equals
+			rm_file /opt/etc/kvas.conf
+			rm_file /opt/etc/kvas.list
+
+			rm_dir /opt/etc/.kvas
+
+			# корректно ли так поступать вместо opkg remove?
+			rm_file /opt/etc/init.d/S22shadowsocks
+		} && when_ok || when_bad
+	fi
+	ready 'Удаляем файлы пакета Квас' && {
+		rm_file /opt/etc/ndm/netfilter.d/100-dns-local
+		rm_file /opt/etc/ndm/netfilter.d/100-vpn-mark
+		rm_file /opt/etc/ndm/netfilter.d/100-proxy-redirect
+
+		rm_file /opt/etc/ndm/ifcreated.d/kvas-iface-add
+		rm_file /opt/etc/ndm/ifdestroyed.d/kvas-iface-del
+		rm_file /opt/etc/ndm/iflayerchanged.d/kvas-ips-reset
+		rm_file /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn
+		rm_file /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
+
+		rm_file /opt/etc/ndm/fs.d/15-kvas-start.sh
+		rm_file /opt/etc/cron.5mins/check_vpn
+
+		rm_file /opt/etc/dnsmasq.d/kvas.dnsmasq
+		rm_dir /opt/etc/adblock
+		rm_dir /opt/tmp/adblock
+
+		rm_file /opt/bin/kvas
+		rm_dir /opt/apps/kvas
+	} && when_ok || when_bad
 }
 
 rm_previous_version_files() {
@@ -804,8 +778,6 @@ cmd_uninstall() {
 		if [ "${rm_type}" = full ]; then
 			mess="Удаляем все архивные данные и все зависимые пакеты..."
 			rm -f /opt/etc/init/K56dnsmasq  /opt/etc/init/K09dnscrypt-proxy2
-			[ -f "${SHADOWSOCKS_CONF}" ] || touch "${SHADOWSOCKS_CONF}"
-
 		elif [ "${rm_type}" == develop ] ; then
 			all_services_rm_develop_mode
 		else
@@ -854,14 +826,37 @@ cmd_uninstall() {
 		# Сохраняем конфигурацию
 		#save_system_configuration_by_api
 
-		ready "Удаляем пакет Квас..."
-		opkg remove kvas --autoremove &> /dev/null 
-		when_ok "УСПЕШНО" 
+		list__backup
 
-#		print_line
-#	
-		# Удаляем предыдущие файлы Кваса
-		set_previous_condition "${rm_type}"
+		#ready 'Очищаем используемые сетевые правила...'
+		# Нормально отработает, пока все файлы на месте.
+		# Ведь внутри может проверять тип текущего тоннеля и прочее.
+		#ip4__flush &> /dev/null
+		#if [ $? = 0 ]; then when_ok 'УСПЕШНО'; else when_bad 'ОШИБКА'; fi
+
+		ready 'Удаляем пакет Квас...'
+		opkg remove kvas --autoremove &> /dev/null 
+		when_ok 'УСПЕШНО'
+
+		ready 'Удаляем интегрированные в систему файлы...'
+		rm_package_files "${rm_type}" &> /dev/null && when_ok 'УСПЕШНО' || when_bad 'ОШИБКА'
+
+		ready 'Очищаем всевозможные сетевые правила...'
+		# т.к. файлы уже подчищены, то можем использовать лишь не "интеллектуальную" очистку
+		clear_previous_version_net_rules &> /dev/null
+		if [ $? = 0 ]; then when_ok 'УСПЕШНО'; else when_bad 'ОШИБКА'; fi
+
+		if [ -f /opt/etc/init.d/S99adguardhome ]; then
+			restore_adguard
+		fi
+
+		if [ -f /opt/etc/init.d/S56dnsmasq ] ; then
+			stop_dnsmasq
+		fi
+		if [ -f /opt/etc/init.d/S09dnscrypt-proxy2 ]; then
+			stop_crypt
+		fi
+
 		print_line
 		echo "Удаление КВАСа завершено."
 	fi

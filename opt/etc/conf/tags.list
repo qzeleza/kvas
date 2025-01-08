@@ -150,6 +150,7 @@ spinningup.openai
 chat.openai.com
 chatgpt.com
 
+
 [google]
 bard.google.com
 calendar.google.com
@@ -475,3 +476,10 @@ nvidia.com
 [xbox]
 user.auth.xboxlive.com
 xsts.auth.xboxlive.com
+
+[notion]
+notion-static.com
+notion.com
+notion.new
+notion.site
+notion.so
