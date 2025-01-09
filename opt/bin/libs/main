@@ -629,6 +629,12 @@ is_shadowsocks_enabled() {
 is_vless_over_proxy_enabled() {
 	local tunnel_keenetic_name
 	tunnel_keenetic_name=$(get_config_value 'INFACE_CLI')
+	if [ -z "${tunnel_keenetic_name}" ] ; then
+		error "[${FUNCNAME}] В конфигурации Квас не найдена информация о тоннеле"
+		false
+		return
+	fi
+
 	[ "${tunnel_keenetic_name}" = "${PROXY_VLESS_NAME}" ]
 }
 
@@ -715,7 +721,18 @@ pause()(read -r pause &> /dev/null)
 #
 # ------------------------------------------------------------------------------------------
 get_config_value() {
-	grep "${1}=" "${KVAS_CONF_FILE}" | sed 's/.*=\(.*\).*/\1/'
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — ключ конфигурации"
+		return
+	fi
+	local key="${1}"
+
+	if ! [ -f "${KVAS_CONF_FILE}" ] ; then
+		error "[${FUNCNAME}] Файл конфигурации ${KVAS_CONF_FILE} не найден"
+		return
+	fi
+
+	grep -- "^${key}=" "${KVAS_CONF_FILE}" | head -n 1 | cut -d'=' -f2
 }
 
 APP_VERSION=$(get_config_value APP_VERSION)
