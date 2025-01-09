@@ -175,16 +175,19 @@ service_restart(){
 	fi
 }
 
-all_services_restart(){
-	has_ssr_enable && service_restart  shadowsocks S22shadowsocks
-
-	if has_adguard_enable; then
-		service_restart AdGuardHome S99adguardhome
+all_services_restart() {
+	if has_adguard_enable ; then
+		service_restart 'DNS сервер AdGuardHome' 'S99adguardhome'
 	else
-		service_restart dnsmasq S56dnsmasq
-		service_restart dnscrypt-proxy2 S09dnscrypt-proxy2
+		service_restart 'DNS сервер DNSMasq'  'S56dnsmasq'
+		service_restart 'DNS сервер DNSCrypt' 'S09dnscrypt-proxy2'
 	fi
 
+	if is_shadowsocks_enabled ; then
+		service_restart 'клиент ShadowSocks' 'S22shadowsocks'
+	elif is_vless_over_proxy_enabled ; then
+		service_restart 'клиент VLESS' 'S24xray'
+	fi
 }
 
 config__get_opkg_file() {
