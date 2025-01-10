@@ -120,7 +120,7 @@ case "${1}" in
 		case "${2}" in
 			set) 			cmd_interface_change no && cmd_vpn_iptable_reset &> /dev/null ;;
 			gateway) 		cmd_manual_gateway_set "${3}" ;;
-			reset) 			cmd_vpn_iptable_reset && all_services_restart;;
+			reset) 			update_iptables && all_services_restart ;;
 			net | guest)
 				case "${3}" in
 					add ) 			cmd_bridge_vpn_access_add && cmd_vpn_iptable_reset &> /dev/null;;
