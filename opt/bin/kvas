@@ -118,7 +118,7 @@ case "${1}" in
 
 	vpn)
 		case "${2}" in
-			set) 			cmd_interface_change no && update_iptables &> /dev/null ;;
+			set) 			cmd_interface_change no && update_iptables ;;
 			gateway) 		cmd_manual_gateway_set "${3}" ;;
 			reset) 			update_iptables && all_services_restart ;;
 			net | guest)
