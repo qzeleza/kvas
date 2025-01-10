@@ -123,6 +123,12 @@ reset_all_connection(){
 			inface=$(current_cli_vpn_interface)
 			log_warning "Перезапуск сетевого интерфейса ${inface}"
 
+			if is_vless_over_proxy_enabled ; then
+				log_warning 'Перезапуск клиента VLESS (рестарт тоннеля)'
+
+				${XRAY_INIT} restart
+			fi
+
 			cli_request="localhost:79/rci/interface/${inface}"
 #			curl -s -d '{"down":"true"}' "${cli_request}"  &>/dev/null
 #			reset_ISP_connection
