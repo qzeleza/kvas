@@ -171,7 +171,6 @@ service_restart(){
 	else
 		when_bad "ОШИБКА"
 		error "Запустите диагностику командой kvas debug"
-		exit 1
 	fi
 }
 
