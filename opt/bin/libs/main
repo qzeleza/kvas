@@ -497,7 +497,7 @@ nets__set_common() {
 		finded=$(echo "${line}" | cut -d'|' -f2)
 		finded=$(echo "${api_info}" | grep "^${finded}" | head -n 1 | cut -d'|' -f2-3)
 		if [ -z "${finded}" ]; then
-			log_warning "Сеть ${line} не найдена в API. Для поддержки можете сообщить об этом https://t.me/kvas_pro"
+			log_warning "Сеть ${line} не найдена в API"
 			continue
 		fi
 
