@@ -520,26 +520,28 @@ nets__set_incoming() {
 		return
 	fi
 	local api_info
+	# Можно сделать лишь один запрос в API и парсить из него.
+	# Но не думаю, что хранить 60К в переменной — хорошая идея.
 
 	# IPsec в crypto
-	api_info=$(curl -s '127.0.0.1:79/rci/crypto/virtual-ip-server-ikev2')
+	api_info=$(curl -s '127.0.0.1:79/rci/crypto/' | jq '."virtual-ip-server-ikev2" // empty')
 	if [ -n "${api_info}" ] ; then
 		NETS_INCOMING="${NETS_INCOMING}"'xfrms+|'$(echo "${api_info}" \
 		  | jq -r '."pool-start" // empty')'|crypto/virtual-ip-server-ikev2|"VPN-сервер IKEv2/IPsec"'$'\n'
 	fi
-	api_info=$(curl -s '127.0.0.1:79/rci/crypto/l2tp-server')
+	api_info=$(curl -s '127.0.0.1:79/rci/crypto/' | jq '."l2tp-server" // empty')
 	if [ -n "${api_info}" ] ; then
 		NETS_INCOMING="${NETS_INCOMING}"'l2tp+|'$(echo "${api_info}" \
 		  | jq -r '."pool-start" // empty')'|crypto/l2tp-server|"VPN-сервер L2TP/IPsec"'$'\n'
 	fi
 
 	# остальные в глобальном
-	api_info=$(curl -s '127.0.0.1:79/rci/oc-server')
+	api_info=$(curl -s '127.0.0.1:79/rci/' | jq '."oc-server" // empty')
 	if [ -n "${api_info}" ] ; then
 		NETS_INCOMING="${NETS_INCOMING}"'oc+|'$(echo "${api_info}" \
 		  | jq -r '.config."pool-start" // empty')'|oc-server|"VPN-сервер OpenConnect"'$'\n'
 	fi
-	api_info=$(curl -s '127.0.0.1:79/rci/sstp-server')
+	api_info=$(curl -s '127.0.0.1:79/rci/' | jq '."sstp-server" // empty')
 	if [ -n "${api_info}" ] ; then
 		NETS_INCOMING="${NETS_INCOMING}"'sstp+|'$(echo "${api_info}" \
 		  | jq -r '.config."pool-start" // empty')'|sstp-server|"VPN-сервер SSTP"'$'\n'
