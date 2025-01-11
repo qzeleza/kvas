@@ -492,8 +492,6 @@ nets__set_common() {
 	local line finded
 	IFS=$'\n'
 	for line in $net_info; do
-		#ToDo: если начало tun, то добавлять кастом, который поддерживается ndm, не клеить к нему API-ответ
-
 		finded=$(echo "${line}" | cut -d'|' -f2)
 		finded=$(echo "${api_info}" | grep "^${finded}" | head -n 1 | cut -d'|' -f2-3)
 		if [ -n "${finded}" ]; then
@@ -501,6 +499,10 @@ nets__set_common() {
 			continue
 		fi
 
+		#ToDo: если начало tun, то добавлять '|TUN|"TUN интерфейс"'
+		# Остальные части пакета научить жить с TUN
+
+		# Так выглядят отключенные. Стоит ли логировать?
 		log_warning "Сеть ${line} не найдена в API"
 	done
 
