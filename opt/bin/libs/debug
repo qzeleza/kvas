@@ -16,7 +16,7 @@
 
 IP_MYIP2='81.90.181.105'
 IP_IFCONFIG='34.160.111.145'
-DOMAINS_EXCLUDE='(eduz|iscor|nstagra|aceboo|fb|twi|t.c)'
+DOMAINS_EXCLUDE='(eduz|iscor|nstagra|aceboo|fb|twi|t.c|eddi)'
 
 # ------------------------------------------------------------------------------------------
 #
