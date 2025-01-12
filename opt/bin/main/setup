@@ -683,12 +683,13 @@ cmd_install(){
 
 	print_line
 	log_in_file line
-	log_in_file "Установка завершена: $(date "${DATE_FORMAT}")"
-	echo "Установка КВАСа завершена."
-	echo -e "Для общей справки наберите ${BLUE}kvas help${NOCL}"
 	set_config_value "SETUP_FINISHED" true
-	# Пишем сообщение в лог роутера о начале установки пакета
+
+	echo "Установка КВАСа завершена."
+	log_in_file "Установка завершена: $(date "${DATE_FORMAT}")"
 	log_alert "УСТАНОВКА ПАКЕТА КВАС ЗАВЕРШЕНА!" "${LOG_HEADER}"
+
+	echo -e "Для общей справки наберите ${BLUE}kvas help${NOCL}"
 }
 
 # WGET='/opt/bin/wget -q --no-check-certificate'
