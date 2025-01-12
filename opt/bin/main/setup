@@ -315,15 +315,6 @@ save_backups(){
 #	backup_copy "${}" "${}"
 }
 
-
-setup_print_finish(){
-	print_line
-	log_in_file line
-	log_in_file "Установка завершена: $(date "${DATE_FORMAT}")"
-	echo "Установка КВАСа завершена."
-	echo -e "Для общей справки наберите ${BLUE}kvas help${NOCL}"
-}
-
 list__backup() {
 	if [ -z "${1}" ] ; then
 		if [ -f "${KVAS_LIST_FILE}" ] ; then
@@ -690,7 +681,11 @@ cmd_install(){
 		fi
 	fi
 
-	setup_print_finish
+	print_line
+	log_in_file line
+	log_in_file "Установка завершена: $(date "${DATE_FORMAT}")"
+	echo "Установка КВАСа завершена."
+	echo -e "Для общей справки наберите ${BLUE}kvas help${NOCL}"
 	set_config_value "SETUP_FINISHED" true
 	# Пишем сообщение в лог роутера о начале установки пакета
 	log_alert "УСТАНОВКА ПАКЕТА КВАС ЗАВЕРШЕНА!" "${LOG_HEADER}"
