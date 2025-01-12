@@ -444,31 +444,31 @@ get_dhcpv6_status() {
 	api_ipv6=$(curl -s '127.0.0.1:79/rci/ipv6' | jq -c '.')
 
 	if [ "${api_ipv6}" == '{}' ]; then
-		# Сегменты IPv6 удалены, но не факт, что IPv6 DNS отключен
+		# Не факт, что IPv6 DNS отключен вместе с сегментом
 		# no ipv6 subnet Default
-		echo 'no_subnet'
+		echo 'сегмент IPv6 отключен'
 		return
 	fi
 	
 	if ! echo "${api_ipv6}" | grep -qF '"Default":'; then
 		# Сегмент IPv6 Default удалён, но не факт, что IPv6 DNS отключен
-		echo 'no_default'
+		echo 'сегмент IPv6 не стандартный'
 		return
 	fi
 
 	if echo "${api_ipv6}" | grep -qF '"dhcp":true'; then
-		# DHCPv6 включен
-		echo 'dhcp'
+		# mode dhcp
+		echo 'DHCPv6 включен'
 		return
 	fi
 
 	if echo "${api_ipv6}" | grep -qF '"bind":'; then
-		# Сегмент IPv6 привязан
-		echo 'bind'
+		# bind Home
+		echo 'сегмент IPv6 привязан'
 		return
 	fi
 
-	echo 'disabled'
+	echo 'сегмент IPv6 отвязан и DHCPv6 отключен'
 }
 
 cmd_debug_dns() {
@@ -481,7 +481,7 @@ cmd_debug_dns() {
 	local dhcpv6_status
 	dhcpv6_status=$(get_dhcpv6_status)
 
-	ready 'DHCPv6' && when_ok "${dhcpv6_status}"
+	ready 'IPv6 адрес DNS сервера' && when_ok "${dhcpv6_status}"
 	ready 'NDNProxy версия' && when_ok "$(ndnproxy 2>&1 | grep -Eo 'ndnproxy [0-9\.]+' | head -n 1 | cut -d' ' -f2)"
 
 	# если вызывается как один из дебагов, то можно передать silent/short
@@ -497,7 +497,7 @@ cmd_debug_dns() {
 	fi
 	echo_debug 'Комплектный DNS роутера (базово) слушает:' "$(get_netstat 'ndnproxy' "${output}")"
 
-	if [ "${dhcpv6_status}" == 'dhcp' ] || [ "${dhcpv6_status}" == 'bind' ] ; then
+	if [ "${dhcpv6_status}" == 'DHCPv6 включен' ] || [ "${dhcpv6_status}" == 'сегмент IPv6 привязан' ] ; then
 		printf '%s\n' \
 			'Вероятно, часть DNS-трафика проходит через IPv6 адрес.' \
 			'Для отключения DHCPv6:' \
