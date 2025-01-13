@@ -18,12 +18,12 @@ log_in_file(){
 # Проверяем отключено ли использование DNS провайдера
 setup_test_provider_dns(){
 
-	has_dns_override && {
+	is_dns_override && {
 		echo "Подключаем DNS провайдера..."
 		echo "В случае, выхода из сессии, зайдите снова по ssh и выполните команду 'kvas setup'"
 		post_api_query '[{"opkg": {"no dns-override": true}},{"system": {"configuration": {"save": true}}}]' &>/dev/null && when_ok || when_err
 	} 
-	# if ! has_dns_override ; then
+	# if ! is_dns_override ; then
 	# 	cli="$(get_router_host)/a"
 	# 	log_in_file "ОШИБКА: Не отключено использование DNS провайдера."
 	# 	echo -e "${RED}Для корректной работы DNS сервера необходимо отключить использование DNS провайдера!${NOCL}"
