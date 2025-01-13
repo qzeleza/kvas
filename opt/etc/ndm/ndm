@@ -538,9 +538,10 @@ ip4__mark__create_chain() {
 			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -j CONNMARK --restore-mark
 			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -m mark --mark ${MARK_NUM} -j RETURN
 
-			#ToDo: проверить оптимизацию по невызову save-mark в случае NEW
+			# не переносим маркер обратно для каждого пакета
+			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -m conntrack ! --ctstate NEW -j RETURN
 
-			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM}
+			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -j MARK --set-mark ${MARK_NUM}
 			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -j CONNMARK --save-mark
 		else
 			log_warning 'Включение маркировки VPN'
@@ -551,6 +552,7 @@ ip4__mark__create_chain() {
 			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -j CONNMARK --restore-mark
 			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -m mark --mark ${MARK_NUM} -j RETURN
 
+			# не переносим маркер обратно для каждого пакета
 			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" ! -p tcp -m conntrack ! --ctstate NEW -j RETURN
 
 			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -j MARK --set-mark ${MARK_NUM}
