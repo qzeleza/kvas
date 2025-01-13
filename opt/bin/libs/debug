@@ -439,38 +439,6 @@ cmd_debug_dnsmasq() {
 	echo_debug 'DNSCrypt слушает:' "$(get_netstat 'dnscrypt')"
 }
 
-get_dhcpv6_status() {
-	local api_ipv6
-	api_ipv6=$(curl -s '127.0.0.1:79/rci/ipv6' | jq -c '.')
-
-	if [ "${api_ipv6}" == '{}' ]; then
-		# Не факт, что IPv6 DNS отключен вместе с сегментом
-		# no ipv6 subnet Default
-		echo 'сегмент IPv6 отключен'
-		return
-	fi
-	
-	if ! echo "${api_ipv6}" | grep -qF '"Default":'; then
-		# Сегмент IPv6 Default удалён, но не факт, что IPv6 DNS отключен
-		echo 'сегмент IPv6 не стандартный'
-		return
-	fi
-
-	if echo "${api_ipv6}" | grep -qF '"dhcp":true'; then
-		# mode dhcp
-		echo 'DHCPv6 включен'
-		return
-	fi
-
-	if echo "${api_ipv6}" | grep -qF '"bind":'; then
-		# bind Home
-		echo 'сегмент IPv6 привязан'
-		return
-	fi
-
-	echo 'сегмент IPv6 отвязан и DHCPv6 отключен'
-}
-
 cmd_debug_dns() {
 	if has_adguard_enable ; then
 		cmd_debug_adguard
