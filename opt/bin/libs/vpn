@@ -188,6 +188,10 @@ all_services_restart(){
 }
 
 
+is_dns_override() {
+	curl -s '127.0.0.1:79/rci/opkg/dns-override' | grep -qF 'true'
+}
+
 get_dhcpv6_status() {
 	local api_ipv6
 	api_ipv6=$(curl -s '127.0.0.1:79/rci/ipv6' | jq -c '.')
