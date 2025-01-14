@@ -446,10 +446,7 @@ cmd_debug_dns() {
 		cmd_debug_dnsmasq
 	fi
 
-	local dhcpv6_status
-	dhcpv6_status=$(get_dhcpv6_status)
-
-	ready 'IPv6 адрес DNS сервера' && when_ok "${dhcpv6_status}"
+	ready 'IPv6 адрес DNS сервера' && when_ok "$(get_dhcpv6_status)"
 	ready 'NDNProxy версия' && when_ok "$(ndnproxy 2>&1 | grep -Eo 'ndnproxy [0-9\.]+' | head -n 1 | cut -d' ' -f2)"
 
 	local output
@@ -458,32 +455,16 @@ cmd_debug_dns() {
 	if [ -n "${1}" ] ; then
 		output=''
 	else
-		output="$(get_router_host)/webcli/parse"
-
-		output=$(printf '%s\n' \
-			'Системный DNS отключен.' \
-			"Для исправления ситуации перейдите на ${output}" \
-			'и последовательно введите команды:' \
-			' no opkg dns-override' \
-			' system configuration save' \
-			' reboot' \
-		)
+		output="$(hint__if_ndnproxy_disabled)"
 	fi
 	echo_debug 'Комплектный DNS роутера (базово) слушает:' "$(get_netstat 'ndnproxy' "${output}")"
 
-	if [ "${dhcpv6_status}" == 'DHCPv6 включен' ] || [ "${dhcpv6_status}" == 'сегмент IPv6 привязан' ] ; then
-		output="$(get_router_host)/webcli/parse"
-
-		printf '%s\n' \
-			'Вероятно, часть DNS-трафика проходит через IPv6 адрес.' \
-			"Для исправления ситуации перейдите на ${output}" \
-			'и последовательно введите команды:' \
-			' ipv6 subnet Default' \
-			' no mode' \
-			' no bind' \
-			' system configuration save' \
-			' reboot'
-		echo
+	if [ -z "${1}" ] ; then
+		output="$(hint__if_dns_ipv6)"
+		if [ -n "${output}" ] ; then
+			echo "${output}"
+			echo
+		fi
 	fi
 }
 

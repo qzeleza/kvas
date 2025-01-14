@@ -272,6 +272,50 @@ config__restore_from_opkg() {
 	mv -f "${backup_file}" "${source_file}"
 }
 
+
+hint__commands_title() {
+	local webcli_url
+	webcli_url="$(get_router_host)/webcli/parse"
+	printf '%s\n' \
+		"Для исправления ситуации перейдите на ${webcli_url}" \
+		'и последовательно введите команды:'
+}
+
+hint__if_ndnproxy_disabled() {
+	if ! is_dns_override ; then
+		return
+	fi
+
+	local commands_title
+	commands_title="$(hint__commands_title)"
+	printf '%b\n' \
+		"Системный ${YELLOW}DNS отключен${NOCL}." \
+		"${commands_title}" \
+		' no opkg dns-override' \
+		' system configuration save' \
+		' reboot'
+}
+
+hint__if_dns_ipv6() {
+	local dhcpv6_status
+	dhcpv6_status=$(get_dhcpv6_status)
+	if [ "${dhcpv6_status}" != 'DHCPv6 включен' ] && [ "${dhcpv6_status}" != 'сегмент IPv6 привязан' ] ; then
+		return
+	fi
+
+	local commands_title
+	commands_title="$(hint__commands_title)"
+	printf '%b\n' \
+		"Вероятно, часть ${YELLOW}DNS проходит через IPv6${NOCL}." \
+		"${commands_title}" \
+		' ipv6 subnet Default' \
+		' no mode' \
+		' no bind' \
+		' system configuration save' \
+		' reboot'
+}
+
+
 SUFF=">> "
 # ------------------------------------------------------------------------------------------
 #
