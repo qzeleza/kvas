@@ -56,7 +56,7 @@ if  echo "${1}" | grep -qvEi 'uninstall' && [ -z "$(get_config_value "SETUP_FINI
 	exit 0
 fi
 
-clear_file_content "${KVAS_LIST_FILE}"
+#clear_file_content "${KVAS_LIST_FILE}"
 
 print_line
 case "${1}" in
