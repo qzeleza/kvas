@@ -3224,6 +3224,7 @@ cmd_import_hosts() {
 	# добавляем хосты в файл списочный
 	_hosts_to_add_ubl=$(echo -e "${hosts_to_add_ubl}" | sed '/^$/d; /^[-+.]/!s/\(.*\)/\1/')
 	echo -e "${_hosts_to_add_ubl}" >> "${KVAS_LIST_FILE}"
+	clear_file_content "${KVAS_LIST_FILE}"
 
 	# если включен блокировщик рекламы
 	if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
