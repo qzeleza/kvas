@@ -111,15 +111,24 @@ current_cli_vpn_interface() {
 }
 
 reset_all_connection(){
-
 	ready "${prefix}Перезапускаем VPN и ISP соединения..."
 	{
-		if has_ssr_enable ; then
+		if is_shadowsocks_enabled ; then
+			log_warning 'Перезапуск клиента ShadowSocks (рестарт тоннеля)'
+
 			/opt/etc/init.d/S22shadowsocks stop &>/dev/null
 			# reset_ISP_connection
 			/opt/etc/init.d/S22shadowsocks start &>/dev/null
 		else
 			inface=$(current_cli_vpn_interface)
+			log_warning "Перезапуск сетевого интерфейса ${inface}"
+
+			if is_vless_over_proxy_enabled ; then
+				log_warning 'Перезапуск клиента VLESS (рестарт тоннеля)'
+
+				${XRAY_INIT} restart
+			fi
+
 			cli_request="localhost:79/rci/interface/${inface}"
 #			curl -s -d '{"down":"true"}' "${cli_request}"  &>/dev/null
 #			reset_ISP_connection
@@ -171,20 +180,30 @@ service_restart(){
 	else
 		when_bad "ОШИБКА"
 		error "Запустите диагностику командой kvas debug"
-		exit 1
 	fi
 }
 
-all_services_restart(){
-	has_ssr_enable && service_restart  shadowsocks S22shadowsocks
+all_services_restart() {
+	if has_adguard_enable ; then
+		log_warning 'Перезапуск DNS сервера AdGuardHome'
 
-	if has_adguard_enable; then
-		service_restart AdGuardHome S99adguardhome
+		service_restart 'DNS сервер AdGuardHome' 'S99adguardhome'
 	else
-		service_restart dnsmasq S56dnsmasq
-		service_restart dnscrypt-proxy2 S09dnscrypt-proxy2
+		log_warning 'Перезапуск служб DNS'
+
+		service_restart 'DNS сервер DNSMasq'  'S56dnsmasq'
+		service_restart 'DNS сервер DNSCrypt' 'S09dnscrypt-proxy2'
 	fi
 
+	if is_shadowsocks_enabled ; then
+		log_warning 'Перезапуск клиента ShadowSocks (рестарт всех служб)'
+
+		service_restart 'клиент ShadowSocks' 'S22shadowsocks'
+	elif is_vless_over_proxy_enabled ; then
+		log_warning 'Перезапуск клиента VLESS'
+
+		service_restart 'клиент VLESS' 'S24xray'
+	fi
 }
 
 config__get_opkg_file() {

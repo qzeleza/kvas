@@ -77,12 +77,13 @@ IPSET_REDIRECT_DEMON_FILE=/opt/etc/ndm/netfilter.d/100-proxy-redirect
 INFACE_NAMES_FILE=/opt/etc/inface_equals
 KVAS_START_FILE=/opt/etc/init.d/S96kvas
 
-
+# VLESS over Proxy
+PROXY_INFACE_NUMEBER=21
+PROXY_VLESS_NAME=Proxy${PROXY_INFACE_NUMEBER}
 
 # Файл с сетями, запросы к которым не должны попадать в тоннель
 # Данный файл постоянен, не доступен пользователям на редактирование
 # https://en.wikipedia.org/wiki/Reserved_IP_addresses
-# + служебный IP Keenetic 78.47.125.180
 FILE_RESERVED=/opt/apps/kvas/etc/conf/reserved.ip
 
 IP_FILTER='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'
@@ -629,6 +630,12 @@ is_shadowsocks_enabled() {
 is_vless_over_proxy_enabled() {
 	local tunnel_keenetic_name
 	tunnel_keenetic_name=$(get_config_value 'INFACE_CLI')
+	if [ -z "${tunnel_keenetic_name}" ] ; then
+		error "[${FUNCNAME}] В конфигурации Квас не найдена информация о тоннеле"
+		false
+		return
+	fi
+
 	[ "${tunnel_keenetic_name}" = "${PROXY_VLESS_NAME}" ]
 }
 
@@ -715,7 +722,18 @@ pause()(read -r pause &> /dev/null)
 #
 # ------------------------------------------------------------------------------------------
 get_config_value() {
-	grep "${1}=" "${KVAS_CONF_FILE}" | sed 's/.*=\(.*\).*/\1/'
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — ключ конфигурации"
+		return
+	fi
+	local key="${1}"
+
+	if ! [ -f "${KVAS_CONF_FILE}" ] ; then
+		error "[${FUNCNAME}] Файл конфигурации ${KVAS_CONF_FILE} не найден"
+		return
+	fi
+
+	grep -- "^${key}=" "${KVAS_CONF_FILE}" | head -n 1 | cut -d'=' -f2
 }
 
 APP_VERSION=$(get_config_value APP_VERSION)
