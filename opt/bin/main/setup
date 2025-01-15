@@ -18,12 +18,12 @@ log_in_file(){
 # Проверяем отключено ли использование DNS провайдера
 setup_test_provider_dns(){
 
-	has_dns_override && {
+	is_dns_override && {
 		echo "Подключаем DNS провайдера..."
 		echo "В случае, выхода из сессии, зайдите снова по ssh и выполните команду 'kvas setup'"
 		post_api_query '[{"opkg": {"no dns-override": true}},{"system": {"configuration": {"save": true}}}]' &>/dev/null && when_ok || when_err
 	} 
-	# if ! has_dns_override ; then
+	# if ! is_dns_override ; then
 	# 	cli="$(get_router_host)/a"
 	# 	log_in_file "ОШИБКА: Не отключено использование DNS провайдера."
 	# 	echo -e "${RED}Для корректной работы DNS сервера необходимо отключить использование DNS провайдера!${NOCL}"
@@ -315,15 +315,6 @@ save_backups(){
 #	backup_copy "${}" "${}"
 }
 
-
-setup_print_finish(){
-	print_line
-	log_in_file line
-	log_in_file "Установка завершена: $(date "${DATE_FORMAT}")"
-	echo "Установка КВАСа завершена."
-	echo -e "Для общей справки наберите ${BLUE}kvas help${NOCL}"
-}
-
 list__backup() {
 	if [ -z "${1}" ] ; then
 		if [ -f "${KVAS_LIST_FILE}" ] ; then
@@ -515,9 +506,7 @@ cmd_install(){
 #	а просто берем его из файла конфигурации Кваса
 	update_mode=${1:-false}
 
-	LOG_HEADER="PACKAGE INSTALLATION"
-	# Пишем сообщение в лог роутера о начале установки пакета
-	log_alert "УСТАНОВКА ПАКЕТА КВАС" "${LOG_HEADER}"
+	log_warning 'Установка пакета КВАС начата...'
 
 	list__backup
 
@@ -566,9 +555,9 @@ cmd_install(){
 	#	ipv6_inface_off "$(get_defaultgw_interface)"
 	#fi
 	# В kvas debug dns сейчас есть подсказка по отключению DHCPv6 централизованно.
+	# Также выводится в конце установки.
 	# Но применять её или IPv6 отключать руками — решать пользователю,
 	# т.к. с отключением IPv6 можно потерять некоторых провайдеров.
-	# Возможно, подсказку имеет смысл выводить и в конце установки.
 
 	local_ip=$(get_router_ip)
 	set_config_value DNSMASQ_LISTEN_IP "${local_ip}"
@@ -690,10 +679,33 @@ cmd_install(){
 		fi
 	fi
 
-	setup_print_finish
-	set_config_value "SETUP_FINISHED" true
-	# Пишем сообщение в лог роутера о начале установки пакета
-	log_alert "УСТАНОВКА ПАКЕТА КВАС ЗАВЕРШЕНА!" "${LOG_HEADER}"
+	set_config_value 'SETUP_FINISHED' 'true'
+	log_warning 'Установка пакета КВАС завершена'
+
+	print_line
+	echo 'Установка пакета КВАС завершена.'
+	echo -e "Для справки по командам введите ${BLUE}kvas help${NOCL}."
+
+	local output
+
+	output="$(hint__if_ndnproxy_disabled)"
+	if [ -n "${output}" ] ; then
+		echo
+		echo "${output}"
+
+		log_in_file 'Показан совет включить системный DNS.'
+	fi
+
+	output="$(hint__if_dns_ipv6)"
+	if [ -n "${output}" ] ; then
+		echo
+		echo "${output}"
+
+		log_in_file 'Показан совет отключить DHCPv6.'
+	fi
+
+	log_in_file line
+	log_in_file "Установка завершена $(date "${DATE_FORMAT}")"
 }
 
 # WGET='/opt/bin/wget -q --no-check-certificate'

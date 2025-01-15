@@ -206,6 +206,44 @@ all_services_restart() {
 	fi
 }
 
+
+is_dns_override() {
+	curl -s '127.0.0.1:79/rci/opkg/dns-override' | grep -qF 'true'
+}
+
+get_dhcpv6_status() {
+	local api_ipv6
+	api_ipv6=$(curl -s '127.0.0.1:79/rci/ipv6' | jq -c '.')
+
+	if [ "${api_ipv6}" == '{}' ]; then
+		# Не факт, что IPv6 DNS отключен вместе с сегментом
+		# no ipv6 subnet Default
+		echo 'сегмент IPv6 отключен'
+		return
+	fi
+
+	if ! echo "${api_ipv6}" | grep -qF '"Default":'; then
+		# Сегмент IPv6 Default удалён, но не факт, что IPv6 DNS отключен
+		echo 'сегмент IPv6 не стандартный'
+		return
+	fi
+
+	if echo "${api_ipv6}" | grep -qF '"dhcp":true'; then
+		# mode dhcp
+		echo 'DHCPv6 включен'
+		return
+	fi
+
+	if echo "${api_ipv6}" | grep -qF '"bind":'; then
+		# bind Home
+		echo 'сегмент IPv6 привязан'
+		return
+	fi
+
+	echo 'сегмент IPv6 отвязан и DHCPv6 отключен'
+}
+
+
 config__get_opkg_file() {
 	if [ -z "${1}" ]; then
 		error "[${FUNCNAME}] Не передан обязательный параметр — файл"
@@ -252,6 +290,50 @@ config__restore_from_opkg() {
 	log_warning "Восстановление исходного файла ${source_file}"
 	mv -f "${backup_file}" "${source_file}"
 }
+
+
+hint__commands_title() {
+	local webcli_url
+	webcli_url="$(get_router_host)/webcli/parse"
+	printf '%s\n' \
+		"Для исправления ситуации перейдите на ${webcli_url}" \
+		'и последовательно введите команды:'
+}
+
+hint__if_ndnproxy_disabled() {
+	if ! is_dns_override ; then
+		return
+	fi
+
+	local commands_title
+	commands_title="$(hint__commands_title)"
+	printf '%b\n' \
+		"Системный ${YELLOW}DNS отключен${NOCL}." \
+		"${commands_title}" \
+		' no opkg dns-override' \
+		' system configuration save' \
+		' reboot'
+}
+
+hint__if_dns_ipv6() {
+	local dhcpv6_status
+	dhcpv6_status=$(get_dhcpv6_status)
+	if [ "${dhcpv6_status}" != 'DHCPv6 включен' ] && [ "${dhcpv6_status}" != 'сегмент IPv6 привязан' ] ; then
+		return
+	fi
+
+	local commands_title
+	commands_title="$(hint__commands_title)"
+	printf '%b\n' \
+		"Вероятно, часть ${YELLOW}DNS проходит через IPv6${NOCL}." \
+		"${commands_title}" \
+		' ipv6 subnet Default' \
+		' no mode' \
+		' no bind' \
+		' system configuration save' \
+		' reboot'
+}
+
 
 SUFF=">> "
 # ------------------------------------------------------------------------------------------
