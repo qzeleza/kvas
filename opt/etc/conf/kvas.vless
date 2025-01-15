@@ -3,7 +3,7 @@
     "log": {
         "access": "/opt/etc/xray/access.log",
         "error": "/opt/etc/xray/errors.log",
-        "loglevel": "debug"
+        "loglevel": "error"
     },
     "routing": {
         "rules": [],
