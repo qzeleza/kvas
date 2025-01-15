@@ -312,7 +312,7 @@ hint__if_ndnproxy_disabled() {
 		"${commands_title}" \
 		' no opkg dns-override' \
 		' system configuration save' \
-		' reboot'
+		' system reboot'
 }
 
 hint__if_dns_ipv6() {
@@ -331,7 +331,7 @@ hint__if_dns_ipv6() {
 		' no mode' \
 		' no bind' \
 		' system configuration save' \
-		' reboot'
+		' system reboot'
 }
 
 
