@@ -493,16 +493,18 @@ nets__set_common() {
 	local line finded
 	IFS=$'\n'
 	for line in $net_info; do
-		#ToDo: если начало tun, то добавлять кастом, который поддерживается ndm, не клеить к нему API-ответ
-
 		finded=$(echo "${line}" | cut -d'|' -f2)
 		finded=$(echo "${api_info}" | grep "^${finded}" | head -n 1 | cut -d'|' -f2-3)
-		if [ -z "${finded}" ]; then
-			log_warning "Сеть ${line} не найдена в API. Для поддержки можете сообщить об этом https://t.me/kvas_pro"
+		if [ -n "${finded}" ]; then
+			NETS_COMMON="${NETS_COMMON}${line}|${finded}"$'\n'
 			continue
 		fi
 
-		NETS_COMMON="${NETS_COMMON}${line}|${finded}"$'\n'
+		#ToDo: если начало tun, то добавлять '|TUN|"TUN интерфейс"'
+		# Остальные части пакета научить жить с TUN
+
+		# Так выглядят отключенные. Стоит ли логировать?
+		log_warning "Сеть ${line} не найдена в API"
 	done
 
 	log_warning 'Сбор общих сетей завершён'
@@ -520,30 +522,41 @@ nets__set_incoming() {
 	if [ -n "${NETS_INCOMING}" ]; then
 		return
 	fi
-	local api_info
+	local api_tags api_info
+	# Запрос конкретного раздела может оставить ошибки в логе роутера, если он отключен.
+	# Поэтому проверять включенность будем через тэги.
+	api_tags=$(curl -s '127.0.0.1:79/rci/show/tags/')
 
 	# IPsec в crypto
-	api_info=$(curl -s '127.0.0.1:79/rci/crypto/virtual-ip-server-ikev2')
-	if [ -n "${api_info}" ] ; then
-		NETS_INCOMING="${NETS_INCOMING}"'xfrms+|'$(echo "${api_info}" \
-		  | jq -r '."pool-start" // empty')'|crypto/virtual-ip-server-ikev2|"VPN-сервер IKEv2/IPsec"'$'\n'
+	if echo "${api_tags}" | grep -qF 'ipsec-xauth' ; then
+		api_info=$(curl -s '127.0.0.1:79/rci/crypto/virtual-ip-server-ikev2')
+		if [ -n "${api_info}" ] ; then
+			NETS_INCOMING="${NETS_INCOMING}"'xfrms+|'$(echo "${api_info}" \
+			  | jq -r '."pool-start" // empty')'|crypto/virtual-ip-server-ikev2|"VPN-сервер IKEv2/IPsec"'$'\n'
+		fi
 	fi
-	api_info=$(curl -s '127.0.0.1:79/rci/crypto/l2tp-server')
-	if [ -n "${api_info}" ] ; then
-		NETS_INCOMING="${NETS_INCOMING}"'l2tp+|'$(echo "${api_info}" \
-		  | jq -r '."pool-start" // empty')'|crypto/l2tp-server|"VPN-сервер L2TP/IPsec"'$'\n'
+	if echo "${api_tags}" | grep -qF 'ipsec-l2tp' ; then
+		api_info=$(curl -s '127.0.0.1:79/rci/crypto/l2tp-server')
+		if [ -n "${api_info}" ] ; then
+			NETS_INCOMING="${NETS_INCOMING}"'l2tp+|'$(echo "${api_info}" \
+			  | jq -r '."pool-start" // empty')'|crypto/l2tp-server|"VPN-сервер L2TP/IPsec"'$'\n'
+		fi
 	fi
 
 	# остальные в глобальном
-	api_info=$(curl -s '127.0.0.1:79/rci/oc-server')
-	if [ -n "${api_info}" ] ; then
-		NETS_INCOMING="${NETS_INCOMING}"'oc+|'$(echo "${api_info}" \
-		  | jq -r '.config."pool-start" // empty')'|oc-server|"VPN-сервер OpenConnect"'$'\n'
+	if echo "${api_tags}" | grep -qF 'vpn-oc' ; then
+		api_info=$(curl -s '127.0.0.1:79/rci/oc-server')
+		if [ -n "${api_info}" ] ; then
+			NETS_INCOMING="${NETS_INCOMING}"'oc+|'$(echo "${api_info}" \
+			  | jq -r '.config."pool-start" // empty')'|oc-server|"VPN-сервер OpenConnect"'$'\n'
+		fi
 	fi
-	api_info=$(curl -s '127.0.0.1:79/rci/sstp-server')
-	if [ -n "${api_info}" ] ; then
-		NETS_INCOMING="${NETS_INCOMING}"'sstp+|'$(echo "${api_info}" \
-		  | jq -r '.config."pool-start" // empty')'|sstp-server|"VPN-сервер SSTP"'$'\n'
+	if echo "${api_tags}" | grep -qF 'sstp' ; then
+		api_info=$(curl -s '127.0.0.1:79/rci/sstp-server')
+		if [ -n "${api_info}" ] ; then
+			NETS_INCOMING="${NETS_INCOMING}"'sstp+|'$(echo "${api_info}" \
+			  | jq -r '.config."pool-start" // empty')'|sstp-server|"VPN-сервер SSTP"'$'\n'
+		fi
 	fi
 
 	log_warning 'Сбор входящих сетей завершён'
