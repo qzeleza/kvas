@@ -77,12 +77,13 @@ IPSET_REDIRECT_DEMON_FILE=/opt/etc/ndm/netfilter.d/100-proxy-redirect
 INFACE_NAMES_FILE=/opt/etc/inface_equals
 KVAS_START_FILE=/opt/etc/init.d/S96kvas
 
-
+# VLESS over Proxy
+PROXY_INFACE_NUMEBER=21
+PROXY_VLESS_NAME=Proxy${PROXY_INFACE_NUMEBER}
 
 # Файл с сетями, запросы к которым не должны попадать в тоннель
 # Данный файл постоянен, не доступен пользователям на редактирование
 # https://en.wikipedia.org/wiki/Reserved_IP_addresses
-# + служебный IP Keenetic 78.47.125.180
 FILE_RESERVED=/opt/apps/kvas/etc/conf/reserved.ip
 
 IP_FILTER='[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'
@@ -297,10 +298,6 @@ exit_when_no_internet_or_vpn(){
 	}
 }
 
-has_dns_override() {
-	curl -s "http://localhost:79/rci/opkg/dns-override" | grep -q true
-}
-
 has_no_internet_here(){
 #---------------------------------------------------------------------------------
 #   Проверяем работу интерненета по всем возможным параметрам
@@ -492,16 +489,18 @@ nets__set_common() {
 	local line finded
 	IFS=$'\n'
 	for line in $net_info; do
-		#ToDo: если начало tun, то добавлять кастом, который поддерживается ndm, не клеить к нему API-ответ
-
 		finded=$(echo "${line}" | cut -d'|' -f2)
 		finded=$(echo "${api_info}" | grep "^${finded}" | head -n 1 | cut -d'|' -f2-3)
-		if [ -z "${finded}" ]; then
-			log_warning "Сеть ${line} не найдена в API. Для поддержки можете сообщить об этом https://t.me/kvas_pro"
+		if [ -n "${finded}" ]; then
+			NETS_COMMON="${NETS_COMMON}${line}|${finded}"$'\n'
 			continue
 		fi
 
-		NETS_COMMON="${NETS_COMMON}${line}|${finded}"$'\n'
+		#ToDo: если начало tun, то добавлять '|TUN|"TUN интерфейс"'
+		# Остальные части пакета научить жить с TUN
+
+		# Так выглядят отключенные. Стоит ли логировать?
+		log_warning "Сеть ${line} не найдена в API"
 	done
 
 	log_warning 'Сбор общих сетей завершён'
@@ -519,30 +518,41 @@ nets__set_incoming() {
 	if [ -n "${NETS_INCOMING}" ]; then
 		return
 	fi
-	local api_info
+	local api_tags api_info
+	# Запрос конкретного раздела может оставить ошибки в логе роутера, если он отключен.
+	# Поэтому проверять включенность будем через тэги.
+	api_tags=$(curl -s '127.0.0.1:79/rci/show/tags/')
 
 	# IPsec в crypto
-	api_info=$(curl -s '127.0.0.1:79/rci/crypto/virtual-ip-server-ikev2')
-	if [ -n "${api_info}" ] ; then
-		NETS_INCOMING="${NETS_INCOMING}"'xfrms+|'$(echo "${api_info}" \
-		  | jq -r '."pool-start" // empty')'|crypto/virtual-ip-server-ikev2|"VPN-сервер IKEv2/IPsec"'$'\n'
+	if echo "${api_tags}" | grep -qF 'ipsec-xauth' ; then
+		api_info=$(curl -s '127.0.0.1:79/rci/crypto/virtual-ip-server-ikev2')
+		if [ -n "${api_info}" ] ; then
+			NETS_INCOMING="${NETS_INCOMING}"'xfrms+|'$(echo "${api_info}" \
+			  | jq -r '."pool-start" // empty')'|crypto/virtual-ip-server-ikev2|"VPN-сервер IKEv2/IPsec"'$'\n'
+		fi
 	fi
-	api_info=$(curl -s '127.0.0.1:79/rci/crypto/l2tp-server')
-	if [ -n "${api_info}" ] ; then
-		NETS_INCOMING="${NETS_INCOMING}"'l2tp+|'$(echo "${api_info}" \
-		  | jq -r '."pool-start" // empty')'|crypto/l2tp-server|"VPN-сервер L2TP/IPsec"'$'\n'
+	if echo "${api_tags}" | grep -qF 'ipsec-l2tp' ; then
+		api_info=$(curl -s '127.0.0.1:79/rci/crypto/l2tp-server')
+		if [ -n "${api_info}" ] ; then
+			NETS_INCOMING="${NETS_INCOMING}"'l2tp+|'$(echo "${api_info}" \
+			  | jq -r '."pool-start" // empty')'|crypto/l2tp-server|"VPN-сервер L2TP/IPsec"'$'\n'
+		fi
 	fi
 
 	# остальные в глобальном
-	api_info=$(curl -s '127.0.0.1:79/rci/oc-server')
-	if [ -n "${api_info}" ] ; then
-		NETS_INCOMING="${NETS_INCOMING}"'oc+|'$(echo "${api_info}" \
-		  | jq -r '.config."pool-start" // empty')'|oc-server|"VPN-сервер OpenConnect"'$'\n'
+	if echo "${api_tags}" | grep -qF 'vpn-oc' ; then
+		api_info=$(curl -s '127.0.0.1:79/rci/oc-server')
+		if [ -n "${api_info}" ] ; then
+			NETS_INCOMING="${NETS_INCOMING}"'oc+|'$(echo "${api_info}" \
+			  | jq -r '.config."pool-start" // empty')'|oc-server|"VPN-сервер OpenConnect"'$'\n'
+		fi
 	fi
-	api_info=$(curl -s '127.0.0.1:79/rci/sstp-server')
-	if [ -n "${api_info}" ] ; then
-		NETS_INCOMING="${NETS_INCOMING}"'sstp+|'$(echo "${api_info}" \
-		  | jq -r '.config."pool-start" // empty')'|sstp-server|"VPN-сервер SSTP"'$'\n'
+	if echo "${api_tags}" | grep -qF 'sstp' ; then
+		api_info=$(curl -s '127.0.0.1:79/rci/sstp-server')
+		if [ -n "${api_info}" ] ; then
+			NETS_INCOMING="${NETS_INCOMING}"'sstp+|'$(echo "${api_info}" \
+			  | jq -r '.config."pool-start" // empty')'|sstp-server|"VPN-сервер SSTP"'$'\n'
+		fi
 	fi
 
 	log_warning 'Сбор входящих сетей завершён'
@@ -629,6 +639,12 @@ is_shadowsocks_enabled() {
 is_vless_over_proxy_enabled() {
 	local tunnel_keenetic_name
 	tunnel_keenetic_name=$(get_config_value 'INFACE_CLI')
+	if [ -z "${tunnel_keenetic_name}" ] ; then
+		error "[${FUNCNAME}] В конфигурации Квас не найдена информация о тоннеле"
+		false
+		return
+	fi
+
 	[ "${tunnel_keenetic_name}" = "${PROXY_VLESS_NAME}" ]
 }
 
@@ -715,7 +731,18 @@ pause()(read -r pause &> /dev/null)
 #
 # ------------------------------------------------------------------------------------------
 get_config_value() {
-	grep "${1}=" "${KVAS_CONF_FILE}" | sed 's/.*=\(.*\).*/\1/'
+	if [ -z "${1}" ] ; then
+		error "[${FUNCNAME}] Не задан обязательный аргумент — ключ конфигурации"
+		return
+	fi
+	local key="${1}"
+
+	if ! [ -f "${KVAS_CONF_FILE}" ] ; then
+		error "[${FUNCNAME}] Файл конфигурации ${KVAS_CONF_FILE} не найден"
+		return
+	fi
+
+	grep -- "^${key}=" "${KVAS_CONF_FILE}" | head -n 1 | cut -d'=' -f2
 }
 
 APP_VERSION=$(get_config_value APP_VERSION)
@@ -1123,7 +1150,10 @@ please_repeat() {
 #
 # ------------------------------------------------------------------------------------------
 clear_file() {
-  cat < "${1}" | sed 's/\(^.*\)#.*$/\1/g' | grep -v '#' | sed "/^$/d" | sed 's/^\.//g'
+	cat < "${1}" \
+	  | sed 's/\(^.*\)#.*$/\1/g' \
+	  | grep -v '#' \
+	  | sed 's/[[:blank:]]//g;s/^\([a-zA-Z]\+\:\)\?\/\///g;s/^\*//g;s/^\.//g;s/\/.*\+$//g;/^$/d'
 }
 # ------------------------------------------------------------------------------------------
 #	Очищаем содержимое файла сортируем и убираем дубликаты
@@ -1143,6 +1173,7 @@ clear_content() {
 #	и записываем в тот же файл источник - меняем источник
 # ------------------------------------------------------------------------------------------
 clear_file_content() {
+	local content
 	content=$(clear_content "${1}")
 	echo "${content}" > "${1}"
 }

@@ -413,7 +413,7 @@ ip4__chain__create_for_data() {
 		return
 	fi
 
-	log_warning "Создание цепочки ${chain_name} в ${table} для перенаправления данных"
+	log_warning "Создание цепочки ${chain_name} в ${table} для данных"
 
 	/opt/sbin/iptables -N "${chain_name}" -w -t "${table}"
 
@@ -532,25 +532,34 @@ ip4__mark__create_chain() {
 		ip4__route__add_table
 		ip4__rule__add_mark_to_table
 
+		#ToDo: если разрывы UDP, то проверить "дубовый" код вместо того, что в условиях:
+		# если пакет уже маркирован
+		#/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -m mark --mark ${MARK_NUM} -j RETURN
+		#/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -j CONNMARK --restore-mark
+		# если соединение было маркировано
+		#/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -m mark --mark ${MARK_NUM} -j RETURN
 		if is_vless_over_proxy_enabled ; then
-			# Теряет маркировку через раз, если не переносить для каждого пакета.
-			# Хотя домаркировки достаточно лишь для новых.
-			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -j CONNMARK --restore-mark
-			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -m mark --mark ${MARK_NUM} -j RETURN
-			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -m conntrack --ctstate NEW -j MARK --set-mark ${MARK_NUM}
-			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -j CONNMARK --save-mark
-		else
-			# Оптимизация: выходим сразу, если не новое соединение
-			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -m conntrack ! --ctstate NEW -j RETURN
+			log_warning 'Включение маркировки VLESS'
 
-			# Нужно ли проверять наличие в новом соединении?
-			# Если нет, то можно схлопнуть до 2 правил
-			#/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -j CONNMARK --set-mark ${MARK_NUM}
 			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -j CONNMARK --restore-mark
 			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -m mark --mark ${MARK_NUM} -j RETURN
-			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -j MARK --set-mark ${MARK_NUM}
-			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -j CONNMARK --save-mark
+
+			# не переносим маркер обратно для каждого пакета
+			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -m conntrack ! --ctstate NEW -j RETURN
+		else
+			log_warning 'Включение маркировки VPN'
+
+			# не переносим маркер для каждого пакета в случае TCP
+			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -p tcp -m conntrack ! --ctstate NEW -j RETURN
+
+			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -j CONNMARK --restore-mark
+			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -m mark --mark ${MARK_NUM} -j RETURN
+
+			# не переносим маркер обратно для каждого пакета
+			/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" ! -p tcp -m conntrack ! --ctstate NEW -j RETURN
 		fi
+		/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -j MARK --set-mark ${MARK_NUM}
+		/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -j CONNMARK --save-mark
 	} &>/dev/null || error "[${FUNCNAME}] Возникли ошибки во время маркировки трафика для VPN"
 }
 

@@ -364,28 +364,28 @@ cmd_route() {
 		empty_example='route_full_ip=192.168.1.51+192.168.2.51'
 	fi
 	route__show_block_ip 'route_full_ip' \
-	  'IP, весь трафик которых идёт в тоннель:' \
+	  'IP с отправкой в тоннель всего:' \
 	  "${empty_example}"
 
 	if [ -z "${1}" ] ; then
 		empty_example='route_by_list_ip=192.168.2.52+192.168.2.53'
 	fi
 	route__show_block_ip 'route_by_list_ip' \
-	  'IP с перехватом DNS, трафик которых идёт в тоннель согласно списку:' \
+	  'IP с отправкой в тоннель по списку:' \
 	  "${empty_example}"
 
 	if [ -z "${1}" ] ; then
 		empty_example='route_by_list_net=br0'
 	fi
 	route__show_block_net "br0 $(get_guest_inface_list_from_config)" \
-	  'Сети с перехватом DNS, трафик которых идёт в тоннель согласно списку:' \
+	  'Сети с отправкой в тоннель по списку:' \
 	  "${empty_example}"
 
 	if [ -z "${1}" ] ; then
 		empty_example='route_excluded_ip=192.168.1.52+192.168.1.53'
 	fi
 	route__show_block_ip 'route_excluded_ip' \
-	  'IP, исключённые из перехвата DNS и трафика:' \
+	  'IP, исключённые из перехватов DNS и трафика:' \
 	  "${empty_example}"
 
 	local output

@@ -111,15 +111,24 @@ current_cli_vpn_interface() {
 }
 
 reset_all_connection(){
-
 	ready "${prefix}Перезапускаем VPN и ISP соединения..."
 	{
-		if has_ssr_enable ; then
+		if is_shadowsocks_enabled ; then
+			log_warning 'Перезапуск клиента ShadowSocks (рестарт тоннеля)'
+
 			/opt/etc/init.d/S22shadowsocks stop &>/dev/null
 			# reset_ISP_connection
 			/opt/etc/init.d/S22shadowsocks start &>/dev/null
 		else
 			inface=$(current_cli_vpn_interface)
+			log_warning "Перезапуск сетевого интерфейса ${inface}"
+
+			if is_vless_over_proxy_enabled ; then
+				log_warning 'Перезапуск клиента VLESS (рестарт тоннеля)'
+
+				${XRAY_INIT} restart
+			fi
+
 			cli_request="localhost:79/rci/interface/${inface}"
 #			curl -s -d '{"down":"true"}' "${cli_request}"  &>/dev/null
 #			reset_ISP_connection
@@ -171,21 +180,69 @@ service_restart(){
 	else
 		when_bad "ОШИБКА"
 		error "Запустите диагностику командой kvas debug"
-		exit 1
 	fi
 }
 
-all_services_restart(){
-	has_ssr_enable && service_restart  shadowsocks S22shadowsocks
+all_services_restart() {
+	if has_adguard_enable ; then
+		log_warning 'Перезапуск DNS сервера AdGuardHome'
 
-	if has_adguard_enable; then
-		service_restart AdGuardHome S99adguardhome
+		service_restart 'DNS сервер AdGuardHome' 'S99adguardhome'
 	else
-		service_restart dnsmasq S56dnsmasq
-		service_restart dnscrypt-proxy2 S09dnscrypt-proxy2
+		log_warning 'Перезапуск служб DNS'
+
+		service_restart 'DNS сервер DNSMasq'  'S56dnsmasq'
+		service_restart 'DNS сервер DNSCrypt' 'S09dnscrypt-proxy2'
 	fi
 
+	if is_shadowsocks_enabled ; then
+		log_warning 'Перезапуск клиента ShadowSocks (рестарт всех служб)'
+
+		service_restart 'клиент ShadowSocks' 'S22shadowsocks'
+	elif is_vless_over_proxy_enabled ; then
+		log_warning 'Перезапуск клиента VLESS'
+
+		service_restart 'клиент VLESS' 'S24xray'
+	fi
 }
+
+
+is_dns_override() {
+	curl -s '127.0.0.1:79/rci/opkg/dns-override' | grep -qF 'true'
+}
+
+get_dhcpv6_status() {
+	local api_ipv6
+	api_ipv6=$(curl -s '127.0.0.1:79/rci/ipv6' | jq -c '.')
+
+	if [ "${api_ipv6}" == '{}' ]; then
+		# Не факт, что IPv6 DNS отключен вместе с сегментом
+		# no ipv6 subnet Default
+		echo 'сегмент IPv6 отключен'
+		return
+	fi
+
+	if ! echo "${api_ipv6}" | grep -qF '"Default":'; then
+		# Сегмент IPv6 Default удалён, но не факт, что IPv6 DNS отключен
+		echo 'сегмент IPv6 не стандартный'
+		return
+	fi
+
+	if echo "${api_ipv6}" | grep -qF '"dhcp":true'; then
+		# mode dhcp
+		echo 'DHCPv6 включен'
+		return
+	fi
+
+	if echo "${api_ipv6}" | grep -qF '"bind":'; then
+		# bind Home
+		echo 'сегмент IPv6 привязан'
+		return
+	fi
+
+	echo 'сегмент IPv6 отвязан и DHCPv6 отключен'
+}
+
 
 config__get_opkg_file() {
 	if [ -z "${1}" ]; then
@@ -233,6 +290,50 @@ config__restore_from_opkg() {
 	log_warning "Восстановление исходного файла ${source_file}"
 	mv -f "${backup_file}" "${source_file}"
 }
+
+
+hint__commands_title() {
+	local webcli_url
+	webcli_url="$(get_router_host)/webcli/parse"
+	printf '%s\n' \
+		"Для исправления ситуации перейдите на ${webcli_url}" \
+		'и последовательно введите команды:'
+}
+
+hint__if_ndnproxy_disabled() {
+	if ! is_dns_override ; then
+		return
+	fi
+
+	local commands_title
+	commands_title="$(hint__commands_title)"
+	printf '%b\n' \
+		"Системный ${YELLOW}DNS отключен${NOCL}." \
+		"${commands_title}" \
+		' no opkg dns-override' \
+		' system configuration save' \
+		' reboot'
+}
+
+hint__if_dns_ipv6() {
+	local dhcpv6_status
+	dhcpv6_status=$(get_dhcpv6_status)
+	if [ "${dhcpv6_status}" != 'DHCPv6 включен' ] && [ "${dhcpv6_status}" != 'сегмент IPv6 привязан' ] ; then
+		return
+	fi
+
+	local commands_title
+	commands_title="$(hint__commands_title)"
+	printf '%b\n' \
+		"Вероятно, часть ${YELLOW}DNS проходит через IPv6${NOCL}." \
+		"${commands_title}" \
+		' ipv6 subnet Default' \
+		' no mode' \
+		' no bind' \
+		' system configuration save' \
+		' reboot'
+}
+
 
 SUFF=">> "
 # ------------------------------------------------------------------------------------------
@@ -3205,6 +3306,7 @@ cmd_import_hosts() {
 	# добавляем хосты в файл списочный
 	_hosts_to_add_ubl=$(echo -e "${hosts_to_add_ubl}" | sed '/^$/d; /^[-+.]/!s/\(.*\)/\1/')
 	echo -e "${_hosts_to_add_ubl}" >> "${KVAS_LIST_FILE}"
+	clear_file_content "${KVAS_LIST_FILE}"
 
 	# если включен блокировщик рекламы
 	if cmd_ads_status | grep -q ВКЛЮЧЕН ; then

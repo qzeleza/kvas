@@ -16,7 +16,7 @@
 
 IP_MYIP2='81.90.181.105'
 IP_IFCONFIG='34.160.111.145'
-DOMAINS_EXCLUDE='(eduz|iscor|nstagra|aceboo|fb|twi|t.c)'
+DOMAINS_EXCLUDE='(eduz|iscor|nstagra|aceboo|fb|twi|t.c|eddi)'
 
 # ------------------------------------------------------------------------------------------
 #
@@ -268,7 +268,7 @@ cmd_debug_iptables() {
 
 	echo
 	output=$(ip route)
-	echo_debug 'Маршруты (подключитесь к гостевой заранее)' "${output}"
+	echo_debug 'Подключения (соединитесь с гостевой заранее)' "${output}"
 
 	if is_shadowsocks_enabled ; then
 		title='Перенаправление в порт'
@@ -285,7 +285,7 @@ cmd_debug_iptables() {
 				output="${output}"'\n'"${title}"
 			fi
 		fi
-		echo_debug 'VPN' "${output}"
+		echo_debug 'Политика' "${output}"
 
 		title='Маркировка'
 		output="${CHAIN_MARK}"
@@ -439,38 +439,6 @@ cmd_debug_dnsmasq() {
 	echo_debug 'DNSCrypt слушает:' "$(get_netstat 'dnscrypt')"
 }
 
-get_dhcpv6_status() {
-	local api_ipv6
-	api_ipv6=$(curl -s '127.0.0.1:79/rci/ipv6' | jq -c '.')
-
-	if [ "${api_ipv6}" == '{}' ]; then
-		# Сегменты IPv6 удалены, но не факт, что IPv6 DNS отключен
-		# no ipv6 subnet Default
-		echo 'no_subnet'
-		return
-	fi
-	
-	if ! echo "${api_ipv6}" | grep -qF '"Default":'; then
-		# Сегмент IPv6 Default удалён, но не факт, что IPv6 DNS отключен
-		echo 'no_default'
-		return
-	fi
-
-	if echo "${api_ipv6}" | grep -qF '"dhcp":true'; then
-		# DHCPv6 включен
-		echo 'dhcp'
-		return
-	fi
-
-	if echo "${api_ipv6}" | grep -qF '"bind":'; then
-		# Сегмент IPv6 привязан
-		echo 'bind'
-		return
-	fi
-
-	echo 'disabled'
-}
-
 cmd_debug_dns() {
 	if has_adguard_enable ; then
 		cmd_debug_adguard
@@ -478,35 +446,25 @@ cmd_debug_dns() {
 		cmd_debug_dnsmasq
 	fi
 
-	local dhcpv6_status
-	dhcpv6_status=$(get_dhcpv6_status)
-
-	ready 'DHCPv6' && when_ok "${dhcpv6_status}"
+	ready 'IPv6 адрес DNS сервера' && when_ok "$(get_dhcpv6_status)"
 	ready 'NDNProxy версия' && when_ok "$(ndnproxy 2>&1 | grep -Eo 'ndnproxy [0-9\.]+' | head -n 1 | cut -d' ' -f2)"
+
+	local output
 
 	# если вызывается как один из дебагов, то можно передать silent/short
 	if [ -n "${1}" ] ; then
-		local output=''
+		output=''
 	else
-		local output=$(printf '%s\n' \
-			'Отключите освобождение 53 порта:' \
-			' no opkg dns-override' \
-			' system configuration save' \
-			' reboot' \
-		)
+		output="$(hint__if_ndnproxy_disabled)"
 	fi
 	echo_debug 'Комплектный DNS роутера (базово) слушает:' "$(get_netstat 'ndnproxy' "${output}")"
 
-	if [ "${dhcpv6_status}" == 'dhcp' ] || [ "${dhcpv6_status}" == 'bind' ] ; then
-		printf '%s\n' \
-			'Вероятно, часть DNS-трафика проходит через IPv6 адрес.' \
-			'Для отключения DHCPv6:' \
-			' ipv6 subnet Default' \
-			' no mode' \
-			' no bind' \
-			' system configuration save' \
-			' reboot'
-		echo
+	if [ -z "${1}" ] ; then
+		output="$(hint__if_dns_ipv6)"
+		if [ -n "${output}" ] ; then
+			echo "${output}"
+			echo
+		fi
 	fi
 }
 
