@@ -790,6 +790,8 @@ cmd_uninstall() {
 	fi
 
 	if echo "${answer}" | grep -qi y ; then
+		list__backup
+
 		if [ "${rm_type}" = full ]; then
 			mess="Удаляем все архивные данные и все зависимые пакеты..."
 			rm -f /opt/etc/init/K56dnsmasq  /opt/etc/init/K09dnscrypt-proxy2
@@ -840,8 +842,6 @@ cmd_uninstall() {
 
 		# Сохраняем конфигурацию
 		#save_system_configuration_by_api
-
-		list__backup
 
 		#ready 'Очищаем используемые сетевые правила...'
 		# Нормально отработает, пока все файлы на месте.
