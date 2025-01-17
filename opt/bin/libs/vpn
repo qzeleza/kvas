@@ -3086,8 +3086,6 @@ cmd_clear_list() {
 		case ${yn} in
 			[Yy]*)
 				print_line
-				exit_when_no_internet_or_vpn || exit 2
-
 				submessage="Очищаем защищённый список ${submessage}..."
 				if [ "${clear_format}" = 'all' ]; then
 					# изначальный код
