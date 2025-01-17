@@ -3067,15 +3067,17 @@ cmd_clear_list() {
 		exit 1
 	fi
 
+	local console_param submessage
+
 	if [ -z "${1}" ]; then
-		local console_param='all'
+		console_param='all'
 	else
-		local console_param="${1}"
+		console_param="${1}"
 	fi
 	if [ "${console_param}" = 'all' ]; then
-		local submessage='целиком'
+		submessage='целиком'
 	elif [ "${console_param}" = 'ip' ]; then
-		local submessage='от IP'
+		submessage='от IP'
 	else
 		error 'Формат очистки неизвестен.'
 		exit 3
@@ -3104,7 +3106,8 @@ cmd_clear_list() {
 					echo -n "${submessage}"
 					local tmp_file='/opt/tmp/without_ip.txt'
 					>"${tmp_file}"
-					local regexp_ip=$(get_regexp_ip_or_range)
+					local regexp_ip
+					regexp_ip="$(get_regexp_ip_or_range)"
 					local readed_count=0
 					local deleted_count=0
 					local saved_count=0
