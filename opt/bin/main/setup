@@ -337,17 +337,20 @@ list__backup() {
 	# -n не перезаписываем, если сегодняшний бекап уже есть
 	if grep -qF '*' "${source_file}" ; then
 		local backup1_file="${backup_path}1_${backup_filename}"
+		if [ -f "${backup1_file}" ] ; then
+			return
+		fi
 
 		echo "Резервная копия списка старого формата в ${backup1_file}"
-		cp -n "${source_file}" "${backup1_file}"
+		cp "${source_file}" "${backup1_file}"
 
 		if ! [ -f "${backup2_file}" ] ; then
 			echo "Преобразуем в новый формат в ${backup2_file}"
 			sed 's/\*\.//g;s/\*//g' "${source_file}" >"${backup2_file}"
 		fi
-	else
+	elif ! [ -f "${backup2_file}" ] ; then
 		echo "Резервная копия списка в ${backup2_file}"
-		cp -n "${source_file}" "${backup2_file}"
+		cp "${source_file}" "${backup2_file}"
 	fi
 }
 
@@ -523,8 +526,9 @@ cmd_install(){
 #	обновляем itpables
 	opkg update &> /dev/null
 	opkg list-installed | grep -q 'nano' && opkg remove nano &> /dev/null
-	opkg list-installed | grep -q 'dnsmasq-full' && opkg remove dnsmasq-full &> /dev/null
-	opkg install iptables nano-full dnsmasq-full &> /dev/null
+	opkg list-installed | grep -q 'dnsmasq-full' && opkg remove dnsmasq-full --force-depends &> /dev/null
+	opkg install dnsmasq-full --force-maintainer &>/dev/null
+	opkg install iptables nano-full &>/dev/null
 
 	# Устанавливаем прокси пакет
 	cmd_install_proxy_package || return 1
@@ -787,6 +791,8 @@ cmd_uninstall() {
 	fi
 
 	if echo "${answer}" | grep -qi y ; then
+		list__backup
+
 		if [ "${rm_type}" = full ]; then
 			mess="Удаляем все архивные данные и все зависимые пакеты..."
 			rm -f /opt/etc/init/K56dnsmasq  /opt/etc/init/K09dnscrypt-proxy2
@@ -837,8 +843,6 @@ cmd_uninstall() {
 
 		# Сохраняем конфигурацию
 		#save_system_configuration_by_api
-
-		list__backup
 
 		#ready 'Очищаем используемые сетевые правила...'
 		# Нормально отработает, пока все файлы на месте.
