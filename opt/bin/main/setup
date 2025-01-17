@@ -368,7 +368,7 @@ rm_package_files() {
 
 	if [ "${full}" = full ] ; then
 		ready 'Удаляем архивные копии пакета Квас' && {
-			find /opt ! -path '/opt/packages/*' ! -path '/opt/lib/opkg/*' \
+			find /opt ! -path '/opt/packages/*' ! -path '/opt/lib/opkg/*' ! -path "${HOME}/*" \
 			  -name '*kvas*' ! -regex '.*/kvas[a-zA-Z].*' \
 			  -exec rm -rf {} +
 
