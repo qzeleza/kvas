@@ -3068,13 +3068,13 @@ cmd_clear_list() {
 	fi
 
 	if [ -z "${1}" ]; then
-		local clear_format='all'
+		local console_param='all'
 	else
-		local clear_format="${1}"
+		local console_param="${1}"
 	fi
-	if [ "${clear_format}" = 'all' ]; then
+	if [ "${console_param}" = 'all' ]; then
 		local submessage='целиком'
-	elif [ "${clear_format}" = 'ip' ]; then
+	elif [ "${console_param}" = 'ip' ]; then
 		local submessage='от IP'
 	else
 		error 'Формат очистки неизвестен.'
@@ -3087,7 +3087,7 @@ cmd_clear_list() {
 			[Yy]*)
 				print_line
 				submessage="Очищаем защищённый список ${submessage}..."
-				if [ "${clear_format}" = 'all' ]; then
+				if [ "${console_param}" = 'all' ]; then
 					# изначальный код
 					ready "${submessage}"
 
@@ -3100,7 +3100,7 @@ cmd_clear_list() {
 
 					print_line
 					warning "Предыдущий защищённый список был сохранён в файл ${KVAS_LIST_FILE_BACKUP}"
-				elif [ "${clear_format}" = 'ip' ]; then
+				elif [ "${console_param}" = 'ip' ]; then
 					echo -n "${submessage}"
 					local tmp_file='/opt/tmp/without_ip.txt'
 					>"${tmp_file}"
