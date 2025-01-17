@@ -791,8 +791,6 @@ cmd_uninstall() {
 	fi
 
 	if echo "${answer}" | grep -qi y ; then
-		list__backup
-
 		if [ "${rm_type}" = full ]; then
 			mess="Удаляем все архивные данные и все зависимые пакеты..."
 			rm -f /opt/etc/init/K56dnsmasq  /opt/etc/init/K09dnscrypt-proxy2
@@ -805,6 +803,8 @@ cmd_uninstall() {
 		fi
 		[ -z "${sure}" ] && print_line
 		echo "${mess}"
+
+		list__backup
 
 		if has_ssr_enable ; then
 			ready 'Останавливаем службу Shadowsocks '
