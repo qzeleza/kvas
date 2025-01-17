@@ -1,8 +1,8 @@
 
 {
     "log": {
-        "access": "/opt/etc/xray/access.log",
-        "error": "/opt/etc/xray/errors.log",
+        "access": "/tmp/log/xray-access.log",
+        "error": "/tmp/log/xray-errors.log",
         "loglevel": "error"
     },
     "routing": {
