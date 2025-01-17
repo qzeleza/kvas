@@ -532,12 +532,9 @@ ip4__mark__create_chain() {
 		ip4__route__add_table
 		ip4__rule__add_mark_to_table
 
-		#ToDo: если разрывы UDP, то проверить "дубовый" код вместо того, что в условиях:
-		# если пакет уже маркирован
-		#/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -m mark --mark ${MARK_NUM} -j RETURN
-		#/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -j CONNMARK --restore-mark
-		# если соединение было маркировано
-		#/opt/sbin/iptables -w -t "${TABLE_MARK}" -A "${CHAIN_MARK}" -m mark --mark ${MARK_NUM} -j RETURN
+		# Ещё есть 2 варианта цепочки, если проблемы.
+		# Где conntrack NEW лишь на -j MARK, т.е. save-mark всегда.
+		# Где полностью без --ctstate.
 		if is_vless_over_proxy_enabled ; then
 			log_warning 'Включение маркировки VLESS'
 
