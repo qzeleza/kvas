@@ -259,7 +259,8 @@ create_proxy_interface(){
                 "upstream": {
                     "host": "'${PROXY_LOCAL_IP}'",
                     "port": "'${PROXY_VLESS_PORT}'"
-                }
+                },
+                "socks5-udp": true
             }
         },
         "system": {
