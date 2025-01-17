@@ -3064,7 +3064,7 @@ cmd_clear_list() {
 	# Условность для ускорения: если есть IP или доменное имя, то должна быть точка.
 	if ! grep -Fq '.' "${KVAS_LIST_FILE}"; then
 		error 'Защищённый список уже пуст.'
-		exit 1
+		return
 	fi
 
 	local console_param submessage
@@ -3080,7 +3080,7 @@ cmd_clear_list() {
 		submessage='от IP'
 	else
 		error 'Формат очистки неизвестен.'
-		exit 3
+		exit 1
 	fi
 
 	while true; do
