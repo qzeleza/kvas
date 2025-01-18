@@ -3228,7 +3228,7 @@ cmd_import_hosts() {
 		# проверку на уникальность сделаем на лету, сортировку в финале
 
 		#sort -o не поддерживается, поэтому через временный файл
-		local tmp_file='/opt/tmp/sorted_list.txt'
+		local tmp_file='/tmp/kvas_sorted_list.txt'
 		cp -f "${KVAS_LIST_FILE}" "${tmp_file}"
 
 		echo -n 'Импортируем IP в список защиты..'
