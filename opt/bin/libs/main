@@ -209,6 +209,7 @@ ipset__fill_by_domain() {
 		return
 	fi
 
+	IFS=$'\n'
 	for domain_ip in ${ip_list}; do
 		# если уже есть в списке
 		if ipset list "${IPSET_TABLE_NAME}" | grep -qE "^${domain_ip} " ; then
@@ -918,7 +919,8 @@ get_tunnel_addresses() {
 }
 
 get_tunnel_ip() {
-	local ips=
+	local ips
+	IFS=$'\n'
 	for address in $( get_tunnel_addresses ) ; do
 		if [ -z "${address}" ] ; then
 			continue
@@ -930,6 +932,7 @@ get_tunnel_ip() {
 		fi
 
 		ips=''
+		IFS=$'\n'
 		for tunnel_ip in $( dns__get_ips_by_domain "${address}" ) ; do
 			if [ -z "${tunnel_ip}" ] ; then
 				continue
