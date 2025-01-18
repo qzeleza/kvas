@@ -3079,7 +3079,6 @@ cmd_clear_list() {
 
 
 	if [ "${console_param}" = 'ip' ]; then
-		print_line
 		echo -n "${submessage}..."
 		log_warning "${submessage}"
 
@@ -3154,7 +3153,6 @@ cmd_clear_list() {
 		done
 	fi
 	if [ "${console_param}" = 'y' ] || [ "${console_param}" = 'yes' ] || [ "${console_param}" = 'force' ] ; then
-		print_line
 		ready "${submessage}..."
 		log_warning "${submessage}"
 
