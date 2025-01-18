@@ -3075,12 +3075,13 @@ cmd_clear_list() {
 	else
 		submessage='целиком'
 	fi
-	submessage="Очищаем защищённый список ${submessage}..."
+	submessage="Очищаем защищённый список ${submessage}"
 
 
 	if [ "${console_param}" = 'ip' ]; then
 		print_line
-		echo -n "${submessage}"
+		echo -n "${submessage}..."
+		log_warning "${submessage}"
 
 		local tmp_file='/tmp/kvas_without_ip.txt'
 		>"${tmp_file}"
@@ -3154,7 +3155,8 @@ cmd_clear_list() {
 	fi
 	if [ "${console_param}" = 'y' ] || [ "${console_param}" = 'yes' ] || [ "${console_param}" = 'force' ] ; then
 		print_line
-		ready "${submessage}"
+		ready "${submessage}..."
+		log_warning "${submessage}"
 
 		mv -f "${KVAS_LIST_FILE}" "${KVAS_LIST_FILE_BACKUP}"
 		rm -f "${ADGUARD_IPSET_FILE}"
