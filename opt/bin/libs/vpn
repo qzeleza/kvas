@@ -3077,13 +3077,11 @@ cmd_clear_list() {
 	fi
 	submessage="Очищаем защищённый список ${submessage}..."
 
-	while true; do
-		ready "Защищённый список будет очищен. Уверены?" && read -r yn
-		case ${yn} in
-			[Yy]*)
-				print_line
+
 				if [ "${console_param}" = 'ip' ]; then
+					print_line
 					echo -n "${submessage}"
+
 					local tmp_file='/opt/tmp/without_ip.txt'
 					>"${tmp_file}"
 					local regexp_ip
@@ -3133,8 +3131,15 @@ cmd_clear_list() {
 					# из списка были вычищены лишь IP, не требуются
 					# refresh_dnsmasq_ipset_table или refresh_adguard_ipset_table
 					# и рестарты
-				else
-					# изначальный код
+					return
+				fi
+
+
+	while true; do
+		ready "Защищённый список будет очищен. Уверены?" && read -r yn
+		case ${yn} in
+			[Yy]*)
+				print_line
 					ready "${submessage}"
 
 					mv -f "${KVAS_LIST_FILE}" "${KVAS_LIST_FILE_BACKUP}"
@@ -3146,7 +3151,6 @@ cmd_clear_list() {
 
 					print_line
 					warning "Предыдущий защищённый список был сохранён в файл ${KVAS_LIST_FILE_BACKUP}"
-				fi
 
 				break
 				;;
