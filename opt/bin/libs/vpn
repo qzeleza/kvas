@@ -3134,11 +3134,25 @@ cmd_clear_list() {
 		return
 	fi
 
+	if [ -z "${console_param}" ]; then
+		while true; do
+			ready 'Защищённый список будет очищен. Уверены?' && read -r yn
+			case ${yn} in
+				[Yy]*)
+					console_param='yes'
+					break
+				;;
+				[NnQq]*)
+					break
+				;;
+				*)
+					please_repeat
+				;;
+			esac
+		done
+	fi
 
-	while true; do
-		ready "Защищённый список будет очищен. Уверены?" && read -r yn
-		case ${yn} in
-			[Yy]*)
+	if [ "${console_param}" = 'y' ] || [ "${console_param}" = 'yes' ] || [ "${console_param}" = 'force' ] ; then
 				print_line
 				ready "${submessage}"
 
@@ -3151,17 +3165,7 @@ cmd_clear_list() {
 
 				print_line
 				warning "Предыдущий защищённый список был сохранён в файл ${KVAS_LIST_FILE_BACKUP}"
-
-				break
-				;;
-			[NnQq]*)
-				break
-				;;
-			*)
-				please_repeat
-				;;
-		esac
-	done
+	fi
 }
 
 # ------------------------------------------------------------------------------------------
