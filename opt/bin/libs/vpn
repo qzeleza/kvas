@@ -3067,27 +3067,21 @@ cmd_clear_list() {
 		return
 	fi
 
-	local console_param submessage
+	local console_param="${1}"
 
-	if [ -z "${1}" ]; then
-		console_param='all'
-	else
-		console_param="${1}"
-	fi
-
+	local submessage
 	if [ "${console_param}" = 'ip' ]; then
 		submessage='от IP'
 	else
 		submessage='целиком'
 	fi
+	submessage="Очищаем защищённый список ${submessage}..."
 
 	while true; do
-		ready "Защищённый список будет очищен ${submessage}. Уверены?" && read -r yn
+		ready "Защищённый список будет очищен. Уверены?" && read -r yn
 		case ${yn} in
 			[Yy]*)
 				print_line
-				submessage="Очищаем защищённый список ${submessage}..."
-
 				if [ "${console_param}" = 'ip' ]; then
 					echo -n "${submessage}"
 					local tmp_file='/opt/tmp/without_ip.txt'
