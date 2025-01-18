@@ -3078,61 +3078,61 @@ cmd_clear_list() {
 	submessage="Очищаем защищённый список ${submessage}..."
 
 
-				if [ "${console_param}" = 'ip' ]; then
-					print_line
-					echo -n "${submessage}"
+	if [ "${console_param}" = 'ip' ]; then
+		print_line
+		echo -n "${submessage}"
 
-					local tmp_file='/tmp/kvas_without_ip.txt'
-					>"${tmp_file}"
-					local regexp_ip
-					regexp_ip="$(get_regexp_ip_or_range)"
-					local readed_count=0
-					local deleted_count=0
-					local saved_count=0
-					local lines_cache=''
-					while read line; do
-						# скорее всего, лишний блок
-						if [ -z "${line}" ]; then
-							continue
-						fi
+		local tmp_file='/tmp/kvas_without_ip.txt'
+		>"${tmp_file}"
+		local regexp_ip
+		regexp_ip="$(get_regexp_ip_or_range)"
+		local readed_count=0
+		local deleted_count=0
+		local saved_count=0
+		local lines_cache=''
+		while read line; do
+			# скорее всего, лишний блок
+			if [ -z "${line}" ]; then
+				continue
+			fi
 
-						# заменитель шкалы прогресса, каждые 50 записей
-						readed_count=$((readed_count + 1))
-						if [ "$(( ${readed_count} % 50 ))" -eq 0 ]; then
-							echo -n '.'
-						fi
+			# заменитель шкалы прогресса, каждые 50 записей
+			readed_count=$((readed_count + 1))
+			if [ "$(( ${readed_count} % 50 ))" -eq 0 ]; then
+				echo -n '.'
+			fi
 
-						# IP вычищаем из ipset и считаем
-						if echo "${line}" | grep -qE -- "${regexp_ip}"; then
-							/opt/sbin/ipset -exist del "${IPSET_TABLE_NAME}" "${line}"
-							deleted_count=$((deleted_count + 1))
-							continue
-						fi
+			# IP вычищаем из ipset и считаем
+			if echo "${line}" | grep -qE -- "${regexp_ip}"; then
+				/opt/sbin/ipset -exist del "${IPSET_TABLE_NAME}" "${line}"
+				deleted_count=$((deleted_count + 1))
+				continue
+			fi
 
-						# неIP в новый файл не построчно, а блоками
-						lines_cache="${lines_cache}${line}"$'\n'
-						saved_count=$((saved_count + 1))
-						if [ "$(( ${saved_count} % 50 ))" -eq 0 ]; then
-							echo -n "${lines_cache}" >>"${tmp_file}"
-							lines_cache=''
-						fi
-					done <"${KVAS_LIST_FILE}"
-					echo -n 'удалено '
-					if [ -n "${lines_cache}" ]; then
-						echo -n "${lines_cache}" >>"${tmp_file}"
-					fi
-					echo "${deleted_count}."
+			# неIP в новый файл не построчно, а блоками
+			lines_cache="${lines_cache}${line}"$'\n'
+			saved_count=$((saved_count + 1))
+			if [ "$(( ${saved_count} % 50 ))" -eq 0 ]; then
+				echo -n "${lines_cache}" >>"${tmp_file}"
+				lines_cache=''
+			fi
+		done <"${KVAS_LIST_FILE}"
+		echo -n 'удалено '
+		if [ -n "${lines_cache}" ]; then
+			echo -n "${lines_cache}" >>"${tmp_file}"
+		fi
+		echo "${deleted_count}."
 
-					echo -n 'Предыдущий защищённый список сохранён в '
-					mv -f "${KVAS_LIST_FILE}" "${KVAS_LIST_FILE_BACKUP}"
-					mv "${tmp_file}" "${KVAS_LIST_FILE}"
-					echo "${KVAS_LIST_FILE_BACKUP}"
+		echo -n 'Предыдущий защищённый список сохранён в '
+		mv -f "${KVAS_LIST_FILE}" "${KVAS_LIST_FILE_BACKUP}"
+		mv "${tmp_file}" "${KVAS_LIST_FILE}"
+		echo "${KVAS_LIST_FILE_BACKUP}"
 
-					# из списка были вычищены лишь IP, не требуются
-					# refresh_dnsmasq_ipset_table или refresh_adguard_ipset_table
-					# и рестарты
-					return
-				fi
+		# из списка были вычищены лишь IP, не требуются
+		# refresh_dnsmasq_ipset_table или refresh_adguard_ipset_table
+		# и рестарты
+		return
+	fi
 
 
 	while true; do
@@ -3140,17 +3140,17 @@ cmd_clear_list() {
 		case ${yn} in
 			[Yy]*)
 				print_line
-					ready "${submessage}"
+				ready "${submessage}"
 
-					mv -f "${KVAS_LIST_FILE}" "${KVAS_LIST_FILE_BACKUP}"
-					rm -f "${ADGUARD_IPSET_FILE}"
-					touch "${KVAS_LIST_FILE}"
+				mv -f "${KVAS_LIST_FILE}" "${KVAS_LIST_FILE_BACKUP}"
+				rm -f "${ADGUARD_IPSET_FILE}"
+				touch "${KVAS_LIST_FILE}"
 
-					cmd_kvas_init 'update' &> /dev/null
-					[ $? = 0 ] && when_ok 'ОЧИЩЕН' || when_bad 'ОШИБКА'
+				cmd_kvas_init 'update' &> /dev/null
+				[ $? = 0 ] && when_ok 'ОЧИЩЕН' || when_bad 'ОШИБКА'
 
-					print_line
-					warning "Предыдущий защищённый список был сохранён в файл ${KVAS_LIST_FILE_BACKUP}"
+				print_line
+				warning "Предыдущий защищённый список был сохранён в файл ${KVAS_LIST_FILE_BACKUP}"
 
 				break
 				;;
