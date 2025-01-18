@@ -3082,7 +3082,7 @@ cmd_clear_list() {
 					print_line
 					echo -n "${submessage}"
 
-					local tmp_file='/opt/tmp/without_ip.txt'
+					local tmp_file='/tmp/kvas_without_ip.txt'
 					>"${tmp_file}"
 					local regexp_ip
 					regexp_ip="$(get_regexp_ip_or_range)"
