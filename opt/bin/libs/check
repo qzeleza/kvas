@@ -150,7 +150,7 @@ vpn_check(){
 
 					ready "Правила маркировки трафика в iptable"
 					/opt/etc/ndm/netfilter.d/100-vpn-mark
-					if [ "$(/opt/sbin/iptables-save | grep -c "${VPN_IPTABLES_CHAIN}")" -ge 2 ]; then
+					if [ "$(save_iptables | grep -c "${VPN_IPTABLES_CHAIN}")" -ge 2 ]; then
 						when_ok "ДОБАВЛЕНЫ"
 					else
 						when_bad "ОТСУТСТВУЮТ"
@@ -265,7 +265,7 @@ dnscrypt_proxy_check() {
 iptable_check() {
 	ready "Наличие правил защиты в iptable"
 	count_local_nets=$(cat < "${EXCLUDED_NET_FILE}" | wc -l)
-	count_ip4tables_rules=$(/opt/sbin/iptables-save \
+	count_ip4tables_rules=$(save_iptables \
 		| grep -E "${IPSET_TABLE_NAME}|${VPN_IPTABLES_CHAIN}|${SSR_IPTABLES_CHAIN}" \
 		| grep -c '\-A')
 
@@ -281,7 +281,7 @@ iptable_check() {
 			ip4_mark_vpn_network
 		fi
 		ready "Повторная проверка правил защиты в iptable"
-		if /opt/sbin/iptables-save | grep -qE "${IPSET_TABLE_NAME}|${VPN_IPTABLES_CHAIN}|${SSR_IPTABLES_CHAIN}";  then
+		if save_iptables | grep -qE "${IPSET_TABLE_NAME}|${VPN_IPTABLES_CHAIN}|${SSR_IPTABLES_CHAIN}";  then
 			when_ok "ПРОЙДЕНА"
 		else
 			when_bad "ОШИБКА"

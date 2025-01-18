@@ -42,7 +42,6 @@ IPv6='IPv6::'
 ip4() (/opt/sbin/ip -4 "$@")
 ip4tables() (/opt/sbin/iptables -C "$@" &>/dev/null || /opt/sbin/iptables -A "$@")
 iptab() (/opt/sbin/iptables "$@")
-ip4save() (/opt/sbin/iptables-save | grep -vE '\-A _')
 get_gw4()([ "${1}" ] && /opt/sbin/ip addr show "${1}" | grep -Po "(?<=inet ).*(?=/)")
 is_os_4()([[ "$(version_os)" =~ 4.* ]])
 
@@ -208,7 +207,7 @@ iptables__delete_rules() {
 	fi
 	local filter="${2}"
 
-	local rules=$(iptables-save -t "${table}" | grep -F -- "${filter}")
+	local rules=$(save_iptables -t "${table}" | grep -F -- "${filter}")
 	if [ -z "${rules}" ] ; then
 		return
 	fi
@@ -360,7 +359,7 @@ ip4__chain__is_exist() {
 	fi
 	local chain_name="${2}"
 
-	/opt/sbin/iptables-save -t "${table}" | grep -Fq "${chain_name}"
+	save_iptables -t "${table}" | grep -Fq "${chain_name}"
 }
 
 ip4__chain__exclude_source_by_config() {
@@ -600,7 +599,7 @@ ip4__add_routing_for_home() {
 
 	local net_interface=$(get_local_inface)
 
-	if iptables-save | grep -F 'PREROUTING' | grep -F "${net_interface}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${chain_name}" ; then
+	if save_iptables | grep -F 'PREROUTING' | grep -F "${net_interface}" | grep -F "${IPSET_TABLE_NAME}" | grep -Fq "${chain_name}" ; then
 		return
 	fi
 
@@ -627,7 +626,7 @@ ip4__mark__add_routing_for_home() {
 
 # Создаёт (если нет) цепочку для DNS редиректа
 ip4__dns__create_chain() {
-	if /opt/sbin/iptables-save | grep -Fq "${CHAIN_DNS}"; then
+	if save_iptables | grep -Fq "${CHAIN_DNS}"; then
 		return
 	fi
 
@@ -657,7 +656,7 @@ ip4__get_rulenum() {
 	local table='nat'
 	local chain='PREROUTING'
 
-	echo $(/opt/sbin/iptables-save -t "${table}" | grep -F "${chain}" | grep -vF :"${chain}" \
+	echo $(save_iptables -t "${table}" | grep -F "${chain}" | grep -vF :"${chain}" \
 	 | grep -nF -- "${find}" | head -n 1 | grep -oE '^[0-9]+')
 }
 
@@ -697,7 +696,7 @@ ip4__dns__add_routing() {
 		submessage=''
 	fi
 
-	if /opt/sbin/iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${CHAIN_DNS}" ; then
+	if save_iptables | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${CHAIN_DNS}" ; then
 		return
 	fi
 	local rulenum
@@ -725,7 +724,7 @@ ip4__dns__delete_routing() {
 		submessage=''
 	fi
 
-	if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${CHAIN_DNS}" ; then
+	if ! save_iptables | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${CHAIN_DNS}" ; then
 		return
 	fi
 
@@ -789,7 +788,7 @@ ip4__add_routing() {
 		submessage=" ipset ${ipset_list} и${submessage}"
 	fi
 
-	if /opt/sbin/iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${chain_name}" ; then
+	if save_iptables | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${chain_name}" ; then
 		return
 	fi
 
@@ -846,7 +845,7 @@ ip4__delete_routing() {
 		submessage=" ipset ${ipset_list} и${submessage}"
 	fi
 
-	if ! iptables-save | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${chain_name}" ; then
+	if ! save_iptables | grep -F 'PREROUTING' | grep -F -- "${iptables_filter}" | grep -Fq "${chain_name}" ; then
 		return
 	fi
 

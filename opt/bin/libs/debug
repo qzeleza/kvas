@@ -216,7 +216,7 @@ iptables__get_by_chain() {
 	fi
 	chain_name="${1}"
 
-	iptables-save | grep -F "${chain_name}" | grep -Fv :"${chain_name}"
+	save_iptables | grep -F "${chain_name}" | grep -Fv :"${chain_name}"
 }
 
 iptables__text_empty() {
