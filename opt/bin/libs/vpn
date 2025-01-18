@@ -3218,9 +3218,6 @@ cmd_import_hosts() {
 		sed -i "${sed_regex}" "${user_list}"
 	fi
 
-	# Выходим из функции при отсутствии интернет-соединения или VPN
-	exit_when_no_internet_or_vpn || exit 2
-
 	regexp_ip=$(get_regexp_ip_or_range)
 	if ! grep -vEq -- "${regexp_ip}" "${user_list}"; then
 		# альтернативный оптимизированный код для списка IP
