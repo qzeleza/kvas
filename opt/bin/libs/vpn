@@ -2797,7 +2797,7 @@ host_add() {
 # 				если ответа не поступило, то по умолчанию ответ 'Y'
 				# read_ynq_timer "Добавить хост с поддоменами wildcard [Y] или нет [N]?" answer Y 6
 				# if [ "${answer}" = q ] ; then exit_q; print_line; exit 1; fi
-				print_line
+				#print_line
 			fi
 		fi
 	fi
@@ -2809,6 +2809,7 @@ host_add() {
 
 	ready "Добавляем ${YELLOW}${_host}${NOCL} в защищенный список..."
 	echo "${_host}" >> "${KVAS_LIST_FILE}"
+	[ $? = 0 ] && when_ok "ДОБАВЛЕН" || when_bad "НЕ ДОБАВЛЕН"
 
 #	если включен блокировщик рекламы
 	if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
@@ -2828,11 +2829,6 @@ host_add() {
 		# чтобы пользователю не пришлось сбрасывать кэш DNS
 		ipset__fill_by_domain "${clear_host}" &> /dev/null
 	fi
-
-	[ $? = 0 ] && when_ok "ДОБАВЛЕН" || when_bad "НЕ ДОБАВЛЕН"
-
-
-
 }
 
 # ------------------------------------------------------------------------------------------
