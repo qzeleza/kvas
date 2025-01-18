@@ -3134,6 +3134,7 @@ cmd_clear_list() {
 		return
 	fi
 
+
 	if [ -z "${console_param}" ]; then
 		while true; do
 			ready 'Защищённый список будет очищен. Уверены?' && read -r yn
@@ -3151,20 +3152,19 @@ cmd_clear_list() {
 			esac
 		done
 	fi
-
 	if [ "${console_param}" = 'y' ] || [ "${console_param}" = 'yes' ] || [ "${console_param}" = 'force' ] ; then
-				print_line
-				ready "${submessage}"
+		print_line
+		ready "${submessage}"
 
-				mv -f "${KVAS_LIST_FILE}" "${KVAS_LIST_FILE_BACKUP}"
-				rm -f "${ADGUARD_IPSET_FILE}"
-				touch "${KVAS_LIST_FILE}"
+		mv -f "${KVAS_LIST_FILE}" "${KVAS_LIST_FILE_BACKUP}"
+		rm -f "${ADGUARD_IPSET_FILE}"
+		touch "${KVAS_LIST_FILE}"
 
-				cmd_kvas_init 'update' &> /dev/null
-				[ $? = 0 ] && when_ok 'ОЧИЩЕН' || when_bad 'ОШИБКА'
+		cmd_kvas_init 'update' &> /dev/null
+		[ $? = 0 ] && when_ok 'ОЧИЩЕН' || when_bad 'ОШИБКА'
 
-				print_line
-				warning "Предыдущий защищённый список был сохранён в файл ${KVAS_LIST_FILE_BACKUP}"
+		print_line
+		warning "Предыдущий защищённый список был сохранён в файл ${KVAS_LIST_FILE_BACKUP}"
 	fi
 }
 
