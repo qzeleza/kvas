@@ -2797,7 +2797,7 @@ host_add() {
 # 				если ответа не поступило, то по умолчанию ответ 'Y'
 				# read_ynq_timer "Добавить хост с поддоменами wildcard [Y] или нет [N]?" answer Y 6
 				# if [ "${answer}" = q ] ; then exit_q; print_line; exit 1; fi
-				print_line
+				#print_line
 			fi
 		fi
 	fi
@@ -2809,6 +2809,7 @@ host_add() {
 
 	ready "Добавляем ${YELLOW}${_host}${NOCL} в защищенный список..."
 	echo "${_host}" >> "${KVAS_LIST_FILE}"
+	[ $? = 0 ] && when_ok "ДОБАВЛЕН" || when_bad "НЕ ДОБАВЛЕН"
 
 #	если включен блокировщик рекламы
 	if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
@@ -2828,11 +2829,6 @@ host_add() {
 		# чтобы пользователю не пришлось сбрасывать кэш DNS
 		ipset__fill_by_domain "${clear_host}" &> /dev/null
 	fi
-
-	[ $? = 0 ] && when_ok "ДОБАВЛЕН" || when_bad "НЕ ДОБАВЛЕН"
-
-
-
 }
 
 # ------------------------------------------------------------------------------------------
@@ -2989,6 +2985,7 @@ cmd_del_one_host() {
 		else
 			local ip_list=$( dns__get_ips_by_domain "${host_}" )
 			if [ -n "${ip_list}" ]; then
+				IFS=$'\n'
 				for ip in ${ip_list}; do
 					# если нет в списке
 					if ! ipset list "${IPSET_TABLE_NAME}" | grep -qE "^${ip} " ; then
@@ -3064,106 +3061,108 @@ cmd_clear_list() {
 	# Условность для ускорения: если есть IP или доменное имя, то должна быть точка.
 	if ! grep -Fq '.' "${KVAS_LIST_FILE}"; then
 		error 'Защищённый список уже пуст.'
-		exit 1
+		return
 	fi
 
-	if [ -z "${1}" ]; then
-		local clear_format='all'
+	local console_param="${1}"
+
+	local submessage
+	if [ "${console_param}" = 'ip' ]; then
+		submessage='от IP'
 	else
-		local clear_format="${1}"
+		submessage='целиком'
 	fi
-	if [ "${clear_format}" = 'all' ]; then
-		local submessage='целиком'
-	elif [ "${clear_format}" = 'ip' ]; then
-		local submessage='от IP'
-	else
-		error 'Формат очистки неизвестен.'
-		exit 3
+	submessage="Очищаем защищённый список ${submessage}"
+
+
+	if [ "${console_param}" = 'ip' ]; then
+		echo -n "${submessage}..."
+		log_warning "${submessage}"
+
+		local tmp_file='/tmp/kvas_without_ip.txt'
+		>"${tmp_file}"
+		local regexp_ip
+		regexp_ip="$(get_regexp_ip_or_range)"
+		local readed_count=0
+		local deleted_count=0
+		local saved_count=0
+		local lines_cache=''
+		while read line; do
+			# скорее всего, лишний блок
+			if [ -z "${line}" ]; then
+				continue
+			fi
+
+			# заменитель шкалы прогресса, каждые 50 записей
+			readed_count=$((readed_count + 1))
+			if [ "$(( ${readed_count} % 50 ))" -eq 0 ]; then
+				echo -n '.'
+			fi
+
+			# IP вычищаем из ipset и считаем
+			if echo "${line}" | grep -qE -- "${regexp_ip}"; then
+				/opt/sbin/ipset -exist del "${IPSET_TABLE_NAME}" "${line}"
+				deleted_count=$((deleted_count + 1))
+				continue
+			fi
+
+			# неIP в новый файл не построчно, а блоками
+			lines_cache="${lines_cache}${line}"$'\n'
+			saved_count=$((saved_count + 1))
+			if [ "$(( ${saved_count} % 50 ))" -eq 0 ]; then
+				echo -n "${lines_cache}" >>"${tmp_file}"
+				lines_cache=''
+			fi
+		done <"${KVAS_LIST_FILE}"
+		echo -n 'удалено '
+		if [ -n "${lines_cache}" ]; then
+			echo -n "${lines_cache}" >>"${tmp_file}"
+		fi
+		echo "${deleted_count}."
+
+		echo -n 'Предыдущий защищённый список сохранён в '
+		mv -f "${KVAS_LIST_FILE}" "${KVAS_LIST_FILE_BACKUP}"
+		mv "${tmp_file}" "${KVAS_LIST_FILE}"
+		echo "${KVAS_LIST_FILE_BACKUP}"
+
+		# из списка были вычищены лишь IP, не требуются
+		# refresh_dnsmasq_ipset_table или refresh_adguard_ipset_table
+		# и рестарты
+		return
 	fi
 
-	while true; do
-		ready "Защищённый список будет очищен ${submessage}. Уверены?" && read -r yn
-		case ${yn} in
-			[Yy]*)
-				print_line
-				exit_when_no_internet_or_vpn || exit 2
 
-				submessage="Очищаем защищённый список ${submessage}..."
-				if [ "${clear_format}" = 'all' ]; then
-					# изначальный код
-					ready "${submessage}"
-
-					mv -f "${KVAS_LIST_FILE}" "${KVAS_LIST_FILE_BACKUP}"
-					rm -f "${ADGUARD_IPSET_FILE}"
-					touch "${KVAS_LIST_FILE}"
-
-					cmd_kvas_init 'update' &> /dev/null
-					[ $? = 0 ] && when_ok 'ОЧИЩЕН' || when_bad 'ОШИБКА'
-
-					print_line
-					warning "Предыдущий защищённый список был сохранён в файл ${KVAS_LIST_FILE_BACKUP}"
-				elif [ "${clear_format}" = 'ip' ]; then
-					echo -n "${submessage}"
-					local tmp_file='/opt/tmp/without_ip.txt'
-					>"${tmp_file}"
-					local regexp_ip=$(get_regexp_ip_or_range)
-					local readed_count=0
-					local deleted_count=0
-					local saved_count=0
-					local lines_cache=''
-					while read line; do
-						# скорее всего, лишний блок
-						if [ -z "${line}" ]; then
-							continue
-						fi
-
-						# заменитель шкалы прогресса, каждые 50 записей
-						readed_count=$((readed_count + 1))
-						if [ "$(( ${readed_count} % 50 ))" -eq 0 ]; then
-							echo -n '.'
-						fi
-
-						# IP вычищаем из ipset и считаем
-						if echo "${line}" | grep -qE -- "${regexp_ip}"; then
-							/opt/sbin/ipset -exist del "${IPSET_TABLE_NAME}" "${line}"
-							deleted_count=$((deleted_count + 1))
-							continue
-						fi
-
-						# неIP в новый файл не построчно, а блоками
-						lines_cache="${lines_cache}${line}"$'\n'
-						saved_count=$((saved_count + 1))
-						if [ "$(( ${saved_count} % 50 ))" -eq 0 ]; then
-							echo -n "${lines_cache}" >>"${tmp_file}"
-							lines_cache=''
-						fi
-					done <"${KVAS_LIST_FILE}"
-					echo -n 'удалено '
-					if [ -n "${lines_cache}" ]; then
-						echo -n "${lines_cache}" >>"${tmp_file}"
-					fi
-					echo "${deleted_count}."
-
-					echo -n 'Предыдущий защищённый список сохранён в '
-					mv -f "${KVAS_LIST_FILE}" "${KVAS_LIST_FILE_BACKUP}"
-					mv "${tmp_file}" "${KVAS_LIST_FILE}"
-					echo "${KVAS_LIST_FILE_BACKUP}"
-
-					# из списка были вычищены лишь IP, не требуются
-					# refresh_dnsmasq_ipset_table или refresh_adguard_ipset_table
-					# и рестарты
-				fi
-
-				break
+	if [ -z "${console_param}" ]; then
+		while true; do
+			ready 'Защищённый список будет очищен. Уверены?' && read -r yn
+			case ${yn} in
+				[Yy]*)
+					console_param='yes'
+					break
 				;;
-			[NnQq]*)
-				break
+				[NnQq]*)
+					break
 				;;
-			*)
-				please_repeat
+				*)
+					please_repeat
 				;;
-		esac
-	done
+			esac
+		done
+	fi
+	if [ "${console_param}" = 'y' ] || [ "${console_param}" = 'yes' ] || [ "${console_param}" = 'force' ] ; then
+		ready "${submessage}..."
+		log_warning "${submessage}"
+
+		mv -f "${KVAS_LIST_FILE}" "${KVAS_LIST_FILE_BACKUP}"
+		rm -f "${ADGUARD_IPSET_FILE}"
+		touch "${KVAS_LIST_FILE}"
+
+		cmd_kvas_init 'update' &> /dev/null
+		[ $? = 0 ] && when_ok 'ОЧИЩЕН' || when_bad 'ОШИБКА'
+
+		print_line
+		warning "Предыдущий защищённый список был сохранён в файл ${KVAS_LIST_FILE_BACKUP}"
+	fi
 }
 
 # ------------------------------------------------------------------------------------------
@@ -3216,9 +3215,6 @@ cmd_import_hosts() {
 		sed -i "${sed_regex}" "${user_list}"
 	fi
 
-	# Выходим из функции при отсутствии интернет-соединения или VPN
-	exit_when_no_internet_or_vpn || exit 2
-
 	regexp_ip=$(get_regexp_ip_or_range)
 	if ! grep -vEq -- "${regexp_ip}" "${user_list}"; then
 		# альтернативный оптимизированный код для списка IP
@@ -3226,7 +3222,7 @@ cmd_import_hosts() {
 		# проверку на уникальность сделаем на лету, сортировку в финале
 
 		#sort -o не поддерживается, поэтому через временный файл
-		local tmp_file='/opt/tmp/sorted_list.txt'
+		local tmp_file='/tmp/kvas_sorted_list.txt'
 		cp -f "${KVAS_LIST_FILE}" "${tmp_file}"
 
 		echo -n 'Импортируем IP в список защиты..'

@@ -368,7 +368,9 @@ rm_package_files() {
 
 	if [ "${full}" = full ] ; then
 		ready 'Удаляем архивные копии пакета Квас' && {
-			find /opt ! -path "/opt/packages/*" ! -path "/opt/lib/opkg/*" -name '*kvas*' ! -regex '.*/kvas[a-zA-Z].*' -exec rm -rf {} +
+			find /opt ! -path '/opt/packages/*' ! -path '/opt/lib/opkg/*' ! -path "${HOME}/*" \
+			  -name '*kvas*' ! -regex '.*/kvas[a-zA-Z].*' \
+			  -exec rm -rf {} +
 
 			rm_file /opt/etc/inface_equals
 			rm_file /opt/etc/kvas.conf
@@ -791,8 +793,6 @@ cmd_uninstall() {
 	fi
 
 	if echo "${answer}" | grep -qi y ; then
-		list__backup
-
 		if [ "${rm_type}" = full ]; then
 			mess="Удаляем все архивные данные и все зависимые пакеты..."
 			rm -f /opt/etc/init/K56dnsmasq  /opt/etc/init/K09dnscrypt-proxy2
@@ -805,6 +805,8 @@ cmd_uninstall() {
 		fi
 		[ -z "${sure}" ] && print_line
 		echo "${mess}"
+
+		list__backup
 
 		if has_ssr_enable ; then
 			ready 'Останавливаем службу Shadowsocks '
