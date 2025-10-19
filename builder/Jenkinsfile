@@ -14,11 +14,11 @@ pipeline {
         SYSTEM = 'Entware' 
         ENTWARE_REPO_URL = 'https://github.com/Entware/Entware.git'
         DOCKER_IMAGE = 'entware-build-env'
-        USER_NAME = "master"
+        USER_NAME = 'master'
         GITHUB_REPO = 'git@github.com:qzeleza/kvas.git'
         ROUTER_IP = credentials('ssh-github-key')
         ROUTER_PORT = '1221'
-        BUILD_PATH = "/build/entware 
+        BUILD_PATH = '/build/entware'
         USER_ID = 115
         GROUP_ID = 123
         APP_VERSION="${params.VERSION}-${params.STAGE}${params.BUILD}"
