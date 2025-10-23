@@ -1425,7 +1425,8 @@ dnsmasq_install(){
 # ------------------------------------------------------------------------------------------
 dnsmasq_dns_change() {
 	dns_new=${1}; cmd=${2:-restart};
-	ready "Замена DNS на ${dns_new} в dnsmasq завершена"
+    dns_old=$(grep -m1 '^server=' "${DNSMASQ_CONFIG}" | cut -d'=' -f2)
+	ready "Замена DNS ${dns_old} на ${dns_new} в dnsmasq завершена"
 	sed -i "s/\(server=\).*/\1${dns_new}/"  "${DNSMASQ_CONFIG}"
 	ipset_dns_change "${dns_new}"
 	set_config_value DNS_DEFAULT "${dns_new}"
