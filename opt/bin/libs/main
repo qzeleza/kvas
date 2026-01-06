@@ -360,7 +360,7 @@ get_firmware_version(){
 
 get_hook_dir(){
 #	Получаем директорию текущего механизма обработки состояний подключений
-	get_firmware_version | grep -q '4.' && echo "iflayerchanged.d" ||  echo "ifstatechanged.d"
+	get_firmware_version | grep -q '^4\.' && echo "iflayerchanged.d" ||  echo "ifstatechanged.d"
 }
 
 is_os_below_4_2() {
