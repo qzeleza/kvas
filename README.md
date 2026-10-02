@@ -1,6 +1,9 @@
 ![GitHub Repo stars](https://img.shields.io/github/stars/qzeleza/kvas?color=orange) ![GitHub closed issues](https://img.shields.io/github/issues-closed/qzeleza/kvas?color=success) ![GitHub last commit](https://img.shields.io/github/last-commit/qzeleza/kvas) ![GitHub commit activity](https://img.shields.io/github/commit-activity/y/qzeleza/kvas) ![GitHub top language](https://img.shields.io/github/languages/top/qzeleza/kvas) ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/qzeleza/kvas) 
 # [КВАС](https://forum.keenetic.com/topic/14415-пробуем-квас-shadowsocks-и-другие-vpn-клиенты) - защита ваших подключений #
 
+## Продолжение развития проекта Квас, смотрите на сайте [kvaspro.su](https://kvaspro.su).
+Квас Про - больше возможностей для современных моделей роутеров. Управляется с WUI.
+
 ---
 
 #### Внимание! 
