@@ -6,6 +6,7 @@ https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.Risk/hosts
 https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.Spam/hosts
 https://raw.githubusercontent.com/tiuxo/hosts/master/porn
 https://raw.githubusercontent.com/tiuxo/hosts/master/ads
+https://netapi.com/api2/?method=compromised&dataset_type=url&format=hosts
 #https://blocklistproject.github.io/Lists/malware.txt
 #https://blocklistproject.github.io/Lists/porn.txt
 #https://blocklistproject.github.io/Lists/tracking.txt
